@@ -1,25 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 
-import tour1 from '@/assets/images/tour-1.jpg';
-import heroImg from '@/assets/images/hero-vrindavan.jpg';
-import hotel2 from '@/assets/images/hotel-2.jpg';
-
-const allTours = [
-  { id: 1, name: 'Sacred Temples Trail', location: '7 Major Temples', price: 1499, rating: 4.8, reviewCount: 312, image: tour1, badge: '6 Hours', amenities: ['Guide', 'Transport', 'Lunch'] },
-  { id: 2, name: 'Vrindavan Heritage Walk', location: 'Old Vrindavan', price: 799, rating: 4.6, reviewCount: 178, image: hotel2, badge: '3 Hours', amenities: ['Guide', 'Snacks'] },
-  { id: 3, name: 'Mathura-Vrindavan Full Day', location: 'Mathura + Vrindavan', price: 2999, rating: 4.9, reviewCount: 445, image: heroImg, badge: 'Full Day', amenities: ['Guide', 'AC Cab', 'Meals'] },
-  { id: 4, name: 'Evening Aarti Experience', location: 'Yamuna Ghat', price: 599, rating: 4.7, reviewCount: 289, image: tour1, badge: '2 Hours', amenities: ['Guide', 'Flowers'] },
-  { id: 5, name: 'Holi Festival Special', location: 'Vrindavan & Barsana', price: 4999, rating: 5.0, reviewCount: 156, image: heroImg, badge: '2 Days', amenities: ['Guide', 'Stay', 'Meals', 'Colors'] },
-];
-
 const Tours = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const filtered = allTours.filter(t =>
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.location.toLowerCase().includes(searchQuery.toLowerCase())
+  const [tours, setTours] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const data = localStorage.getItem('vvs_tours');
+      if (data) setTours(JSON.parse(data).filter((t: any) => t.status === 'active'));
+    } catch {}
+  }, []);
+
+  const filtered = tours.filter(t =>
+    t.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -35,11 +31,18 @@ const Tours = () => {
       </section>
       <section className="py-12 lg:py-16">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((tour) => (
-              <ListingCard key={tour.id} image={tour.image} name={tour.name} location={tour.location} price={tour.price} priceLabel="/person" rating={tour.rating} reviewCount={tour.reviewCount} badge={tour.badge} amenities={tour.amenities} />
-            ))}
-          </div>
+          {tours.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="font-heading text-2xl text-muted-foreground mb-2">No Tours Listed Yet</p>
+              <p className="font-body text-sm text-muted-foreground">Tour packages will appear here once the admin adds them.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filtered.map((tour) => (
+                <ListingCard key={tour.id} image={tour.image} name={tour.name} location={tour.duration} price={tour.pricePerPerson} priceLabel="/person" rating={0} reviewCount={0} badge={tour.duration} amenities={tour.includes || []} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>
