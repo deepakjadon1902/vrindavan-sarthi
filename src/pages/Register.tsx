@@ -1,21 +1,43 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuthStore } from '@/store/authStore';
+import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
 
 const Register = () => {
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', street: '', city: '', state: '', pin: '', password: '', confirmPassword: ''
   });
+  const { register, isLoading } = useAuthStore();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    const result = await register({
+      name: formData.name, email: formData.email, phone: formData.phone,
+      street: formData.street, city: formData.city, state: formData.state,
+      pin: formData.pin, password: formData.password,
+    });
+    if (result.success) {
+      toast.success('Account created successfully! 🙏');
+      navigate('/');
+    } else {
+      toast.error(result.error || 'Registration failed');
+    }
   };
 
   const update = (field: string, value: string) => setFormData({ ...formData, [field]: value });
 
   return (
     <div className="min-h-screen flex">
-      {/* Left - Image */}
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img src={templeImg} alt="Vrindavan Temple" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-foreground/60 flex items-center justify-center">
@@ -27,7 +49,6 @@ const Register = () => {
         </div>
       </div>
 
-      {/* Right - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 overflow-y-auto">
         <div className="w-full max-w-md py-8">
           <div className="text-center mb-6 lg:hidden">
@@ -92,8 +113,8 @@ const Register = () => {
                 <input type="password" required value={formData.confirmPassword} onChange={(e) => update('confirmPassword', e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="••••••••" />
               </div>
             </div>
-            <button type="submit" className="btn-crimson w-full py-3.5 rounded-xl text-sm mt-2">
-              Create Account
+            <button type="submit" disabled={isLoading} className="btn-crimson w-full py-3.5 rounded-xl text-sm mt-2 disabled:opacity-50">
+              {isLoading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 

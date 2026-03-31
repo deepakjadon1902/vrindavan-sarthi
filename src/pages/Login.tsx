@@ -1,13 +1,24 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuthStore } from '@/store/authStore';
+import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { login, isLoading } = useAuthStore();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const result = await login({ email, password });
+    if (result.success) {
+      toast.success('Welcome back! 🙏');
+      navigate('/');
+    } else {
+      toast.error(result.error || 'Login failed');
+    }
   };
 
   return (
@@ -58,8 +69,8 @@ const Login = () => {
             <div className="text-right">
               <a href="#" className="font-body text-xs text-brand-gold hover:underline">Forgot Password?</a>
             </div>
-            <button type="submit" className="btn-crimson w-full py-3.5 rounded-xl text-sm">
-              Sign In
+            <button type="submit" disabled={isLoading} className="btn-crimson w-full py-3.5 rounded-xl text-sm disabled:opacity-50">
+              {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 

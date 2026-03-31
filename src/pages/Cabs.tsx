@@ -1,22 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 
-import hotel2 from '@/assets/images/hotel-2.jpg';
-
-const allCabs = [
-  { id: 1, name: 'Toyota Innova Crysta', location: 'Vrindavan ↔ Mathura', price: 1200, rating: 4.6, reviewCount: 178, image: hotel2, amenities: ['AC', '7 Seater', 'Music'], badge: '💰 Pay at Doorstep', priceLabel: '/trip' },
-  { id: 2, name: 'Maruti Dzire', location: 'Vrindavan Local', price: 600, rating: 4.3, reviewCount: 312, image: hotel2, amenities: ['AC', '4 Seater'], badge: '💰 Pay at Doorstep', priceLabel: '/trip' },
-  { id: 3, name: 'Tempo Traveller', location: 'Vrindavan ↔ Delhi', price: 5500, rating: 4.5, reviewCount: 89, image: hotel2, amenities: ['AC', '12 Seater', 'USB Charging'], badge: '💰 Pay at Doorstep', priceLabel: '/trip' },
-  { id: 4, name: 'Auto Rickshaw', location: 'Vrindavan Local', price: 150, rating: 4.1, reviewCount: 567, image: hotel2, amenities: ['3 Seater'], badge: '💰 Pay at Doorstep', priceLabel: '/trip' },
-];
-
 const Cabs = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const filtered = allCabs.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.location.toLowerCase().includes(searchQuery.toLowerCase())
+  const [cabs, setCabs] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const data = localStorage.getItem('vvs_cabs');
+      if (data) setCabs(JSON.parse(data).filter((c: any) => c.status === 'available'));
+    } catch {}
+  }, []);
+
+  const filtered = cabs.filter(c =>
+    c.vehicleName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.driverName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -31,7 +31,6 @@ const Cabs = () => {
         </div>
       </section>
 
-      {/* Cab fare policy banner */}
       <section className="py-6">
         <div className="container mx-auto px-4">
           <div className="bg-brand-green/10 border border-brand-green/30 rounded-xl p-6 text-center">
@@ -44,11 +43,18 @@ const Cabs = () => {
 
       <section className="py-12 lg:py-16">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((cab) => (
-              <ListingCard key={cab.id} image={cab.image} name={cab.name} location={cab.location} price={cab.price} priceLabel={cab.priceLabel} rating={cab.rating} reviewCount={cab.reviewCount} amenities={cab.amenities} badge={cab.badge} badgeColor="green" />
-            ))}
-          </div>
+          {cabs.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="font-heading text-2xl text-muted-foreground mb-2">No Cabs Listed Yet</p>
+              <p className="font-body text-sm text-muted-foreground">Cabs will appear here once the admin adds them.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filtered.map((cab) => (
+                <ListingCard key={cab.id} image={cab.image} name={cab.vehicleName} location={cab.routes?.join(' • ') || ''} price={0} priceLabel="" rating={0} reviewCount={0} amenities={[cab.vehicleType, `${cab.capacity} Seater`]} badge="💰 Pay at Doorstep" badgeColor="green" />
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>
