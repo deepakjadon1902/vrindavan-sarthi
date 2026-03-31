@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Search, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, X, Upload, Image as ImageIcon, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Hotel {
