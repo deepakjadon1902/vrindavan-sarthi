@@ -1,0 +1,290 @@
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Hotel, BedDouble, Car, Map, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight } from 'lucide-react';
+import SectionTitle from '@/components/shared/SectionTitle';
+import ListingCard from '@/components/shared/ListingCard';
+import TestimonialCard from '@/components/shared/TestimonialCard';
+
+import heroImg from '@/assets/images/hero-vrindavan.jpg';
+import hotel1 from '@/assets/images/hotel-1.jpg';
+import hotel2 from '@/assets/images/hotel-2.jpg';
+import hotel3 from '@/assets/images/hotel-3.jpg';
+import tour1 from '@/assets/images/tour-1.jpg';
+
+const hotels = [
+  { id: 1, name: 'Krishna Palace Heritage', location: 'Near Banke Bihari Temple', price: 2499, rating: 4.5, reviewCount: 128, image: hotel1, amenities: ['AC', 'WiFi', 'Parking'] },
+  { id: 2, name: 'Radha Garden Resort', location: 'Parikrama Marg', price: 1899, rating: 4.2, reviewCount: 89, image: hotel2, amenities: ['AC', 'Restaurant', 'Garden'] },
+  { id: 3, name: 'Govind Niwas Inn', location: 'Near ISKCON Temple', price: 999, rating: 4.0, reviewCount: 214, image: hotel3, amenities: ['WiFi', 'Hot Water', 'TV'] },
+];
+
+const tours = [
+  { id: 1, name: 'Sacred Temples Trail', location: '7 Major Temples', price: 1499, rating: 4.8, reviewCount: 312, image: tour1, badge: '6 Hours', amenities: ['Guide', 'Transport', 'Lunch'] },
+  { id: 2, name: 'Vrindavan Heritage Walk', location: 'Old Vrindavan', price: 799, rating: 4.6, reviewCount: 178, image: hotel2, badge: '3 Hours', amenities: ['Guide', 'Snacks'] },
+  { id: 3, name: 'Mathura-Vrindavan Full Day', location: 'Mathura + Vrindavan', price: 2999, rating: 4.9, reviewCount: 445, image: heroImg, badge: 'Full Day', amenities: ['Guide', 'AC Cab', 'Meals'] },
+];
+
+const services = [
+  { icon: Hotel, title: 'Hotels', desc: 'Verified hotels near sacred temples', link: '/hotels' },
+  { icon: BedDouble, title: 'Rooms', desc: 'Budget to premium room options', link: '/rooms' },
+  { icon: Car, title: 'Cabs', desc: 'Reliable local & outstation cabs', link: '/cabs' },
+  { icon: Map, title: 'Tours', desc: 'Guided spiritual tour packages', link: '/tours' },
+];
+
+const stats = [
+  { label: 'Happy Pilgrims', value: '500+' },
+  { label: 'Hotels Listed', value: '50+' },
+  { label: 'Tour Packages', value: '30+' },
+  { label: '24/7 Support', value: '✓' },
+];
+
+const testimonials = [
+  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'VrindavanSarthi made our family trip to Vrindavan absolutely seamless. The hotel was right next to Banke Bihari Temple!' },
+  { name: 'Rajesh Kumar', location: 'Mumbai', rating: 5, text: 'The guided temple tour was incredible. Our guide knew every story, every detail. A truly divine experience.' },
+  { name: 'Anita Devi', location: 'Jaipur', rating: 4, text: 'Booked a cab and hotel through this platform. Everything was smooth and the prices were very reasonable.' },
+];
+
+const whyUs = [
+  { icon: MapPin, title: 'Sacred Location', desc: 'Properties handpicked near the most sacred sites of Vrindavan' },
+  { icon: Shield, title: 'Verified Listings', desc: 'Every hotel, room, and cab is personally verified for quality' },
+  { icon: Clock, title: 'Easy Booking', desc: 'Book in under 2 minutes with instant confirmation' },
+  { icon: Users, title: '24/7 Support', desc: 'Our team is always available to help during your sacred journey' },
+];
+
+const Home = () => {
+  return (
+    <div>
+      {/* ===== HERO ===== */}
+      <section className="relative h-screen flex items-center justify-center overflow-hidden">
+        <img
+          src={heroImg}
+          alt="Vrindavan temples at sunset"
+          className="absolute inset-0 w-full h-full object-cover"
+          width={1920}
+          height={1080}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-foreground/70 via-foreground/50 to-foreground/80" />
+
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="font-body text-sm tracking-[0.3em] uppercase text-brand-gold mb-4"
+          >
+            ✦ Vrindavan, Mathura, UP ✦
+          </motion.p>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.8 }}
+            className="font-brand text-4xl md:text-6xl lg:text-7xl text-brand-gold mb-4 leading-tight"
+          >
+            VrindavanSarthi
+          </motion.h1>
+
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="font-heading italic text-2xl md:text-3xl text-primary-foreground/90 mb-3"
+          >
+            Your Divine Guide to Vrindavan
+          </motion.h2>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+            className="font-body text-primary-foreground/60 text-sm md:text-base tracking-wider mb-10"
+          >
+            Hotels • Rooms • Cabs • Tours — All in One Place
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.0 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4"
+          >
+            <Link to="/hotels" className="btn-gold px-8 py-3.5 rounded-xl text-base font-semibold">
+              Explore Now →
+            </Link>
+            <Link
+              to="/tours"
+              className="px-8 py-3.5 rounded-xl text-base font-body font-semibold border-2 border-primary-foreground/30 text-primary-foreground hover:border-brand-gold hover:text-brand-gold transition-all"
+            >
+              View Tours
+            </Link>
+          </motion.div>
+        </div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          animate={{ y: [0, 10, 0] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2"
+        >
+          <ChevronDown className="text-brand-gold" size={28} />
+        </motion.div>
+      </section>
+
+      {/* ===== STATS ===== */}
+      <section className="bg-primary py-6">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {stats.map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="font-heading text-3xl md:text-4xl font-bold text-brand-gold">{stat.value}</p>
+                <p className="font-body text-sm text-primary-foreground/80 mt-1">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== SERVICES ===== */}
+      <section className="py-16 lg:py-24">
+        <div className="container mx-auto px-4">
+          <SectionTitle
+            label="Our Services"
+            title="Everything You Need in Vrindavan"
+            subtitle="From comfortable stays to guided temple tours, we've got your sacred journey covered"
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {services.map((service) => (
+              <Link
+                key={service.title}
+                to={service.link}
+                className="bg-card rounded-xl p-8 text-center border border-border card-hover group"
+              >
+                <div className="w-16 h-16 rounded-full bg-brand-gold/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-brand-gold/20 transition-colors">
+                  <service.icon className="text-brand-gold" size={28} />
+                </div>
+                <h3 className="font-heading text-xl font-semibold text-foreground mb-2">{service.title}</h3>
+                <p className="font-body text-sm text-muted-foreground">{service.desc}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FEATURED HOTELS ===== */}
+      <section className="section-cream py-16 lg:py-24">
+        <div className="container mx-auto px-4">
+          <SectionTitle
+            label="Featured Stays"
+            title="Handpicked Hotels in Vrindavan"
+            subtitle="Comfortable and affordable stays near the most sacred temples"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {hotels.map((hotel) => (
+              <ListingCard
+                key={hotel.id}
+                image={hotel.image}
+                name={hotel.name}
+                location={hotel.location}
+                price={hotel.price}
+                rating={hotel.rating}
+                reviewCount={hotel.reviewCount}
+                amenities={hotel.amenities}
+              />
+            ))}
+          </div>
+          <div className="text-center mt-10">
+            <Link to="/hotels" className="btn-gold px-8 py-3 rounded-xl inline-flex items-center gap-2">
+              View All Hotels <ArrowRight size={18} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FEATURED TOURS ===== */}
+      <section className="py-16 lg:py-24">
+        <div className="container mx-auto px-4">
+          <SectionTitle
+            label="Spiritual Journeys"
+            title="Popular Tour Packages"
+            subtitle="Experience the divine essence of Vrindavan with our guided tours"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tours.map((tour) => (
+              <ListingCard
+                key={tour.id}
+                image={tour.image}
+                name={tour.name}
+                location={tour.location}
+                price={tour.price}
+                priceLabel="/person"
+                rating={tour.rating}
+                reviewCount={tour.reviewCount}
+                badge={tour.badge}
+                amenities={tour.amenities}
+              />
+            ))}
+          </div>
+          <div className="text-center mt-10">
+            <Link to="/tours" className="btn-gold px-8 py-3 rounded-xl inline-flex items-center gap-2">
+              View All Tours <ArrowRight size={18} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== WHY US ===== */}
+      <section className="section-cream py-16 lg:py-24">
+        <div className="container mx-auto px-4">
+          <SectionTitle
+            label="Why Choose Us"
+            title="Your Trusted Companion in Vrindavan"
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {whyUs.map((item) => (
+              <div key={item.title} className="text-center p-6">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <item.icon className="text-primary" size={24} />
+                </div>
+                <h3 className="font-heading text-lg font-semibold text-foreground mb-2">{item.title}</h3>
+                <p className="font-body text-sm text-muted-foreground">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== TESTIMONIALS ===== */}
+      <section className="py-16 lg:py-24">
+        <div className="container mx-auto px-4">
+          <SectionTitle
+            label="Testimonials"
+            title="What Our Pilgrims Say"
+            subtitle="Real experiences from real devotees"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {testimonials.map((t) => (
+              <TestimonialCard key={t.name} {...t} avatar="" />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== CTA BANNER ===== */}
+      <section className="relative py-20 lg:py-28 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-saffron to-primary" />
+        <div className="relative z-10 container mx-auto px-4 text-center">
+          <h2 className="font-heading text-3xl md:text-5xl font-bold text-primary-foreground mb-4">
+            Begin Your Sacred Journey Today
+          </h2>
+          <p className="font-body text-primary-foreground/80 mb-8 max-w-xl mx-auto">
+            Book your stay, cab, or temple tour in Vrindavan with complete peace of mind
+          </p>
+          <Link to="/hotels" className="btn-gold px-10 py-4 rounded-xl text-lg inline-flex items-center gap-2">
+            Get Started <ArrowRight size={20} />
+          </Link>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default Home;
