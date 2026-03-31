@@ -215,7 +215,7 @@ const ManageHotels = () => {
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
-          <Hotel size={48} className="mx-auto mb-4 text-muted-foreground/30" />
+          <Building2 size={48} className="mx-auto mb-4 text-muted-foreground/30" />
           <p className="font-body text-muted-foreground">No hotels added yet</p>
           <p className="font-body text-xs text-muted-foreground/60 mt-1">Click "Add Hotel" to get started</p>
         </div>
