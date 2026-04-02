@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, Car, Map, ClipboardList,
-  Users, Settings, LogOut, Menu, X,
+  Users, LogOut, Menu, X, Handshake,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -12,6 +12,7 @@ const sidebarLinks = [
   { name: 'Rooms', path: '/admin/rooms', icon: BedDouble },
   { name: 'Cabs', path: '/admin/cabs', icon: Car },
   { name: 'Tours', path: '/admin/tours', icon: Map },
+  { name: 'Partner Requests', path: '/admin/partner-requests', icon: Handshake },
   { name: 'Bookings', path: '/admin/bookings', icon: ClipboardList },
   { name: 'Users', path: '/admin/users', icon: Users },
 ];
@@ -22,6 +23,16 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Count pending partner requests for badge
+  const getPendingCount = () => {
+    try {
+      const hotels = JSON.parse(localStorage.getItem('vvs_partner_hotels') || '[]');
+      const rooms = JSON.parse(localStorage.getItem('vvs_partner_rooms') || '[]');
+      return [...hotels, ...rooms].filter((i: any) => i.approvalStatus === 'pending').length;
+    } catch { return 0; }
+  };
+  const pendingCount = getPendingCount();
+
   const handleLogout = () => {
     logout();
     navigate('/admin/login');
@@ -29,7 +40,6 @@ const AdminLayout = () => {
 
   return (
     <div className="min-h-screen flex bg-muted">
-      {/* Sidebar */}
       <aside
         className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-foreground text-primary-foreground flex flex-col transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -46,6 +56,7 @@ const AdminLayout = () => {
         <nav className="flex-1 py-4 overflow-y-auto">
           {sidebarLinks.map((link) => {
             const isActive = location.pathname === link.path;
+            const isPartnerReq = link.path === '/admin/partner-requests';
             return (
               <Link
                 key={link.path}
@@ -59,6 +70,9 @@ const AdminLayout = () => {
               >
                 <link.icon size={18} />
                 {link.name}
+                {isPartnerReq && pendingCount > 0 && (
+                  <span className="ml-auto bg-brand-saffron text-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+                )}
               </Link>
             );
           })}
@@ -86,21 +100,13 @@ const AdminLayout = () => {
         </div>
       </aside>
 
-      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-foreground/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-foreground/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-8">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden p-2 text-foreground"
-          >
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden p-2 text-foreground">
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <h1 className="font-heading text-xl font-semibold text-foreground">
@@ -108,7 +114,6 @@ const AdminLayout = () => {
           </h1>
           <div />
         </header>
-
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           <Outlet />
         </main>

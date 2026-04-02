@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown, Hotel } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 
@@ -37,9 +37,7 @@ const Navbar = () => {
     navigate('/');
   };
 
-  const navBg = scrolled || !isHome
-    ? 'glass-nav shadow-lg'
-    : 'bg-transparent';
+  const navBg = scrolled || !isHome ? 'glass-nav shadow-lg' : 'bg-transparent';
 
   return (
     <>
@@ -91,6 +89,11 @@ const Navbar = () => {
                         <Link to="/bookings" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-foreground hover:bg-muted transition-colors">
                           <User size={14} /> My Bookings
                         </Link>
+                        {user.role === 'partner' && (
+                          <Link to="/partner" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-brand-gold hover:bg-muted transition-colors">
+                            <Hotel size={14} /> Partner Panel
+                          </Link>
+                        )}
                         {user.role === 'admin' && (
                           <Link to="/admin" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-brand-crimson hover:bg-muted transition-colors">
                             ⚙️ Admin Panel
@@ -143,6 +146,9 @@ const Navbar = () => {
                 <>
                   <Link to="/profile" className="font-body text-primary-foreground/70 text-lg">Profile</Link>
                   <Link to="/bookings" className="font-body text-primary-foreground/70 text-lg">My Bookings</Link>
+                  {user.role === 'partner' && (
+                    <Link to="/partner" className="font-body text-brand-gold text-lg">Partner Panel</Link>
+                  )}
                   {user.role === 'admin' && (
                     <Link to="/admin" className="font-body text-brand-gold text-lg">Admin Panel</Link>
                   )}
