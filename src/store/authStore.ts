@@ -12,7 +12,6 @@ interface AuthState {
   updateProfile: (data: Partial<User>) => void;
 }
 
-// Temporary mock users storage — will be replaced with real DB
 const MOCK_USERS_KEY = 'vvs_users';
 
 const getStoredUsers = (): Array<User & { password: string }> => {
@@ -50,7 +49,6 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (creds) => {
         set({ isLoading: true });
-        // Simulate network delay
         await new Promise((r) => setTimeout(r, 800));
         const users = getStoredUsers();
         const found = users.find(
@@ -73,15 +71,25 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: false });
           return { success: false, error: 'Email already registered' };
         }
-        const newUser = {
+        const newUser: User & { password: string } = {
           id: `user-${Date.now()}`,
           name: data.name,
           email: data.email,
           phone: data.phone,
           address: { street: data.street, city: data.city, state: data.state, pin: data.pin },
-          role: 'user' as const,
+          role: data.role || 'user',
           createdAt: new Date().toISOString(),
           password: data.password,
+          ...(data.role === 'partner' ? {
+            businessName: data.businessName,
+            gstNumber: data.gstNumber,
+            businessType: data.businessType,
+            businessAddress: data.businessAddress,
+            businessPhone: data.businessPhone,
+            businessEmail: data.businessEmail,
+            businessDescription: data.businessDescription,
+            partnerStatus: 'approved' as const,
+          } : {}),
         };
         users.push(newUser);
         saveUsers(users);

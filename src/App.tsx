@@ -25,8 +25,15 @@ import ManageCabs from "@/pages/admin/ManageCabs";
 import ManageTours from "@/pages/admin/ManageTours";
 import ManageBookings from "@/pages/admin/ManageBookings";
 import ManageUsers from "@/pages/admin/ManageUsers";
+import ManagePartnerRequests from "@/pages/admin/ManagePartnerRequests";
+import PartnerLayout from "@/pages/partner/PartnerLayout";
+import PartnerDashboard from "@/pages/partner/PartnerDashboard";
+import PartnerAddHotel from "@/pages/partner/PartnerAddHotel";
+import PartnerAddRoom from "@/pages/partner/PartnerAddRoom";
+import PartnerListings from "@/pages/partner/PartnerListings";
 import ProtectedRoute from "@/router/ProtectedRoute";
 import AdminRoute from "@/router/AdminRoute";
+import PartnerRoute from "@/router/PartnerRoute";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +68,14 @@ const App = () => (
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
 
+          {/* Partner */}
+          <Route path="/partner" element={<PartnerRoute><PartnerLayout /></PartnerRoute>}>
+            <Route index element={<PartnerDashboard />} />
+            <Route path="hotels" element={<PartnerAddHotel />} />
+            <Route path="rooms" element={<PartnerAddRoom />} />
+            <Route path="listings" element={<PartnerListings />} />
+          </Route>
+
           {/* Admin */}
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
@@ -69,6 +84,7 @@ const App = () => (
             <Route path="rooms" element={<ManageRooms />} />
             <Route path="cabs" element={<ManageCabs />} />
             <Route path="tours" element={<ManageTours />} />
+            <Route path="partner-requests" element={<ManagePartnerRequests />} />
             <Route path="bookings" element={<ManageBookings />} />
             <Route path="users" element={<ManageUsers />} />
           </Route>
