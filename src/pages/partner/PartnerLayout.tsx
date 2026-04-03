@@ -4,19 +4,24 @@ import {
   LayoutDashboard, Hotel, BedDouble, LogOut, Menu, X, ClipboardList,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useBookingStore } from '@/store/bookingStore';
 
 const sidebarLinks = [
   { name: 'Dashboard', path: '/partner', icon: LayoutDashboard },
   { name: 'My Hotels', path: '/partner/hotels', icon: Hotel },
   { name: 'My Rooms', path: '/partner/rooms', icon: BedDouble },
   { name: 'My Listings', path: '/partner/listings', icon: ClipboardList },
+  { name: 'Bookings', path: '/partner/bookings', icon: ClipboardList },
 ];
 
 const PartnerLayout = () => {
   const { user, logout } = useAuthStore();
+  const { getBookingsByPartner } = useBookingStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const bookingCount = getBookingsByPartner(user?.id || '').length;
 
   const handleLogout = () => {
     logout();
@@ -41,6 +46,7 @@ const PartnerLayout = () => {
         <nav className="flex-1 py-4 overflow-y-auto">
           {sidebarLinks.map((link) => {
             const isActive = location.pathname === link.path;
+            const isBookings = link.path === '/partner/bookings';
             return (
               <Link
                 key={link.path}
@@ -54,6 +60,9 @@ const PartnerLayout = () => {
               >
                 <link.icon size={18} />
                 {link.name}
+                {isBookings && bookingCount > 0 && (
+                  <span className="ml-auto bg-brand-saffron text-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">{bookingCount}</span>
+                )}
               </Link>
             );
           })}
