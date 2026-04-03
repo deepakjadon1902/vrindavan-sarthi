@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 
 const Hotels = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [hotels, setHotels] = useState<any[]>([]);
 
   useEffect(() => {
     try {
       const data = localStorage.getItem('vvs_hotels');
-      if (data) {
-        const parsed = JSON.parse(data).filter((h: any) => h.status === 'active');
-        setHotels(parsed);
-      }
+      if (data) setHotels(JSON.parse(data).filter((h: any) => h.status === 'active'));
     } catch {}
   }, []);
 
@@ -54,7 +53,7 @@ const Hotels = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filtered.map((hotel) => (
-                  <ListingCard key={hotel.id} image={hotel.image} name={hotel.name} location={hotel.location} price={hotel.pricePerNight} rating={hotel.rating} reviewCount={0} amenities={hotel.amenities || []} />
+                  <ListingCard key={hotel.id} image={hotel.image} name={hotel.name} location={hotel.location} price={hotel.pricePerNight} rating={hotel.rating} reviewCount={0} amenities={hotel.amenities || []} onViewDetails={() => navigate(`/hotels/${hotel.id}`)} />
                 ))}
               </div>
               {filtered.length === 0 && (

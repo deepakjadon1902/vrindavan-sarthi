@@ -6,11 +6,17 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import Home from "@/pages/Home";
 import Hotels from "@/pages/Hotels";
+import HotelDetail from "@/pages/HotelDetail";
 import Rooms from "@/pages/Rooms";
+import RoomDetail from "@/pages/RoomDetail";
 import Cabs from "@/pages/Cabs";
+import CabDetail from "@/pages/CabDetail";
 import Tours from "@/pages/Tours";
+import TourDetail from "@/pages/TourDetail";
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
+import Terms from "@/pages/Terms";
+import Privacy from "@/pages/Privacy";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/NotFound";
@@ -31,6 +37,7 @@ import PartnerDashboard from "@/pages/partner/PartnerDashboard";
 import PartnerAddHotel from "@/pages/partner/PartnerAddHotel";
 import PartnerAddRoom from "@/pages/partner/PartnerAddRoom";
 import PartnerListings from "@/pages/partner/PartnerListings";
+import PartnerBookings from "@/pages/partner/PartnerBookings";
 import ProtectedRoute from "@/router/ProtectedRoute";
 import AdminRoute from "@/router/AdminRoute";
 import PartnerRoute from "@/router/PartnerRoute";
@@ -54,11 +61,17 @@ const App = () => (
           {/* Public pages */}
           <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
           <Route path="/hotels" element={<PublicLayout><Hotels /></PublicLayout>} />
+          <Route path="/hotels/:id" element={<PublicLayout><HotelDetail /></PublicLayout>} />
           <Route path="/rooms" element={<PublicLayout><Rooms /></PublicLayout>} />
+          <Route path="/rooms/:id" element={<PublicLayout><RoomDetail /></PublicLayout>} />
           <Route path="/cabs" element={<PublicLayout><Cabs /></PublicLayout>} />
+          <Route path="/cabs/:id" element={<PublicLayout><CabDetail /></PublicLayout>} />
           <Route path="/tours" element={<PublicLayout><Tours /></PublicLayout>} />
+          <Route path="/tours/:id" element={<PublicLayout><TourDetail /></PublicLayout>} />
           <Route path="/about" element={<PublicLayout><About /></PublicLayout>} />
           <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
+          <Route path="/terms" element={<PublicLayout><Terms /></PublicLayout>} />
+          <Route path="/privacy" element={<PublicLayout><Privacy /></PublicLayout>} />
 
           {/* Auth pages */}
           <Route path="/login" element={<Login />} />
@@ -74,6 +87,7 @@ const App = () => (
             <Route path="hotels" element={<PartnerAddHotel />} />
             <Route path="rooms" element={<PartnerAddRoom />} />
             <Route path="listings" element={<PartnerListings />} />
+            <Route path="bookings" element={<PartnerBookings />} />
           </Route>
 
           {/* Admin */}

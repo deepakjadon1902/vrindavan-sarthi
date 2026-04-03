@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 
 const Rooms = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [rooms, setRooms] = useState<any[]>([]);
 
@@ -40,7 +42,7 @@ const Rooms = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((room) => (
-                <ListingCard key={room.id} image={room.image} name={room.name} location={room.hotelName} price={room.pricePerNight} priceLabel="/night" rating={0} reviewCount={0} amenities={room.amenities || []} />
+                <ListingCard key={room.id} image={room.image} name={room.name} location={room.hotelName} price={room.pricePerNight} priceLabel="/night" rating={0} reviewCount={0} amenities={room.amenities || []} onViewDetails={() => navigate(`/rooms/${room.id}`)} />
               ))}
             </div>
           )}
