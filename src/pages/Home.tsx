@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Hotel, BedDouble, Car, Map, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight } from 'lucide-react';
