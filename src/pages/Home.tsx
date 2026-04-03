@@ -36,6 +36,7 @@ const whyUs = [
 ];
 
 const Home = () => {
+  const navigate = useNavigate();
   const [hotels, setHotels] = useState<any[]>([]);
   const [tours, setTours] = useState<any[]>([]);
 
