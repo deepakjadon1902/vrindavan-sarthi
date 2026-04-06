@@ -32,10 +32,13 @@ import ManageTours from "@/pages/admin/ManageTours";
 import ManageBookings from "@/pages/admin/ManageBookings";
 import ManageUsers from "@/pages/admin/ManageUsers";
 import ManagePartnerRequests from "@/pages/admin/ManagePartnerRequests";
+import AdminSettings from "@/pages/admin/AdminSettings";
 import PartnerLayout from "@/pages/partner/PartnerLayout";
 import PartnerDashboard from "@/pages/partner/PartnerDashboard";
 import PartnerAddHotel from "@/pages/partner/PartnerAddHotel";
 import PartnerAddRoom from "@/pages/partner/PartnerAddRoom";
+import PartnerAddCab from "@/pages/partner/PartnerAddCab";
+import PartnerAddTour from "@/pages/partner/PartnerAddTour";
 import PartnerListings from "@/pages/partner/PartnerListings";
 import PartnerBookings from "@/pages/partner/PartnerBookings";
 import ProtectedRoute from "@/router/ProtectedRoute";
@@ -78,14 +81,16 @@ const App = () => (
           <Route path="/register" element={<Register />} />
 
           {/* Protected user pages */}
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><PublicLayout><Profile /></PublicLayout></ProtectedRoute>} />
+          <Route path="/bookings" element={<ProtectedRoute><PublicLayout><MyBookings /></PublicLayout></ProtectedRoute>} />
 
-          {/* Partner */}
+          {/* Partner - full screen, no public navbar */}
           <Route path="/partner" element={<PartnerRoute><PartnerLayout /></PartnerRoute>}>
             <Route index element={<PartnerDashboard />} />
             <Route path="hotels" element={<PartnerAddHotel />} />
             <Route path="rooms" element={<PartnerAddRoom />} />
+            <Route path="cabs" element={<PartnerAddCab />} />
+            <Route path="tours" element={<PartnerAddTour />} />
             <Route path="listings" element={<PartnerListings />} />
             <Route path="bookings" element={<PartnerBookings />} />
           </Route>
@@ -101,6 +106,7 @@ const App = () => (
             <Route path="partner-requests" element={<ManagePartnerRequests />} />
             <Route path="bookings" element={<ManageBookings />} />
             <Route path="users" element={<ManageUsers />} />
+            <Route path="settings" element={<AdminSettings />} />
           </Route>
 
           <Route path="*" element={<PublicLayout><NotFound /></PublicLayout>} />
