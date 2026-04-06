@@ -15,7 +15,15 @@ const Login = () => {
     const result = await login({ email, password });
     if (result.success) {
       toast.success('Welcome back! 🙏');
-      navigate('/');
+      // Get updated user from store
+      const user = useAuthStore.getState().user;
+      if (user?.role === 'partner') {
+        navigate('/partner');
+      } else if (user?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } else {
       toast.error(result.error || 'Login failed');
     }
@@ -23,7 +31,6 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left - Image */}
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img src={templeImg} alt="Vrindavan Temple" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-foreground/60 flex items-center justify-center">
@@ -35,7 +42,6 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Right - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8 lg:hidden">

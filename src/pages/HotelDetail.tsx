@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Star, MapPin, Phone, Mail, User, Calendar, Users, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Phone, Mail, User, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
+import UpiPayment from '@/components/UpiPayment';
 
 const HotelDetail = () => {
   const { id } = useParams();
@@ -14,7 +15,9 @@ const HotelDetail = () => {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(1);
+  const [showPayment, setShowPayment] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [bookingId, setBookingId] = useState('');
 
   useEffect(() => {
     try {
@@ -36,10 +39,15 @@ const HotelDetail = () => {
   const nights = checkIn && checkOut ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 1;
   const total = hotel.pricePerNight * nights;
 
-  const handleBook = () => {
+  const handleInitiateBooking = () => {
     if (!isAuthenticated) { toast.error('Please login to book'); navigate('/login'); return; }
     if (!checkIn || !checkOut) { toast.error('Please select check-in and check-out dates'); return; }
+    const tempId = `VVS-2025-${String(Math.floor(10000 + Math.random() * 90000))}`;
+    setBookingId(tempId);
+    setShowPayment(true);
+  };
 
+  const handlePaymentConfirm = (transactionId: string) => {
     addBooking({
       bookingType: 'hotel',
       itemId: hotel.id,
@@ -51,14 +59,14 @@ const HotelDetail = () => {
       userPhone: user!.phone,
       partnerId: hotel.partnerId,
       partnerName: hotel.partnerName,
-      checkIn,
-      checkOut,
-      guests,
+      checkIn, checkOut, guests,
       totalAmount: total,
       paymentMethod: 'online',
       paymentStatus: 'paid',
       bookingStatus: 'confirmed',
+      additionalInfo: `UPI Txn: ${transactionId}`,
     });
+    setShowPayment(false);
     setBooked(true);
     toast.success('Hotel booked successfully!');
   };
@@ -71,11 +79,17 @@ const HotelDetail = () => {
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Details */}
           <div className="lg:col-span-2 space-y-6">
             <div className="rounded-xl overflow-hidden h-72 md:h-96">
               <img src={hotel.image} alt={hotel.name} className="w-full h-full object-cover" />
             </div>
+            {hotel.images?.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto">
+                {hotel.images.map((img: string, i: number) => (
+                  <img key={i} src={img} alt="" className="w-24 h-18 rounded-lg object-cover flex-shrink-0 border border-border" />
+                ))}
+              </div>
+            )}
 
             <div>
               <h1 className="font-heading text-3xl font-bold text-foreground">{hotel.name}</h1>
@@ -120,10 +134,17 @@ const HotelDetail = () => {
             )}
           </div>
 
-          {/* Right: Booking Panel */}
           <div className="lg:col-span-1">
             <div className="bg-card rounded-xl border border-border p-6 sticky top-24">
-              {booked ? (
+              {showPayment ? (
+                <UpiPayment
+                  amount={total}
+                  bookingId={bookingId}
+                  itemName={hotel.name}
+                  onPaymentConfirm={handlePaymentConfirm}
+                  onCancel={() => setShowPayment(false)}
+                />
+              ) : booked ? (
                 <div className="text-center py-8">
                   <CheckCircle size={48} className="mx-auto mb-4 text-brand-green" />
                   <h3 className="font-heading text-xl font-semibold text-foreground mb-2">Booking Confirmed!</h3>
@@ -166,8 +187,8 @@ const HotelDetail = () => {
                     </div>
                   </div>
 
-                  <button onClick={handleBook} className="btn-gold w-full py-3 rounded-xl text-sm mt-4">
-                    Book Now
+                  <button onClick={handleInitiateBooking} className="btn-gold w-full py-3 rounded-xl text-sm mt-4">
+                    Pay & Book Now
                   </button>
                 </>
               )}

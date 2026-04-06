@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { CheckCircle, XCircle, Eye, X, Hotel, BedDouble, Clock, User, Phone, Mail, Building2 } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, X, Hotel, BedDouble, Car, Map, Clock, User, Phone, Mail, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ManagePartnerRequests = () => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'cab' | 'tour'>('all');
   const [viewItem, setViewItem] = useState<any>(null);
   const [remarkText, setRemarkText] = useState('');
   const [, setRefresh] = useState(0);
@@ -14,72 +15,48 @@ const ManagePartnerRequests = () => {
 
   const hotels = getItems('vvs_partner_hotels').map((i: any) => ({ ...i, itemType: 'hotel' }));
   const rooms = getItems('vvs_partner_rooms').map((i: any) => ({ ...i, itemType: 'room' }));
-  const allItems = [...hotels, ...rooms].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const cabs = getItems('vvs_partner_cabs').map((i: any) => ({ ...i, itemType: 'cab' }));
+  const tours = getItems('vvs_partner_tours').map((i: any) => ({ ...i, itemType: 'tour' }));
+  const allItems = [...hotels, ...rooms, ...cabs, ...tours].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  const filtered = filter === 'all' ? allItems : allItems.filter(i => i.approvalStatus === filter);
+  const filteredByType = typeFilter === 'all' ? allItems : allItems.filter(i => i.itemType === typeFilter);
+  const filtered = filter === 'all' ? filteredByType : filteredByType.filter(i => i.approvalStatus === filter);
+
+  const getStorageKey = (type: string) => {
+    if (type === 'hotel') return 'vvs_partner_hotels';
+    if (type === 'room') return 'vvs_partner_rooms';
+    if (type === 'cab') return 'vvs_partner_cabs';
+    return 'vvs_partner_tours';
+  };
+
+  const getMainKey = (type: string) => {
+    if (type === 'hotel') return 'vvs_hotels';
+    if (type === 'room') return 'vvs_rooms';
+    if (type === 'cab') return 'vvs_cabs';
+    return 'vvs_tours';
+  };
 
   const updateStatus = (item: any, status: 'approved' | 'rejected', remarks: string = '') => {
-    const key = item.itemType === 'hotel' ? 'vvs_partner_hotels' : 'vvs_partner_rooms';
+    const key = getStorageKey(item.itemType);
     const items = getItems(key);
     const updated = items.map((i: any) => i.id === item.id ? { ...i, approvalStatus: status, adminRemarks: remarks } : i);
     localStorage.setItem(key, JSON.stringify(updated));
 
-    // If approved, also add to main listings
+    const mainKey = getMainKey(item.itemType);
     if (status === 'approved') {
-      if (item.itemType === 'hotel') {
-        const mainHotels = getItems('vvs_hotels');
-        const exists = mainHotels.find((h: any) => h.id === item.id);
-        if (!exists) {
-          mainHotels.push({
-            id: item.id,
-            name: item.name,
-            location: item.location,
-            pricePerNight: item.pricePerNight,
-            rating: item.rating || 0,
-            image: item.image,
-            description: item.description,
-            amenities: item.amenities,
-            status: 'active',
-            partnerSubmitted: true,
-            partnerId: item.partnerId,
-            partnerName: item.partnerName,
-          });
-          localStorage.setItem('vvs_hotels', JSON.stringify(mainHotels));
-        }
-      } else {
-        const mainRooms = getItems('vvs_rooms');
-        const exists = mainRooms.find((r: any) => r.id === item.id);
-        if (!exists) {
-          mainRooms.push({
-            id: item.id,
-            name: item.name,
-            hotelName: item.hotelName,
-            type: item.type,
-            pricePerNight: item.pricePerNight,
-            pricePerBed: item.pricePerBed,
-            capacity: item.capacity,
-            isAC: item.isAC,
-            image: item.image,
-            amenities: item.amenities,
-            status: 'available',
-            partnerSubmitted: true,
-            partnerId: item.partnerId,
-            partnerName: item.partnerName,
-          });
-          localStorage.setItem('vvs_rooms', JSON.stringify(mainRooms));
-        }
+      const mainItems = getItems(mainKey);
+      const exists = mainItems.find((h: any) => h.id === item.id);
+      if (!exists) {
+        const mainItem = { ...item, status: item.itemType === 'room' ? 'available' : 'active', approvalStatus: 'approved' };
+        delete mainItem.itemType;
+        mainItems.push(mainItem);
+        localStorage.setItem(mainKey, JSON.stringify(mainItems));
       }
-      toast.success(`${item.itemType === 'hotel' ? 'Hotel' : 'Room'} approved & added to main listings`);
+      toast.success(`${item.itemType} approved & added to main listings`);
     } else {
-      // If rejected, remove from main listings if previously approved
-      if (item.itemType === 'hotel') {
-        const mainHotels = getItems('vvs_hotels').filter((h: any) => h.id !== item.id);
-        localStorage.setItem('vvs_hotels', JSON.stringify(mainHotels));
-      } else {
-        const mainRooms = getItems('vvs_rooms').filter((r: any) => r.id !== item.id);
-        localStorage.setItem('vvs_rooms', JSON.stringify(mainRooms));
-      }
-      toast.success(`${item.itemType === 'hotel' ? 'Hotel' : 'Room'} rejected`);
+      const mainItems = getItems(mainKey).filter((h: any) => h.id !== item.id);
+      localStorage.setItem(mainKey, JSON.stringify(mainItems));
+      toast.success(`${item.itemType} rejected`);
     }
 
     setViewItem(null);
@@ -91,6 +68,21 @@ const ManagePartnerRequests = () => {
     if (status === 'approved') return 'bg-brand-green/10 text-brand-green';
     if (status === 'rejected') return 'bg-destructive/10 text-destructive';
     return 'bg-brand-saffron/10 text-brand-saffron';
+  };
+
+  const typeIcon = (type: string) => {
+    if (type === 'hotel') return <Hotel size={16} className="text-brand-gold" />;
+    if (type === 'room') return <BedDouble size={16} className="text-brand-saffron" />;
+    if (type === 'cab') return <Car size={16} className="text-brand-green" />;
+    return <Map size={16} className="text-brand-crimson" />;
+  };
+
+  const getItemName = (item: any) => item.name || item.vehicleName || 'Unnamed';
+  const getItemPrice = (item: any) => {
+    if (item.pricePerNight) return `₹${item.pricePerNight}/night`;
+    if (item.basePrice) return `₹${item.basePrice}`;
+    if (item.pricePerPerson) return `₹${item.pricePerPerson}/person`;
+    return '-';
   };
 
   const pendingCount = allItems.filter(i => i.approvalStatus === 'pending').length;
@@ -105,9 +97,17 @@ const ManagePartnerRequests = () => {
       )}
 
       <div className="flex gap-2 flex-wrap">
+        {(['all', 'hotel', 'room', 'cab', 'tour'] as const).map(f => (
+          <button key={f} onClick={() => setTypeFilter(f)} className={`px-3 py-1.5 rounded-lg font-body text-xs capitalize transition-colors ${typeFilter === f ? 'bg-brand-gold text-foreground' : 'bg-card border border-border hover:bg-muted'}`}>
+            {f === 'all' ? 'All Types' : `${f}s`}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
         {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-lg font-body text-sm capitalize transition-colors ${filter === f ? 'bg-brand-crimson text-primary-foreground' : 'bg-card border border-border hover:bg-muted'}`}>
-            {f} ({f === 'all' ? allItems.length : allItems.filter(i => i.approvalStatus === f).length})
+            {f} ({f === 'all' ? filteredByType.length : filteredByType.filter(i => i.approvalStatus === f).length})
           </button>
         ))}
       </div>
@@ -125,21 +125,19 @@ const ManagePartnerRequests = () => {
               <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Name</th>
               <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">Partner</th>
               <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Business</th>
-              <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">₹/Night</th>
+              <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Price</th>
               <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Status</th>
-              <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Submitted</th>
               <th className="text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
             </tr></thead>
             <tbody>
               {filtered.map((item) => (
                 <tr key={item.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                  <td className="px-4 py-3">{item.itemType === 'hotel' ? <Hotel size={16} className="text-brand-gold" /> : <BedDouble size={16} className="text-brand-saffron" />}</td>
-                  <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{item.name}</td>
+                  <td className="px-4 py-3">{typeIcon(item.itemType)}</td>
+                  <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{getItemName(item)}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{item.partnerName}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden md:table-cell">{item.businessName || '-'}</td>
-                  <td className="px-4 py-3 font-body text-sm text-foreground">₹{item.pricePerNight}</td>
+                  <td className="px-4 py-3 font-body text-sm text-foreground">{getItemPrice(item)}</td>
                   <td className="px-4 py-3"><span className={`font-body text-xs px-2 py-1 rounded-full ${statusBadge(item.approvalStatus)}`}>{item.approvalStatus}</span></td>
-                  <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">{new Date(item.createdAt).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => { setViewItem(item); setRemarkText(item.adminRemarks || ''); }} className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"><Eye size={14} /></button>
@@ -158,19 +156,17 @@ const ManagePartnerRequests = () => {
         </div>
       )}
 
-      {/* Detail Panel */}
       {viewItem && (
         <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-heading text-lg font-semibold">Listing Details</h3>
+            <h3 className="font-heading text-lg font-semibold">Listing Details — <span className="capitalize">{viewItem.itemType}</span></h3>
             <button onClick={() => setViewItem(null)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Images */}
             <div>
               {viewItem.image && viewItem.image !== '/placeholder.svg' && (
-                <img src={viewItem.image} alt={viewItem.name} className="w-full h-48 object-cover rounded-lg mb-3" />
+                <img src={viewItem.image} alt={getItemName(viewItem)} className="w-full h-48 object-cover rounded-lg mb-3" />
               )}
               {viewItem.images && viewItem.images.length > 0 && (
                 <div className="flex gap-2 flex-wrap">
@@ -181,21 +177,24 @@ const ManagePartnerRequests = () => {
               )}
             </div>
 
-            {/* Info */}
             <div className="space-y-3 font-body text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div><span className="text-muted-foreground block text-xs">Type</span><span className="font-medium capitalize">{viewItem.itemType}</span></div>
                 <div><span className="text-muted-foreground block text-xs">Status</span><span className={`px-2 py-0.5 rounded-full text-xs ${statusBadge(viewItem.approvalStatus)}`}>{viewItem.approvalStatus}</span></div>
-                <div><span className="text-muted-foreground block text-xs">Price/Night</span><span className="font-medium">₹{viewItem.pricePerNight}</span></div>
-                {viewItem.pricePerBed > 0 && <div><span className="text-muted-foreground block text-xs">Price/Bed</span><span className="font-medium">₹{viewItem.pricePerBed}</span></div>}
+                <div><span className="text-muted-foreground block text-xs">Price</span><span className="font-medium">{getItemPrice(viewItem)}</span></div>
                 {viewItem.location && <div><span className="text-muted-foreground block text-xs">Location</span><span>{viewItem.location}</span></div>}
-                {viewItem.totalRooms && <div><span className="text-muted-foreground block text-xs">Total Rooms</span><span>{viewItem.totalRooms}</span></div>}
+                {viewItem.vehicleType && <div><span className="text-muted-foreground block text-xs">Vehicle Type</span><span>{viewItem.vehicleType}</span></div>}
+                {viewItem.vehicleNumber && <div><span className="text-muted-foreground block text-xs">Vehicle No.</span><span>{viewItem.vehicleNumber}</span></div>}
+                {viewItem.driverName && <div><span className="text-muted-foreground block text-xs">Driver</span><span>{viewItem.driverName} ({viewItem.driverPhone})</span></div>}
+                {viewItem.duration && <div><span className="text-muted-foreground block text-xs">Duration</span><span>{viewItem.duration}</span></div>}
+                {viewItem.groupSize && <div><span className="text-muted-foreground block text-xs">Group Size</span><span>Max {viewItem.groupSize}</span></div>}
               </div>
 
               {viewItem.description && <div><span className="text-muted-foreground block text-xs mb-1">Description</span><p className="text-foreground">{viewItem.description}</p></div>}
               {viewItem.amenities?.length > 0 && <div><span className="text-muted-foreground block text-xs mb-1">Amenities</span><div className="flex flex-wrap gap-1">{viewItem.amenities.map((a: string, i: number) => <span key={i} className="bg-muted px-2 py-0.5 rounded text-xs">{a}</span>)}</div></div>}
+              {viewItem.features?.length > 0 && <div><span className="text-muted-foreground block text-xs mb-1">Features</span><div className="flex flex-wrap gap-1">{viewItem.features.map((a: string, i: number) => <span key={i} className="bg-muted px-2 py-0.5 rounded text-xs">{a}</span>)}</div></div>}
+              {viewItem.includes?.length > 0 && <div><span className="text-muted-foreground block text-xs mb-1">Includes</span><div className="flex flex-wrap gap-1">{viewItem.includes.map((a: string, i: number) => <span key={i} className="bg-brand-green/10 px-2 py-0.5 rounded text-xs text-brand-green">{a}</span>)}</div></div>}
 
-              {/* Partner Info */}
               <div className="border-t border-border pt-3 mt-3">
                 <p className="text-xs font-medium text-muted-foreground mb-2">PARTNER DETAILS</p>
                 <div className="space-y-1.5">
@@ -208,7 +207,6 @@ const ManagePartnerRequests = () => {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="mt-6 border-t border-border pt-4">
             <div className="mb-3">
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Admin Remarks (optional)</label>

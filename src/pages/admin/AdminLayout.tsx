@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, Car, Map, ClipboardList,
-  Users, LogOut, Menu, X, Handshake,
+  Users, LogOut, Menu, X, Handshake, Settings,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -15,6 +15,7 @@ const sidebarLinks = [
   { name: 'Partner Requests', path: '/admin/partner-requests', icon: Handshake },
   { name: 'Bookings', path: '/admin/bookings', icon: ClipboardList },
   { name: 'Users', path: '/admin/users', icon: Users },
+  { name: 'Settings', path: '/admin/settings', icon: Settings },
 ];
 
 const AdminLayout = () => {
@@ -23,12 +24,13 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Count pending partner requests for badge
   const getPendingCount = () => {
     try {
       const hotels = JSON.parse(localStorage.getItem('vvs_partner_hotels') || '[]');
       const rooms = JSON.parse(localStorage.getItem('vvs_partner_rooms') || '[]');
-      return [...hotels, ...rooms].filter((i: any) => i.approvalStatus === 'pending').length;
+      const cabs = JSON.parse(localStorage.getItem('vvs_partner_cabs') || '[]');
+      const tours = JSON.parse(localStorage.getItem('vvs_partner_tours') || '[]');
+      return [...hotels, ...rooms, ...cabs, ...tours].filter((i: any) => i.approvalStatus === 'pending').length;
     } catch { return 0; }
   };
   const pendingCount = getPendingCount();

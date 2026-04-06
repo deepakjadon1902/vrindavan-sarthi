@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, User, LogOut, ChevronDown, Hotel } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -20,6 +21,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const isHome = location.pathname === '/';
   const { isAuthenticated, user, logout } = useAuthStore();
+  const { settings } = useSettingsStore();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -45,8 +47,12 @@ const Navbar = () => {
         <div className="container mx-auto px-4 lg:px-8">
           <div className="flex items-center justify-between h-16 lg:h-20">
             <Link to="/" className="flex items-center gap-2">
-              <span className="text-2xl">🦚</span>
-              <span className="font-brand text-lg lg:text-xl text-brand-gold tracking-wider">VrindavanSarthi</span>
+              {settings.logoUrl ? (
+                <img src={settings.logoUrl} alt={settings.siteName} className="h-8 object-contain" />
+              ) : (
+                <span className="text-2xl">🦚</span>
+              )}
+              <span className="font-brand text-lg lg:text-xl text-brand-gold tracking-wider">{settings.siteName}</span>
             </Link>
 
             <div className="hidden lg:flex items-center gap-8">

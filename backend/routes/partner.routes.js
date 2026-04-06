@@ -1,6 +1,8 @@
 const express = require('express');
 const Hotel = require('../models/Hotel');
 const Room = require('../models/Room');
+const Cab = require('../models/Cab');
+const Tour = require('../models/Tour');
 const { protect, authorize } = require('../middleware/auth');
 const router = express.Router();
 
@@ -40,12 +42,50 @@ router.post('/rooms', protect, authorize('partner'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Partner: Submit cab
+router.post('/cabs', protect, authorize('partner'), async (req, res) => {
+  try {
+    const cab = await Cab.create({
+      ...req.body,
+      partnerId: req.user._id,
+      partnerName: req.user.name,
+      partnerEmail: req.user.email,
+      partnerPhone: req.user.phone,
+      businessName: req.user.businessName,
+      partnerSubmitted: true,
+      approvalStatus: 'pending',
+      status: 'inactive',
+    });
+    res.status(201).json({ success: true, data: cab });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// Partner: Submit tour
+router.post('/tours', protect, authorize('partner'), async (req, res) => {
+  try {
+    const tour = await Tour.create({
+      ...req.body,
+      partnerId: req.user._id,
+      partnerName: req.user.name,
+      partnerEmail: req.user.email,
+      partnerPhone: req.user.phone,
+      businessName: req.user.businessName,
+      partnerSubmitted: true,
+      approvalStatus: 'pending',
+      status: 'inactive',
+    });
+    res.status(201).json({ success: true, data: tour });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 // Partner: Get my listings
 router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
   try {
     const hotels = await Hotel.find({ partnerId: req.user._id });
     const rooms = await Room.find({ partnerId: req.user._id });
-    res.json({ success: true, data: { hotels, rooms } });
+    const cabs = await Cab.find({ partnerId: req.user._id });
+    const tours = await Tour.find({ partnerId: req.user._id });
+    res.json({ success: true, data: { hotels, rooms, cabs, tours } });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -54,7 +94,9 @@ router.get('/requests', protect, authorize('admin'), async (req, res) => {
   try {
     const hotels = await Hotel.find({ partnerSubmitted: true });
     const rooms = await Room.find({ partnerSubmitted: true });
-    res.json({ success: true, data: { hotels, rooms } });
+    const cabs = await Cab.find({ partnerSubmitted: true });
+    const tours = await Tour.find({ partnerSubmitted: true });
+    res.json({ success: true, data: { hotels, rooms, cabs, tours } });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -79,6 +121,30 @@ router.put('/rooms/:id/status', protect, authorize('admin'), async (req, res) =>
     if (approvalStatus === 'rejected') update.status = 'inactive';
     const room = await Room.findByIdAndUpdate(req.params.id, update, { new: true });
     res.json({ success: true, data: room });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// Admin: Approve/Reject cab
+router.put('/cabs/:id/status', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { approvalStatus, adminRemarks } = req.body;
+    const update = { approvalStatus, adminRemarks };
+    if (approvalStatus === 'approved') update.status = 'available';
+    if (approvalStatus === 'rejected') update.status = 'inactive';
+    const cab = await Cab.findByIdAndUpdate(req.params.id, update, { new: true });
+    res.json({ success: true, data: cab });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// Admin: Approve/Reject tour
+router.put('/tours/:id/status', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { approvalStatus, adminRemarks } = req.body;
+    const update = { approvalStatus, adminRemarks };
+    if (approvalStatus === 'approved') update.status = 'active';
+    if (approvalStatus === 'rejected') update.status = 'inactive';
+    const tour = await Tour.findByIdAndUpdate(req.params.id, update, { new: true });
+    res.json({ success: true, data: tour });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
