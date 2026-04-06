@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
-  LayoutDashboard, Hotel, BedDouble, LogOut, Menu, X, ClipboardList,
+  LayoutDashboard, Hotel, BedDouble, Car, Map, LogOut, Menu, X, ClipboardList,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
@@ -10,6 +10,8 @@ const sidebarLinks = [
   { name: 'Dashboard', path: '/partner', icon: LayoutDashboard },
   { name: 'My Hotels', path: '/partner/hotels', icon: Hotel },
   { name: 'My Rooms', path: '/partner/rooms', icon: BedDouble },
+  { name: 'My Cabs', path: '/partner/cabs', icon: Car },
+  { name: 'My Tours', path: '/partner/tours', icon: Map },
   { name: 'My Listings', path: '/partner/listings', icon: ClipboardList },
   { name: 'Bookings', path: '/partner/bookings', icon: ClipboardList },
 ];
@@ -25,7 +27,7 @@ const PartnerLayout = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/login');
   };
 
   return (
@@ -36,10 +38,10 @@ const PartnerLayout = () => {
         }`}
       >
         <div className="p-6 border-b border-primary-foreground/10">
-          <Link to="/partner" className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-xl">🦚</span>
             <span className="font-brand text-sm text-brand-gold">VrindavanSarthi</span>
-          </Link>
+          </div>
           <p className="font-body text-xs text-primary-foreground/40 mt-1">Partner Panel</p>
         </div>
 
