@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ClipboardList, ArrowRight, Calendar, XCircle } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -68,7 +68,7 @@ const MyBookings = () => {
           ) : (
             <div className="space-y-4">
               {filtered.map((b) => (
-                <div key={b.id} className="bg-card rounded-xl border border-border p-5">
+                <div key={b.id} onClick={() => window.location.href = `/bookings/${b.id}`} className="bg-card rounded-xl border border-border p-5 cursor-pointer hover:shadow-md hover:border-brand-crimson/20 transition-all">
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="w-24 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                       {b.itemImage && b.itemImage !== '/placeholder.svg' ? (
