@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, Car, Map, ClipboardList,
-  Users, LogOut, Menu, X, Handshake, Settings,
+  Users, LogOut, Menu, X, Handshake, Settings, CreditCard,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -14,6 +14,7 @@ const sidebarLinks = [
   { name: 'Tours', path: '/admin/tours', icon: Map },
   { name: 'Partner Requests', path: '/admin/partner-requests', icon: Handshake },
   { name: 'Bookings', path: '/admin/bookings', icon: ClipboardList },
+  { name: 'Payments', path: '/admin/payments', icon: CreditCard },
   { name: 'Users', path: '/admin/users', icon: Users },
   { name: 'Settings', path: '/admin/settings', icon: Settings },
 ];

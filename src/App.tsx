@@ -41,6 +41,9 @@ import PartnerAddCab from "@/pages/partner/PartnerAddCab";
 import PartnerAddTour from "@/pages/partner/PartnerAddTour";
 import PartnerListings from "@/pages/partner/PartnerListings";
 import PartnerBookings from "@/pages/partner/PartnerBookings";
+import PartnerPayments from "@/pages/partner/PartnerPayments";
+import AdminPayments from "@/pages/admin/AdminPayments";
+import BookingDetail from "@/pages/user/BookingDetail";
 import ProtectedRoute from "@/router/ProtectedRoute";
 import AdminRoute from "@/router/AdminRoute";
 import PartnerRoute from "@/router/PartnerRoute";
@@ -83,6 +86,7 @@ const App = () => (
           {/* Protected user pages */}
           <Route path="/profile" element={<ProtectedRoute><PublicLayout><Profile /></PublicLayout></ProtectedRoute>} />
           <Route path="/bookings" element={<ProtectedRoute><PublicLayout><MyBookings /></PublicLayout></ProtectedRoute>} />
+          <Route path="/bookings/:id" element={<ProtectedRoute><PublicLayout><BookingDetail /></PublicLayout></ProtectedRoute>} />
 
           {/* Partner - full screen, no public navbar */}
           <Route path="/partner" element={<PartnerRoute><PartnerLayout /></PartnerRoute>}>
@@ -93,6 +97,7 @@ const App = () => (
             <Route path="tours" element={<PartnerAddTour />} />
             <Route path="listings" element={<PartnerListings />} />
             <Route path="bookings" element={<PartnerBookings />} />
+            <Route path="payments" element={<PartnerPayments />} />
           </Route>
 
           {/* Admin */}
@@ -105,6 +110,7 @@ const App = () => (
             <Route path="tours" element={<ManageTours />} />
             <Route path="partner-requests" element={<ManagePartnerRequests />} />
             <Route path="bookings" element={<ManageBookings />} />
+            <Route path="payments" element={<AdminPayments />} />
             <Route path="users" element={<ManageUsers />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
