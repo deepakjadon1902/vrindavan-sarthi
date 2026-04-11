@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Users, CheckCircle, Calendar } from 'lucide-react';
+import { ArrowLeft, Clock, Users, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
+import UpiPayment from '@/components/UpiPayment';
 
 const TourDetail = () => {
   const { id } = useParams();
@@ -13,7 +14,9 @@ const TourDetail = () => {
   const [tour, setTour] = useState<any>(null);
   const [travelDate, setTravelDate] = useState('');
   const [persons, setPersons] = useState(1);
+  const [showPayment, setShowPayment] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [bookingId, setBookingId] = useState('');
 
   useEffect(() => {
     try {
@@ -34,10 +37,15 @@ const TourDetail = () => {
 
   const total = tour.pricePerPerson * persons;
 
-  const handleBook = () => {
+  const handleInitiateBooking = () => {
     if (!isAuthenticated) { toast.error('Please login to book'); navigate('/login'); return; }
     if (!travelDate) { toast.error('Please select travel date'); return; }
+    const tempId = `VVS-2025-${String(Math.floor(10000 + Math.random() * 90000))}`;
+    setBookingId(tempId);
+    setShowPayment(true);
+  };
 
+  const handlePaymentConfirm = (transactionId: string) => {
     addBooking({
       bookingType: 'tour',
       itemId: tour.id,
@@ -53,11 +61,14 @@ const TourDetail = () => {
       guests: persons,
       totalAmount: total,
       paymentMethod: 'online',
-      paymentStatus: 'paid',
-      bookingStatus: 'confirmed',
+      paymentStatus: 'pending',
+      bookingStatus: 'pending',
+      upiTransactionId: transactionId,
+      additionalInfo: `UPI Txn: ${transactionId}`,
     });
+    setShowPayment(false);
     setBooked(true);
-    toast.success('Tour booked successfully!');
+    toast.success('Booking submitted! Payment verification pending.');
   };
 
   return (
@@ -66,13 +77,11 @@ const TourDetail = () => {
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-6 mt-4">
           <ArrowLeft size={16} /> Back
         </button>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <div className="rounded-xl overflow-hidden h-72 md:h-96">
               <img src={tour.image} alt={tour.name} className="w-full h-full object-cover" />
             </div>
-
             <div>
               <h1 className="font-heading text-3xl font-bold text-foreground">{tour.name}</h1>
               <div className="flex items-center gap-4 mt-2">
@@ -80,21 +89,18 @@ const TourDetail = () => {
                 <span className="flex items-center gap-1 font-body text-sm text-muted-foreground"><Users size={14} /> Max {tour.groupSize} people</span>
               </div>
             </div>
-
             {tour.description && (
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-3">About this Tour</h3>
                 <p className="font-body text-sm text-muted-foreground leading-relaxed">{tour.description}</p>
               </div>
             )}
-
             {tour.itinerary && (
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-3">Itinerary</h3>
                 <p className="font-body text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{tour.itinerary}</p>
               </div>
             )}
-
             {tour.includes?.length > 0 && (
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-3">What's Included</h3>
@@ -106,13 +112,15 @@ const TourDetail = () => {
               </div>
             )}
           </div>
-
           <div className="lg:col-span-1">
             <div className="bg-card rounded-xl border border-border p-6 sticky top-24">
-              {booked ? (
+              {showPayment ? (
+                <UpiPayment amount={total} bookingId={bookingId} itemName={tour.name} onPaymentConfirm={handlePaymentConfirm} onCancel={() => setShowPayment(false)} />
+              ) : booked ? (
                 <div className="text-center py-8">
-                  <CheckCircle size={48} className="mx-auto mb-4 text-brand-green" />
-                  <h3 className="font-heading text-xl font-semibold text-foreground mb-2">Tour Booked!</h3>
+                  <CheckCircle size={48} className="mx-auto mb-4 text-brand-saffron" />
+                  <h3 className="font-heading text-xl font-semibold text-foreground mb-2">Booking Submitted!</h3>
+                  <p className="font-body text-sm text-muted-foreground mb-4">Payment verification pending.</p>
                   <Link to="/bookings" className="btn-gold px-6 py-2.5 rounded-lg text-sm">View My Bookings</Link>
                 </div>
               ) : (
@@ -129,7 +137,7 @@ const TourDetail = () => {
                     <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{tour.pricePerPerson} × {persons} person(s)</span><span>₹{total.toLocaleString('en-IN')}</span></div>
                     <div className="flex justify-between font-body text-sm font-semibold border-t border-border pt-2"><span>Total</span><span className="text-brand-crimson">₹{total.toLocaleString('en-IN')}</span></div>
                   </div>
-                  <button onClick={handleBook} className="btn-gold w-full py-3 rounded-xl text-sm mt-4">Book Tour</button>
+                  <button onClick={handleInitiateBooking} className="btn-gold w-full py-3 rounded-xl text-sm mt-4">Pay & Book Tour</button>
                 </>
               )}
             </div>

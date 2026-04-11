@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Star, MapPin, Phone, Mail, User, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, User, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
@@ -62,13 +62,14 @@ const HotelDetail = () => {
       checkIn, checkOut, guests,
       totalAmount: total,
       paymentMethod: 'online',
-      paymentStatus: 'paid',
-      bookingStatus: 'confirmed',
+      paymentStatus: 'pending',
+      bookingStatus: 'pending',
+      upiTransactionId: transactionId,
       additionalInfo: `UPI Txn: ${transactionId}`,
     });
     setShowPayment(false);
     setBooked(true);
-    toast.success('Hotel booked successfully!');
+    toast.success('Booking submitted! Payment verification pending.');
   };
 
   return (
@@ -90,13 +91,9 @@ const HotelDetail = () => {
                 ))}
               </div>
             )}
-
             <div>
               <h1 className="font-heading text-3xl font-bold text-foreground">{hotel.name}</h1>
-              <div className="flex items-center gap-2 mt-2">
-                <MapPin size={16} className="text-brand-gold" />
-                <span className="font-body text-sm text-muted-foreground">{hotel.location}</span>
-              </div>
+              <div className="flex items-center gap-2 mt-2"><MapPin size={16} className="text-brand-gold" /><span className="font-body text-sm text-muted-foreground">{hotel.location}</span></div>
               <div className="flex items-center gap-1 mt-2">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star key={i} size={16} className={i < Math.floor(hotel.rating || 0) ? 'fill-brand-gold text-brand-gold' : 'text-muted-foreground/30'} />
@@ -104,14 +101,12 @@ const HotelDetail = () => {
                 <span className="font-body text-sm text-muted-foreground ml-1">({hotel.rating || 0})</span>
               </div>
             </div>
-
             {hotel.description && (
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-3">About this Hotel</h3>
                 <p className="font-body text-sm text-muted-foreground leading-relaxed">{hotel.description}</p>
               </div>
             )}
-
             {hotel.amenities?.length > 0 && (
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-3">Amenities</h3>
@@ -122,14 +117,10 @@ const HotelDetail = () => {
                 </div>
               </div>
             )}
-
             {hotel.partnerName && (
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-3">Listed By</h3>
-                <div className="flex items-center gap-2">
-                  <User size={16} className="text-brand-gold" />
-                  <span className="font-body text-sm text-foreground">{hotel.partnerName}</span>
-                </div>
+                <div className="flex items-center gap-2"><User size={16} className="text-brand-gold" /><span className="font-body text-sm text-foreground">{hotel.partnerName}</span></div>
               </div>
             )}
           </div>
@@ -137,18 +128,12 @@ const HotelDetail = () => {
           <div className="lg:col-span-1">
             <div className="bg-card rounded-xl border border-border p-6 sticky top-24">
               {showPayment ? (
-                <UpiPayment
-                  amount={total}
-                  bookingId={bookingId}
-                  itemName={hotel.name}
-                  onPaymentConfirm={handlePaymentConfirm}
-                  onCancel={() => setShowPayment(false)}
-                />
+                <UpiPayment amount={total} bookingId={bookingId} itemName={hotel.name} onPaymentConfirm={handlePaymentConfirm} onCancel={() => setShowPayment(false)} />
               ) : booked ? (
                 <div className="text-center py-8">
-                  <CheckCircle size={48} className="mx-auto mb-4 text-brand-green" />
-                  <h3 className="font-heading text-xl font-semibold text-foreground mb-2">Booking Confirmed!</h3>
-                  <p className="font-body text-sm text-muted-foreground mb-4">Check your bookings page for details</p>
+                  <CheckCircle size={48} className="mx-auto mb-4 text-brand-saffron" />
+                  <h3 className="font-heading text-xl font-semibold text-foreground mb-2">Booking Submitted!</h3>
+                  <p className="font-body text-sm text-muted-foreground mb-4">Your payment is being verified by admin. You'll be notified once confirmed.</p>
                   <Link to="/bookings" className="btn-gold px-6 py-2.5 rounded-lg text-sm">View My Bookings</Link>
                 </div>
               ) : (
@@ -157,39 +142,16 @@ const HotelDetail = () => {
                     <span className="font-heading text-3xl font-bold text-foreground">₹{hotel.pricePerNight?.toLocaleString('en-IN')}</span>
                     <span className="font-body text-sm text-muted-foreground"> /night</span>
                   </div>
-
                   <div className="space-y-4">
-                    <div>
-                      <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-in</label>
-                      <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
-                    </div>
-                    <div>
-                      <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-out</label>
-                      <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
-                    </div>
-                    <div>
-                      <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Guests</label>
-                      <input type="number" min={1} max={10} value={guests} onChange={(e) => setGuests(Number(e.target.value))}
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
-                    </div>
+                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-in</label><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-out</label><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Guests</label><input type="number" min={1} max={10} value={guests} onChange={(e) => setGuests(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                   </div>
-
                   <div className="border-t border-border mt-4 pt-4 space-y-2">
-                    <div className="flex justify-between font-body text-sm">
-                      <span className="text-muted-foreground">₹{hotel.pricePerNight?.toLocaleString('en-IN')} × {nights} night(s)</span>
-                      <span className="text-foreground">₹{total.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between font-body text-sm font-semibold border-t border-border pt-2">
-                      <span>Total</span>
-                      <span className="text-brand-crimson">₹{total.toLocaleString('en-IN')}</span>
-                    </div>
+                    <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{hotel.pricePerNight?.toLocaleString('en-IN')} × {nights} night(s)</span><span className="text-foreground">₹{total.toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between font-body text-sm font-semibold border-t border-border pt-2"><span>Total</span><span className="text-brand-crimson">₹{total.toLocaleString('en-IN')}</span></div>
                   </div>
-
-                  <button onClick={handleInitiateBooking} className="btn-gold w-full py-3 rounded-xl text-sm mt-4">
-                    Pay & Book Now
-                  </button>
+                  <button onClick={handleInitiateBooking} className="btn-gold w-full py-3 rounded-xl text-sm mt-4">Pay & Book Now</button>
                 </>
               )}
             </div>

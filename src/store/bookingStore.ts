@@ -20,6 +20,7 @@ export interface Booking {
   paymentMethod: 'online' | 'doorstep';
   paymentStatus: 'pending' | 'paid' | 'failed';
   bookingStatus: 'confirmed' | 'cancelled' | 'completed' | 'pending';
+  upiTransactionId?: string;
   additionalInfo?: string;
   createdAt: string;
 }
@@ -28,6 +29,8 @@ interface BookingState {
   bookings: Booking[];
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => Booking;
   cancelBooking: (id: string) => void;
+  verifyPayment: (id: string) => void;
+  rejectPayment: (id: string) => void;
   getBookingsByUser: (userId: string) => Booking[];
   getBookingsByPartner: (partnerId: string) => Booking[];
   getAllBookings: () => Booking[];
@@ -57,6 +60,22 @@ export const useBookingStore = create<BookingState>()(
         set((state) => ({
           bookings: state.bookings.map((b) =>
             b.id === id ? { ...b, bookingStatus: 'cancelled' as const } : b
+          ),
+        }));
+      },
+
+      verifyPayment: (id) => {
+        set((state) => ({
+          bookings: state.bookings.map((b) =>
+            b.id === id ? { ...b, paymentStatus: 'paid' as const, bookingStatus: 'confirmed' as const } : b
+          ),
+        }));
+      },
+
+      rejectPayment: (id) => {
+        set((state) => ({
+          bookings: state.bookings.map((b) =>
+            b.id === id ? { ...b, paymentStatus: 'failed' as const, bookingStatus: 'cancelled' as const } : b
           ),
         }));
       },
