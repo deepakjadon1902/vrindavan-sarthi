@@ -199,13 +199,22 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
                       <p className="font-body text-[10px] text-muted-foreground">Explore stays in Vrindavan</p>
                     </div>
                   </Link>
-                  <Link to="/tours" className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors group">
+                  <Link to="/my-orders" className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors group">
+                    <div className="w-9 h-9 rounded-lg bg-brand-saffron/10 flex items-center justify-center group-hover:bg-brand-saffron/20 transition-colors">
+                      <CreditCard size={16} className="text-brand-saffron" />
+                    </div>
+                    <div>
+                      <p className="font-body text-sm font-medium text-foreground">My Orders</p>
+                      <p className="font-body text-[10px] text-muted-foreground">Track your purchases</p>
+                    </div>
+                  </Link>
+                  <Link to="/shop" className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors group">
                     <div className="w-9 h-9 rounded-lg bg-brand-green/10 flex items-center justify-center group-hover:bg-brand-green/20 transition-colors">
                       <Calendar size={16} className="text-brand-green" />
                     </div>
                     <div>
-                      <p className="font-body text-sm font-medium text-foreground">Tour Packages</p>
-                      <p className="font-body text-[10px] text-muted-foreground">Sacred pilgrimage tours</p>
+                      <p className="font-body text-sm font-medium text-foreground">Divine Shop</p>
+                      <p className="font-body text-[10px] text-muted-foreground">Sacred items & souvenirs</p>
                     </div>
                   </Link>
                 </div>
