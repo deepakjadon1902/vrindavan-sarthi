@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
-import { CreditCard, CheckCircle2, XCircle, Clock, IndianRupee } from 'lucide-react';
+import { CreditCard, CheckCircle2, XCircle, Clock, IndianRupee, Eye } from 'lucide-react';
 import { useState } from 'react';
 
 const PartnerPayments = () => {
@@ -8,6 +8,7 @@ const PartnerPayments = () => {
   const { getBookingsByPartner } = useBookingStore();
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid' | 'failed'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'cab' | 'tour'>('all');
+  const [selectedUpi, setSelectedUpi] = useState<string | null>(null);
 
   const bookings = getBookingsByPartner(user?.id || '').sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -28,38 +29,27 @@ const PartnerPayments = () => {
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-green/10 flex items-center justify-center"><IndianRupee size={20} className="text-brand-green" /></div>
-            <div>
-              <p className="font-body text-xs text-muted-foreground">Total Earnings</p>
-              <p className="font-heading text-xl font-bold text-foreground">₹{totalEarnings.toLocaleString('en-IN')}</p>
-            </div>
+            <div><p className="font-body text-xs text-muted-foreground">Total Earnings</p><p className="font-heading text-xl font-bold text-foreground">₹{totalEarnings.toLocaleString('en-IN')}</p></div>
           </div>
         </div>
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-saffron/10 flex items-center justify-center"><Clock size={20} className="text-brand-saffron" /></div>
-            <div>
-              <p className="font-body text-xs text-muted-foreground">Pending</p>
-              <p className="font-heading text-xl font-bold text-foreground">₹{pendingAmount.toLocaleString('en-IN')}</p>
-            </div>
+            <div><p className="font-body text-xs text-muted-foreground">Pending</p><p className="font-heading text-xl font-bold text-foreground">₹{pendingAmount.toLocaleString('en-IN')}</p></div>
           </div>
         </div>
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-crimson/10 flex items-center justify-center"><CreditCard size={20} className="text-brand-crimson" /></div>
-            <div>
-              <p className="font-body text-xs text-muted-foreground">Total Transactions</p>
-              <p className="font-heading text-xl font-bold text-foreground">{bookings.length}</p>
-            </div>
+            <div><p className="font-body text-xs text-muted-foreground">Total Transactions</p><p className="font-heading text-xl font-bold text-foreground">{bookings.length}</p></div>
           </div>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-2">
         {(['all', 'pending', 'paid', 'failed'] as const).map((f) => (
           <button key={f} onClick={() => setStatusFilter(f)} className={`px-4 py-2 rounded-lg font-body text-sm capitalize transition-colors ${statusFilter === f ? 'bg-brand-crimson text-primary-foreground' : 'bg-card border border-border hover:bg-muted'}`}>
@@ -74,6 +64,13 @@ const PartnerPayments = () => {
           </button>
         ))}
       </div>
+
+      {selectedUpi && (
+        <div className="bg-brand-cream border border-brand-gold/30 rounded-xl p-4 flex items-center justify-between">
+          <div><p className="font-body text-xs text-muted-foreground">User's UPI Transaction ID</p><p className="font-heading text-lg font-bold text-foreground">{selectedUpi}</p></div>
+          <button onClick={() => setSelectedUpi(null)} className="px-3 py-1 rounded-lg text-xs border border-border font-body hover:bg-muted">Close</button>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
@@ -93,6 +90,11 @@ const PartnerPayments = () => {
                   </div>
                   <p className="font-heading text-sm font-semibold text-foreground truncate">{b.itemName}</p>
                   <p className="font-body text-xs text-muted-foreground mt-1">{b.userName} • {b.userPhone}</p>
+                  {b.upiTransactionId && (
+                    <button onClick={() => setSelectedUpi(b.upiTransactionId!)} className="flex items-center gap-1 font-body text-xs text-brand-gold hover:underline mt-1">
+                      <Eye size={12} /> UPI Txn: {b.upiTransactionId.slice(0, 12)}...
+                    </button>
+                  )}
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="font-heading text-lg font-bold text-foreground">₹{b.totalAmount.toLocaleString('en-IN')}</p>

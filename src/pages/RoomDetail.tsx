@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Star, MapPin, User, CheckCircle, BedDouble, Snowflake } from 'lucide-react';
+import { ArrowLeft, User, CheckCircle, BedDouble, Snowflake } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
+import UpiPayment from '@/components/UpiPayment';
 
 const RoomDetail = () => {
   const { id } = useParams();
@@ -13,7 +14,9 @@ const RoomDetail = () => {
   const [room, setRoom] = useState<any>(null);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
+  const [showPayment, setShowPayment] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [bookingId, setBookingId] = useState('');
 
   useEffect(() => {
     try {
@@ -35,10 +38,15 @@ const RoomDetail = () => {
   const nights = checkIn && checkOut ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 1;
   const total = room.pricePerNight * nights;
 
-  const handleBook = () => {
+  const handleInitiateBooking = () => {
     if (!isAuthenticated) { toast.error('Please login to book'); navigate('/login'); return; }
     if (!checkIn || !checkOut) { toast.error('Please select dates'); return; }
+    const tempId = `VVS-2025-${String(Math.floor(10000 + Math.random() * 90000))}`;
+    setBookingId(tempId);
+    setShowPayment(true);
+  };
 
+  const handlePaymentConfirm = (transactionId: string) => {
     addBooking({
       bookingType: 'room',
       itemId: room.id,
@@ -54,11 +62,14 @@ const RoomDetail = () => {
       guests: room.capacity,
       totalAmount: total,
       paymentMethod: 'online',
-      paymentStatus: 'paid',
-      bookingStatus: 'confirmed',
+      paymentStatus: 'pending',
+      bookingStatus: 'pending',
+      upiTransactionId: transactionId,
+      additionalInfo: `UPI Txn: ${transactionId}`,
     });
+    setShowPayment(false);
     setBooked(true);
-    toast.success('Room booked successfully!');
+    toast.success('Booking submitted! Payment verification pending.');
   };
 
   return (
@@ -67,18 +78,15 @@ const RoomDetail = () => {
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-6 mt-4">
           <ArrowLeft size={16} /> Back
         </button>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <div className="rounded-xl overflow-hidden h-72 md:h-96">
               <img src={room.image} alt={room.name} className="w-full h-full object-cover" />
             </div>
-
             <div>
               <h1 className="font-heading text-3xl font-bold text-foreground">{room.name}</h1>
               <p className="font-body text-sm text-muted-foreground mt-1">📍 {room.hotelName}</p>
             </div>
-
             <div className="bg-card rounded-xl border border-border p-6">
               <h3 className="font-heading text-lg font-semibold text-foreground mb-3">Room Details</h3>
               <div className="grid grid-cols-2 gap-4 font-body text-sm">
@@ -88,18 +96,14 @@ const RoomDetail = () => {
                 <div><span className="text-muted-foreground block text-xs mb-1">Price/Bed</span><span>₹{room.pricePerBed || 'N/A'}</span></div>
               </div>
             </div>
-
             {room.amenities?.length > 0 && (
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-3">Amenities</h3>
                 <div className="flex flex-wrap gap-2">
-                  {room.amenities.map((a: string) => (
-                    <span key={a} className="font-body text-sm bg-secondary px-3 py-1.5 rounded-lg text-secondary-foreground">{a}</span>
-                  ))}
+                  {room.amenities.map((a: string) => (<span key={a} className="font-body text-sm bg-secondary px-3 py-1.5 rounded-lg text-secondary-foreground">{a}</span>))}
                 </div>
               </div>
             )}
-
             {room.partnerName && (
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-3">Listed By</h3>
@@ -107,13 +111,15 @@ const RoomDetail = () => {
               </div>
             )}
           </div>
-
           <div className="lg:col-span-1">
             <div className="bg-card rounded-xl border border-border p-6 sticky top-24">
-              {booked ? (
+              {showPayment ? (
+                <UpiPayment amount={total} bookingId={bookingId} itemName={`${room.name} - ${room.hotelName}`} onPaymentConfirm={handlePaymentConfirm} onCancel={() => setShowPayment(false)} />
+              ) : booked ? (
                 <div className="text-center py-8">
-                  <CheckCircle size={48} className="mx-auto mb-4 text-brand-green" />
-                  <h3 className="font-heading text-xl font-semibold text-foreground mb-2">Booking Confirmed!</h3>
+                  <CheckCircle size={48} className="mx-auto mb-4 text-brand-saffron" />
+                  <h3 className="font-heading text-xl font-semibold text-foreground mb-2">Booking Submitted!</h3>
+                  <p className="font-body text-sm text-muted-foreground mb-4">Payment verification pending.</p>
                   <Link to="/bookings" className="btn-gold px-6 py-2.5 rounded-lg text-sm">View My Bookings</Link>
                 </div>
               ) : (
@@ -130,7 +136,7 @@ const RoomDetail = () => {
                     <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{room.pricePerNight} × {nights} night(s)</span><span>₹{total.toLocaleString('en-IN')}</span></div>
                     <div className="flex justify-between font-body text-sm font-semibold border-t border-border pt-2"><span>Total</span><span className="text-brand-crimson">₹{total.toLocaleString('en-IN')}</span></div>
                   </div>
-                  <button onClick={handleBook} className="btn-gold w-full py-3 rounded-xl text-sm mt-4">Book Now</button>
+                  <button onClick={handleInitiateBooking} className="btn-gold w-full py-3 rounded-xl text-sm mt-4">Pay & Book Now</button>
                 </>
               )}
             </div>

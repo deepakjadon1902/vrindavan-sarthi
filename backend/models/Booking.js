@@ -20,6 +20,7 @@ const bookingSchema = new mongoose.Schema({
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
   bookingStatus: { type: String, enum: ['pending', 'confirmed', 'cancelled', 'completed'], default: 'confirmed' },
   additionalInfo: String,
+  upiTransactionId: String,
 }, { timestamps: true });
 
 bookingSchema.pre('save', function (next) {
