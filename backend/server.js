@@ -13,6 +13,8 @@ const userRoutes = require('./routes/user.routes');
 const partnerRoutes = require('./routes/partner.routes');
 const settingsRoutes = require('./routes/settings.routes');
 const paymentRoutes = require('./routes/payment.routes');
+const productRoutes = require('./routes/product.routes');
+const orderRoutes = require('./routes/order.routes');
 
 connectDB();
 
@@ -33,6 +35,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/partner', partnerRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/orders', orderRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'VrindavanSarthi API running' }));
 
