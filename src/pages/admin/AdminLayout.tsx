@@ -15,6 +15,8 @@ const sidebarLinks = [
   { name: 'Partner Requests', path: '/admin/partner-requests', icon: Handshake },
   { name: 'Bookings', path: '/admin/bookings', icon: ClipboardList },
   { name: 'Payments', path: '/admin/payments', icon: CreditCard },
+  { name: 'Products', path: '/admin/products', icon: ClipboardList },
+  { name: 'Orders', path: '/admin/orders', icon: ClipboardList },
   { name: 'Users', path: '/admin/users', icon: Users },
   { name: 'Settings', path: '/admin/settings', icon: Settings },
 ];
