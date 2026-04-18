@@ -1,10 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Hotel, BedDouble, Car, Map, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight } from 'lucide-react';
+import { Hotel, BedDouble, Car, Map, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import TestimonialCard from '@/components/shared/TestimonialCard';
+import { useProductStore } from '@/store/productStore';
 
 import heroImg from '@/assets/images/hero-vrindavan.jpg';
 
@@ -13,6 +14,7 @@ const services = [
   { icon: BedDouble, title: 'Rooms', desc: 'Budget to premium room options', link: '/rooms' },
   { icon: Car, title: 'Cabs', desc: 'Reliable local & outstation cabs', link: '/cabs' },
   { icon: Map, title: 'Tours', desc: 'Guided spiritual tour packages', link: '/tours' },
+  { icon: ShoppingBag, title: 'Shop', desc: 'Sacred items & souvenirs', link: '/shop' },
 ];
 
 const stats = [
@@ -37,8 +39,11 @@ const whyUs = [
 
 const Home = () => {
   const navigate = useNavigate();
+  const { products } = useProductStore();
   const [hotels, setHotels] = useState<any[]>([]);
   const [tours, setTours] = useState<any[]>([]);
+
+  const featuredProducts = products.filter(p => p.inStock).slice(0, 4);
 
   useEffect(() => {
     try {
@@ -157,6 +162,38 @@ const Home = () => {
           )}
         </div>
       </section>
+
+      {/* ===== FEATURED PRODUCTS (Shop) ===== */}
+      {featuredProducts.length > 0 && (
+        <section className="py-16 lg:py-24 relative overflow-hidden">
+          <div className="pointer-events-none absolute -top-10 -left-10 w-72 h-72 rounded-full bg-brand-gold/15 blur-3xl" />
+          <div className="container mx-auto px-4 relative">
+            <SectionTitle label="Divine Shop" title="Sacred Souvenirs from Vrindavan" subtitle="Take a piece of Vrindavan's blessings home with you" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredProducts.map((p) => (
+                <Link key={p.id} to={`/shop/${p.id}`} className="glass-panel rounded-2xl overflow-hidden water-hover group">
+                  <div className="h-48 overflow-hidden relative">
+                    <img src={p.images[0] || '/placeholder.svg'} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    <div className="absolute inset-0 glossy-sheen pointer-events-none" />
+                    <span className="absolute top-2 left-2 glass-chip px-2 py-0.5 rounded-full font-body text-[10px] capitalize">{p.category}</span>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-display text-base font-semibold text-foreground truncate">{p.name}</h3>
+                    <p className="font-body text-xs text-muted-foreground mt-1 line-clamp-2">{p.description}</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="font-display text-lg font-bold text-brand-crimson">₹{p.price.toLocaleString('en-IN')}</span>
+                      <span className="font-body text-[10px] text-brand-green font-medium flex items-center gap-1"><ShoppingBag size={11} />Buy</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="text-center mt-10">
+              <Link to="/shop" className="metallic-gold px-8 py-3 rounded-xl inline-flex items-center gap-2 font-semibold">Visit Shop <ArrowRight size={18} /></Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ===== WHY US ===== */}
       <section className="section-cream py-16 lg:py-24">

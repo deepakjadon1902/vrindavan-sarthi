@@ -1,11 +1,18 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { ClipboardList, ArrowRight, Calendar, XCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ClipboardList, ArrowRight, Calendar, XCircle, Hotel, BedDouble, Car, Map as MapIcon, Sparkles, CheckCircle2, Clock, IndianRupee } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { useState } from 'react';
 import { toast } from 'sonner';
+
+const typeIcon: Record<string, any> = {
+  hotel: Hotel,
+  room: BedDouble,
+  cab: Car,
+  tour: MapIcon,
+};
 
 const MyBookings = () => {
   const { user } = useAuthStore();
@@ -16,19 +23,29 @@ const MyBookings = () => {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  const filtered = filter === 'All' ? bookings :
+  const filtered =
+    filter === 'All' ? bookings :
     filter === 'Upcoming' ? bookings.filter(b => b.bookingStatus === 'confirmed') :
+    filter === 'Pending' ? bookings.filter(b => b.bookingStatus === 'pending') :
     filter === 'Completed' ? bookings.filter(b => b.bookingStatus === 'completed') :
     bookings.filter(b => b.bookingStatus === 'cancelled');
 
-  const statusColor = (s: string) => {
-    if (s === 'confirmed') return 'bg-brand-green/10 text-brand-green';
-    if (s === 'cancelled') return 'bg-destructive/10 text-destructive';
-    if (s === 'completed') return 'bg-brand-gold/10 text-brand-gold';
-    return 'bg-muted text-muted-foreground';
+  const stats = {
+    total: bookings.length,
+    confirmed: bookings.filter(b => b.bookingStatus === 'confirmed').length,
+    pending: bookings.filter(b => b.bookingStatus === 'pending').length,
+    spent: bookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + b.totalAmount, 0),
   };
 
-  const handleCancel = (id: string) => {
+  const statusBadge = (s: string) => {
+    if (s === 'confirmed') return { cls: 'bg-brand-green/15 text-brand-green border-brand-green/30', icon: CheckCircle2 };
+    if (s === 'cancelled') return { cls: 'bg-destructive/15 text-destructive border-destructive/30', icon: XCircle };
+    if (s === 'completed') return { cls: 'bg-brand-gold/15 text-brand-gold border-brand-gold/30', icon: CheckCircle2 };
+    return { cls: 'bg-muted text-muted-foreground border-border', icon: Clock };
+  };
+
+  const handleCancel = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
     cancelBooking(id);
     toast.success('Booking cancelled');
   };
@@ -36,17 +53,51 @@ const MyBookings = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-background pt-24 pb-16 px-4">
-        <div className="container mx-auto max-w-4xl">
-          <h1 className="font-heading text-3xl font-semibold text-foreground mb-8">My Bookings</h1>
+      <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 pt-24 pb-16 px-4 relative overflow-hidden">
+        <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-gold/15 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 -left-24 w-80 h-80 rounded-full bg-brand-crimson/15 blur-3xl" />
 
-          <div className="flex gap-2 mb-8 overflow-x-auto">
-            {['All', 'Upcoming', 'Completed', 'Cancelled'].map((tab) => (
+        <div className="container mx-auto max-w-5xl relative">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles size={14} className="text-brand-gold animate-float-slow" />
+              <span className="font-ui text-[11px] uppercase tracking-[0.2em] text-brand-gold">Your Sacred Journey</span>
+            </div>
+            <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground">My Bookings</h1>
+            <p className="font-body text-sm text-muted-foreground mt-2">Track every stay, ride, and tour in one place</p>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+            <div className="glass-panel rounded-2xl p-4 water-hover">
+              <p className="font-body text-xs text-muted-foreground">Total</p>
+              <p className="font-display text-2xl font-bold text-foreground">{stats.total}</p>
+            </div>
+            <div className="glass-panel rounded-2xl p-4 water-hover">
+              <p className="font-body text-xs text-muted-foreground">Confirmed</p>
+              <p className="font-display text-2xl font-bold text-brand-green">{stats.confirmed}</p>
+            </div>
+            <div className="glass-panel rounded-2xl p-4 water-hover">
+              <p className="font-body text-xs text-muted-foreground">Pending</p>
+              <p className="font-display text-2xl font-bold text-brand-saffron">{stats.pending}</p>
+            </div>
+            <div className="glass-panel rounded-2xl p-4 water-hover">
+              <p className="font-body text-xs text-muted-foreground">Total Spent</p>
+              <p className="font-display text-2xl font-bold text-brand-crimson flex items-center"><IndianRupee size={16} />{stats.spent.toLocaleString('en-IN')}</p>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+            {['All', 'Upcoming', 'Pending', 'Completed', 'Cancelled'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
-                className={`px-4 py-2 rounded-lg font-body text-sm whitespace-nowrap transition-colors ${
-                  filter === tab ? 'bg-brand-crimson text-primary-foreground' : 'bg-card border border-border text-muted-foreground hover:bg-muted'
+                className={`px-4 py-2 rounded-xl font-body text-sm whitespace-nowrap transition-all ${
+                  filter === tab
+                    ? 'metallic-gold shadow-lg'
+                    : 'glass-panel text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {tab}
@@ -55,54 +106,73 @@ const MyBookings = () => {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-16 text-center">
-              <ClipboardList size={64} className="mx-auto mb-6 text-muted-foreground/20" />
-              <h2 className="font-heading text-2xl font-semibold text-foreground mb-2">No Bookings Yet</h2>
+            <div className="glass-panel rounded-3xl p-16 text-center metallic-border">
+              <ClipboardList size={64} className="mx-auto mb-6 text-brand-gold/40 animate-float-slow" />
+              <h2 className="font-display text-3xl font-semibold text-foreground mb-2">No Bookings Yet</h2>
               <p className="font-body text-muted-foreground mb-6">
                 Start your sacred journey by booking a hotel, room, cab, or tour package.
               </p>
-              <Link to="/hotels" className="btn-gold px-6 py-3 rounded-xl text-sm inline-flex items-center gap-2">
+              <Link to="/hotels" className="metallic-gold px-6 py-3 rounded-xl text-sm inline-flex items-center gap-2 font-semibold">
                 Start Your Journey <ArrowRight size={16} />
               </Link>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filtered.map((b) => (
-                <div key={b.id} onClick={() => window.location.href = `/bookings/${b.id}`} className="bg-card rounded-xl border border-border p-5 cursor-pointer hover:shadow-md hover:border-brand-crimson/20 transition-all">
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="w-24 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                      {b.itemImage && b.itemImage !== '/placeholder.svg' ? (
-                        <img src={b.itemImage} alt={b.itemName} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center"><ClipboardList size={20} className="text-muted-foreground" /></div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-body text-xs text-muted-foreground">{b.id}</p>
-                          <h3 className="font-heading text-lg font-semibold text-foreground">{b.itemName}</h3>
-                          <span className="font-body text-xs bg-secondary px-2 py-0.5 rounded text-secondary-foreground capitalize">{b.bookingType}</span>
-                        </div>
-                        <span className={`font-body text-xs px-2 py-1 rounded-full capitalize ${statusColor(b.bookingStatus)}`}>{b.bookingStatus}</span>
-                      </div>
-                      <div className="flex items-center gap-4 mt-3 font-body text-xs text-muted-foreground">
-                        {b.checkIn && (
-                          <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(b.checkIn).toLocaleDateString()}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filtered.map((b) => {
+                const Icon = typeIcon[b.bookingType] || ClipboardList;
+                const sb = statusBadge(b.bookingStatus);
+                const SIcon = sb.icon;
+                return (
+                  <Link
+                    key={b.id}
+                    to={`/bookings/${b.id}`}
+                    className="glass-panel rounded-2xl overflow-hidden water-hover group block"
+                  >
+                    <div className="flex gap-4 p-4">
+                      <div className="w-28 h-28 rounded-xl overflow-hidden bg-muted flex-shrink-0 relative">
+                        {b.itemImage && b.itemImage !== '/placeholder.svg' ? (
+                          <img src={b.itemImage} alt={b.itemName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-crimson/10 to-brand-gold/10">
+                            <Icon size={28} className="text-muted-foreground/50" />
+                          </div>
                         )}
-                        {b.checkOut && <span>→ {new Date(b.checkOut).toLocaleDateString()}</span>}
-                        {b.totalAmount > 0 && <span className="font-semibold text-foreground">₹{b.totalAmount.toLocaleString('en-IN')}</span>}
-                        <span>{b.paymentMethod === 'doorstep' ? '💰 Pay at Doorstep' : `💳 ${b.paymentStatus}`}</span>
+                        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded glass-chip text-[9px] capitalize flex items-center gap-1">
+                          <Icon size={9} /> {b.bookingType}
+                        </div>
                       </div>
-                      {b.bookingStatus === 'confirmed' && (
-                        <button onClick={() => handleCancel(b.id)} className="mt-3 flex items-center gap-1 font-body text-xs text-destructive hover:underline">
-                          <XCircle size={12} /> Cancel Booking
-                        </button>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-body text-[10px] text-brand-crimson font-medium tracking-wider">{b.id}</p>
+                          <span className={`font-body text-[10px] px-2 py-0.5 rounded-full capitalize border flex items-center gap-1 ${sb.cls}`}>
+                            <SIcon size={10} /> {b.bookingStatus}
+                          </span>
+                        </div>
+                        <h3 className="font-display text-base font-semibold text-foreground truncate mt-0.5">{b.itemName}</h3>
+                        <div className="flex items-center gap-3 mt-2 font-body text-[11px] text-muted-foreground">
+                          {b.checkIn && (
+                            <span className="flex items-center gap-1"><Calendar size={11} /> {new Date(b.checkIn).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                          )}
+                          {b.checkOut && <span>→ {new Date(b.checkOut).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          {b.totalAmount > 0 && (
+                            <span className="font-display text-lg font-bold text-brand-crimson flex items-center"><IndianRupee size={13} />{b.totalAmount.toLocaleString('en-IN')}</span>
+                          )}
+                          <span className="font-body text-[10px] text-muted-foreground">
+                            {b.paymentMethod === 'doorstep' ? '💰 Doorstep' : `💳 ${b.paymentStatus}`}
+                          </span>
+                        </div>
+                        {b.bookingStatus === 'confirmed' && (
+                          <button onClick={(e) => handleCancel(e, b.id)} className="mt-2 flex items-center gap-1 font-body text-[11px] text-destructive hover:underline">
+                            <XCircle size={11} /> Cancel
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
