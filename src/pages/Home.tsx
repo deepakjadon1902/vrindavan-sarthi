@@ -1,10 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Hotel, BedDouble, Car, Map, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight } from 'lucide-react';
+import { Hotel, BedDouble, Car, Map, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import TestimonialCard from '@/components/shared/TestimonialCard';
+import { useProductStore } from '@/store/productStore';
 
 import heroImg from '@/assets/images/hero-vrindavan.jpg';
 
@@ -13,6 +14,7 @@ const services = [
   { icon: BedDouble, title: 'Rooms', desc: 'Budget to premium room options', link: '/rooms' },
   { icon: Car, title: 'Cabs', desc: 'Reliable local & outstation cabs', link: '/cabs' },
   { icon: Map, title: 'Tours', desc: 'Guided spiritual tour packages', link: '/tours' },
+  { icon: ShoppingBag, title: 'Shop', desc: 'Sacred items & souvenirs', link: '/shop' },
 ];
 
 const stats = [
@@ -37,8 +39,11 @@ const whyUs = [
 
 const Home = () => {
   const navigate = useNavigate();
+  const { products } = useProductStore();
   const [hotels, setHotels] = useState<any[]>([]);
   const [tours, setTours] = useState<any[]>([]);
+
+  const featuredProducts = products.filter(p => p.inStock).slice(0, 4);
 
   useEffect(() => {
     try {
