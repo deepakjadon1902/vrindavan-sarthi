@@ -53,6 +53,22 @@ const removeFromMain = (id) => {
 const PartnerAddHotel = () => {
   const { user } = useAuthStore();
   const [items, setItems] = useState<PartnerHotel[]>(() => getStored().filter(i => i.partnerId === user?.id));
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (!editId) return;
+    const target = items.find((i) => i.id === editId);
+    if (target) {
+      handleEdit(target);
+      // clear param so a refresh doesn't re-trigger
+      const next = new URLSearchParams(searchParams);
+      next.delete('edit');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length, searchParams]);
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
