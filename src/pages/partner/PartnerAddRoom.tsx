@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Search, X, Upload, Image as ImageIcon, BedDouble } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
@@ -35,6 +36,15 @@ const STORAGE_KEY = 'vvs_partner_rooms';
 const getStored = (): PartnerRoom[] => { try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; } };
 const save = (data: PartnerRoom[]) => localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
+const MAIN_KEY = 'vvs_rooms';
+const removeFromMain = (id) => {
+  try {
+    const raw = localStorage.getItem(MAIN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    localStorage.setItem(MAIN_KEY, JSON.stringify(arr.filter((x) => x.id !== id)));
+  } catch { /* noop */ }
+};
+
 const PartnerAddRoom = () => {
   const { user } = useAuthStore();
   const [items, setItems] = useState<PartnerRoom[]>(() => getStored().filter(i => i.partnerId === user?.id));
@@ -64,7 +74,6 @@ const PartnerAddRoom = () => {
   };
 
   const handleEdit = (item: PartnerRoom) => {
-    if (item.approvalStatus === 'approved') { toast.error('Cannot edit approved listings'); return; }
     setForm({ hotelName: item.hotelName, name: item.name, type: item.type, floor: item.floor, pricePerNight: String(item.pricePerNight), pricePerBed: String(item.pricePerBed), capacity: String(item.capacity), bedCount: String(item.bedCount), isAC: item.isAC, hasAttachedBathroom: item.hasAttachedBathroom, hasBalcony: item.hasBalcony, hasTV: item.hasTV, hasWiFi: item.hasWiFi, amenities: item.amenities.join(', '), description: item.description, image: item.image });
     setImagePreview(item.image); setAdditionalImages(item.images || []); setEditingId(item.id); setShowForm(true);
   };
@@ -90,11 +99,12 @@ const PartnerAddRoom = () => {
     if (editingId) { updated = allStored.map(i => i.id === editingId ? data : i); toast.success('Room updated & sent for approval'); }
     else { updated = [...allStored, data]; toast.success('Room submitted for admin approval'); }
     save(updated);
+    if (editingId) removeFromMain(editingId);
     setItems(updated.filter(i => i.partnerId === user.id));
     resetForm();
   };
 
-  const handleDelete = (id: string) => { const allStored = getStored(); const updated = allStored.filter(i => i.id !== id); save(updated); setItems(updated.filter(i => i.partnerId === user?.id)); setDeleteConfirm(null); toast.success('Room deleted'); };
+  const handleDelete = (id: string) => { const allStored = getStored(); const updated = allStored.filter(i => i.id !== id); save(updated); removeFromMain(id); setItems(updated.filter(i => i.partnerId === user?.id)); setDeleteConfirm(null); toast.success('Room deleted'); };
 
   const filtered = items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) || i.hotelName.toLowerCase().includes(search.toLowerCase()));
 

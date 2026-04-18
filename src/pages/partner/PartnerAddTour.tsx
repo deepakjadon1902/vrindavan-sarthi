@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Search, X, Upload, Map } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
@@ -34,6 +35,15 @@ const STORAGE_KEY = 'vvs_partner_tours';
 const getStored = (): PartnerTour[] => { try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; } };
 const save = (data: PartnerTour[]) => localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
+const MAIN_KEY = 'vvs_tours';
+const removeFromMain = (id) => {
+  try {
+    const raw = localStorage.getItem(MAIN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    localStorage.setItem(MAIN_KEY, JSON.stringify(arr.filter((x) => x.id !== id)));
+  } catch { /* noop */ }
+};
+
 const PartnerAddTour = () => {
   const { user } = useAuthStore();
   const [items, setItems] = useState<PartnerTour[]>(() => getStored().filter(i => i.partnerId === user?.id));
@@ -68,7 +78,6 @@ const PartnerAddTour = () => {
   };
 
   const handleEdit = (item: PartnerTour) => {
-    if (item.approvalStatus === 'approved') { toast.error('Cannot edit approved listings'); return; }
     setForm({ name: item.name, duration: item.duration, pricePerPerson: String(item.pricePerPerson), groupSize: String(item.groupSize), startPoint: item.startPoint, endPoint: item.endPoint, description: item.description, itinerary: item.itinerary, includes: item.includes.join(', '), excludes: item.excludes.join(', '), highlights: item.highlights.join(', '), contactPhone: item.contactPhone, contactEmail: item.contactEmail, image: item.image });
     setImagePreview(item.image); setAdditionalImages(item.images || []); setEditingId(item.id); setShowForm(true);
   };
@@ -96,6 +105,7 @@ const PartnerAddTour = () => {
     if (editingId) { updated = allStored.map(i => i.id === editingId ? data : i); toast.success('Tour updated & sent for approval'); }
     else { updated = [...allStored, data]; toast.success('Tour submitted for admin approval'); }
     save(updated);
+    if (editingId) removeFromMain(editingId);
     setItems(updated.filter(i => i.partnerId === user.id));
     resetForm();
   };
@@ -104,6 +114,7 @@ const PartnerAddTour = () => {
     const allStored = getStored();
     const updated = allStored.filter(i => i.id !== id);
     save(updated);
+    removeFromMain(id);
     setItems(updated.filter(i => i.partnerId === user?.id));
     setDeleteConfirm(null);
     toast.success('Tour deleted');

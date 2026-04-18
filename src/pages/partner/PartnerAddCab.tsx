@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Search, X, Upload, Car } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
@@ -33,6 +34,15 @@ const STORAGE_KEY = 'vvs_partner_cabs';
 const getStored = (): PartnerCab[] => { try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; } };
 const save = (data: PartnerCab[]) => localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
+const MAIN_KEY = 'vvs_cabs';
+const removeFromMain = (id) => {
+  try {
+    const raw = localStorage.getItem(MAIN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    localStorage.setItem(MAIN_KEY, JSON.stringify(arr.filter((x) => x.id !== id)));
+  } catch { /* noop */ }
+};
+
 const PartnerAddCab = () => {
   const { user } = useAuthStore();
   const [items, setItems] = useState<PartnerCab[]>(() => getStored().filter(i => i.partnerId === user?.id));
@@ -66,7 +76,6 @@ const PartnerAddCab = () => {
   };
 
   const handleEdit = (item: PartnerCab) => {
-    if (item.approvalStatus === 'approved') { toast.error('Cannot edit approved listings'); return; }
     setForm({ vehicleName: item.vehicleName, vehicleType: item.vehicleType, vehicleNumber: item.vehicleNumber, capacity: String(item.capacity), driverName: item.driverName, driverPhone: item.driverPhone, driverLicense: item.driverLicense, routes: item.routes.join(', '), pricePerKm: String(item.pricePerKm), basePrice: String(item.basePrice), description: item.description, features: item.features.join(', '), image: item.image });
     setImagePreview(item.image); setAdditionalImages(item.images || []); setEditingId(item.id); setShowForm(true);
   };
@@ -93,6 +102,7 @@ const PartnerAddCab = () => {
     if (editingId) { updated = allStored.map(i => i.id === editingId ? data : i); toast.success('Cab updated & sent for approval'); }
     else { updated = [...allStored, data]; toast.success('Cab submitted for admin approval'); }
     save(updated);
+    if (editingId) removeFromMain(editingId);
     setItems(updated.filter(i => i.partnerId === user.id));
     resetForm();
   };
@@ -101,6 +111,7 @@ const PartnerAddCab = () => {
     const allStored = getStored();
     const updated = allStored.filter(i => i.id !== id);
     save(updated);
+    removeFromMain(id);
     setItems(updated.filter(i => i.partnerId === user?.id));
     setDeleteConfirm(null);
     toast.success('Cab deleted');
