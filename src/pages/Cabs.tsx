@@ -53,7 +53,7 @@ const Cabs = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((cab) => (
-                <ListingCard key={cab.id} image={cab.image} name={cab.vehicleName} location={cab.routes?.join(' • ') || ''} price={0} priceLabel="" rating={0} reviewCount={0} amenities={[cab.vehicleType, `${cab.capacity} Seater`]} badge="💰 Pay at Doorstep" badgeColor="green" onViewDetails={() => navigate(`/cabs/${cab.id}`)} />
+                <ListingCard key={cab.id} image={cab.image} images={cab.images} name={cab.vehicleName} location={cab.routes?.join(' • ') || ''} price={0} priceLabel="" rating={0} reviewCount={0} amenities={[cab.vehicleType, `${cab.capacity} Seater`]} badge="💰 Pay at Doorstep" badgeColor="green" onViewDetails={() => navigate(`/cabs/${cab.id}`)} />
               ))}
             </div>
           )}
