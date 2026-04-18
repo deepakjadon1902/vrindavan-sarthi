@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Search, X, Upload, Image as ImageIcon, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
@@ -40,9 +41,34 @@ const STORAGE_KEY = 'vvs_partner_hotels';
 const getStored = (): PartnerHotel[] => { try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; } };
 const save = (data: PartnerHotel[]) => localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
+const MAIN_KEY = 'vvs_hotels';
+const removeFromMain = (id) => {
+  try {
+    const raw = localStorage.getItem(MAIN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    localStorage.setItem(MAIN_KEY, JSON.stringify(arr.filter((x) => x.id !== id)));
+  } catch { /* noop */ }
+};
+
 const PartnerAddHotel = () => {
   const { user } = useAuthStore();
   const [items, setItems] = useState<PartnerHotel[]>(() => getStored().filter(i => i.partnerId === user?.id));
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (!editId) return;
+    const target = items.find((i) => i.id === editId);
+    if (target) {
+      handleEdit(target);
+      // clear param so a refresh doesn't re-trigger
+      const next = new URLSearchParams(searchParams);
+      next.delete('edit');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length, searchParams]);
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -87,7 +113,6 @@ const PartnerAddHotel = () => {
   };
 
   const handleEdit = (item: PartnerHotel) => {
-    if (item.approvalStatus === 'approved') { toast.error('Cannot edit approved listings'); return; }
     setForm({ name: item.name, location: item.location, fullAddress: item.fullAddress, pricePerNight: String(item.pricePerNight), pricePerBed: String(item.pricePerBed), priceDoubleAC: String(item.priceDoubleAC), priceDoubleNonAC: String(item.priceDoubleNonAC), priceSingleAC: String(item.priceSingleAC), priceSingleNonAC: String(item.priceSingleNonAC), totalRooms: String(item.totalRooms), checkInTime: item.checkInTime, checkOutTime: item.checkOutTime, description: item.description, amenities: item.amenities.join(', '), nearbyPlaces: item.nearbyPlaces, policies: item.policies, contactPhone: item.contactPhone, contactEmail: item.contactEmail, image: item.image });
     setImagePreview(item.image);
     setAdditionalImages(item.images || []);
@@ -130,6 +155,7 @@ const PartnerAddHotel = () => {
       toast.success('Hotel submitted for admin approval');
     }
     save(updated);
+    if (editingId) removeFromMain(editingId);
     setItems(updated.filter(i => i.partnerId === user.id));
     resetForm();
   };
@@ -138,6 +164,7 @@ const PartnerAddHotel = () => {
     const allStored = getStored();
     const updated = allStored.filter(i => i.id !== id);
     save(updated);
+    removeFromMain(id);
     setItems(updated.filter(i => i.partnerId === user?.id));
     setDeleteConfirm(null);
     toast.success('Hotel deleted');

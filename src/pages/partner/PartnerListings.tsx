@@ -1,21 +1,45 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { Hotel, BedDouble, Car, Map, CheckCircle, Clock, XCircle, Eye } from 'lucide-react';
+import { Hotel, BedDouble, Car, Map, Eye, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+const STORAGE_KEYS: Record<string, string> = {
+  hotel: 'vvs_partner_hotels',
+  room: 'vvs_partner_rooms',
+  cab: 'vvs_partner_cabs',
+  tour: 'vvs_partner_tours',
+};
+const MAIN_KEYS: Record<string, string> = {
+  hotel: 'vvs_hotels',
+  room: 'vvs_rooms',
+  cab: 'vvs_cabs',
+  tour: 'vvs_tours',
+};
+const ADD_ROUTES: Record<string, string> = {
+  hotel: '/partner/hotels',
+  room: '/partner/rooms',
+  cab: '/partner/cabs',
+  tour: '/partner/tours',
+};
+
+const getItems = (key: string): any[] => {
+  try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : []; } catch { return []; }
+};
 
 const PartnerListings = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'cab' | 'tour'>('all');
   const [viewItem, setViewItem] = useState<any>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [, setRefresh] = useState(0);
 
-  const getItems = (key: string) => {
-    try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : []; } catch { return []; }
-  };
-
-  const hotels = getItems('vvs_partner_hotels').filter((i: any) => i.partnerId === user?.id).map((i: any) => ({ ...i, itemType: 'hotel' }));
-  const rooms = getItems('vvs_partner_rooms').filter((i: any) => i.partnerId === user?.id).map((i: any) => ({ ...i, itemType: 'room' }));
-  const cabs = getItems('vvs_partner_cabs').filter((i: any) => i.partnerId === user?.id).map((i: any) => ({ ...i, itemType: 'cab' }));
-  const tours = getItems('vvs_partner_tours').filter((i: any) => i.partnerId === user?.id).map((i: any) => ({ ...i, itemType: 'tour' }));
+  const hotels = getItems(STORAGE_KEYS.hotel).filter((i: any) => i.partnerId === user?.id).map((i: any) => ({ ...i, itemType: 'hotel' }));
+  const rooms = getItems(STORAGE_KEYS.room).filter((i: any) => i.partnerId === user?.id).map((i: any) => ({ ...i, itemType: 'room' }));
+  const cabs = getItems(STORAGE_KEYS.cab).filter((i: any) => i.partnerId === user?.id).map((i: any) => ({ ...i, itemType: 'cab' }));
+  const tours = getItems(STORAGE_KEYS.tour).filter((i: any) => i.partnerId === user?.id).map((i: any) => ({ ...i, itemType: 'tour' }));
   const allItems = [...hotels, ...rooms, ...cabs, ...tours];
 
   const filteredByType = typeFilter === 'all' ? allItems : allItems.filter(i => i.itemType === typeFilter);
@@ -42,8 +66,29 @@ const PartnerListings = () => {
     return '-';
   };
 
+  const handleEdit = (item: any) => {
+    navigate(`${ADD_ROUTES[item.itemType]}?edit=${item.id}`);
+  };
+
+  const handleDelete = (item: any) => {
+    const key = STORAGE_KEYS[item.itemType];
+    const mainKey = MAIN_KEYS[item.itemType];
+    const updated = getItems(key).filter((i: any) => i.id !== item.id);
+    localStorage.setItem(key, JSON.stringify(updated));
+    const updatedMain = getItems(mainKey).filter((i: any) => i.id !== item.id);
+    localStorage.setItem(mainKey, JSON.stringify(updatedMain));
+    setConfirmDeleteId(null);
+    setRefresh(r => r + 1);
+    toast.success(`${item.itemType.charAt(0).toUpperCase() + item.itemType.slice(1)} deleted`);
+  };
+
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="font-heading text-xl font-bold text-foreground">All My Listings</h2>
+        <p className="font-body text-xs text-muted-foreground">Manage every hotel, room, cab and tour you've listed in one place. Editing an approved listing will send it back for admin re-approval.</p>
+      </div>
+
       <div className="flex gap-2 flex-wrap">
         {(['all', 'hotel', 'room', 'cab', 'tour'] as const).map(f => (
           <button key={f} onClick={() => setTypeFilter(f)} className={`px-3 py-1.5 rounded-lg font-body text-xs capitalize transition-colors ${typeFilter === f ? 'bg-brand-gold text-foreground' : 'bg-card border border-border hover:bg-muted'}`}>
@@ -67,17 +112,20 @@ const PartnerListings = () => {
       ) : (
         <div className="space-y-3">
           {filtered.map((item) => (
-            <div key={item.id} className="bg-card rounded-xl border border-border p-4 flex items-center gap-4">
+            <div key={item.id} className="bg-card rounded-xl border border-border p-4 flex flex-wrap items-center gap-4">
               <div className="w-16 h-12 rounded-lg overflow-hidden bg-muted shrink-0">
-                {item.image && item.image !== '/placeholder.svg' ? <img src={item.image} className="w-full h-full object-cover" /> : (
+                {item.image && item.image !== '/placeholder.svg' ? <img src={item.image} alt="" className="w-full h-full object-cover" /> : (
                   <div className="w-full h-full flex items-center justify-center">{typeIcon(item.itemType)}</div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {typeIcon(item.itemType)}
                   <p className="font-body text-sm font-medium text-foreground truncate">{getItemName(item)}</p>
                   <span className={`font-body text-[10px] px-2 py-0.5 rounded-full ${statusBadge(item.approvalStatus)}`}>{item.approvalStatus}</span>
+                  {item.images?.length > 0 && (
+                    <span className="font-body text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{1 + item.images.length} photos</span>
+                  )}
                 </div>
                 <p className="font-body text-xs text-muted-foreground capitalize">{item.itemType} • {item.location || item.vehicleType || item.duration || ''}</p>
                 {item.adminRemarks && (
@@ -86,7 +134,16 @@ const PartnerListings = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-body text-sm font-medium text-foreground">{getItemPrice(item)}</span>
-                <button onClick={() => setViewItem(viewItem?.id === item.id ? null : item)} className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"><Eye size={14} /></button>
+                <button onClick={() => setViewItem(viewItem?.id === item.id ? null : item)} className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="View"><Eye size={14} /></button>
+                <button onClick={() => handleEdit(item)} className="p-1.5 rounded hover:bg-brand-gold/10 transition-colors text-muted-foreground hover:text-brand-gold" title="Edit"><Pencil size={14} /></button>
+                {confirmDeleteId === item.id ? (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleDelete(item)} className="text-xs font-body text-destructive hover:underline">Confirm</button>
+                    <button onClick={() => setConfirmDeleteId(null)} className="text-xs font-body text-muted-foreground hover:underline">Cancel</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDeleteId(item.id)} className="p-1.5 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive" title="Delete"><Trash2 size={14} /></button>
+                )}
               </div>
             </div>
           ))}
@@ -97,8 +154,19 @@ const PartnerListings = () => {
         <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-heading text-lg font-semibold">{getItemName(viewItem)}</h3>
-            <button onClick={() => setViewItem(null)} className="text-muted-foreground hover:text-foreground text-sm font-body">Close</button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => handleEdit(viewItem)} className="px-3 py-1.5 rounded-lg text-xs font-body border border-brand-gold text-brand-gold hover:bg-brand-gold/10 flex items-center gap-1"><Pencil size={12} /> Edit</button>
+              <button onClick={() => setViewItem(null)} className="text-muted-foreground hover:text-foreground text-sm font-body">Close</button>
+            </div>
           </div>
+          {viewItem.images?.length > 0 && (
+            <div className="flex gap-2 flex-wrap mb-4">
+              {viewItem.image && <img src={viewItem.image} alt="" className="w-24 h-16 rounded object-cover border border-border" />}
+              {viewItem.images.map((img: string, i: number) => (
+                <img key={i} src={img} alt="" className="w-24 h-16 rounded object-cover border border-border" />
+              ))}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4 font-body text-sm">
             <div><span className="text-muted-foreground">Type:</span> <span className="text-foreground capitalize">{viewItem.itemType}</span></div>
             <div><span className="text-muted-foreground">Status:</span> <span className={`px-2 py-0.5 rounded-full text-xs ${statusBadge(viewItem.approvalStatus)}`}>{viewItem.approvalStatus}</span></div>

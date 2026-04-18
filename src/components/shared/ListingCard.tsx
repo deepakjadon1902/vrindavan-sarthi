@@ -1,7 +1,10 @@
+import { useEffect, useRef, useState } from 'react';
 import { Star } from 'lucide-react';
 
 interface ListingCardProps {
   image: string;
+  /** Optional gallery — when provided, the card auto-rotates through these images. */
+  images?: string[];
   name: string;
   location: string;
   price: number;
@@ -12,10 +15,13 @@ interface ListingCardProps {
   badgeColor?: 'green' | 'saffron';
   amenities?: string[];
   onViewDetails?: () => void;
+  /** Auto-scroll interval in ms */
+  intervalMs?: number;
 }
 
 const ListingCard = ({
   image,
+  images,
   name,
   location,
   price,
@@ -26,20 +32,58 @@ const ListingCard = ({
   badgeColor = 'saffron',
   amenities,
   onViewDetails,
+  intervalMs = 2800,
 }: ListingCardProps) => {
+  // Build full gallery: main image + extras (de-duplicated, placeholder filtered)
+  const gallery = (() => {
+    const all = [image, ...(images || [])].filter(
+      (src): src is string => Boolean(src) && src !== '/placeholder.svg'
+    );
+    return Array.from(new Set(all));
+  })();
+  const safeGallery = gallery.length > 0 ? gallery : [image || '/placeholder.svg'];
+
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (paused || safeGallery.length <= 1) return;
+    intervalRef.current = window.setInterval(() => {
+      setActive((i) => (i + 1) % safeGallery.length);
+    }, intervalMs);
+    return () => {
+      if (intervalRef.current) window.clearInterval(intervalRef.current);
+    };
+  }, [paused, safeGallery.length, intervalMs]);
+
   return (
     <div className="bg-card rounded-xl overflow-hidden border border-border card-hover group">
-      {/* Image */}
-      <div className="relative h-52 overflow-hidden">
-        <img
-          src={image}
-          alt={name}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+      {/* Image carousel */}
+      <div
+        className="relative h-52 overflow-hidden"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        {safeGallery.map((src, i) => (
+          <img
+            key={`${src}-${i}`}
+            src={src}
+            alt={`${name} ${i + 1}`}
+            loading="lazy"
+            className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out ${
+              i === active ? 'opacity-100 scale-105' : 'opacity-0 scale-100'
+            } group-hover:scale-110`}
+            onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}
+          />
+        ))}
+
+        {/* Glossy sheen */}
+        <div className="pointer-events-none absolute inset-0 glossy-sheen" />
+
         {badge && (
           <span
-            className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-body font-semibold ${
+            className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-body font-semibold z-10 ${
               badgeColor === 'green'
                 ? 'bg-brand-green text-primary-foreground'
                 : 'bg-brand-saffron text-primary-foreground'
@@ -47,6 +91,30 @@ const ListingCard = ({
           >
             {badge}
           </span>
+        )}
+
+        {/* Image counter */}
+        {safeGallery.length > 1 && (
+          <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full glass-chip text-[10px] font-body z-10">
+            {active + 1} / {safeGallery.length}
+          </span>
+        )}
+
+        {/* Dot indicators */}
+        {safeGallery.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+            {safeGallery.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setActive(i); }}
+                aria-label={`Show image ${i + 1}`}
+                className={`h-1 rounded-full transition-all ${
+                  i === active ? 'w-5 bg-brand-gold' : 'w-1.5 bg-primary-foreground/60'
+                }`}
+              />
+            ))}
+          </div>
         )}
       </div>
 

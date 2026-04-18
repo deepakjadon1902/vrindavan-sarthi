@@ -44,15 +44,13 @@ const ManagePartnerRequests = () => {
 
     const mainKey = getMainKey(item.itemType);
     if (status === 'approved') {
-      const mainItems = getItems(mainKey);
-      const exists = mainItems.find((h: any) => h.id === item.id);
-      if (!exists) {
-        const mainItem = { ...item, status: item.itemType === 'room' ? 'available' : 'active', approvalStatus: 'approved' };
-        delete mainItem.itemType;
-        mainItems.push(mainItem);
-        localStorage.setItem(mainKey, JSON.stringify(mainItems));
-      }
-      toast.success(`${item.itemType} approved & added to main listings`);
+      // Always overwrite the main listing copy with the latest partner data so edits flow through
+      const mainItems = getItems(mainKey).filter((h: any) => h.id !== item.id);
+      const mainItem: any = { ...item, status: item.itemType === 'room' ? 'available' : 'active', approvalStatus: 'approved', adminRemarks: remarks };
+      delete mainItem.itemType;
+      mainItems.push(mainItem);
+      localStorage.setItem(mainKey, JSON.stringify(mainItems));
+      toast.success(`${item.itemType} approved & synced to main listings`);
     } else {
       const mainItems = getItems(mainKey).filter((h: any) => h.id !== item.id);
       localStorage.setItem(mainKey, JSON.stringify(mainItems));

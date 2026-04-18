@@ -53,7 +53,7 @@ const Hotels = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filtered.map((hotel) => (
-                  <ListingCard key={hotel.id} image={hotel.image} name={hotel.name} location={hotel.location} price={hotel.pricePerNight} rating={hotel.rating} reviewCount={0} amenities={hotel.amenities || []} onViewDetails={() => navigate(`/hotels/${hotel.id}`)} />
+                  <ListingCard key={hotel.id} image={hotel.image} images={hotel.images} name={hotel.name} location={hotel.location} price={hotel.pricePerNight} rating={hotel.rating} reviewCount={0} amenities={hotel.amenities || []} onViewDetails={() => navigate(`/hotels/${hotel.id}`)} />
                 ))}
               </div>
               {filtered.length === 0 && (

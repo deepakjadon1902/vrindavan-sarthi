@@ -123,7 +123,7 @@ const Home = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {hotels.map((hotel) => (
-                  <ListingCard key={hotel.id} image={hotel.image} name={hotel.name} location={hotel.location} price={hotel.pricePerNight} rating={hotel.rating} reviewCount={0} amenities={hotel.amenities || []} onViewDetails={() => navigate(`/hotels/${hotel.id}`)} />
+                  <ListingCard key={hotel.id} image={hotel.image} images={hotel.images} name={hotel.name} location={hotel.location} price={hotel.pricePerNight} rating={hotel.rating} reviewCount={0} amenities={hotel.amenities || []} onViewDetails={() => navigate(`/hotels/${hotel.id}`)} />
                 ))}
               </div>
               <div className="text-center mt-10">
@@ -147,7 +147,7 @@ const Home = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {tours.map((tour) => (
-                  <ListingCard key={tour.id} image={tour.image} name={tour.name} location={tour.duration} price={tour.pricePerPerson} priceLabel="/person" rating={0} reviewCount={0} badge={tour.duration} amenities={tour.includes || []} onViewDetails={() => navigate(`/tours/${tour.id}`)} />
+                  <ListingCard key={tour.id} image={tour.image} images={tour.images} name={tour.name} location={tour.duration} price={tour.pricePerPerson} priceLabel="/person" rating={0} reviewCount={0} badge={tour.duration} amenities={tour.includes || []} onViewDetails={() => navigate(`/tours/${tour.id}`)} />
                 ))}
               </div>
               <div className="text-center mt-10">
