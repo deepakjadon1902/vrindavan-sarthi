@@ -4,12 +4,28 @@ const { protect, authorize } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
-  try { const tours = await Tour.find({ status: 'active' }); res.json({ success: true, data: tours }); }
+  try {
+    res.set('Cache-Control', 'no-store');
+    const tours = await Tour.find({ status: 'active', approvalStatus: 'approved' })
+      .sort({ createdAt: -1 })
+      .select('name duration pricePerPerson image images includes status createdAt')
+      .slice('images', 1)
+      .lean();
+    res.json({ success: true, data: tours });
+  }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Get all tours (admin)
+router.get('/all', protect, authorize('admin'), async (req, res) => {
+  try {
+    const tours = await Tour.find().sort({ createdAt: -1 }).lean();
+    res.json({ success: true, data: tours });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 router.get('/:id', async (req, res) => {
-  try { const tour = await Tour.findById(req.params.id); res.json({ success: true, data: tour }); }
+  try { const tour = await Tour.findById(req.params.id).lean(); res.json({ success: true, data: tour }); }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

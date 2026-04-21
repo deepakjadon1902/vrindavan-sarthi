@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
+import { api } from '@/lib/api';
+import { subscribeAppEvent } from '@/lib/broadcast';
 
 const Rooms = () => {
   const navigate = useNavigate();
@@ -10,10 +12,24 @@ const Rooms = () => {
   const [rooms, setRooms] = useState<any[]>([]);
 
   useEffect(() => {
-    try {
-      const data = localStorage.getItem('vvs_rooms');
-      if (data) setRooms(JSON.parse(data).filter((r: any) => r.status === 'available'));
-    } catch {}
+    const load = async () => {
+      try {
+        const res = await api.get('/rooms');
+        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+        setRooms(data.filter((r: any) => r?.status === 'available'));
+      } catch {
+        setRooms([]);
+      }
+    };
+
+    void load();
+    const unsub = subscribeAppEvent('listing:changed', () => void load());
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      unsub();
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   const filtered = rooms.filter(r =>
@@ -40,11 +56,11 @@ const Rooms = () => {
               <p className="font-body text-sm text-muted-foreground">Rooms will appear here once the admin adds them.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filtered.map((room) => (
-                <ListingCard key={room.id} image={room.image} images={room.images} name={room.name} location={room.hotelName} price={room.pricePerNight} priceLabel="/night" rating={0} reviewCount={0} amenities={room.amenities || []} onViewDetails={() => navigate(`/rooms/${room.id}`)} />
-              ))}
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filtered.map((room) => (
+                <ListingCard key={room._id} image={room.image} images={room.images} name={room.name} location={room.hotelName} price={room.pricePerNight} priceLabel="/night" rating={0} reviewCount={0} amenities={room.amenities || []} onViewDetails={() => navigate(`/rooms/${room._id}`)} />
+                ))}
+              </div>
           )}
         </div>
       </section>

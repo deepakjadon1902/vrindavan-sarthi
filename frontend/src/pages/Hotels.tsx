@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
+import { subscribeAppEvent } from '@/lib/broadcast';
 
 const Hotels = () => {
   const navigate = useNavigate();
@@ -11,7 +12,7 @@ const Hotels = () => {
   const [hotels, setHotels] = useState<any[]>([]);
 
   useEffect(() => {
-    const run = async () => {
+    const load = async () => {
       try {
         const res = await api.get('/hotels');
         setHotels(Array.isArray(res.data?.data) ? res.data.data : []);
@@ -19,7 +20,15 @@ const Hotels = () => {
         setHotels([]);
       }
     };
-    void run();
+
+    void load();
+    const unsub = subscribeAppEvent('listing:changed', () => void load());
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      unsub();
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   const filtered = hotels.filter(h =>

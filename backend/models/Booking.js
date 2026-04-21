@@ -19,6 +19,11 @@ const bookingSchema = new mongoose.Schema({
   paymentMethod: { type: String, enum: ['online', 'doorstep'], default: 'online' },
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
   bookingStatus: { type: String, enum: ['pending', 'confirmed', 'cancelled', 'completed'], default: 'pending' },
+  verificationStage: { type: String, enum: ['pending_partner', 'pending_admin', 'verified', 'rejected'], default: 'pending_admin' },
+  partnerPaymentVerified: { type: Boolean, default: false },
+  partnerPaymentVerifiedAt: Date,
+  adminPaymentVerified: { type: Boolean, default: false },
+  adminPaymentVerifiedAt: Date,
   additionalInfo: String,
   upiTransactionId: String,
 }, { timestamps: true });

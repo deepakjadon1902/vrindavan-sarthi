@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -56,16 +56,25 @@ import ProtectedRoute from "@/router/ProtectedRoute";
 import AdminRoute from "@/router/AdminRoute";
 import PartnerRoute from "@/router/PartnerRoute";
 import { useSettingsStore } from "@/store/settingsStore";
+import { useAuthStore } from "@/store/authStore";
 
 const queryClient = new QueryClient();
 
-const PublicLayout = ({ children }: { children: React.ReactNode }) => (
-  <>
-    <Navbar />
-    <main>{children}</main>
-    <Footer />
-  </>
-);
+const PublicLayout = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (isAuthenticated && user?.role === "partner") {
+    return <Navigate to="/partner" replace />;
+  }
+
+  return (
+    <>
+      <Navbar />
+      <main>{children}</main>
+      <Footer />
+    </>
+  );
+};
 
 const App = () => {
   const refreshSettings = useSettingsStore((s) => s.refreshSettings);

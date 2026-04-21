@@ -26,4 +26,7 @@ const cabSchema = new mongoose.Schema({
   adminRemarks: String,
 }, { timestamps: true });
 
+cabSchema.index({ status: 1, approvalStatus: 1, createdAt: -1 });
+cabSchema.index({ vehicleType: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Cab', cabSchema);

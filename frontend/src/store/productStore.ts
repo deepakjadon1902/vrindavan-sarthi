@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import axios from 'axios';
+import { publishAppEvent } from '@/lib/broadcast';
 
 export interface Product {
   id: string;
@@ -179,6 +180,7 @@ export const useProductStore = create<ProductState>()((set, get) => ({
       const res = await api.post('/products', product, withAuth(token));
       const created = normalizeProduct(res.data?.data);
       set((state) => ({ products: [created, ...state.products] }));
+      publishAppEvent('product:changed');
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Create failed') };
@@ -192,6 +194,7 @@ export const useProductStore = create<ProductState>()((set, get) => ({
       const res = await api.put(`/products/${id}`, data, withAuth(token));
       const updated = normalizeProduct(res.data?.data);
       set((state) => ({ products: state.products.map((p) => (p.id === id ? updated : p)) }));
+      publishAppEvent('product:changed');
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Update failed') };
@@ -204,6 +207,7 @@ export const useProductStore = create<ProductState>()((set, get) => ({
     try {
       await api.delete(`/products/${id}`, withAuth(token));
       set((state) => ({ products: state.products.filter((p) => p.id !== id) }));
+      publishAppEvent('product:changed');
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Delete failed') };

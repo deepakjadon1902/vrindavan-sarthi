@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import UpiPayment from '@/components/UpiPayment';
 import ImageCarousel from '@/components/shared/ImageCarousel';
+import { api } from '@/lib/api';
 
 const RoomDetail = () => {
   const { id } = useParams();
@@ -20,13 +21,16 @@ const RoomDetail = () => {
   const [bookingId, setBookingId] = useState('');
 
   useEffect(() => {
-    try {
-      const data = localStorage.getItem('vvs_rooms');
-      if (data) {
-        const found = JSON.parse(data).find((r: any) => r.id === id);
-        if (found) setRoom(found);
+    const run = async () => {
+      if (!id) return;
+      try {
+        const res = await api.get(`/rooms/${id}`);
+        setRoom(res.data?.data || null);
+      } catch {
+        setRoom(null);
       }
-    } catch {}
+    };
+    void run();
   }, [id]);
 
   if (!room) return (
@@ -51,7 +55,7 @@ const RoomDetail = () => {
     if (!user) return;
     const res = await createBooking({
       bookingType: 'room',
-      itemId: room.id,
+      itemId: room?._id,
       itemName: `${room.name} - ${room.hotelName}`,
       itemImage: room.image,
       partnerId: room.partnerId,
@@ -61,7 +65,7 @@ const RoomDetail = () => {
       totalAmount: total,
       paymentMethod: 'online',
       paymentStatus: 'pending',
-      bookingStatus: 'pending',
+      bookingStatus: 'confirmed',
       upiTransactionId: transactionId,
       additionalInfo: `UPI Txn: ${transactionId}`,
     } as any);
@@ -72,7 +76,7 @@ const RoomDetail = () => {
     }
     setShowPayment(false);
     setBooked(true);
-    toast.success('Booking submitted! Payment verification pending.');
+    toast.success('Booking confirmed! Payment verification pending.');
   };
 
   const allImages = [room.image, ...(room.images || [])].filter(Boolean);

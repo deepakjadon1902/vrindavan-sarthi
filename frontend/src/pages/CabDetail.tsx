@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import ImageCarousel from '@/components/shared/ImageCarousel';
+import { api } from '@/lib/api';
 
 const CabDetail = () => {
   const { id } = useParams();
@@ -18,13 +19,16 @@ const CabDetail = () => {
   const [booked, setBooked] = useState(false);
 
   useEffect(() => {
-    try {
-      const data = localStorage.getItem('vvs_cabs');
-      if (data) {
-        const found = JSON.parse(data).find((c: any) => c.id === id);
-        if (found) setCab(found);
+    const run = async () => {
+      if (!id) return;
+      try {
+        const res = await api.get(`/cabs/${id}`);
+        setCab(res.data?.data || null);
+      } catch {
+        setCab(null);
       }
-    } catch {}
+    };
+    void run();
   }, [id]);
 
   if (!cab) return (
@@ -41,7 +45,7 @@ const CabDetail = () => {
     if (!user) return;
     const res = await createBooking({
       bookingType: 'cab',
-      itemId: cab.id,
+      itemId: cab?._id,
       itemName: `${cab.vehicleName} - ${cab.driverName}`,
       itemImage: cab.image,
       partnerId: cab.partnerId,

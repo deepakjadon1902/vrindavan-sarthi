@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
 import axios from 'axios';
+import { publishAppEvent } from '@/lib/broadcast';
 
 const ManagePartnerRequests = () => {
   const token = useAuthStore((s) => s.token);
@@ -69,6 +70,7 @@ const ManagePartnerRequests = () => {
         prev.map((p) => (p.id === item.id && p.itemType === item.itemType ? { ...p, ...updated, id: updated?._id || p.id, itemType: p.itemType } : p))
       );
       toast.success(`${item.itemType} ${status}`);
+      publishAppEvent('listing:changed');
       setViewItem(null);
       setRemarkText('');
     } catch (err: unknown) {

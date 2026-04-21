@@ -1,241 +1,190 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Search, X, Upload, Image as ImageIcon, Building2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, X, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
-import axios from 'axios';
+import { useAuthStore } from '@/store/authStore';
+import { publishAppEvent } from '@/lib/broadcast';
 
 interface PartnerHotel {
-  id: string;
-  partnerId: string;
-  partnerName: string;
-  partnerEmail: string;
-  partnerPhone: string;
-  businessName: string;
+  _id: string;
   name: string;
   location: string;
-  fullAddress: string;
   pricePerNight: number;
-  pricePerBed: number;
-  priceDoubleAC: number;
-  priceDoubleNonAC: number;
-  priceSingleAC: number;
-  priceSingleNonAC: number;
-  rating: number;
-  totalRooms: number;
-  checkInTime: string;
-  checkOutTime: string;
-  image: string;
-  images: string[];
-  description: string;
-  amenities: string[];
-  nearbyPlaces: string;
-  policies: string;
-  contactPhone: string;
-  contactEmail: string;
+  rating?: number;
+  image?: string;
+  images?: string[];
+  description?: string;
+  amenities?: string[];
+  status: 'active' | 'inactive';
   approvalStatus: 'pending' | 'approved' | 'rejected';
-  adminRemarks: string;
+  adminRemarks?: string;
   createdAt: string;
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
-const getString = (obj: Record<string, unknown>, key: string) => (typeof obj[key] === 'string' ? obj[key] : '');
-const getNumber = (obj: Record<string, unknown>, key: string) => (typeof obj[key] === 'number' ? obj[key] : Number(obj[key] || 0));
-const getStringArray = (obj: Record<string, unknown>, key: string) => (Array.isArray(obj[key]) ? (obj[key] as unknown[]).filter((x): x is string => typeof x === 'string') : []);
-
-const normalizePartnerHotel = (h: unknown): PartnerHotel => {
-  const obj = isRecord(h) ? h : {};
-  return {
-    id: getString(obj, '_id') || getString(obj, 'id'),
-    partnerId: getString(obj, 'partnerId'),
-    partnerName: getString(obj, 'partnerName'),
-    partnerEmail: getString(obj, 'partnerEmail'),
-    partnerPhone: getString(obj, 'partnerPhone'),
-    businessName: getString(obj, 'businessName'),
-    name: getString(obj, 'name'),
-    location: getString(obj, 'location'),
-    fullAddress: getString(obj, 'fullAddress'),
-    pricePerNight: getNumber(obj, 'pricePerNight'),
-    pricePerBed: getNumber(obj, 'pricePerBed'),
-    priceDoubleAC: getNumber(obj, 'priceDoubleAC'),
-    priceDoubleNonAC: getNumber(obj, 'priceDoubleNonAC'),
-    priceSingleAC: getNumber(obj, 'priceSingleAC'),
-    priceSingleNonAC: getNumber(obj, 'priceSingleNonAC'),
-    rating: getNumber(obj, 'rating'),
-    totalRooms: getNumber(obj, 'totalRooms'),
-    checkInTime: getString(obj, 'checkInTime') || '12:00',
-    checkOutTime: getString(obj, 'checkOutTime') || '11:00',
-    image: getString(obj, 'image') || '/placeholder.svg',
-    images: getStringArray(obj, 'images'),
-    description: getString(obj, 'description'),
-    amenities: Array.isArray(obj.amenities) ? (obj.amenities as unknown[]).filter((x): x is string => typeof x === 'string') : [],
-    nearbyPlaces: getString(obj, 'nearbyPlaces'),
-    policies: getString(obj, 'policies'),
-    contactPhone: getString(obj, 'contactPhone'),
-    contactEmail: getString(obj, 'contactEmail'),
-    approvalStatus: (getString(obj, 'approvalStatus') as any) || 'pending',
-    adminRemarks: getString(obj, 'adminRemarks'),
-    createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
-  };
-};
-
-const getApiErrorMessage = (err: unknown, fallback: string) => {
-  if (axios.isAxiosError(err)) {
-    const msg = (err.response?.data as any)?.message;
-    if (typeof msg === 'string') return msg;
-    return err.message || fallback;
-  }
-  if (err instanceof Error) return err.message || fallback;
-  return fallback;
-};
-
 const PartnerAddHotel = () => {
-  const { user, token } = useAuthStore();
-  const [items, setItems] = useState<PartnerHotel[]>([]);
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const loadMyHotels = async () => {
-    if (!token) return;
-    try {
-      const res = await api.get('/partner/my-listings', withAuth(token));
-      const hotels = res.data?.data?.hotels;
-      setItems(Array.isArray(hotels) ? hotels.map(normalizePartnerHotel) : []);
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Failed to load your hotels'));
-      setItems([]);
-    }
-  };
-
-  useEffect(() => {
-    if (!user || !token) return;
-    void loadMyHotels();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, token]);
-
-  useEffect(() => {
-    const editId = searchParams.get('edit');
-    if (!editId) return;
-    const target = items.find((i) => i.id === editId);
-    if (target) {
-      handleEdit(target);
-      // clear param so a refresh doesn't re-trigger
-      const next = new URLSearchParams(searchParams);
-      next.delete('edit');
-      setSearchParams(next, { replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, searchParams]);
-
+  const [items, setItems] = useState<PartnerHotel[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [imagePreview, setImagePreview] = useState('');
-  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
 
   const [form, setForm] = useState({
-    name: '', location: '', fullAddress: '', pricePerNight: '', pricePerBed: '',
-    priceDoubleAC: '', priceDoubleNonAC: '', priceSingleAC: '', priceSingleNonAC: '',
-    totalRooms: '', checkInTime: '12:00', checkOutTime: '11:00',
-    description: '', amenities: '', nearbyPlaces: '', policies: '',
-    contactPhone: '', contactEmail: '', image: '',
+    name: '',
+    location: '',
+    pricePerNight: '',
+    rating: '',
+    description: '',
+    amenities: '',
+    images: [] as string[],
   });
 
+  const load = async () => {
+    if (!token) return;
+    try {
+      setIsLoading(true);
+      const res = await api.get('/partner/my-listings', withAuth(token));
+      const hotels = Array.isArray(res.data?.data?.hotels) ? res.data.data.hotels : [];
+      setItems(hotels);
+    } catch {
+      toast.error('Failed to load your hotels');
+      setItems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (!editId) return;
+    const target = items.find((i) => i._id === editId);
+    if (!target) return;
+
+    setForm({
+      name: target.name || '',
+      location: target.location || '',
+      pricePerNight: String(target.pricePerNight ?? ''),
+      rating: String(target.rating ?? ''),
+      description: target.description || '',
+      amenities: (target.amenities || []).join(', '),
+      images: [target.image, ...(target.images || [])].filter(Boolean) as string[],
+    });
+    setEditingId(target._id);
+    setShowForm(true);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('edit');
+    setSearchParams(next, { replace: true });
+  }, [items, searchParams, setSearchParams]);
+
   const resetForm = () => {
-    setForm({ name: '', location: '', fullAddress: '', pricePerNight: '', pricePerBed: '', priceDoubleAC: '', priceDoubleNonAC: '', priceSingleAC: '', priceSingleNonAC: '', totalRooms: '', checkInTime: '12:00', checkOutTime: '11:00', description: '', amenities: '', nearbyPlaces: '', policies: '', contactPhone: '', contactEmail: '', image: '' });
-    setImagePreview('');
-    setAdditionalImages([]);
+    setForm({
+      name: '',
+      location: '',
+      pricePerNight: '',
+      rating: '',
+      description: '',
+      amenities: '',
+      images: [],
+    });
     setEditingId(null);
     setShowForm(false);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => { setImagePreview(reader.result as string); setForm({ ...form, image: reader.result as string }); };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleAdditionalImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onloadend = () => { setAdditionalImages(prev => [...prev, reader.result as string]); };
-        reader.readAsDataURL(file);
-      });
-    }
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm((prev) => ({ ...prev, images: [...prev.images, reader.result as string] }));
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  const handleEdit = (item: PartnerHotel) => {
-    setForm({ name: item.name, location: item.location, fullAddress: item.fullAddress, pricePerNight: String(item.pricePerNight), pricePerBed: String(item.pricePerBed), priceDoubleAC: String(item.priceDoubleAC), priceDoubleNonAC: String(item.priceDoubleNonAC), priceSingleAC: String(item.priceSingleAC), priceSingleNonAC: String(item.priceSingleNonAC), totalRooms: String(item.totalRooms), checkInTime: item.checkInTime, checkOutTime: item.checkOutTime, description: item.description, amenities: item.amenities.join(', '), nearbyPlaces: item.nearbyPlaces, policies: item.policies, contactPhone: item.contactPhone, contactEmail: item.contactEmail, image: item.image });
-    setImagePreview(item.image);
-    setAdditionalImages(item.images || []);
-    setEditingId(item.id);
-    setShowForm(true);
+  const removeImage = (idx: number) => {
+    setForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !token) return;
+    if (!token) return;
+    if (!form.name || !form.location || !form.pricePerNight) {
+      toast.error('Fill required fields');
+      return;
+    }
 
     const payload = {
       name: form.name,
       location: form.location,
-      fullAddress: form.fullAddress,
       pricePerNight: Number(form.pricePerNight),
-      pricePerBed: Number(form.pricePerBed),
-      priceDoubleAC: Number(form.priceDoubleAC),
-      priceDoubleNonAC: Number(form.priceDoubleNonAC),
-      priceSingleAC: Number(form.priceSingleAC),
-      priceSingleNonAC: Number(form.priceSingleNonAC),
-      totalRooms: Number(form.totalRooms),
-      checkInTime: form.checkInTime,
-      checkOutTime: form.checkOutTime,
-      image: form.image || '/placeholder.svg',
-      images: additionalImages,
+      rating: Number(form.rating || 0),
       description: form.description,
-      amenities: form.amenities.split(',').map((a) => a.trim()).filter(Boolean),
-      nearbyPlaces: form.nearbyPlaces,
-      policies: form.policies,
-      contactPhone: form.contactPhone,
-      contactEmail: form.contactEmail,
+      amenities: form.amenities
+        .split(',')
+        .map((a) => a.trim())
+        .filter(Boolean),
+      image: form.images[0] || '/placeholder.svg',
+      images: form.images.slice(1),
     };
 
     try {
       if (editingId) {
         const res = await api.put(`/partner/hotels/${editingId}`, payload, withAuth(token));
-        const updated = normalizePartnerHotel(res.data?.data);
-        setItems((prev) => prev.map((h) => (h.id === editingId ? updated : h)));
-        toast.success('Hotel updated & resubmitted for approval');
+        const updated = res.data?.data as PartnerHotel;
+        setItems((prev) => prev.map((h) => (h._id === editingId ? updated : h)));
+        toast.success('Hotel resubmitted for approval');
       } else {
         const res = await api.post('/partner/hotels', payload, withAuth(token));
-        const created = normalizePartnerHotel(res.data?.data);
+        const created = res.data?.data as PartnerHotel;
         setItems((prev) => [created, ...prev]);
         toast.success('Hotel submitted for admin approval');
       }
+      publishAppEvent('listing:changed');
       resetForm();
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Submit failed'));
+    } catch {
+      toast.error(editingId ? 'Update failed' : 'Submit failed');
     }
+  };
+
+  const handleEdit = (item: PartnerHotel) => {
+    setForm({
+      name: item.name || '',
+      location: item.location || '',
+      pricePerNight: String(item.pricePerNight ?? ''),
+      rating: String(item.rating ?? ''),
+      description: item.description || '',
+      amenities: (item.amenities || []).join(', '),
+      images: [item.image, ...(item.images || [])].filter(Boolean) as string[],
+    });
+    setEditingId(item._id);
+    setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
     if (!token) return;
     try {
       await api.delete(`/partner/hotels/${id}`, withAuth(token));
-      setItems((prev) => prev.filter((h) => h.id !== id));
+      setItems((prev) => prev.filter((h) => h._id !== id));
+      toast.success('Deleted');
+      publishAppEvent('listing:changed');
+    } catch {
+      toast.error('Delete failed');
+    } finally {
       setDeleteConfirm(null);
-      toast.success('Hotel deleted');
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Delete failed'));
     }
   };
-
-  const filtered = items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
 
   const statusBadge = (status: string) => {
     if (status === 'approved') return 'bg-brand-green/10 text-brand-green';
@@ -243,145 +192,235 @@ const PartnerAddHotel = () => {
     return 'bg-brand-saffron/10 text-brand-saffron';
   };
 
+  const filtered = useMemo(
+    () =>
+      items.filter(
+        (h) =>
+          h.name.toLowerCase().includes(search.toLowerCase()) ||
+          h.location.toLowerCase().includes(search.toLowerCase())
+      ),
+    [items, search]
+  );
+
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="font-heading text-xl font-bold text-foreground">My Hotels</h2>
+        <p className="font-body text-xs text-muted-foreground">
+          Submit hotels for approval. Approved hotels go live on the main application.
+        </p>
+        {user?.partnerStatus && (
+          <p className="font-body text-xs text-muted-foreground mt-1">Partner status: {user.partnerStatus}</p>
+        )}
+      </div>
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input type="text" placeholder="Search hotels..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+          <input
+            type="text"
+            placeholder="Search hotels..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+          />
         </div>
-        <button onClick={() => { resetForm(); setShowForm(true); }} className="btn-crimson px-5 py-2.5 rounded-lg text-sm flex items-center gap-2"><Plus size={16} /> Add Hotel</button>
+        <button
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+          className="btn-gold px-5 py-2.5 rounded-lg text-sm flex items-center gap-2"
+        >
+          <Plus size={16} /> Submit Hotel
+        </button>
       </div>
 
       {showForm && (
         <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-lg font-semibold">{editingId ? 'Edit Hotel' : 'Add New Hotel'}</h3>
-            <button onClick={resetForm} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+            <h3 className="font-heading text-lg font-semibold">{editingId ? 'Edit & Resubmit' : 'Submit New Hotel'}</h3>
+            <button onClick={resetForm} className="text-muted-foreground hover:text-foreground">
+              <X size={20} />
+            </button>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Images */}
-            <div>
-              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Main Image *</label>
-              <div className="flex items-start gap-4">
-                {imagePreview ? (
-                  <div className="relative w-32 h-24 rounded-lg overflow-hidden border border-border">
-                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => { setImagePreview(''); setForm({ ...form, image: '' }); }} className="absolute top-1 right-1 bg-foreground/70 text-primary-foreground rounded-full p-0.5"><X size={12} /></button>
-                  </div>
-                ) : (
-                  <label className="w-32 h-24 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-brand-gold/50 transition-colors">
-                    <Upload size={20} className="text-muted-foreground mb-1" /><span className="font-body text-xs text-muted-foreground">Upload</span>
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                  </label>
-                )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Hotel Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Location *</label>
+                <input
+                  type="text"
+                  required
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Price / Night (₹) *</label>
+                <input
+                  type="number"
+                  required
+                  value={form.pricePerNight}
+                  onChange={(e) => setForm({ ...form, pricePerNight: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Rating</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={form.rating}
+                  onChange={(e) => setForm({ ...form, rating: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
               </div>
             </div>
+
             <div>
-              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Additional Images</label>
-              <div className="flex flex-wrap gap-2">
-                {additionalImages.map((img, i) => (
-                  <div key={i} className="relative w-20 h-16 rounded overflow-hidden border border-border">
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Amenities (comma separated)</label>
+              <input
+                type="text"
+                value={form.amenities}
+                onChange={(e) => setForm({ ...form, amenities: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                placeholder="WiFi, TV, Hot Water"
+              />
+            </div>
+
+            <div>
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Description</label>
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="font-body text-sm font-medium text-foreground mb-2 block">Photos</label>
+              <div className="flex flex-wrap gap-3 mb-3">
+                {form.images.map((img, i) => (
+                  <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border border-border">
                     <img src={img} alt="" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => setAdditionalImages(prev => prev.filter((_, j) => j !== i))} className="absolute top-0.5 right-0.5 bg-foreground/70 text-primary-foreground rounded-full p-0.5"><X size={10} /></button>
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-destructive text-primary-foreground flex items-center justify-center"
+                    >
+                      <X size={10} />
+                    </button>
                   </div>
                 ))}
-                <label className="w-20 h-16 rounded border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-brand-gold/50">
-                  <Plus size={16} className="text-muted-foreground" />
-                  <input type="file" accept="image/*" multiple onChange={handleAdditionalImages} className="hidden" />
+                <label className="w-24 h-24 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:bg-muted transition-colors">
+                  <ImageIcon size={20} className="text-muted-foreground mb-1" />
+                  <span className="font-body text-[10px] text-muted-foreground">Upload</span>
+                  <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
                 </label>
               </div>
+              <p className="font-body text-[11px] text-muted-foreground">
+                First photo becomes the main photo.
+              </p>
             </div>
 
-            {/* Basic Info */}
-            <div>
-              <h4 className="font-heading text-sm font-semibold text-foreground mb-3 border-b border-border pb-2">Basic Information</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Hotel Name *</label><input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="Krishna Palace Hotel" /></div>
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Location / Area *</label><input type="text" required value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="Near Banke Bihari Temple, Vrindavan" /></div>
-              </div>
-              <div className="mt-4"><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Full Address *</label><textarea rows={2} required value={form.fullAddress} onChange={(e) => setForm({ ...form, fullAddress: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none" placeholder="Complete address with landmark" /></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Total Rooms *</label><input type="number" min="1" required value={form.totalRooms} onChange={(e) => setForm({ ...form, totalRooms: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-in</label><input type="time" value={form.checkInTime} onChange={(e) => setForm({ ...form, checkInTime: e.target.value })} className="w-full px-3 py-2.5 rounded-lg border border-border bg-background font-body text-sm" /></div>
-                  <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-out</label><input type="time" value={form.checkOutTime} onChange={(e) => setForm({ ...form, checkOutTime: e.target.value })} className="w-full px-3 py-2.5 rounded-lg border border-border bg-background font-body text-sm" /></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Pricing */}
-            <div>
-              <h4 className="font-heading text-sm font-semibold text-foreground mb-3 border-b border-border pb-2">Pricing (₹)</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Per Night *</label><input type="number" required value={form.pricePerNight} onChange={(e) => setForm({ ...form, pricePerNight: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Per Bed</label><input type="number" value={form.pricePerBed} onChange={(e) => setForm({ ...form, pricePerBed: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Double AC</label><input type="number" value={form.priceDoubleAC} onChange={(e) => setForm({ ...form, priceDoubleAC: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Double Non-AC</label><input type="number" value={form.priceDoubleNonAC} onChange={(e) => setForm({ ...form, priceDoubleNonAC: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Single AC</label><input type="number" value={form.priceSingleAC} onChange={(e) => setForm({ ...form, priceSingleAC: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Single Non-AC</label><input type="number" value={form.priceSingleNonAC} onChange={(e) => setForm({ ...form, priceSingleNonAC: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-              </div>
-            </div>
-
-            {/* Details */}
-            <div>
-              <h4 className="font-heading text-sm font-semibold text-foreground mb-3 border-b border-border pb-2">Details</h4>
-              <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Description *</label><textarea rows={4} required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none" placeholder="Detailed description of the hotel..." /></div>
-              <div className="mt-4"><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Amenities (comma separated) *</label><input type="text" required value={form.amenities} onChange={(e) => setForm({ ...form, amenities: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="WiFi, AC, Parking, Temple View, Restaurant, 24hr Reception" /></div>
-              <div className="mt-4"><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Nearby Places</label><textarea rows={2} value={form.nearbyPlaces} onChange={(e) => setForm({ ...form, nearbyPlaces: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none" placeholder="Banke Bihari Temple (200m), ISKCON (1km)..." /></div>
-              <div className="mt-4"><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Hotel Policies</label><textarea rows={2} value={form.policies} onChange={(e) => setForm({ ...form, policies: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none" placeholder="No smoking, ID proof required..." /></div>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h4 className="font-heading text-sm font-semibold text-foreground mb-3 border-b border-border pb-2">Contact Information</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Contact Phone</label><input type="tel" value={form.contactPhone} onChange={(e) => setForm({ ...form, contactPhone: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="+91 XXXXX XXXXX" /></div>
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Contact Email</label><input type="email" value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="hotel@email.com" /></div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button type="submit" className="btn-crimson px-6 py-2.5 rounded-lg text-sm">{editingId ? 'Update & Resubmit' : 'Submit for Approval'}</button>
-              <button type="button" onClick={resetForm} className="px-6 py-2.5 rounded-lg text-sm border border-border font-body hover:bg-muted transition-colors">Cancel</button>
+            <div className="flex gap-3">
+              <button type="submit" className="btn-crimson px-6 py-2.5 rounded-xl text-sm">
+                {editingId ? 'Resubmit' : 'Submit'}
+              </button>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-6 py-2.5 rounded-xl text-sm border border-border font-body hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {isLoading ? (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
-          <Building2 size={48} className="mx-auto mb-4 text-muted-foreground/30" />
-          <p className="font-body text-muted-foreground">No hotels added yet</p>
-          <p className="font-body text-xs text-muted-foreground/60 mt-1">Click "Add Hotel" to list your property</p>
+          <p className="font-body text-sm text-muted-foreground">Loading…</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-card rounded-xl border border-border p-12 text-center">
+          <p className="font-heading text-xl text-foreground mb-2">No hotel submissions</p>
+          <p className="font-body text-sm text-muted-foreground">Submit your first hotel to get started.</p>
         </div>
       ) : (
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
-            <thead><tr className="border-b border-border bg-muted/50">
-              <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Image</th>
-              <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Name</th>
-              <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">Location</th>
-              <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">₹/Night</th>
-              <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Status</th>
-              <th className="text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
-            </tr></thead>
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Name</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Location</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Price</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Status</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Admin</th>
+                <th className="text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
             <tbody>
-              {filtered.map((item) => (
-                <tr key={item.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                  <td className="px-4 py-3"><div className="w-12 h-9 rounded overflow-hidden bg-muted">{item.image && item.image !== '/placeholder.svg' ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon size={14} className="text-muted-foreground" /></div>}</div></td>
-                  <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{item.name}</td>
-                  <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{item.location}</td>
-                  <td className="px-4 py-3 font-body text-sm text-foreground">₹{item.pricePerNight}</td>
-                  <td className="px-4 py-3"><span className={`font-body text-xs px-2 py-1 rounded-full ${statusBadge(item.approvalStatus)}`}>{item.approvalStatus}</span></td>
+              {filtered.map((h) => (
+                <tr key={h._id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                  <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{h.name}</td>
+                  <td className="px-4 py-3 font-body text-sm text-muted-foreground">{h.location}</td>
+                  <td className="px-4 py-3 font-body text-sm text-foreground">₹{h.pricePerNight}</td>
+                  <td className="px-4 py-3">
+                    <span className={`font-body text-xs px-2 py-1 rounded-full ${statusBadge(h.approvalStatus)}`}>
+                      {h.approvalStatus}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden md:table-cell">
+                    {h.adminRemarks || '-'}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {item.approvalStatus !== 'approved' && (
-                        <button onClick={() => handleEdit(item)} className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"><Pencil size={14} /></button>
+                      <button
+                        onClick={() => handleEdit(h)}
+                        className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      {deleteConfirm === h._id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleDelete(h._id)}
+                            className="text-xs font-body text-destructive hover:underline"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm(null)}
+                            className="text-xs font-body text-muted-foreground hover:underline"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteConfirm(h._id)}
+                          className="p-1.5 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       )}
-                      {deleteConfirm === item.id ? (
-                        <div className="flex items-center gap-1"><button onClick={() => handleDelete(item.id)} className="text-xs font-body text-destructive hover:underline">Delete</button><button onClick={() => setDeleteConfirm(null)} className="text-xs font-body text-muted-foreground hover:underline">Cancel</button></div>
-                      ) : (<button onClick={() => setDeleteConfirm(item.id)} className="p-1.5 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>)}
                     </div>
                   </td>
                 </tr>

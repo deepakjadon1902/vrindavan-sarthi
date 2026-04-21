@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import UpiPayment from '@/components/UpiPayment';
 import ImageCarousel from '@/components/shared/ImageCarousel';
+import { api } from '@/lib/api';
 
 const TourDetail = () => {
   const { id } = useParams();
@@ -20,13 +21,16 @@ const TourDetail = () => {
   const [bookingId, setBookingId] = useState('');
 
   useEffect(() => {
-    try {
-      const data = localStorage.getItem('vvs_tours');
-      if (data) {
-        const found = JSON.parse(data).find((t: any) => t.id === id);
-        if (found) setTour(found);
+    const run = async () => {
+      if (!id) return;
+      try {
+        const res = await api.get(`/tours/${id}`);
+        setTour(res.data?.data || null);
+      } catch {
+        setTour(null);
       }
-    } catch {}
+    };
+    void run();
   }, [id]);
 
   if (!tour) return (
@@ -50,7 +54,7 @@ const TourDetail = () => {
     if (!user) return;
     const res = await createBooking({
       bookingType: 'tour',
-      itemId: tour.id,
+      itemId: tour?._id,
       itemName: tour.name,
       itemImage: tour.image,
       partnerId: tour.partnerId,
@@ -60,7 +64,7 @@ const TourDetail = () => {
       totalAmount: total,
       paymentMethod: 'online',
       paymentStatus: 'pending',
-      bookingStatus: 'pending',
+      bookingStatus: 'confirmed',
       upiTransactionId: transactionId,
       additionalInfo: `UPI Txn: ${transactionId}`,
     } as any);
@@ -71,7 +75,7 @@ const TourDetail = () => {
     }
     setShowPayment(false);
     setBooked(true);
-    toast.success('Booking submitted! Payment verification pending.');
+    toast.success('Booking confirmed! Payment verification pending.');
   };
 
   const allImages = [tour.image, ...(tour.images || [])].filter(Boolean);

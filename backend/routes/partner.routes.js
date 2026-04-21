@@ -29,9 +29,6 @@ router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
   try {
     const hotel = await Hotel.findOne({ _id: req.params.id, partnerId: req.user._id });
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
-    if (hotel.approvalStatus === 'approved') {
-      return res.status(400).json({ success: false, message: 'Approved listings cannot be edited' });
-    }
 
     Object.assign(hotel, req.body);
     hotel.partnerSubmitted = true;
@@ -49,9 +46,6 @@ router.delete('/hotels/:id', protect, authorize('partner'), async (req, res) => 
   try {
     const hotel = await Hotel.findOne({ _id: req.params.id, partnerId: req.user._id });
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
-    if (hotel.approvalStatus === 'approved') {
-      return res.status(400).json({ success: false, message: 'Approved listings cannot be deleted' });
-    }
     await hotel.deleteOne();
     res.json({ success: true, message: 'Deleted' });
   } catch (err) {
@@ -77,6 +71,35 @@ router.post('/rooms', protect, authorize('partner'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Partner: Update my room submission (pending/rejected only)
+router.put('/rooms/:id', protect, authorize('partner'), async (req, res) => {
+  try {
+    const room = await Room.findOne({ _id: req.params.id, partnerId: req.user._id });
+    if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
+
+    Object.assign(room, req.body);
+    room.partnerSubmitted = true;
+    room.approvalStatus = 'pending';
+    room.status = 'inactive';
+    await room.save();
+    res.json({ success: true, data: room });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Partner: Delete my room submission (pending/rejected only)
+router.delete('/rooms/:id', protect, authorize('partner'), async (req, res) => {
+  try {
+    const room = await Room.findOne({ _id: req.params.id, partnerId: req.user._id });
+    if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
+    await room.deleteOne();
+    res.json({ success: true, message: 'Deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Partner: Submit cab
 router.post('/cabs', protect, authorize('partner'), async (req, res) => {
   try {
@@ -95,6 +118,35 @@ router.post('/cabs', protect, authorize('partner'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Partner: Update my cab submission (pending/rejected only)
+router.put('/cabs/:id', protect, authorize('partner'), async (req, res) => {
+  try {
+    const cab = await Cab.findOne({ _id: req.params.id, partnerId: req.user._id });
+    if (!cab) return res.status(404).json({ success: false, message: 'Cab not found' });
+
+    Object.assign(cab, req.body);
+    cab.partnerSubmitted = true;
+    cab.approvalStatus = 'pending';
+    cab.status = 'inactive';
+    await cab.save();
+    res.json({ success: true, data: cab });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Partner: Delete my cab submission (pending/rejected only)
+router.delete('/cabs/:id', protect, authorize('partner'), async (req, res) => {
+  try {
+    const cab = await Cab.findOne({ _id: req.params.id, partnerId: req.user._id });
+    if (!cab) return res.status(404).json({ success: false, message: 'Cab not found' });
+    await cab.deleteOne();
+    res.json({ success: true, message: 'Deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Partner: Submit tour
 router.post('/tours', protect, authorize('partner'), async (req, res) => {
   try {
@@ -111,6 +163,35 @@ router.post('/tours', protect, authorize('partner'), async (req, res) => {
     });
     res.status(201).json({ success: true, data: tour });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// Partner: Update my tour submission (pending/rejected only)
+router.put('/tours/:id', protect, authorize('partner'), async (req, res) => {
+  try {
+    const tour = await Tour.findOne({ _id: req.params.id, partnerId: req.user._id });
+    if (!tour) return res.status(404).json({ success: false, message: 'Tour not found' });
+
+    Object.assign(tour, req.body);
+    tour.partnerSubmitted = true;
+    tour.approvalStatus = 'pending';
+    tour.status = 'inactive';
+    await tour.save();
+    res.json({ success: true, data: tour });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Partner: Delete my tour submission (pending/rejected only)
+router.delete('/tours/:id', protect, authorize('partner'), async (req, res) => {
+  try {
+    const tour = await Tour.findOne({ _id: req.params.id, partnerId: req.user._id });
+    if (!tour) return res.status(404).json({ success: false, message: 'Tour not found' });
+    await tour.deleteOne();
+    res.json({ success: true, message: 'Deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // Partner: Get my listings

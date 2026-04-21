@@ -4,12 +4,28 @@ const { protect, authorize } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
-  try { const cabs = await Cab.find({ status: 'available' }); res.json({ success: true, data: cabs }); }
+  try {
+    res.set('Cache-Control', 'no-store');
+    const cabs = await Cab.find({ status: 'available', approvalStatus: 'approved' })
+      .sort({ createdAt: -1 })
+      .select('vehicleName vehicleType capacity driverName routes image images status createdAt')
+      .slice('images', 1)
+      .lean();
+    res.json({ success: true, data: cabs });
+  }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Get all cabs (admin)
+router.get('/all', protect, authorize('admin'), async (req, res) => {
+  try {
+    const cabs = await Cab.find().sort({ createdAt: -1 }).lean();
+    res.json({ success: true, data: cabs });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 router.get('/:id', async (req, res) => {
-  try { const cab = await Cab.findById(req.params.id); res.json({ success: true, data: cab }); }
+  try { const cab = await Cab.findById(req.params.id).lean(); res.json({ success: true, data: cab }); }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

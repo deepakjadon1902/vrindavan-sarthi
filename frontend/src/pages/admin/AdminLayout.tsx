@@ -4,8 +4,9 @@ import {
   LayoutDashboard, Hotel, BedDouble, Car, Map, ClipboardList,
   Users, LogOut, Menu, X, Handshake, Settings, CreditCard,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
+import { api, withAuth } from '@/lib/api';
 
 const sidebarLinks = [
   { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -23,22 +24,31 @@ const sidebarLinks = [
 ];
 
 const AdminLayout = () => {
-  const { user, logout } = useAuthStore();
+  const { user, token, logout } = useAuthStore();
   const settings = useSettingsStore((s) => s.settings);
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
-  const getPendingCount = () => {
-    try {
-      const hotels = JSON.parse(localStorage.getItem('vvs_partner_hotels') || '[]');
-      const rooms = JSON.parse(localStorage.getItem('vvs_partner_rooms') || '[]');
-      const cabs = JSON.parse(localStorage.getItem('vvs_partner_cabs') || '[]');
-      const tours = JSON.parse(localStorage.getItem('vvs_partner_tours') || '[]');
-      return [...hotels, ...rooms, ...cabs, ...tours].filter((i: any) => i.approvalStatus === 'pending').length;
-    } catch { return 0; }
-  };
-  const pendingCount = getPendingCount();
+  useEffect(() => {
+    if (!token) return;
+    const run = async () => {
+      try {
+        const res = await api.get('/partner/requests', withAuth(token));
+        const data = res.data?.data || {};
+        const hotels = Array.isArray(data.hotels) ? data.hotels : [];
+        const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+        const cabs = Array.isArray(data.cabs) ? data.cabs : [];
+        const tours = Array.isArray(data.tours) ? data.tours : [];
+        const all = [...hotels, ...rooms, ...cabs, ...tours];
+        setPendingCount(all.filter((i: any) => i?.approvalStatus === 'pending').length);
+      } catch {
+        setPendingCount(0);
+      }
+    };
+    void run();
+  }, [token]);
 
   const handleLogout = () => {
     logout();
@@ -119,7 +129,17 @@ const AdminLayout = () => {
           <h1 className="font-heading text-xl font-semibold text-foreground">
             {sidebarLinks.find((l) => l.path === location.pathname)?.name || 'Admin'}
           </h1>
-          <div />
+          <div className="flex items-center gap-3">
+            <a
+              href="/"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted transition-colors text-foreground"
+            >
+              View App
+            </a>
+            <span className="hidden sm:inline font-body text-xs text-muted-foreground">{user?.email}</span>
+          </div>
         </header>
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           <Outlet />

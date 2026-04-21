@@ -69,7 +69,7 @@ const HotelDetail = () => {
       totalAmount: total,
       paymentMethod: 'online',
       paymentStatus: 'pending',
-      bookingStatus: 'pending',
+      bookingStatus: 'confirmed',
       upiTransactionId: transactionId,
       additionalInfo: `UPI Txn: ${transactionId}`,
     } as any);
@@ -81,7 +81,7 @@ const HotelDetail = () => {
 
     setShowPayment(false);
     setBooked(true);
-    toast.success('Booking submitted! Payment verification pending.');
+    toast.success('Booking confirmed! Payment verification pending.');
   };
 
   const allImages = [hotel.image, ...(hotel.images || [])].filter(Boolean);

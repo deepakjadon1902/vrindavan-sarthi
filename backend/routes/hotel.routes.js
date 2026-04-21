@@ -6,7 +6,21 @@ const router = express.Router();
 // Get all active hotels (public)
 router.get('/', async (req, res) => {
   try {
-    const hotels = await Hotel.find({ status: 'active', approvalStatus: 'approved' });
+    // Optimize payload for listing pages (Home/Hotels).
+    res.set('Cache-Control', 'no-store');
+    const hotels = await Hotel.find({ status: 'active', approvalStatus: 'approved' })
+      .sort({ createdAt: -1 })
+      .select('name location pricePerNight rating image images amenities createdAt')
+      .slice('images', 1)
+      .lean();
+    res.json({ success: true, data: hotels });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// Get all hotels (admin)
+router.get('/all', protect, authorize('admin'), async (req, res) => {
+  try {
+    const hotels = await Hotel.find().sort({ createdAt: -1 }).lean();
     res.json({ success: true, data: hotels });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -14,7 +28,7 @@ router.get('/', async (req, res) => {
 // Get single hotel (public)
 router.get('/:id', async (req, res) => {
   try {
-    const hotel = await Hotel.findById(req.params.id);
+    const hotel = await Hotel.findById(req.params.id).lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
     res.json({ success: true, data: hotel });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }

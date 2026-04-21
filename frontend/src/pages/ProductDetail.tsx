@@ -65,6 +65,10 @@ const ProductDetail = () => {
       navigate('/login');
       return;
     }
+    if (!product.inStock) {
+      toast.error('This product is currently out of stock');
+      return;
+    }
     if (!address.trim()) {
       toast.error('Please enter shipping address');
       return;
@@ -184,4 +188,3 @@ const ProductDetail = () => {
 };
 
 export default ProductDetail;
-

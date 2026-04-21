@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
+import { api } from '@/lib/api';
+import { subscribeAppEvent } from '@/lib/broadcast';
 
 const Tours = () => {
   const navigate = useNavigate();
@@ -10,10 +12,23 @@ const Tours = () => {
   const [tours, setTours] = useState<any[]>([]);
 
   useEffect(() => {
-    try {
-      const data = localStorage.getItem('vvs_tours');
-      if (data) setTours(JSON.parse(data).filter((t: any) => t.status === 'active'));
-    } catch {}
+    const load = async () => {
+      try {
+        const res = await api.get('/tours');
+        setTours(Array.isArray(res.data?.data) ? res.data.data : []);
+      } catch {
+        setTours([]);
+      }
+    };
+
+    void load();
+    const unsub = subscribeAppEvent('listing:changed', () => void load());
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      unsub();
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   const filtered = tours.filter(t =>
@@ -41,7 +56,7 @@ const Tours = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((tour) => (
-                <ListingCard key={tour.id} image={tour.image} images={tour.images} name={tour.name} location={tour.duration} price={tour.pricePerPerson} priceLabel="/person" rating={0} reviewCount={0} badge={tour.duration} amenities={tour.includes || []} onViewDetails={() => navigate(`/tours/${tour.id}`)} />
+                <ListingCard key={tour._id} image={tour.image} images={tour.images} name={tour.name} location={tour.duration} price={tour.pricePerPerson} priceLabel="/person" rating={0} reviewCount={0} badge={tour.duration} amenities={tour.includes || []} onViewDetails={() => navigate(`/tours/${tour._id}`)} />
               ))}
             </div>
           )}

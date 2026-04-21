@@ -49,18 +49,33 @@ const Home = () => {
   useEffect(() => {
     void fetchProducts();
     const run = async () => {
+      // Show cached tours fast (if any), but always revalidate from API so new listings reflect quickly.
       try {
-        const res = await api.get('/hotels');
-        const data = Array.isArray(res.data?.data) ? res.data.data : [];
-        setHotels(data.slice(0, 3));
+        const cached = localStorage.getItem('vvs_tours');
+        if (cached) setTours(JSON.parse(cached).filter((t: any) => t.status === 'active').slice(0, 3));
       } catch {
+        // ignore
+      }
+
+      const [hotelsRes, toursRes] = await Promise.allSettled([api.get('/hotels'), api.get('/tours')]);
+
+      if (hotelsRes.status === 'fulfilled') {
+        const data = Array.isArray(hotelsRes.value.data?.data) ? hotelsRes.value.data.data : [];
+        setHotels(data.slice(0, 3));
+      } else {
         setHotels([]);
       }
 
-      try {
-        const tData = localStorage.getItem('vvs_tours');
-        if (tData) setTours(JSON.parse(tData).filter((t: any) => t.status === 'active').slice(0, 3));
-      } catch {}
+      if (toursRes.status === 'fulfilled') {
+        const data = Array.isArray(toursRes.value.data?.data) ? toursRes.value.data.data : [];
+        const active = data.filter((t: any) => t?.status === 'active').slice(0, 3);
+        setTours(active);
+        try {
+          localStorage.setItem('vvs_tours', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
+      }
     };
     void run();
   }, []);
@@ -158,7 +173,7 @@ const Home = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {tours.map((tour) => (
-                  <ListingCard key={tour.id} image={tour.image} images={tour.images} name={tour.name} location={tour.duration} price={tour.pricePerPerson} priceLabel="/person" rating={0} reviewCount={0} badge={tour.duration} amenities={tour.includes || []} onViewDetails={() => navigate(`/tours/${tour.id}`)} />
+                  <ListingCard key={tour._id} image={tour.image} images={tour.images} name={tour.name} location={tour.duration} price={tour.pricePerPerson} priceLabel="/person" rating={0} reviewCount={0} badge={tour.duration} amenities={tour.includes || []} onViewDetails={() => navigate(`/tours/${tour._id}`)} />
                 ))}
               </div>
               <div className="text-center mt-10">

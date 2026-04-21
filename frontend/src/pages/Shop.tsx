@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useProductStore } from '@/store/productStore';
 import { ShoppingBag, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { subscribeAppEvent } from '@/lib/broadcast';
 
 const Shop = () => {
   const { products, fetchProducts, isLoadingProducts } = useProductStore();
@@ -10,6 +11,18 @@ const Shop = () => {
 
   useEffect(() => {
     fetchProducts();
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    const unsub = subscribeAppEvent('product:changed', () => {
+      void fetchProducts();
+    });
+    const onFocus = () => void fetchProducts();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      unsub();
+      window.removeEventListener('focus', onFocus);
+    };
   }, [fetchProducts]);
 
   const categories = useMemo(() => ['all', ...Array.from(new Set(products.map((p) => p.category)))], [products]);

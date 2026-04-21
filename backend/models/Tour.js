@@ -27,4 +27,6 @@ const tourSchema = new mongoose.Schema({
   adminRemarks: String,
 }, { timestamps: true });
 
+tourSchema.index({ status: 1, approvalStatus: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Tour', tourSchema);
