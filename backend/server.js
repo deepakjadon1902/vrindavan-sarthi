@@ -1,7 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
+const { seedAdminOnce } = require('./config/seedAdmin');
 
 const authRoutes = require('./routes/auth.routes');
 const hotelRoutes = require('./routes/hotel.routes');
@@ -17,6 +19,30 @@ const productRoutes = require('./routes/product.routes');
 const orderRoutes = require('./routes/order.routes');
 
 connectDB();
+
+let adminSeedTriggered = false;
+const trySeedAdmin = async () => {
+  if (adminSeedTriggered) return;
+  if (mongoose.connection.readyState !== 1) return;
+  adminSeedTriggered = true;
+  try {
+    await seedAdminOnce();
+  } catch (err) {
+    console.error('Admin seed failed:', err?.message || err);
+  }
+};
+
+mongoose.connection.on('connected', () => {
+  void trySeedAdmin();
+});
+
+// In case the connection event fires before the listener attaches (rare),
+// or the initial connection is delayed, poll until connected and seed once.
+void trySeedAdmin();
+const seedPoll = setInterval(() => {
+  if (adminSeedTriggered) return clearInterval(seedPoll);
+  void trySeedAdmin();
+}, 2000);
 
 const app = express();
 
@@ -38,7 +64,13 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'VrindavanSarthi API running' }));
+app.get('/api/health', (req, res) =>
+  res.json({
+    status: 'ok',
+    message: 'VrindavanSarthi API running',
+    dbReadyState: mongoose.connection.readyState,
+  })
+);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

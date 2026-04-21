@@ -10,6 +10,13 @@ router.get('/', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+router.get('/all', protect, authorize('admin'), async (req, res) => {
+  try {
+    const products = await Product.find().sort({ createdAt: -1 });
+    res.json({ success: true, data: products });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);

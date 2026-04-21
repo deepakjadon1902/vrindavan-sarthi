@@ -35,6 +35,26 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Get single booking (owner/admin/partner)
+router.get('/:id', protect, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    const isOwner = String(booking.userId) === String(req.user._id);
+    const isPartner = booking.partnerId && String(booking.partnerId) === String(req.user._id);
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isPartner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Cancel booking
 router.put('/:id/cancel', protect, async (req, res) => {
   try {
@@ -46,6 +66,58 @@ router.put('/:id/cancel', protect, async (req, res) => {
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// Submit payment transaction id (user)
+router.put('/:id/payment', protect, async (req, res) => {
+  try {
+    const { upiTransactionId } = req.body || {};
+    if (!upiTransactionId || typeof upiTransactionId !== 'string') {
+      return res.status(400).json({ success: false, message: 'UPI transaction ID is required' });
+    }
+
+    const booking = await Booking.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    booking.upiTransactionId = upiTransactionId.trim();
+    booking.paymentStatus = 'pending';
+    booking.bookingStatus = 'pending';
+    await booking.save();
+
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Verify payment (admin)
+router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
+  try {
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      { paymentStatus: 'paid', bookingStatus: 'confirmed' },
+      { new: true }
+    );
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Reject payment (admin)
+router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
+  try {
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      { paymentStatus: 'failed', bookingStatus: 'cancelled' },
+      { new: true }
+    );
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = router;

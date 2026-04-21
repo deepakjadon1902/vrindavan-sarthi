@@ -24,6 +24,41 @@ router.post('/hotels', protect, authorize('partner'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Partner: Update my hotel submission (pending/rejected only)
+router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
+  try {
+    const hotel = await Hotel.findOne({ _id: req.params.id, partnerId: req.user._id });
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    if (hotel.approvalStatus === 'approved') {
+      return res.status(400).json({ success: false, message: 'Approved listings cannot be edited' });
+    }
+
+    Object.assign(hotel, req.body);
+    hotel.partnerSubmitted = true;
+    hotel.approvalStatus = 'pending';
+    hotel.status = 'inactive';
+    await hotel.save();
+    res.json({ success: true, data: hotel });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Partner: Delete my hotel submission (pending/rejected only)
+router.delete('/hotels/:id', protect, authorize('partner'), async (req, res) => {
+  try {
+    const hotel = await Hotel.findOne({ _id: req.params.id, partnerId: req.user._id });
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    if (hotel.approvalStatus === 'approved') {
+      return res.status(400).json({ success: false, message: 'Approved listings cannot be deleted' });
+    }
+    await hotel.deleteOne();
+    res.json({ success: true, message: 'Deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Partner: Submit room
 router.post('/rooms', protect, authorize('partner'), async (req, res) => {
   try {

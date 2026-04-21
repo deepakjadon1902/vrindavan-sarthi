@@ -1,0 +1,12 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: vrindavan-sarthi-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - vrindavan_sarthi_mongo:/data/db
+
+volumes:
+  vrindavan_sarthi_mongo:

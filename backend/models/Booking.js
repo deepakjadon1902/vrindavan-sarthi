@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const bookingSchema = new mongoose.Schema({
   bookingId: { type: String, unique: true },
   bookingType: { type: String, enum: ['hotel', 'room', 'cab', 'tour'], required: true },
-  itemId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  itemId: { type: String, required: true },
   itemName: String,
   itemImage: String,
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -18,7 +18,7 @@ const bookingSchema = new mongoose.Schema({
   totalAmount: { type: Number, default: 0 },
   paymentMethod: { type: String, enum: ['online', 'doorstep'], default: 'online' },
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
-  bookingStatus: { type: String, enum: ['pending', 'confirmed', 'cancelled', 'completed'], default: 'confirmed' },
+  bookingStatus: { type: String, enum: ['pending', 'confirmed', 'cancelled', 'completed'], default: 'pending' },
   additionalInfo: String,
   upiTransactionId: String,
 }, { timestamps: true });
