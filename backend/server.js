@@ -46,7 +46,25 @@ const seedPoll = setInterval(() => {
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = new Set(
+  [
+    process.env.FRONTEND_BASE_URL,
+    'http://localhost:8080',
+    'http://localhost:3000',
+  ]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean)
+);
+
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.has(origin)) return cb(null, true);
+      return cb(new Error(`CORS blocked for origin: ${origin}`));
+    },
+  })
+);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static('uploads'));

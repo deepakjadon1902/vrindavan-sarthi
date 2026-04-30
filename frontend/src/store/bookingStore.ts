@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, withAuth } from '@/lib/api';
+import { api, resolveBackendAssetUrl, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import axios from 'axios';
 
@@ -43,7 +43,7 @@ const normalizeBooking = (b: unknown): Booking => {
     bookingType: (getString(obj, 'bookingType') as Booking['bookingType']) || 'hotel',
     itemId: getString(obj, 'itemId'),
     itemName: getString(obj, 'itemName'),
-    itemImage: getString(obj, 'itemImage'),
+    itemImage: resolveBackendAssetUrl(getString(obj, 'itemImage')),
     userId: getString(obj, 'userId'),
     userName: getString(obj, 'userName'),
     userEmail: getString(obj, 'userEmail'),

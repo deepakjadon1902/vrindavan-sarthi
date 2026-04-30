@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { resolveBackendAssetUrl } from '@/lib/api';
 
 interface ImageCarouselProps {
   images: string[];
@@ -26,7 +27,7 @@ const ImageCarousel = ({
   heightClass = 'h-72 md:h-[28rem]',
   showThumbnails = true,
 }: ImageCarouselProps) => {
-  const safe = images && images.length > 0 ? images : ['/placeholder.svg'];
+  const safe = (images && images.length > 0 ? images : ['/placeholder.svg']).map((img) => resolveBackendAssetUrl(img) || '/placeholder.svg');
   const [active, setActive] = useState(0);
   const [hovering, setHovering] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);

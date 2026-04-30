@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from 'axios';
-import { api, withAuth } from '@/lib/api';
+import { api, resolveBackendAssetUrl, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
 export interface AppSettings {
@@ -31,23 +31,23 @@ interface SettingsState {
 }
 
 const defaultSettings: AppSettings = {
-  siteName: 'VrindavanSarthi',
+  siteName: 'Vrindavan Sarthi',
   motto: 'Your Divine Guide to Vrindavan',
   logoUrl: '',
   faviconUrl: '',
-  metaTitle: 'VrindavanSarthi',
+  metaTitle: 'Vrindavan Sarthi',
   metaDescription: 'Your Divine Guide to Vrindavan',
   metaKeywords: 'Vrindavan, hotels, rooms, cabs, tours, bookings, shop',
   ogImageUrl: '',
   upiId: '',
-  upiName: 'VrindavanSarthi',
+  upiName: 'Vrindavan Sarthi',
   adminPhone: '+91 9999999999',
-  adminEmail: 'support@vrindavansarthi.com',
+  adminEmail: 'vrindavansarthi108@gmail.com',
   termsOfService: `1. Acceptance of Terms
-By accessing and using VrindavanSarthi ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.
+By accessing and using Vrindavan Sarthi ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.
 
 2. Services
-VrindavanSarthi provides an online platform for booking hotels, rooms, cabs, and tour packages in Vrindavan. We act as an intermediary between users and service providers (hotels, cab drivers, tour operators).
+Vrindavan Sarthi provides an online platform for booking hotels, rooms, cabs, and tour packages in Vrindavan. We act as an intermediary between users and service providers (hotels, cab drivers, tour operators).
 
 3. User Accounts
 You must provide accurate and complete information when creating an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.
@@ -62,10 +62,10 @@ Cancellation policies vary by service provider. Refunds, if applicable, will be 
 Partners listing hotels, rooms, cabs, or tours must provide accurate information. All listings are subject to admin verification. Misrepresentation may result in removal from the platform.
 
 7. Limitation of Liability
-VrindavanSarthi is not liable for the quality of services provided by third-party partners. We make every effort to verify listings but do not guarantee accuracy of all information.
+Vrindavan Sarthi is not liable for the quality of services provided by third-party partners. We make every effort to verify listings but do not guarantee accuracy of all information.
 
 8. Contact
-For questions about these Terms, contact us at support@vrindavansarthi.com or visit our Contact page.`,
+For questions about these Terms, contact us at vrindavansarthi108@gmail.com or visit our Contact page.`,
   privacyPolicy: `1. Information We Collect
 We collect personal information you provide during registration: name, email, phone number, address. For partners, we also collect business details including GST number and business address.
 
@@ -85,7 +85,7 @@ We use cookies and local storage to maintain your session, remember preferences,
 You have the right to access, update, or delete your personal information at any time through your profile settings or by contacting our support team.
 
 7. Contact Us
-For privacy-related inquiries, contact us at privacy@vrindavansarthi.com or through our Contact page.`,
+For privacy-related inquiries, contact us at vrindavansarthi108@gmail.com or through our Contact page.`,
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -97,12 +97,12 @@ const normalizeSettings = (raw: unknown): AppSettings => {
     ...defaultSettings,
     siteName: getString(obj, 'siteName') || defaultSettings.siteName,
     motto: getString(obj, 'motto') || defaultSettings.motto,
-    logoUrl: getString(obj, 'logoUrl'),
-    faviconUrl: getString(obj, 'faviconUrl'),
+    logoUrl: resolveBackendAssetUrl(getString(obj, 'logoUrl')),
+    faviconUrl: resolveBackendAssetUrl(getString(obj, 'faviconUrl')),
     metaTitle: getString(obj, 'metaTitle') || (getString(obj, 'siteName') || defaultSettings.metaTitle),
     metaDescription: getString(obj, 'metaDescription') || (getString(obj, 'motto') || defaultSettings.metaDescription),
     metaKeywords: getString(obj, 'metaKeywords') || defaultSettings.metaKeywords,
-    ogImageUrl: getString(obj, 'ogImageUrl'),
+    ogImageUrl: resolveBackendAssetUrl(getString(obj, 'ogImageUrl')),
     upiId: getString(obj, 'upiId'),
     upiName: getString(obj, 'upiName') || defaultSettings.upiName,
     adminPhone: getString(obj, 'adminPhone') || defaultSettings.adminPhone,

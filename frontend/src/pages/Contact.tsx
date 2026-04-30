@@ -11,7 +11,7 @@ const Contact = () => {
     setSubmitted(true);
   };
 
-  const whatsappLink = `https://wa.me/919876543210?text=${encodeURIComponent('Hello VrindavanSarthi, I need help with...')}`;
+  const whatsappLink = `https://wa.me/919876543210?text=${encodeURIComponent('Hello Vrindavan Sarthi, I need help with...')}`;
 
   return (
     <div className="pt-20">
@@ -52,7 +52,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="font-body font-semibold text-foreground">Email</p>
-                    <p className="font-body text-sm text-muted-foreground">support@vrindavansarthi.com</p>
+                    <p className="font-body text-sm text-muted-foreground">vrindavansarthi108@gmail.com</p>
                   </div>
                 </div>
               </div>

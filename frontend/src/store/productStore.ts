@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, withAuth } from '@/lib/api';
+import { api, resolveBackendAssetUrl, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import axios from 'axios';
 import { publishAppEvent } from '@/lib/broadcast';
@@ -54,7 +54,7 @@ const normalizeProduct = (p: unknown): Product => {
     description: getString(obj, 'description'),
     price: getNumber(obj, 'price'),
     category: getString(obj, 'category'),
-    images: getStringArray(obj, 'images'),
+    images: getStringArray(obj, 'images').map((img) => resolveBackendAssetUrl(img)).filter(Boolean),
     inStock: getBoolean(obj, 'inStock'),
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
   };
@@ -80,7 +80,7 @@ const normalizeOrder = (o: unknown): Order => {
     orderId: getString(obj, 'orderId'),
     productId: getString(productIdObj, '_id') || getString(obj, 'productId'),
     productName: getString(obj, 'productName'),
-    productImage: getString(obj, 'productImage'),
+    productImage: resolveBackendAssetUrl(getString(obj, 'productImage')),
     productPrice: getNumber(obj, 'productPrice'),
     quantity: getNumber(obj, 'quantity') || 1,
     totalAmount: getNumber(obj, 'totalAmount'),

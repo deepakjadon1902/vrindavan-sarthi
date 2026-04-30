@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Star } from 'lucide-react';
+import { resolveBackendAssetUrl } from '@/lib/api';
 
 interface ListingCardProps {
   image: string;
@@ -36,7 +37,7 @@ const ListingCard = ({
 }: ListingCardProps) => {
   // Build full gallery: main image + extras (de-duplicated, placeholder filtered)
   const gallery = (() => {
-    const all = [image, ...(images || [])].filter(
+    const all = [image, ...(images || [])].map((src) => resolveBackendAssetUrl(src)).filter(
       (src): src is string => Boolean(src) && src !== '/placeholder.svg'
     );
     return Array.from(new Set(all));
