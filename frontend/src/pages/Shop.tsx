@@ -42,7 +42,7 @@ const Shop = () => {
 
       <div className="container mx-auto px-4 max-w-7xl relative">
         <div className="text-center mb-10">
-          <p className="font-ui text-[11px] uppercase tracking-[0.3em] text-brand-gold mb-2">âœ¦ Divine Shop âœ¦</p>
+          <p className="font-ui text-[11px] uppercase tracking-[0.3em] text-brand-gold mb-2"> Divine Shop </p>
           <h1 className="font-display text-5xl font-bold text-shine">Sacred Souvenirs</h1>
           <p className="font-body text-sm text-muted-foreground mt-3 max-w-xl mx-auto">Hand-picked pooja items, devotional books, and blessed memorabilia from the holy land of Vrindavan</p>
         </div>
@@ -94,7 +94,7 @@ const Shop = () => {
                   <h3 className="font-display text-base font-semibold text-foreground mt-2 truncate">{product.name}</h3>
                   <p className="font-body text-xs text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
                   <div className="flex items-center justify-between mt-3">
-                    <span className="font-display text-lg font-bold text-brand-crimson">â‚¹{product.price.toLocaleString('en-IN')}</span>
+                    <span className="font-display text-lg font-bold text-brand-crimson">₹{product.price.toLocaleString('en-IN')}</span>
                     <span className={`font-body text-xs font-medium ${product.inStock ? 'text-brand-green' : 'text-destructive'}`}>
                       {product.inStock ? 'In Stock' : 'Out of Stock'}
                     </span>

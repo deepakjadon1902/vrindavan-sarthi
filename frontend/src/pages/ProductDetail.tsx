@@ -145,7 +145,7 @@ const ProductDetail = () => {
                 <div>
                   <span className="font-body text-xs bg-secondary px-2 py-0.5 rounded capitalize text-secondary-foreground">{product.category}</span>
                   <h1 className="font-heading text-3xl font-bold text-foreground mt-3">{product.name}</h1>
-                  <p className="font-heading text-3xl font-bold text-brand-crimson mt-2">â‚¹{product.price.toLocaleString('en-IN')}</p>
+                  <p className="font-heading text-3xl font-bold text-brand-crimson mt-2">₹{product.price.toLocaleString('en-IN')}</p>
                 </div>
 
                 <div className="bg-card rounded-xl border border-border p-5">
@@ -167,8 +167,8 @@ const ProductDetail = () => {
                 </div>
 
                 <div className="bg-card rounded-xl border border-border p-5">
-                  <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">â‚¹{product.price.toLocaleString('en-IN')} Ã— {quantity}</span><span>â‚¹{total.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between font-body text-sm font-semibold border-t border-border pt-2 mt-2"><span>Total</span><span className="text-brand-crimson">â‚¹{total.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{product.price.toLocaleString('en-IN')} * {quantity}</span><span>₹{total.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between font-body text-sm font-semibold border-t border-border pt-2 mt-2"><span>Total</span><span className="text-brand-crimson">₹{total.toLocaleString('en-IN')}</span></div>
                 </div>
 
                 <button onClick={handleBuyNow} className="btn-gold w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2">
@@ -176,7 +176,7 @@ const ProductDetail = () => {
                 </button>
 
                 <div className="flex items-center gap-2 justify-center font-body text-xs text-muted-foreground">
-                  <Truck size={14} /> Free delivery on orders above â‚¹500
+                  <Truck size={14} /> Free delivery on orders above ₹ 500
                 </div>
               </div>
             )}
