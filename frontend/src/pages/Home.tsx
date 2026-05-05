@@ -1,20 +1,21 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Hotel, BedDouble, Car, Map, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag } from 'lucide-react';
+import { Building2, BedDouble, CarTaxiFront, MapPinned, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import TestimonialCard from '@/components/shared/TestimonialCard';
 import { useProductStore } from '@/store/productStore';
 import { api } from '@/lib/api';
+import { subscribeAppEvent } from '@/lib/broadcast';
 
 import heroImg from '@/assets/images/hero-vrindavan.jpg';
 
 const services = [
-  { icon: Hotel, title: 'Hotels', desc: 'Verified hotels near sacred temples', link: '/hotels' },
+  { icon: Building2, title: 'Hotels', desc: 'Verified hotels near sacred temples', link: '/hotels' },
   { icon: BedDouble, title: 'Rooms', desc: 'Budget to premium room options', link: '/rooms' },
-  { icon: Car, title: 'Cabs', desc: 'Reliable local & outstation cabs', link: '/cabs' },
-  { icon: Map, title: 'Tours', desc: 'Guided spiritual tour packages', link: '/tours' },
+  { icon: CarTaxiFront, title: 'Cabs', desc: 'Reliable local & outstation cabs', link: '/cabs' },
+  { icon: MapPinned, title: 'Tours', desc: 'Guided spiritual tour packages', link: '/tours' },
   { icon: ShoppingBag, title: 'Shop', desc: 'Sacred items & souvenirs', link: '/shop' },
 ];
 
@@ -42,43 +43,83 @@ const Home = () => {
   const navigate = useNavigate();
   const { products, fetchProducts } = useProductStore();
   const [hotels, setHotels] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [cabs, setCabs] = useState<any[]>([]);
   const [tours, setTours] = useState<any[]>([]);
 
   const featuredProducts = products.filter(p => p.inStock).slice(0, 4);
 
   useEffect(() => {
-    void fetchProducts();
-    const run = async () => {
-      // Show cached tours fast (if any), but always revalidate from API so new listings reflect quickly.
+    const loadListings = async () => {
+      // Show cached lists fast (if any), but always revalidate from API so new listings reflect quickly.
       try {
-        const cached = localStorage.getItem('vvs_tours');
-        if (cached) setTours(JSON.parse(cached).filter((t: any) => t.status === 'active').slice(0, 3));
-      } catch {
-        // ignore
-      }
+        const cachedHotels = localStorage.getItem('vvs_hotels');
+        if (cachedHotels) setHotels(JSON.parse(cachedHotels).slice(0, 3));
+      } catch {}
+      try {
+        const cachedRooms = localStorage.getItem('vvs_rooms');
+        if (cachedRooms) setRooms(JSON.parse(cachedRooms).slice(0, 3));
+      } catch {}
+      try {
+        const cachedCabs = localStorage.getItem('vvs_cabs');
+        if (cachedCabs) setCabs(JSON.parse(cachedCabs).slice(0, 3));
+      } catch {}
+      try {
+        const cachedTours = localStorage.getItem('vvs_tours');
+        if (cachedTours) setTours(JSON.parse(cachedTours).filter((t: any) => t?.status === 'active').slice(0, 3));
+      } catch {}
 
-      const [hotelsRes, toursRes] = await Promise.allSettled([api.get('/hotels'), api.get('/tours')]);
+      const [hotelsRes, roomsRes, cabsRes, toursRes] = await Promise.allSettled([
+        api.get('/hotels'),
+        api.get('/rooms'),
+        api.get('/cabs'),
+        api.get('/tours'),
+      ]);
 
       if (hotelsRes.status === 'fulfilled') {
         const data = Array.isArray(hotelsRes.value.data?.data) ? hotelsRes.value.data.data : [];
         setHotels(data.slice(0, 3));
-      } else {
-        setHotels([]);
-      }
+        try { localStorage.setItem('vvs_hotels', JSON.stringify(data)); } catch {}
+      } else setHotels([]);
+
+      if (roomsRes.status === 'fulfilled') {
+        const data = Array.isArray(roomsRes.value.data?.data) ? roomsRes.value.data.data : [];
+        const available = data.filter((r: any) => r?.status === 'available').slice(0, 3);
+        setRooms(available);
+        try { localStorage.setItem('vvs_rooms', JSON.stringify(data)); } catch {}
+      } else setRooms([]);
+
+      if (cabsRes.status === 'fulfilled') {
+        const data = Array.isArray(cabsRes.value.data?.data) ? cabsRes.value.data.data : [];
+        setCabs(data.slice(0, 3));
+        try { localStorage.setItem('vvs_cabs', JSON.stringify(data)); } catch {}
+      } else setCabs([]);
 
       if (toursRes.status === 'fulfilled') {
         const data = Array.isArray(toursRes.value.data?.data) ? toursRes.value.data.data : [];
         const active = data.filter((t: any) => t?.status === 'active').slice(0, 3);
         setTours(active);
-        try {
-          localStorage.setItem('vvs_tours', JSON.stringify(data));
-        } catch {
-          // ignore
-        }
-      }
+        try { localStorage.setItem('vvs_tours', JSON.stringify(data)); } catch {}
+      } else setTours([]);
     };
-    void run();
-  }, []);
+
+    void fetchProducts();
+    void loadListings();
+
+    const unsubListings = subscribeAppEvent('listing:changed', () => void loadListings());
+    const unsubProducts = subscribeAppEvent('product:changed', () => void fetchProducts());
+    const onFocus = () => {
+      void loadListings();
+      void fetchProducts();
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      unsubListings();
+      unsubProducts();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [fetchProducts]);
 
   return (
     <div>
@@ -128,15 +169,22 @@ const Home = () => {
         <div className="container mx-auto px-4">
           <SectionTitle label="Our Services" title="Everything You Need in Vrindavan" subtitle="From comfortable stays to guided temple tours, we've got your sacred journey covered" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {services.map((service) => (
-              <Link key={service.title} to={service.link} className="bg-card rounded-xl p-8 text-center border border-border card-hover group">
+            {services.map((service, i) => {
+              const isLast = i === services.length - 1;
+              const lastPos =
+                isLast
+                  ? 'sm:col-span-2 sm:justify-self-center sm:max-w-md lg:col-span-1 lg:col-start-2 lg:max-w-none'
+                  : '';
+              return (
+              <Link key={service.title} to={service.link} className={`bg-card rounded-xl p-8 text-center border border-border card-hover group ${lastPos}`}>
                 <div className="w-16 h-16 rounded-full bg-brand-gold/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-brand-gold/20 transition-colors">
                   <service.icon className="text-brand-gold" size={28} />
                 </div>
                 <h3 className="font-heading text-xl font-semibold text-foreground mb-2">{service.title}</h3>
                 <p className="font-body text-sm text-muted-foreground">{service.desc}</p>
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -160,6 +208,80 @@ const Home = () => {
             <div className="text-center py-12">
               <p className="font-body text-muted-foreground mb-4">No hotels listed yet. Check back soon!</p>
               <Link to="/hotels" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">Browse Hotels <ArrowRight size={16} /></Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== FEATURED ROOMS ===== */}
+      <section className="py-16 lg:py-24">
+        <div className="container mx-auto px-4">
+          <SectionTitle label="Stay Options" title="Popular Rooms" subtitle="Comfortable rooms curated by our partners" />
+          {rooms.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {rooms.map((room) => (
+                  <ListingCard
+                    key={room._id}
+                    image={room.image}
+                    images={room.images}
+                    name={room.name}
+                    location={room.hotelName}
+                    price={room.pricePerNight}
+                    priceLabel="/night"
+                    rating={0}
+                    reviewCount={0}
+                    amenities={room.amenities || []}
+                    onViewDetails={() => navigate(`/rooms/${room._id}`)}
+                  />
+                ))}
+              </div>
+              <div className="text-center mt-10">
+                <Link to="/rooms" className="btn-gold px-8 py-3 rounded-xl inline-flex items-center gap-2">View All Rooms <ArrowRight size={18} /></Link>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <p className="font-body text-muted-foreground mb-4">No rooms listed yet. Check back soon!</p>
+              <Link to="/rooms" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">Browse Rooms <ArrowRight size={16} /></Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== FEATURED CABS ===== */}
+      <section className="section-cream py-16 lg:py-24">
+        <div className="container mx-auto px-4">
+          <SectionTitle label="Transportation" title="Available Cabs" subtitle="Reliable cabs listed by verified partners" />
+          {cabs.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {cabs.map((cab) => (
+                  <ListingCard
+                    key={cab._id}
+                    image={cab.image}
+                    images={cab.images}
+                    name={cab.vehicleName}
+                    location={cab.routes?.join(' • ') || ''}
+                    price={0}
+                    priceLabel=""
+                    rating={0}
+                    reviewCount={0}
+                    amenities={[cab.vehicleType, `${cab.capacity} Seater`]}
+                    badge="Pay at Doorstep"
+                    badgeColor="green"
+                    onViewDetails={() => navigate(`/cabs/${cab._id}`)}
+                  />
+                ))}
+              </div>
+              <div className="text-center mt-10">
+                <Link to="/cabs" className="btn-gold px-8 py-3 rounded-xl inline-flex items-center gap-2">View All Cabs <ArrowRight size={18} /></Link>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <p className="font-body text-muted-foreground mb-4">No cabs listed yet. Check back soon!</p>
+              <Link to="/cabs" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">Browse Cabs <ArrowRight size={16} /></Link>
             </div>
           )}
         </div>

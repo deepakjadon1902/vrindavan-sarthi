@@ -56,7 +56,7 @@ const AdminOrders = () => {
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-green/10 flex items-center justify-center"><IndianRupee size={20} className="text-brand-green" /></div>
-            <div><p className="font-body text-xs text-muted-foreground">Product Revenue</p><p className="font-heading text-xl font-bold text-foreground">â‚¹{totalRevenue.toLocaleString('en-IN')}</p></div>
+            <div><p className="font-body text-xs text-muted-foreground">Product Revenue</p><p className="font-heading text-xl font-bold text-foreground">₹{totalRevenue.toLocaleString('en-IN')}</p></div>
           </div>
         </div>
         <div className="bg-card rounded-xl border border-border p-5">
@@ -112,7 +112,7 @@ const AdminOrders = () => {
                       <p className="font-heading text-sm font-semibold text-foreground">{o.productName}</p>
                       <p className="font-body text-[10px] text-muted-foreground">{o.orderId} â€¢ {o.userName} â€¢ {o.userPhone}</p>
                     </div>
-                    <p className="font-heading text-lg font-bold text-brand-crimson flex-shrink-0">â‚¹{o.totalAmount.toLocaleString('en-IN')}</p>
+                    <p className="font-heading text-lg font-bold text-brand-crimson flex-shrink-0">₹{o.totalAmount.toLocaleString('en-IN')}</p>
                   </div>
                   <div className="flex items-center gap-3 mt-2 flex-wrap">
                     <span className="flex items-center gap-1 font-body text-xs">{paymentIcon(o.paymentStatus)} {o.paymentStatus}</span>
@@ -148,4 +148,3 @@ const AdminOrders = () => {
 };
 
 export default AdminOrders;
-

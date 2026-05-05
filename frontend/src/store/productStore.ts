@@ -29,6 +29,7 @@ export interface Order {
   userEmail: string;
   userPhone: string;
   shippingAddress: string;
+  orderNotes?: string;
   paymentStatus: 'pending' | 'paid' | 'failed';
   orderStatus: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   upiTransactionId?: string;
@@ -89,6 +90,7 @@ const normalizeOrder = (o: unknown): Order => {
     userEmail: getString(obj, 'userEmail'),
     userPhone: getString(obj, 'userPhone'),
     shippingAddress: getString(obj, 'shippingAddress'),
+    orderNotes: getString(obj, 'orderNotes') || undefined,
     paymentStatus,
     orderStatus,
     upiTransactionId: getString(obj, 'upiTransactionId') || undefined,

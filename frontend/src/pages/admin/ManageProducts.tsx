@@ -122,7 +122,7 @@ const ManageProducts = () => {
               <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="e.g. Pooja Items, Souvenirs" />
             </div>
             <div>
-              <label className="font-body text-xs text-muted-foreground block mb-1">Price (â‚¹) *</label>
+              <label className="font-body text-xs text-muted-foreground block mb-1">Price (₹) *</label>
               <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="0" />
             </div>
             <div className="flex items-center gap-3">
@@ -186,7 +186,7 @@ const ManageProducts = () => {
                     <h4 className="font-heading text-sm font-semibold text-foreground truncate">{p.name}</h4>
                     <span className="font-body text-[10px] bg-secondary px-2 py-0.5 rounded capitalize">{p.category}</span>
                   </div>
-                  <span className="font-heading text-base font-bold text-brand-crimson flex-shrink-0">â‚¹{p.price.toLocaleString('en-IN')}</span>
+                  <span className="font-heading text-base font-bold text-brand-crimson flex-shrink-0">₹{p.price.toLocaleString('en-IN')}</span>
                 </div>
                 <p className="font-body text-xs text-muted-foreground mt-2 line-clamp-2">{p.description}</p>
                 <div className="flex items-center justify-between mt-3">
@@ -208,4 +208,3 @@ const ManageProducts = () => {
 };
 
 export default ManageProducts;
-

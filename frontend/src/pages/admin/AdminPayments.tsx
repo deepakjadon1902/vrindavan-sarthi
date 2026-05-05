@@ -118,13 +118,13 @@ const AdminPayments = () => {
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-green/10 flex items-center justify-center"><IndianRupee size={20} className="text-brand-green" /></div>
-            <div><p className="font-body text-xs text-muted-foreground">Total Revenue</p><p className="font-heading text-xl font-bold text-foreground">â‚¹{totalRevenue.toLocaleString('en-IN')}</p></div>
+            <div><p className="font-body text-xs text-muted-foreground">Total Revenue</p><p className="font-heading text-xl font-bold text-foreground">₹{totalRevenue.toLocaleString('en-IN')}</p></div>
           </div>
         </div>
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-saffron/10 flex items-center justify-center"><Clock size={20} className="text-brand-saffron" /></div>
-            <div><p className="font-body text-xs text-muted-foreground">Pending Payments</p><p className="font-heading text-xl font-bold text-foreground">â‚¹{pendingAmount.toLocaleString('en-IN')}</p></div>
+            <div><p className="font-body text-xs text-muted-foreground">Pending Payments</p><p className="font-heading text-xl font-bold text-foreground">₹{pendingAmount.toLocaleString('en-IN')}</p></div>
           </div>
         </div>
         <div className="bg-card rounded-xl border border-border p-5">
@@ -194,7 +194,7 @@ const AdminPayments = () => {
                   <td className="px-4 py-3"><span className="font-body text-xs bg-secondary px-2 py-0.5 rounded capitalize">{p.type}</span></td>
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground max-w-[180px] truncate">{p.itemName}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{p.userName}</td>
-                  <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">â‚¹{p.amount.toLocaleString('en-IN')}</td>
+                  <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">₹{p.amount.toLocaleString('en-IN')}</td>
                   <td className="px-4 py-3">
                     {p.upiTxnId ? (
                       <button onClick={() => setSelectedUpi(p.upiTxnId!)} className="flex items-center gap-1 font-body text-xs text-brand-gold hover:underline">

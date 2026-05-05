@@ -131,7 +131,7 @@ const AdminLayout = () => {
           </h1>
           <div className="flex items-center gap-3">
             <a
-              href="/"
+              href="/?adminView=1"
               target="_blank"
               rel="noreferrer"
               className="px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted transition-colors text-foreground"

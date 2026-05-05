@@ -6,7 +6,6 @@ const Footer = () => {
 
   const footerLinks = {
     explore: [
-      { name: 'Home', path: '/' },
       { name: 'Hotels', path: '/hotels' },
       { name: 'Rooms', path: '/rooms' },
       { name: 'Cabs', path: '/cabs' },
@@ -33,14 +32,18 @@ const Footer = () => {
       <div className="container mx-auto px-4 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
+            <Link to="/" className="flex items-center gap-2 mb-4 w-fit">
               {settings.logoUrl ? (
-                <img src={settings.logoUrl} alt={settings.siteName} className="h-8 object-contain" />
+                <img
+                  src={settings.logoUrl}
+                  alt={settings.siteName}
+                  className="h-9 w-9 rounded-full object-cover border border-brand-gold/30"
+                />
               ) : (
                 <span className="text-2xl">🦚</span>
               )}
               <span className="font-brand text-xl text-brand-gold">{settings.siteName}</span>
-            </div>
+            </Link>
             <p className="font-heading italic text-primary-foreground/60 text-lg mb-6">
               {settings.motto}
             </p>

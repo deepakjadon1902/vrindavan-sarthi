@@ -73,7 +73,7 @@ const MyOrders = () => {
                     </div>
                     <div className="flex items-center gap-4 mt-2">
                       <span className="font-body text-xs text-muted-foreground">Qty: {order.quantity}</span>
-                      <span className="font-heading text-sm font-bold text-brand-crimson">â‚¹{order.totalAmount.toLocaleString('en-IN')}</span>
+                      <span className="font-heading text-sm font-bold text-brand-crimson">₹{order.totalAmount.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex items-center gap-4 mt-1">
                       <span className="font-body text-[10px] text-muted-foreground">
@@ -94,4 +94,3 @@ const MyOrders = () => {
 };
 
 export default MyOrders;
-

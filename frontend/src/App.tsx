@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -57,14 +57,41 @@ import AdminRoute from "@/router/AdminRoute";
 import PartnerRoute from "@/router/PartnerRoute";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useAuthStore } from "@/store/authStore";
+import ScrollToTop from "@/components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
 const PublicLayout = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, user } = useAuthStore();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("adminView") === "1") {
+      try {
+        sessionStorage.setItem("vvs_admin_view", "1");
+      } catch {
+        // ignore
+      }
+    }
+  }, [location.search]);
+
+  const allowAdminView = (() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("adminView") === "1") return true;
+    try {
+      return sessionStorage.getItem("vvs_admin_view") === "1";
+    } catch {
+      return false;
+    }
+  })();
 
   if (isAuthenticated && user?.role === "partner") {
     return <Navigate to="/partner" replace />;
+  }
+
+  if (isAuthenticated && user?.role === "admin" && !allowAdminView) {
+    return <Navigate to="/admin" replace />;
   }
 
   return (
@@ -89,6 +116,7 @@ const App = () => {
         <Sonner />
         <BrandingMetadata />
         <BrowserRouter>
+          <ScrollToTop />
           <Routes>
             <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
             <Route path="/hotels" element={<PublicLayout><Hotels /></PublicLayout>} />

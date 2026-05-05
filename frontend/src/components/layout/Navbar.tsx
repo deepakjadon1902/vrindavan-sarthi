@@ -6,7 +6,6 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 
 const navLinks = [
-  { name: 'Home', path: '/' },
   { name: 'Hotels', path: '/hotels' },
   { name: 'Rooms', path: '/rooms' },
   { name: 'Cabs', path: '/cabs' },
@@ -49,7 +48,11 @@ const Navbar = () => {
           <div className="flex items-center justify-between h-16 lg:h-20">
             <Link to="/" className="flex items-center gap-2">
               {settings.logoUrl ? (
-                <img src={settings.logoUrl} alt={settings.siteName} className="h-8 object-contain" />
+                <img
+                  src={settings.logoUrl}
+                  alt={settings.siteName}
+                  className="h-9 w-9 rounded-full object-cover border border-brand-gold/30"
+                />
               ) : (
                 <span className="text-2xl">🦚</span>
               )}

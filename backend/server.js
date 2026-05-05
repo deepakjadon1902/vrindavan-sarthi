@@ -17,6 +17,7 @@ const settingsRoutes = require('./routes/settings.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const productRoutes = require('./routes/product.routes');
 const orderRoutes = require('./routes/order.routes');
+const adminAnalyticsRoutes = require('./routes/adminAnalytics.routes');
 
 connectDB();
 
@@ -81,6 +82,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/admin', adminAnalyticsRoutes);
 
 app.get('/api/health', (req, res) =>
   res.json({
