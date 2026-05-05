@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
+import { APP_LOGO_URL } from '@/lib/brand';
 
 const Register = () => {
   const [role, setRole] = useState<'user' | 'partner'>('user');
@@ -54,7 +55,7 @@ const Register = () => {
         <img src={templeImg} alt="Vrindavan Temple" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-foreground/60 flex items-center justify-center">
           <div className="text-center px-8">
-            <span className="text-4xl mb-4 block">🦚</span>
+            <img src={APP_LOGO_URL} alt={settings.siteName} className="h-14 w-14 rounded-full object-cover border border-brand-gold/30 mx-auto mb-4" />
             <h2 className="font-brand text-3xl text-brand-gold mb-2">{settings.siteName}</h2>
             <p className="font-heading italic text-xl text-primary-foreground/80">{settings.motto}</p>
           </div>
@@ -64,7 +65,7 @@ const Register = () => {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 overflow-y-auto">
         <div className="w-full max-w-md py-8">
           <div className="text-center mb-6 lg:hidden">
-            <span className="text-3xl">🦚</span>
+            <img src={APP_LOGO_URL} alt={settings.siteName} className="h-12 w-12 rounded-full object-cover border border-brand-gold/30 mx-auto" />
             <h2 className="font-brand text-2xl text-brand-gold mt-2">{settings.siteName}</h2>
           </div>
 

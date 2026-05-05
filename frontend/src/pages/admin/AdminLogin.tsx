@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
+import { APP_LOGO_URL } from '@/lib/brand';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -32,7 +33,7 @@ const AdminLogin = () => {
     <div className="min-h-screen flex items-center justify-center bg-foreground px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <span className="text-4xl block mb-3">🦚</span>
+          <img src={APP_LOGO_URL} alt={settings.siteName} className="h-14 w-14 rounded-full object-cover border border-brand-gold/30 mx-auto mb-3" />
           <h1 className="font-brand text-2xl text-brand-gold mb-1">{settings.siteName}</h1>
           <p className="font-heading italic text-lg text-primary-foreground/60">Admin Portal</p>
         </div>

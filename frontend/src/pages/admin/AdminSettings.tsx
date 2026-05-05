@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
-import { Settings, Save, Globe, CreditCard, FileText, Shield, Lock } from 'lucide-react';
+import { Settings, Save, CreditCard, FileText, Shield, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
 import axios from 'axios';
 
 const AdminSettings = () => {
-  const { settings, saveSettings, uploadLogo, uploadFavicon } = useSettingsStore();
-  const [activeTab, setActiveTab] = useState<'branding' | 'payment' | 'terms' | 'privacy' | 'security'>('branding');
+  const { settings, saveSettings } = useSettingsStore();
+  const [activeTab, setActiveTab] = useState<'payment' | 'terms' | 'privacy' | 'security'>('payment');
 
   const [form, setForm] = useState({ ...settings });
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [faviconFile, setFaviconFile] = useState<File | null>(null);
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const refreshMe = useAuthStore((s) => s.refreshMe);
@@ -34,24 +32,6 @@ const AdminSettings = () => {
     const res = await saveSettings(form);
     if (res.success) toast.success('Settings saved successfully!');
     else toast.error(res.error || 'Failed to save settings');
-  };
-
-  const handleUploadLogo = async () => {
-    if (!logoFile) return toast.error('Please choose a logo image first');
-    const res = await uploadLogo(logoFile);
-    if (!res.success) return toast.error(res.error || 'Logo upload failed');
-    setForm((prev) => ({ ...prev, logoUrl: res.url || prev.logoUrl }));
-    setLogoFile(null);
-    toast.success('Logo uploaded');
-  };
-
-  const handleUploadFavicon = async () => {
-    if (!faviconFile) return toast.error('Please choose a favicon image first');
-    const res = await uploadFavicon(faviconFile);
-    if (!res.success) return toast.error(res.error || 'Favicon upload failed');
-    setForm((prev) => ({ ...prev, faviconUrl: res.url || prev.faviconUrl }));
-    setFaviconFile(null);
-    toast.success('Favicon uploaded');
   };
 
   const getApiErrorMessage = (err: unknown, fallback: string) => {
@@ -89,7 +69,6 @@ const AdminSettings = () => {
   };
 
   const tabs = [
-    { id: 'branding' as const, label: 'Branding', icon: Globe },
     { id: 'payment' as const, label: 'UPI Payment', icon: CreditCard },
     { id: 'terms' as const, label: 'Terms of Service', icon: FileText },
     { id: 'privacy' as const, label: 'Privacy Policy', icon: Shield },
@@ -121,139 +100,6 @@ const AdminSettings = () => {
       </div>
 
       <div className="bg-card rounded-xl border border-border p-6">
-        {activeTab === 'branding' && (
-          <div className="space-y-6">
-            <h3 className="font-heading text-lg font-semibold text-foreground border-b border-border pb-3">Site Branding</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Site Name</label>
-                <input type="text" value={form.siteName} onChange={(e) => setForm({ ...form, siteName: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
-              </div>
-              <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Motto / Tagline</label>
-                <input type="text" value={form.motto} onChange={(e) => setForm({ ...form, motto: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Logo</label>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                  />
-                  <button onClick={handleUploadLogo} className="btn-crimson px-5 py-2.5 rounded-lg text-sm">
-                    Upload Logo
-                  </button>
-                </div>
-                <div className="mt-3">
-                  <label className="font-body text-xs text-muted-foreground mb-1.5 block">Or set a Logo URL (optional)</label>
-                  <input
-                    type="url"
-                    value={form.logoUrl}
-                    onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                    placeholder="/uploads/settings/logo.png or https://example.com/logo.png"
-                  />
-                </div>
-                {form.logoUrl && (
-                  <div className="mt-3 flex items-center gap-3">
-                    <img src={form.logoUrl} alt="Logo Preview" className="h-12 object-contain rounded border border-border p-1" />
-                    <span className="font-body text-xs text-muted-foreground">Logo Preview</span>
-                  </div>
-                )}
-              </div>
-              <div className="sm:col-span-2">
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Favicon</label>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setFaviconFile(e.target.files?.[0] || null)}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                  />
-                  <button onClick={handleUploadFavicon} className="btn-crimson px-5 py-2.5 rounded-lg text-sm">
-                    Upload Favicon
-                  </button>
-                </div>
-                <div className="mt-3">
-                  <label className="font-body text-xs text-muted-foreground mb-1.5 block">Or set a Favicon URL (optional)</label>
-                  <input
-                    type="url"
-                    value={form.faviconUrl}
-                    onChange={(e) => setForm({ ...form, faviconUrl: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                    placeholder="/uploads/settings/favicon.png or https://example.com/favicon.ico"
-                  />
-                </div>
-                {form.faviconUrl && (
-                  <div className="mt-3 flex items-center gap-3">
-                    <img src={form.faviconUrl} alt="Favicon Preview" className="h-8 w-8 object-contain rounded border border-border p-1" />
-                    <span className="font-body text-xs text-muted-foreground">Favicon Preview</span>
-                  </div>
-                )}
-              </div>
-              <div className="sm:col-span-2">
-                <h4 className="font-heading text-base font-semibold text-foreground mt-2">Metadata (SEO)</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-                  <div className="sm:col-span-2">
-                    <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Meta Title</label>
-                    <input
-                      type="text"
-                      value={form.metaTitle}
-                      onChange={(e) => setForm({ ...form, metaTitle: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                      placeholder={form.siteName}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Meta Description</label>
-                    <textarea
-                      rows={3}
-                      value={form.metaDescription}
-                      onChange={(e) => setForm({ ...form, metaDescription: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-y leading-relaxed"
-                      placeholder={form.motto}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Meta Keywords (comma separated)</label>
-                    <input
-                      type="text"
-                      value={form.metaKeywords}
-                      onChange={(e) => setForm({ ...form, metaKeywords: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                      placeholder="Vrindavan, hotels, tours"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="font-body text-sm font-medium text-foreground mb-1.5 block">OG Image URL (optional)</label>
-                    <input
-                      type="url"
-                      value={form.ogImageUrl}
-                      onChange={(e) => setForm({ ...form, ogImageUrl: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                      placeholder={form.logoUrl || "/uploads/settings/logo.png"}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Admin Phone</label>
-                <input type="text" value={form.adminPhone} onChange={(e) => setForm({ ...form, adminPhone: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
-              </div>
-              <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Admin Email</label>
-                <input type="email" value={form.adminEmail} onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
-              </div>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'payment' && (
           <div className="space-y-6">
             <h3 className="font-heading text-lg font-semibold text-foreground border-b border-border pb-3">UPI Payment Settings</h3>

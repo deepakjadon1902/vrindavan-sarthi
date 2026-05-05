@@ -4,6 +4,7 @@ import { Menu, X, User, LogOut, ChevronDown, Hotel } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { APP_LOGO_URL } from '@/lib/brand';
 
 const navLinks = [
   { name: 'Hotels', path: '/hotels' },
@@ -47,15 +48,11 @@ const Navbar = () => {
         <div className="container mx-auto px-4 lg:px-8">
           <div className="flex items-center justify-between h-16 lg:h-20">
             <Link to="/" className="flex items-center gap-2">
-              {settings.logoUrl ? (
-                <img
-                  src={settings.logoUrl}
-                  alt={settings.siteName}
-                  className="h-9 w-9 rounded-full object-cover border border-brand-gold/30"
-                />
-              ) : (
-                <span className="text-2xl">🦚</span>
-              )}
+              <img
+                src={APP_LOGO_URL}
+                alt={settings.siteName}
+                className="h-9 w-9 rounded-full object-cover border border-brand-gold/30"
+              />
               <span className="font-brand text-lg lg:text-xl text-brand-gold tracking-wider">{settings.siteName}</span>
             </Link>
 

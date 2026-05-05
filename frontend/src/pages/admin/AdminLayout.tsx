@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
 import { api, withAuth } from '@/lib/api';
+import { APP_LOGO_URL } from '@/lib/brand';
 
 const sidebarLinks = [
   { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -64,7 +65,7 @@ const AdminLayout = () => {
       >
         <div className="p-6 border-b border-primary-foreground/10">
           <Link to="/admin" className="flex items-center gap-2">
-            <span className="text-xl">🦚</span>
+            <img src={APP_LOGO_URL} alt={settings.siteName} className="h-8 w-8 rounded-full object-cover border border-brand-gold/30" />
             <span className="font-brand text-sm text-brand-gold">{settings.siteName}</span>
           </Link>
           <p className="font-body text-xs text-primary-foreground/40 mt-1">Admin Panel</p>

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useSettingsStore } from '@/store/settingsStore';
+import { APP_LOGO_URL } from '@/lib/brand';
 
 const Footer = () => {
   const { settings } = useSettingsStore();
@@ -33,15 +34,11 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="lg:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4 w-fit">
-              {settings.logoUrl ? (
-                <img
-                  src={settings.logoUrl}
-                  alt={settings.siteName}
-                  className="h-9 w-9 rounded-full object-cover border border-brand-gold/30"
-                />
-              ) : (
-                <span className="text-2xl">🦚</span>
-              )}
+              <img
+                src={APP_LOGO_URL}
+                alt={settings.siteName}
+                className="h-9 w-9 rounded-full object-cover border border-brand-gold/30"
+              />
               <span className="font-brand text-xl text-brand-gold">{settings.siteName}</span>
             </Link>
             <p className="font-heading italic text-primary-foreground/60 text-lg mb-6">

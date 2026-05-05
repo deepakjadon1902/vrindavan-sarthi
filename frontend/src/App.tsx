@@ -5,7 +5,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import BrandingMetadata from "@/components/BrandingMetadata";
 import Home from "@/pages/Home";
 import Hotels from "@/pages/Hotels";
 import HotelDetail from "@/pages/HotelDetail";
@@ -114,7 +113,6 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Sonner />
-        <BrandingMetadata />
         <BrowserRouter>
           <ScrollToTop />
           <Routes>
