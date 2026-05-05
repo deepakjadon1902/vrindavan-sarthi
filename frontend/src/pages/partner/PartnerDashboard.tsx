@@ -115,20 +115,20 @@ const PartnerDashboard = () => {
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link to="/partner/hotels" className="bg-card rounded-xl p-6 border border-border card-hover text-center">
-          <Hotel size={32} className="mx-auto mb-2 text-brand-gold" />
+        <Link to="/partner/hotels" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
+          <Hotel size={28} className="mx-auto mb-2 text-brand-gold" />
           <p className="font-heading text-sm font-semibold text-foreground">Add Hotel</p>
         </Link>
-        <Link to="/partner/rooms" className="bg-card rounded-xl p-6 border border-border card-hover text-center">
-          <BedDouble size={32} className="mx-auto mb-2 text-brand-saffron" />
+        <Link to="/partner/rooms" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
+          <BedDouble size={28} className="mx-auto mb-2 text-brand-saffron" />
           <p className="font-heading text-sm font-semibold text-foreground">Add Room</p>
         </Link>
-        <Link to="/partner/cabs" className="bg-card rounded-xl p-6 border border-border card-hover text-center">
-          <Car size={32} className="mx-auto mb-2 text-brand-green" />
+        <Link to="/partner/cabs" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
+          <Car size={28} className="mx-auto mb-2 text-brand-green" />
           <p className="font-heading text-sm font-semibold text-foreground">Add Cab</p>
         </Link>
-        <Link to="/partner/tours" className="bg-card rounded-xl p-6 border border-border card-hover text-center">
-          <Map size={32} className="mx-auto mb-2 text-brand-crimson" />
+        <Link to="/partner/tours" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
+          <Map size={28} className="mx-auto mb-2 text-brand-crimson" />
           <p className="font-heading text-sm font-semibold text-foreground">Add Tour</p>
         </Link>
       </div>

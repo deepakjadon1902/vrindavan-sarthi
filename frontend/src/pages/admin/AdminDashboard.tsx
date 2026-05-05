@@ -82,7 +82,7 @@ const AdminDashboard = () => {
     <div className="space-y-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-card rounded-xl p-6 border border-border">
+          <div key={stat.label} className="bg-card rounded-xl p-5 border border-border">
             <div className="flex items-center justify-between mb-3">
               <span className="font-body text-sm text-muted-foreground">{stat.label}</span>
               <stat.icon size={20} className={stat.color} />
@@ -96,8 +96,8 @@ const AdminDashboard = () => {
         <h2 className="font-heading text-xl font-semibold text-foreground mb-4">Quick Management</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {quickLinks.map((link) => (
-            <Link key={link.label} to={link.path} className="bg-card rounded-xl p-6 border border-border card-hover text-center">
-              <link.icon size={28} className="mx-auto mb-3 text-brand-gold" />
+            <Link key={link.label} to={link.path} className="bg-card rounded-xl p-5 border border-border card-hover text-center">
+              <link.icon size={26} className="mx-auto mb-3 text-brand-gold" />
               <p className="font-body text-sm font-medium text-foreground">{link.label}</p>
               <p className="font-body text-xs text-muted-foreground mt-1">{loading ? '—' : link.count} listed</p>
             </Link>
@@ -108,7 +108,7 @@ const AdminDashboard = () => {
       <div>
         <h2 className="font-heading text-xl font-semibold text-foreground mb-4">Recent Bookings</h2>
         {loading ? (
-          <div className="bg-card rounded-xl border border-border p-8 text-center">
+          <div className="bg-card rounded-xl border border-border p-6 text-center">
             <ClipboardList size={48} className="mx-auto mb-4 text-muted-foreground/30" />
             <p className="font-body text-muted-foreground">Loading…</p>
           </div>

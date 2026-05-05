@@ -62,7 +62,7 @@ const ListingCard = ({
     <div className="bg-card rounded-xl overflow-hidden border border-border card-hover group">
       {/* Image carousel */}
       <div
-        className="relative h-52 overflow-hidden"
+        className="relative h-44 sm:h-48 overflow-hidden"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
@@ -120,8 +120,8 @@ const ListingCard = ({
       </div>
 
       {/* Content */}
-      <div className="p-5">
-        <h3 className="font-heading text-xl font-semibold text-foreground line-clamp-1">{name}</h3>
+      <div className="p-4">
+        <h3 className="font-heading text-lg font-semibold text-foreground line-clamp-1">{name}</h3>
         <p className="font-body text-sm text-muted-foreground mt-1">📍 {location}</p>
 
         {/* Rating */}
@@ -130,7 +130,7 @@ const ListingCard = ({
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
                 key={i}
-                size={14}
+                size={13}
                 className={i < Math.floor(rating) ? 'fill-brand-gold text-brand-gold' : 'text-muted-foreground/30'}
               />
             ))}
@@ -157,7 +157,7 @@ const ListingCard = ({
           </div>
           <button
             onClick={onViewDetails}
-            className="btn-gold px-4 py-2 rounded-lg text-sm font-body"
+            className="btn-gold px-3.5 py-1.5 rounded-lg text-sm font-body"
           >
             View Details →
           </button>

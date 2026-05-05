@@ -79,15 +79,15 @@ const Shop = () => {
             <p className="font-body text-sm text-muted-foreground">Check back soon for new arrivals from Vrindavan.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {filtered.map((product) => (
               <Link
                 key={product.id}
                 to={`/shop/${product.id}`}
                 onClick={() => prefetchDetail('products', product.id, product)}
-                className="glass-panel rounded-2xl overflow-hidden water-hover group"
+                className="glass-panel rounded-xl overflow-hidden water-hover group"
               >
-                <div className="h-52 overflow-hidden relative">
+                <div className="h-44 sm:h-48 overflow-hidden relative">
                   <img
                     src={product.images[0] || '/placeholder.svg'}
                     alt={product.name}
@@ -95,7 +95,7 @@ const Shop = () => {
                   />
                   <div className="absolute inset-0 glossy-sheen pointer-events-none" />
                 </div>
-                <div className="p-4">
+                <div className="p-3.5">
                   <span className="font-body text-[10px] glass-chip px-2 py-0.5 rounded capitalize">{product.category}</span>
                   <h3 className="font-display text-base font-semibold text-foreground mt-2 truncate">{product.name}</h3>
                   <p className="font-body text-xs text-muted-foreground mt-1 line-clamp-2">{product.description}</p>

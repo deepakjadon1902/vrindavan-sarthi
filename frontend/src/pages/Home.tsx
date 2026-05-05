@@ -174,14 +174,14 @@ const Home = () => {
               const isLast = i === services.length - 1;
               const lastPos =
                 isLast
-                  ? 'sm:col-span-2 sm:justify-self-center sm:max-w-md lg:col-span-1 lg:col-start-2 lg:max-w-none'
+                  ? 'sm:col-span-2 sm:justify-self-center sm:max-w-md lg:col-span-2 lg:col-start-2 lg:justify-self-center lg:max-w-md'
                   : '';
               return (
-              <Link key={service.title} to={service.link} className={`bg-card rounded-xl p-8 text-center border border-border card-hover group ${lastPos}`}>
-                <div className="w-16 h-16 rounded-full bg-brand-gold/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-brand-gold/20 transition-colors">
-                  <service.icon className="text-brand-gold" size={28} />
+              <Link key={service.title} to={service.link} className={`bg-card rounded-xl p-6 text-center border border-border card-hover group ${lastPos}`}>
+                <div className="w-14 h-14 rounded-full bg-brand-gold/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-brand-gold/20 transition-colors">
+                  <service.icon className="text-brand-gold" size={24} />
                 </div>
-                <h3 className="font-heading text-xl font-semibold text-foreground mb-2">{service.title}</h3>
+                <h3 className="font-heading text-lg font-semibold text-foreground mb-1.5">{service.title}</h3>
                 <p className="font-body text-sm text-muted-foreground">{service.desc}</p>
               </Link>
               );

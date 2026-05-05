@@ -10,8 +10,8 @@ interface TestimonialCardProps {
 
 const TestimonialCard = ({ name, avatar, rating, text, location }: TestimonialCardProps) => {
   return (
-    <div className="bg-card rounded-xl p-6 border border-border card-hover relative">
-      <Quote className="absolute top-4 right-4 text-brand-gold/20" size={32} />
+    <div className="bg-card rounded-xl p-5 border border-border card-hover relative">
+      <Quote className="absolute top-4 right-4 text-brand-gold/20" size={28} />
       <div className="flex items-center gap-1 mb-3">
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
