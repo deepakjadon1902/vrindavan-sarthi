@@ -3,6 +3,7 @@ import { useProductStore } from '@/store/productStore';
 import { ShoppingBag, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { subscribeAppEvent } from '@/lib/broadcast';
+import { prefetchDetail } from '@/lib/detailCache';
 
 const Shop = () => {
   const { products, fetchProducts, isLoadingProducts } = useProductStore();
@@ -80,7 +81,12 @@ const Shop = () => {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filtered.map((product) => (
-              <Link key={product.id} to={`/shop/${product.id}`} className="glass-panel rounded-2xl overflow-hidden water-hover group">
+              <Link
+                key={product.id}
+                to={`/shop/${product.id}`}
+                onClick={() => prefetchDetail('products', product.id, product)}
+                className="glass-panel rounded-2xl overflow-hidden water-hover group"
+              >
                 <div className="h-52 overflow-hidden relative">
                   <img
                     src={product.images[0] || '/placeholder.svg'}

@@ -6,14 +6,15 @@ import { useAuthStore } from '@/store/authStore';
 import { useProductStore, type Product } from '@/store/productStore';
 import UpiPayment from '@/components/UpiPayment';
 import AddressForm, { type AddressFormValue } from '@/components/AddressForm';
+import { getPrefetchedDetail } from '@/lib/detailCache';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const { fetchProductById, createOrder } = useProductStore();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [product, setProduct] = useState<Product | null>(() => getPrefetchedDetail<Product>('products', id) || null);
+  const [isLoading, setIsLoading] = useState(() => !getPrefetchedDetail<Product>('products', id));
 
   const [quantity, setQuantity] = useState(1);
   const [address, setAddress] = useState<AddressFormValue>(() => {
@@ -49,7 +50,7 @@ const ProductDetail = () => {
         setIsLoading(false);
         return;
       }
-      setIsLoading(true);
+      setIsLoading(!product);
       const p = await fetchProductById(id);
       if (cancelled) return;
       setProduct(p);
@@ -59,7 +60,7 @@ const ProductDetail = () => {
     return () => {
       cancelled = true;
     };
-  }, [fetchProductById, id]);
+  }, [fetchProductById, id, product]);
 
   if (isLoading) {
     return (
@@ -285,4 +286,3 @@ const ProductDetail = () => {
 };
 
 export default ProductDetail;
-

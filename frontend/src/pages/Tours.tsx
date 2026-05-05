@@ -5,6 +5,7 @@ import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
+import { prefetchDetail } from '@/lib/detailCache';
 
 const Tours = () => {
   const navigate = useNavigate();
@@ -15,7 +16,13 @@ const Tours = () => {
     const load = async () => {
       try {
         const res = await api.get('/tours');
-        setTours(Array.isArray(res.data?.data) ? res.data.data : []);
+        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+        setTours(data);
+        try {
+          localStorage.setItem('vvs_tours', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
       } catch {
         setTours([]);
       }
@@ -56,7 +63,23 @@ const Tours = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((tour) => (
-                <ListingCard key={tour._id} image={tour.image} images={tour.images} name={tour.name} location={tour.duration} price={tour.pricePerPerson} priceLabel="/person" rating={0} reviewCount={0} badge={tour.duration} amenities={tour.includes || []} onViewDetails={() => navigate(`/tours/${tour._id}`)} />
+                <ListingCard
+                  key={tour._id}
+                  image={tour.image}
+                  images={tour.images}
+                  name={tour.name}
+                  location={tour.duration}
+                  price={tour.pricePerPerson}
+                  priceLabel="/person"
+                  rating={0}
+                  reviewCount={0}
+                  badge={tour.duration}
+                  amenities={tour.includes || []}
+                  onViewDetails={() => {
+                    prefetchDetail('tours', tour._id, tour);
+                    navigate(`/tours/${tour._id}`);
+                  }}
+                />
               ))}
             </div>
           )}

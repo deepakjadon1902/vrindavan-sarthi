@@ -5,6 +5,7 @@ import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
+import { prefetchDetail } from '@/lib/detailCache';
 
 const Cabs = () => {
   const navigate = useNavigate();
@@ -15,7 +16,13 @@ const Cabs = () => {
     const load = async () => {
       try {
         const res = await api.get('/cabs');
-        setCabs(Array.isArray(res.data?.data) ? res.data.data : []);
+        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+        setCabs(data);
+        try {
+          localStorage.setItem('vvs_cabs', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
       } catch {
         setCabs([]);
       }
@@ -96,7 +103,10 @@ const Cabs = () => {
                   amenities={[cab.vehicleType, `${cab.capacity} Seater`]}
                   badge="💰 Pay at Doorstep"
                   badgeColor="green"
-                  onViewDetails={() => navigate(`/cabs/${cab._id}`)}
+                  onViewDetails={() => {
+                    prefetchDetail('cabs', cab._id, cab);
+                    navigate(`/cabs/${cab._id}`);
+                  }}
                 />
               ))}
             </div>

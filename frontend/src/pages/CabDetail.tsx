@@ -6,13 +6,15 @@ import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import ImageCarousel from '@/components/shared/ImageCarousel';
 import { api } from '@/lib/api';
+import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 
 const CabDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const { createBooking } = useBookingStore();
-  const [cab, setCab] = useState<any>(null);
+  const [cab, setCab] = useState<any>(() => getPrefetchedDetail('cabs', id) || getCachedListingItem('cabs', id) || null);
+  const [isLoading, setIsLoading] = useState(true);
   const [pickupDate, setPickupDate] = useState('');
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
@@ -21,15 +23,24 @@ const CabDetail = () => {
   useEffect(() => {
     const run = async () => {
       if (!id) return;
+      setIsLoading(true);
       try {
         const res = await api.get(`/cabs/${id}`);
         setCab(res.data?.data || null);
       } catch {
         setCab(null);
+      } finally {
+        setIsLoading(false);
       }
     };
     void run();
   }, [id]);
+
+  if (isLoading && !cab) return (
+    <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+      <p className="font-body text-sm text-muted-foreground">Loading…</p>
+    </div>
+  );
 
   if (!cab) return (
     <div className="pt-24 pb-16 text-center min-h-screen bg-background">

@@ -5,6 +5,7 @@ import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
+import { prefetchDetail } from '@/lib/detailCache';
 
 const Hotels = () => {
   const navigate = useNavigate();
@@ -15,7 +16,13 @@ const Hotels = () => {
     const load = async () => {
       try {
         const res = await api.get('/hotels');
-        setHotels(Array.isArray(res.data?.data) ? res.data.data : []);
+        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+        setHotels(data);
+        try {
+          localStorage.setItem('vvs_hotels', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
       } catch {
         setHotels([]);
       }
@@ -68,7 +75,21 @@ const Hotels = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filtered.map((hotel) => (
-                  <ListingCard key={hotel._id} image={hotel.image} images={hotel.images} name={hotel.name} location={hotel.location} price={hotel.pricePerNight} rating={hotel.rating} reviewCount={0} amenities={hotel.amenities || []} onViewDetails={() => navigate(`/hotels/${hotel._id}`)} />
+                  <ListingCard
+                    key={hotel._id}
+                    image={hotel.image}
+                    images={hotel.images}
+                    name={hotel.name}
+                    location={hotel.location}
+                    price={hotel.pricePerNight}
+                    rating={hotel.rating}
+                    reviewCount={0}
+                    amenities={hotel.amenities || []}
+                    onViewDetails={() => {
+                      prefetchDetail('hotels', hotel._id, hotel);
+                      navigate(`/hotels/${hotel._id}`);
+                    }}
+                  />
                 ))}
               </div>
               {filtered.length === 0 && (

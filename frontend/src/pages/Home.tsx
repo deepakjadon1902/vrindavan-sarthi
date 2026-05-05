@@ -8,6 +8,7 @@ import TestimonialCard from '@/components/shared/TestimonialCard';
 import { useProductStore } from '@/store/productStore';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
+import { prefetchDetail } from '@/lib/detailCache';
 
 import heroImg from '@/assets/images/hero-vrindavan.jpg';
 
@@ -197,7 +198,21 @@ const Home = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {hotels.map((hotel) => (
-                  <ListingCard key={hotel._id} image={hotel.image} images={hotel.images} name={hotel.name} location={hotel.location} price={hotel.pricePerNight} rating={hotel.rating} reviewCount={0} amenities={hotel.amenities || []} onViewDetails={() => navigate(`/hotels/${hotel._id}`)} />
+                  <ListingCard
+                    key={hotel._id}
+                    image={hotel.image}
+                    images={hotel.images}
+                    name={hotel.name}
+                    location={hotel.location}
+                    price={hotel.pricePerNight}
+                    rating={hotel.rating}
+                    reviewCount={0}
+                    amenities={hotel.amenities || []}
+                    onViewDetails={() => {
+                      prefetchDetail('hotels', hotel._id, hotel);
+                      navigate(`/hotels/${hotel._id}`);
+                    }}
+                  />
                 ))}
               </div>
               <div className="text-center mt-10">
@@ -232,7 +247,10 @@ const Home = () => {
                     rating={0}
                     reviewCount={0}
                     amenities={room.amenities || []}
-                    onViewDetails={() => navigate(`/rooms/${room._id}`)}
+                    onViewDetails={() => {
+                      prefetchDetail('rooms', room._id, room);
+                      navigate(`/rooms/${room._id}`);
+                    }}
                   />
                 ))}
               </div>
@@ -270,7 +288,10 @@ const Home = () => {
                     amenities={[cab.vehicleType, `${cab.capacity} Seater`]}
                     badge="Pay at Doorstep"
                     badgeColor="green"
-                    onViewDetails={() => navigate(`/cabs/${cab._id}`)}
+                    onViewDetails={() => {
+                      prefetchDetail('cabs', cab._id, cab);
+                      navigate(`/cabs/${cab._id}`);
+                    }}
                   />
                 ))}
               </div>
@@ -295,7 +316,23 @@ const Home = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {tours.map((tour) => (
-                  <ListingCard key={tour._id} image={tour.image} images={tour.images} name={tour.name} location={tour.duration} price={tour.pricePerPerson} priceLabel="/person" rating={0} reviewCount={0} badge={tour.duration} amenities={tour.includes || []} onViewDetails={() => navigate(`/tours/${tour._id}`)} />
+                  <ListingCard
+                    key={tour._id}
+                    image={tour.image}
+                    images={tour.images}
+                    name={tour.name}
+                    location={tour.duration}
+                    price={tour.pricePerPerson}
+                    priceLabel="/person"
+                    rating={0}
+                    reviewCount={0}
+                    badge={tour.duration}
+                    amenities={tour.includes || []}
+                    onViewDetails={() => {
+                      prefetchDetail('tours', tour._id, tour);
+                      navigate(`/tours/${tour._id}`);
+                    }}
+                  />
                 ))}
               </div>
               <div className="text-center mt-10">

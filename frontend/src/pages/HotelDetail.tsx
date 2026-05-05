@@ -7,13 +7,15 @@ import { useBookingStore } from '@/store/bookingStore';
 import UpiPayment from '@/components/UpiPayment';
 import ImageCarousel from '@/components/shared/ImageCarousel';
 import { api } from '@/lib/api';
+import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 
 const HotelDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const { createBooking } = useBookingStore();
-  const [hotel, setHotel] = useState<any>(null);
+  const [hotel, setHotel] = useState<any>(() => getPrefetchedDetail('hotels', id) || getCachedListingItem('hotels', id) || null);
+  const [isLoading, setIsLoading] = useState(true);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(1);
@@ -24,15 +26,24 @@ const HotelDetail = () => {
   useEffect(() => {
     const run = async () => {
       if (!id) return;
+      setIsLoading(true);
       try {
         const res = await api.get(`/hotels/${id}`);
         setHotel(res.data?.data || null);
       } catch {
         setHotel(null);
+      } finally {
+        setIsLoading(false);
       }
     };
     void run();
   }, [id]);
+
+  if (isLoading && !hotel) return (
+    <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+      <p className="font-body text-sm text-muted-foreground">Loading…</p>
+    </div>
+  );
 
   if (!hotel) return (
     <div className="pt-24 pb-16 text-center min-h-screen bg-background">

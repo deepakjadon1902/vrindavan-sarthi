@@ -5,6 +5,7 @@ import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
+import { prefetchDetail } from '@/lib/detailCache';
 
 const Rooms = () => {
   const navigate = useNavigate();
@@ -17,6 +18,11 @@ const Rooms = () => {
         const res = await api.get('/rooms');
         const data = Array.isArray(res.data?.data) ? res.data.data : [];
         setRooms(data.filter((r: any) => r?.status === 'available'));
+        try {
+          localStorage.setItem('vvs_rooms', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
       } catch {
         setRooms([]);
       }
@@ -58,7 +64,22 @@ const Rooms = () => {
           ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filtered.map((room) => (
-                <ListingCard key={room._id} image={room.image} images={room.images} name={room.name} location={room.hotelName} price={room.pricePerNight} priceLabel="/night" rating={0} reviewCount={0} amenities={room.amenities || []} onViewDetails={() => navigate(`/rooms/${room._id}`)} />
+                <ListingCard
+                  key={room._id}
+                  image={room.image}
+                  images={room.images}
+                  name={room.name}
+                  location={room.hotelName}
+                  price={room.pricePerNight}
+                  priceLabel="/night"
+                  rating={0}
+                  reviewCount={0}
+                  amenities={room.amenities || []}
+                  onViewDetails={() => {
+                    prefetchDetail('rooms', room._id, room);
+                    navigate(`/rooms/${room._id}`);
+                  }}
+                />
                 ))}
               </div>
           )}

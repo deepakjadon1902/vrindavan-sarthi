@@ -7,13 +7,15 @@ import { useBookingStore } from '@/store/bookingStore';
 import UpiPayment from '@/components/UpiPayment';
 import ImageCarousel from '@/components/shared/ImageCarousel';
 import { api } from '@/lib/api';
+import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 
 const TourDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const { createBooking } = useBookingStore();
-  const [tour, setTour] = useState<any>(null);
+  const [tour, setTour] = useState<any>(() => getPrefetchedDetail('tours', id) || getCachedListingItem('tours', id) || null);
+  const [isLoading, setIsLoading] = useState(true);
   const [travelDate, setTravelDate] = useState('');
   const [persons, setPersons] = useState(1);
   const [showPayment, setShowPayment] = useState(false);
@@ -23,15 +25,24 @@ const TourDetail = () => {
   useEffect(() => {
     const run = async () => {
       if (!id) return;
+      setIsLoading(true);
       try {
         const res = await api.get(`/tours/${id}`);
         setTour(res.data?.data || null);
       } catch {
         setTour(null);
+      } finally {
+        setIsLoading(false);
       }
     };
     void run();
   }, [id]);
+
+  if (isLoading && !tour) return (
+    <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+      <p className="font-body text-sm text-muted-foreground">Loading…</p>
+    </div>
+  );
 
   if (!tour) return (
     <div className="pt-24 pb-16 text-center min-h-screen bg-background">
