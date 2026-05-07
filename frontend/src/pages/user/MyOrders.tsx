@@ -20,6 +20,7 @@ const MyOrders = () => {
 
   const statusIcon = (s: string) => {
     if (s === 'confirmed' || s === 'delivered') return <CheckCircle2 size={14} className="text-brand-green" />;
+    if (s === 'shipped') return <Clock size={14} className="text-brand-gold" />;
     if (s === 'cancelled') return <XCircle size={14} className="text-destructive" />;
     return <Clock size={14} className="text-brand-saffron" />;
   };
@@ -28,6 +29,8 @@ const MyOrders = () => {
     if (s === 'confirmed' || s === 'delivered') return 'bg-brand-green/10 text-brand-green';
     if (s === 'cancelled') return 'bg-destructive/10 text-destructive';
     if (s === 'shipped') return 'bg-brand-gold/10 text-brand-gold';
+    if (s === 'packed') return 'bg-brand-gold/10 text-brand-gold';
+    if (s === 'processing') return 'bg-brand-saffron/10 text-brand-saffron';
     return 'bg-brand-saffron/10 text-brand-saffron';
   };
 

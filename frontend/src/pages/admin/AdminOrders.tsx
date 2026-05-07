@@ -13,7 +13,7 @@ const AdminOrders = () => {
     isLoadingOrders,
   } = useProductStore();
 
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled'>('all');
   const [selectedUpi, setSelectedUpi] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,6 +50,20 @@ const AdminOrders = () => {
     return <Clock size={14} className="text-brand-saffron" />;
   };
 
+  const statusOptions = useMemo(
+    () =>
+      [
+        { value: 'pending', label: 'Pending' },
+        { value: 'processing', label: 'Processing' },
+        { value: 'confirmed', label: 'Confirmed' },
+        { value: 'packed', label: 'Packed' },
+        { value: 'shipped', label: 'Order Shipped' },
+        { value: 'delivered', label: 'Order Delivered' },
+        { value: 'cancelled', label: 'Cancelled' },
+      ] as const,
+    []
+  );
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -74,7 +88,7 @@ const AdminOrders = () => {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const).map((f) => (
+        {(['all', 'pending', 'processing', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'] as const).map((f) => (
           <button key={f} onClick={() => setStatusFilter(f)} className={`px-4 py-2 rounded-lg font-body text-sm capitalize transition-colors ${statusFilter === f ? 'bg-brand-crimson text-primary-foreground' : 'bg-card border border-border hover:bg-muted'}`}>
             {f} ({f === 'all' ? orders.length : orders.filter((o) => o.orderStatus === f).length})
           </button>
@@ -132,12 +146,26 @@ const AdminOrders = () => {
                         <button onClick={() => handleReject(o.id)} className="px-3 py-1 rounded bg-destructive/10 text-destructive font-body text-xs hover:bg-destructive/20">Reject</button>
                       </>
                     )}
-                    {o.orderStatus === 'confirmed' && (
-                      <button onClick={async () => { const r = await updateOrderStatus(o.id, 'shipped'); if (r.success) toast.success('Marked as shipped'); else toast.error(r.error || 'Update failed'); }} className="px-3 py-1 rounded bg-brand-gold/10 text-brand-gold font-body text-xs hover:bg-brand-gold/20">Mark Shipped</button>
-                    )}
-                    {o.orderStatus === 'shipped' && (
-                      <button onClick={async () => { const r = await updateOrderStatus(o.id, 'delivered'); if (r.success) toast.success('Marked as delivered'); else toast.error(r.error || 'Update failed'); }} className="px-3 py-1 rounded bg-brand-green/10 text-brand-green font-body text-xs hover:bg-brand-green/20">Mark Delivered</button>
-                    )}
+
+                    <div className="ml-auto flex items-center gap-2">
+                      <span className="font-body text-[10px] text-muted-foreground">Shipping Status</span>
+                      <select
+                        value={o.orderStatus}
+                        onChange={async (e) => {
+                          const status = e.target.value as typeof statusOptions[number]['value'];
+                          const r = await updateOrderStatus(o.id, status);
+                          if (r.success) toast.success('Order status updated');
+                          else toast.error(r.error || 'Update failed');
+                        }}
+                        className="px-3 py-1 rounded-lg border border-border bg-background font-body text-xs"
+                      >
+                        {statusOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>

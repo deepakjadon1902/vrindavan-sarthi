@@ -16,7 +16,7 @@ const orderSchema = new mongoose.Schema({
   shippingAddress: String,
   orderNotes: String,
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
-  orderStatus: { type: String, enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
+  orderStatus: { type: String, enum: ['pending', 'processing', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
   upiTransactionId: String,
 }, { timestamps: true });
 

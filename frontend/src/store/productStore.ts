@@ -32,7 +32,7 @@ export interface Order {
   shippingAddress: string;
   orderNotes?: string;
   paymentStatus: 'pending' | 'paid' | 'failed';
-  orderStatus: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  orderStatus: 'pending' | 'processing' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
   upiTransactionId?: string;
   createdAt: string;
   updatedAt?: string;
@@ -74,7 +74,13 @@ const normalizeOrder = (o: unknown): Order => {
 
   const orderStatusRaw = getString(obj, 'orderStatus');
   const orderStatus: Order['orderStatus'] =
-    orderStatusRaw === 'confirmed' || orderStatusRaw === 'shipped' || orderStatusRaw === 'delivered' || orderStatusRaw === 'cancelled' || orderStatusRaw === 'pending'
+    orderStatusRaw === 'pending' ||
+    orderStatusRaw === 'processing' ||
+    orderStatusRaw === 'confirmed' ||
+    orderStatusRaw === 'packed' ||
+    orderStatusRaw === 'shipped' ||
+    orderStatusRaw === 'delivered' ||
+    orderStatusRaw === 'cancelled'
       ? orderStatusRaw
       : 'pending';
 

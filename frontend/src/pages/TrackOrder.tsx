@@ -24,6 +24,8 @@ const TrackOrder = () => {
     if (s === 'delivered') return <CheckCircle2 size={14} className="text-brand-green" />;
     if (s === 'cancelled') return <XCircle size={14} className="text-destructive" />;
     if (s === 'shipped') return <Truck size={14} className="text-brand-gold" />;
+    if (s === 'packed') return <PackageSearch size={14} className="text-brand-gold" />;
+    if (s === 'processing') return <Clock size={14} className="text-brand-saffron" />;
     if (s === 'confirmed') return <CheckCircle2 size={14} className="text-brand-saffron" />;
     return <Clock size={14} className="text-brand-saffron" />;
   };
