@@ -65,7 +65,16 @@ const MyOrders = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-heading text-sm font-semibold text-foreground truncate">{order.productName}</p>
-                        <p className="font-body text-[10px] text-muted-foreground">{order.orderId}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link to={`/track-order?trackingId=${encodeURIComponent(order.trackingId || '')}`} className="font-body text-[10px] text-muted-foreground hover:underline">
+                            {order.orderId}
+                          </Link>
+                          {order.trackingId && (
+                            <Link to={`/track-order?trackingId=${encodeURIComponent(order.trackingId)}`} className="font-body text-[10px] text-brand-gold hover:underline">
+                              Track: {order.trackingId}
+                            </Link>
+                          )}
+                        </div>
                       </div>
                       <span className={`font-body text-[10px] px-2 py-0.5 rounded-full capitalize flex-shrink-0 flex items-center gap-1 ${statusColor(order.orderStatus)}`}>
                         {statusIcon(order.orderStatus)} {order.orderStatus}

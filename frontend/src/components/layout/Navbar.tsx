@@ -12,6 +12,7 @@ const navLinks = [
   { name: 'Cabs', path: '/cabs' },
   { name: 'Tours', path: '/tours' },
   { name: 'Shop', path: '/shop' },
+  { name: 'Track Order', path: '/track-order' },
 ];
 
 const Navbar = () => {
@@ -77,6 +78,7 @@ const Navbar = () => {
               {isAuthenticated && user ? (
                 <>
                   <Link to="/bookings" className="font-body text-sm text-primary-foreground/80 hover:text-brand-gold transition-colors">My Bookings</Link>
+                  <Link to="/my-orders" className="font-body text-sm text-primary-foreground/80 hover:text-brand-gold transition-colors">My Orders</Link>
                   <div className="relative">
                     <button
                       onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -95,6 +97,9 @@ const Navbar = () => {
                         </Link>
                         <Link to="/bookings" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-foreground hover:bg-muted transition-colors">
                           <User size={14} /> My Bookings
+                        </Link>
+                        <Link to="/my-orders" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-foreground hover:bg-muted transition-colors">
+                          <User size={14} /> My Orders
                         </Link>
                         {user.role === 'partner' && (
                           <Link to="/partner" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-brand-gold hover:bg-muted transition-colors">
@@ -153,6 +158,7 @@ const Navbar = () => {
                 <>
                   <Link to="/profile" className="font-body text-primary-foreground/70 text-lg">Profile</Link>
                   <Link to="/bookings" className="font-body text-primary-foreground/70 text-lg">My Bookings</Link>
+                  <Link to="/my-orders" className="font-body text-primary-foreground/70 text-lg">My Orders</Link>
                   {user.role === 'partner' && (
                     <Link to="/partner" className="font-body text-brand-gold text-lg">Partner Panel</Link>
                   )}

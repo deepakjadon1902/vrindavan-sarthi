@@ -110,7 +110,9 @@ const AdminOrders = () => {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-heading text-sm font-semibold text-foreground">{o.productName}</p>
-                      <p className="font-body text-[10px] text-muted-foreground">{o.orderId} â€¢ {o.userName} â€¢ {o.userPhone}</p>
+                      <p className="font-body text-[10px] text-muted-foreground">
+                        {o.orderId}{o.trackingId ? ` â€¢ Track: ${o.trackingId}` : ''} â€¢ {o.userName} â€¢ {o.userPhone}
+                      </p>
                     </div>
                     <p className="font-heading text-lg font-bold text-brand-crimson flex-shrink-0">₹{o.totalAmount.toLocaleString('en-IN')}</p>
                   </div>

@@ -18,6 +18,7 @@ export interface Product {
 export interface Order {
   id: string; // Mongo _id
   orderId: string; // human-friendly code like ORD-...
+  trackingId?: string; // 5 digit tracking code
   productId: string;
   productName: string;
   productImage: string;
@@ -34,6 +35,7 @@ export interface Order {
   orderStatus: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   upiTransactionId?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -79,6 +81,7 @@ const normalizeOrder = (o: unknown): Order => {
   return {
     id: getString(obj, '_id') || getString(obj, 'id'),
     orderId: getString(obj, 'orderId'),
+    trackingId: getString(obj, 'trackingId') || undefined,
     productId: getString(productIdObj, '_id') || getString(obj, 'productId'),
     productName: getString(obj, 'productName'),
     productImage: resolveBackendAssetUrl(getString(obj, 'productImage')),
@@ -95,6 +98,7 @@ const normalizeOrder = (o: unknown): Order => {
     orderStatus,
     upiTransactionId: getString(obj, 'upiTransactionId') || undefined,
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
+    updatedAt: getString(obj, 'updatedAt') || undefined,
   };
 };
 
@@ -112,8 +116,10 @@ interface ProductState {
   products: Product[];
   myOrders: Order[];
   adminOrders: Order[];
+  trackedOrder: Order | null;
   isLoadingProducts: boolean;
   isLoadingOrders: boolean;
+  isLoadingTrackedOrder: boolean;
   fetchProducts: () => Promise<void>;
   fetchProductById: (id: string) => Promise<Product | null>;
   fetchAdminProducts: () => Promise<void>;
@@ -124,6 +130,7 @@ interface ProductState {
   createOrder: (order: Omit<Order, 'id' | 'orderId' | 'createdAt' | 'userId'>) => Promise<{ success: boolean; data?: Order; error?: string }>;
   fetchMyOrders: () => Promise<void>;
   fetchAllOrders: () => Promise<void>;
+  trackOrderById: (trackingId: string) => Promise<{ success: boolean; data?: Order; error?: string }>;
   verifyOrderPayment: (id: string) => Promise<{ success: boolean; error?: string }>;
   rejectOrderPayment: (id: string) => Promise<{ success: boolean; error?: string }>;
   updateOrderStatus: (id: string, status: Order['orderStatus']) => Promise<{ success: boolean; error?: string }>;
@@ -133,8 +140,10 @@ export const useProductStore = create<ProductState>()((set, get) => ({
   products: [],
   myOrders: [],
   adminOrders: [],
+  trackedOrder: null,
   isLoadingProducts: false,
   isLoadingOrders: false,
+  isLoadingTrackedOrder: false,
 
   fetchProducts: async () => {
     try {
@@ -253,6 +262,21 @@ export const useProductStore = create<ProductState>()((set, get) => ({
       set({ adminOrders, isLoadingOrders: false });
     } catch {
       set({ isLoadingOrders: false });
+    }
+  },
+
+  trackOrderById: async (trackingId) => {
+    const cleaned = String(trackingId || '').trim();
+    if (!/^\d{5}$/.test(cleaned)) return { success: false, error: 'Please enter a valid 5-digit tracking id' };
+    try {
+      set({ isLoadingTrackedOrder: true });
+      const res = await api.get(`/orders/track/${cleaned}`);
+      const trackedOrder = normalizeOrder(res.data?.data);
+      set({ trackedOrder, isLoadingTrackedOrder: false });
+      return { success: true, data: trackedOrder };
+    } catch (err: unknown) {
+      set({ isLoadingTrackedOrder: false, trackedOrder: null });
+      return { success: false, error: getApiErrorMessage(err, 'Order not found') };
     }
   },
 

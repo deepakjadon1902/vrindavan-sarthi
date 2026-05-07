@@ -20,6 +20,7 @@ import About from "@/pages/About";
 import Contact from "@/pages/Contact";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
+import TrackOrder from "@/pages/TrackOrder";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import AuthGoogleCallback from "@/pages/AuthGoogleCallback";
@@ -127,6 +128,7 @@ const App = () => {
             <Route path="/tours/:id" element={<PublicLayout><TourDetail /></PublicLayout>} />
             <Route path="/shop" element={<PublicLayout><Shop /></PublicLayout>} />
             <Route path="/shop/:id" element={<PublicLayout><ProductDetail /></PublicLayout>} />
+            <Route path="/track-order" element={<PublicLayout><TrackOrder /></PublicLayout>} />
             <Route path="/about" element={<PublicLayout><About /></PublicLayout>} />
             <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
             <Route path="/terms" element={<PublicLayout><Terms /></PublicLayout>} />

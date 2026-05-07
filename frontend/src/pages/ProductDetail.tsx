@@ -41,6 +41,7 @@ const ProductDetail = () => {
   const [showPayment, setShowPayment] = useState(false);
   const [ordered, setOrdered] = useState(false);
   const [orderId, setOrderId] = useState('');
+  const [trackingId, setTrackingId] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
 
   useEffect(() => {
@@ -162,6 +163,7 @@ const ProductDetail = () => {
     }
 
     setOrderId(res.data.orderId || res.data.id);
+    setTrackingId(res.data.trackingId || '');
     setShowPayment(false);
     setOrdered(true);
     toast.success('Order placed! Payment verification pending.');
@@ -217,12 +219,20 @@ const ProductDetail = () => {
                 <CheckCircle size={56} className="mx-auto mb-4 text-brand-saffron" />
                 <h3 className="font-heading text-2xl font-semibold text-foreground mb-2">Order Placed!</h3>
                 <p className="font-body text-sm text-muted-foreground mb-1">Order ID: {orderId}</p>
+                {trackingId && <p className="font-body text-sm text-muted-foreground mb-1">Tracking ID: {trackingId}</p>}
                 <p className="font-body text-sm text-muted-foreground mb-6">
                   Your payment is being verified. You'll be notified once confirmed.
                 </p>
-                <Link to="/my-orders" className="btn-gold px-6 py-2.5 rounded-xl text-sm">
-                  View My Orders
-                </Link>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link to="/my-orders" className="btn-gold px-6 py-2.5 rounded-xl text-sm">
+                    View My Orders
+                  </Link>
+                  {trackingId && (
+                    <Link to={`/track-order?trackingId=${encodeURIComponent(trackingId)}`} className="btn-crimson px-6 py-2.5 rounded-xl text-sm">
+                      Track Order
+                    </Link>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-6">
