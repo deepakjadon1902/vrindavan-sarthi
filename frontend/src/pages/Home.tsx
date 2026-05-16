@@ -127,7 +127,7 @@ const Home = () => {
       {/* ===== HERO ===== */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
         <img src={heroImg} alt="Vrindavan temples at sunset" className="absolute inset-0 w-full h-full object-cover" width={1920} height={1080} />
-        <div className="absolute inset-0 bg-gradient-to-b from-foreground/70 via-foreground/50 to-foreground/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
           <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="font-body text-sm tracking-[0.3em] uppercase text-brand-gold mb-4">
             ✦ Vrindavan, Mathura, UP ✦
@@ -135,10 +135,10 @@ const Home = () => {
           <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }} className="font-brand text-4xl md:text-6xl lg:text-7xl text-brand-gold mb-4 leading-tight">
             VrindavanSarthi
           </motion.h1>
-          <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="font-heading italic text-2xl md:text-3xl text-primary-foreground/90 mb-3">
+          <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="font-heading italic text-2xl md:text-3xl text-white mb-3">
             Your Divine Guide to Vrindavan
           </motion.h2>
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="font-body text-primary-foreground/60 text-sm md:text-base tracking-wider mb-10">
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="font-body text-white text-sm md:text-base tracking-wider mb-10">
             Hotels • Rooms • Cabs • Tours — All in One Place
           </motion.p>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }} className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -157,8 +157,8 @@ const Home = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map((stat) => (
               <div key={stat.label} className="text-center">
-                <p className="font-heading text-3xl md:text-4xl font-bold text-brand-gold">{stat.value}</p>
-                <p className="font-body text-sm text-primary-foreground/80 mt-1">{stat.label}</p>
+                <p className="font-heading text-3xl md:text-4xl font-bold text-black">{stat.value}</p>
+                <p className="font-body text-sm text-black mt-1">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -166,7 +166,7 @@ const Home = () => {
       </section>
 
       {/* ===== SERVICES ===== */}
-      <section className="py-16 lg:py-24">
+      <section className="py-16 lg:py-24 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle label="Our Services" title="Everything You Need in Vrindavan" subtitle="From comfortable stays to guided temple tours, we've got your sacred journey covered" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -191,8 +191,10 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED HOTELS ===== */}
-      <section className="section-cream py-16 lg:py-24">
-        <div className="container mx-auto px-4">
+      <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
+        <img src="/backgrounds/hotel-room.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-18" />
+        <div className="absolute inset-0 bg-black/80" />
+        <div className="container mx-auto px-4 relative">
           <SectionTitle label="Featured Stays" title="Handpicked Hotels in Vrindavan" subtitle="Comfortable and affordable stays near the most sacred temples" />
           {hotels.length > 0 ? (
             <>
@@ -229,8 +231,10 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED ROOMS ===== */}
-      <section className="py-16 lg:py-24">
-        <div className="container mx-auto px-4">
+      <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
+        <img src="/backgrounds/hotel-room.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-12" />
+        <div className="absolute inset-0 bg-black/85" />
+        <div className="container mx-auto px-4 relative">
           <SectionTitle label="Stay Options" title="Popular Rooms" subtitle="Comfortable rooms curated by our partners" />
           {rooms.length > 0 ? (
             <>
@@ -268,7 +272,7 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED CABS ===== */}
-      <section className="section-cream py-16 lg:py-24">
+      <section className="py-16 lg:py-24 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle label="Transportation" title="Available Cabs" subtitle="Reliable cabs listed by verified partners" />
           {cabs.length > 0 ? (
@@ -309,8 +313,10 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED TOURS ===== */}
-      <section className="py-16 lg:py-24">
-        <div className="container mx-auto px-4">
+      <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
+        <img src="/backgrounds/parikrama.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-14" />
+        <div className="absolute inset-0 bg-black/85" />
+        <div className="container mx-auto px-4 relative">
           <SectionTitle label="Spiritual Journeys" title="Popular Tour Packages" subtitle="Experience the divine essence of Vrindavan with our guided tours" />
           {tours.length > 0 ? (
             <>
@@ -350,7 +356,7 @@ const Home = () => {
 
       {/* ===== FEATURED PRODUCTS (Shop) ===== */}
       {featuredProducts.length > 0 && (
-        <section className="py-16 lg:py-24 relative overflow-hidden">
+        <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
           <div className="pointer-events-none absolute -top-10 -left-10 w-72 h-72 rounded-full bg-brand-gold/15 blur-3xl" />
           <div className="container mx-auto px-4 relative">
             <SectionTitle label="Divine Shop" title="Sacred Souvenirs from Vrindavan" subtitle="Take a piece of Vrindavan's blessings home with you" />
@@ -381,8 +387,10 @@ const Home = () => {
       )}
 
       {/* ===== WHY US ===== */}
-      <section className="section-cream py-16 lg:py-24">
-        <div className="container mx-auto px-4">
+      <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
+        <img src="/backgrounds/temple-interior.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
+        <div className="absolute inset-0 bg-black/85" />
+        <div className="container mx-auto px-4 relative">
           <SectionTitle label="Why Choose Us" title="Your Trusted Companion in Vrindavan" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {whyUs.map((item) => (
@@ -399,7 +407,7 @@ const Home = () => {
       </section>
 
       {/* ===== TESTIMONIALS ===== */}
-      <section className="py-16 lg:py-24">
+      <section className="py-16 lg:py-24 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle label="Testimonials" title="What Our Pilgrims Say" subtitle="Real experiences from real devotees" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

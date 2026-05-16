@@ -211,7 +211,7 @@ const AdminPayments = () => {
                         <button onClick={() => handleVerify(p)} className="px-2 py-1 rounded bg-brand-green/10 text-brand-green font-body text-[10px] hover:bg-brand-green/20 transition-colors">Verify</button>
                         <button onClick={() => handleReject(p)} className="px-2 py-1 rounded bg-destructive/10 text-destructive font-body text-[10px] hover:bg-destructive/20 transition-colors">Reject</button>
                       </div>
-                    ) : <span className="font-body text-[10px] text-muted-foreground">â€”</span>}
+                    ) : <span className="font-body text-[10px] text-muted-foreground"></span>}
                   </td>
                 </tr>
               ))}

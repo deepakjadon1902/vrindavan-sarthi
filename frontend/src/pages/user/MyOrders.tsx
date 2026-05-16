@@ -59,7 +59,7 @@ const MyOrders = () => {
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
-              <div key={order.id} className="bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow">
+              <div key={order.id} className="bg-card rounded-xl border border-border p-4">
                 <div className="flex gap-4">
                   <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
                     <img src={order.productImage || '/placeholder.svg'} alt={order.productName} className="w-full h-full object-cover" />

@@ -53,11 +53,11 @@ const Register = () => {
     <div className="min-h-screen flex">
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img src={templeImg} alt="Vrindavan Temple" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-foreground/60 flex items-center justify-center">
-          <div className="text-center px-8">
+        <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+          <div className="text-center px-8 bg-black/25 backdrop-blur-sm rounded-2xl py-10">
             <img src={APP_LOGO_URL} alt={settings.siteName} className="h-14 w-14 rounded-full object-cover border border-brand-gold/30 mx-auto mb-4" />
             <h2 className="font-brand text-3xl text-brand-gold mb-2">{settings.siteName}</h2>
-            <p className="font-heading italic text-xl text-primary-foreground/80">{settings.motto}</p>
+            <p className="font-heading italic text-xl text-white">{settings.motto}</p>
           </div>
         </div>
       </div>
@@ -74,10 +74,10 @@ const Register = () => {
 
           {/* Role Selection */}
           <div className="flex gap-2 mb-6">
-            <button type="button" onClick={() => setRole('user')} className={`flex-1 py-3 rounded-xl font-body text-sm font-medium transition-all ${role === 'user' ? 'bg-brand-crimson text-primary-foreground shadow-md' : 'border border-border hover:bg-muted'}`}>
+            <button type="button" onClick={() => setRole('user')} className={`flex-1 py-3 rounded-xl font-body text-sm font-medium transition-all ${role === 'user' ? 'bg-brand-crimson text-primary-foreground' : 'border border-border hover:bg-muted'}`}>
               🙏 User
             </button>
-            <button type="button" onClick={() => setRole('partner')} className={`flex-1 py-3 rounded-xl font-body text-sm font-medium transition-all ${role === 'partner' ? 'bg-brand-gold text-foreground shadow-md' : 'border border-border hover:bg-muted'}`}>
+            <button type="button" onClick={() => setRole('partner')} className={`flex-1 py-3 rounded-xl font-body text-sm font-medium transition-all ${role === 'partner' ? 'bg-brand-gold text-foreground' : 'border border-border hover:bg-muted'}`}>
               🏨 Partner
             </button>
           </div>

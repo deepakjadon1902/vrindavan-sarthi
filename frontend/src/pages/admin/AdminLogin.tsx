@@ -38,7 +38,7 @@ const AdminLogin = () => {
           <p className="font-heading italic text-lg text-primary-foreground/60">Admin Portal</p>
         </div>
 
-        <div className="bg-card rounded-2xl p-8 shadow-xl">
+        <div className="bg-card rounded-2xl p-8 border border-border">
           <h2 className="font-heading text-2xl font-semibold text-foreground mb-6">Admin Sign In</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">

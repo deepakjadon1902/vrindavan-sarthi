@@ -4,51 +4,51 @@
 
 @layer base {
   :root {
-    --background: 40 33% 98%;
-    --foreground: 0 0% 5%;
+    --background: 0 0% 100%;
+    --foreground: 230 22% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 5%;
+    --card-foreground: 230 22% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 5%;
+    --popover-foreground: 230 22% 10%;
 
-    --primary: 4 63% 46%;
+    --primary: 350 66% 38%;
     --primary-foreground: 40 33% 98%;
 
-    --secondary: 40 100% 97%;
-    --secondary-foreground: 0 0% 10%;
+    --secondary: 40 40% 96%;
+    --secondary-foreground: 230 22% 12%;
 
-    --muted: 40 20% 95%;
-    --muted-foreground: 0 0% 40%;
+    --muted: 225 20% 96%;
+    --muted-foreground: 230 10% 35%;
 
-    --accent: 43 72% 52%;
-    --accent-foreground: 0 0% 5%;
+    --accent: 42 85% 55%;
+    --accent-foreground: 230 22% 10%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 40 20% 90%;
-    --input: 40 20% 90%;
-    --ring: 43 72% 52%;
+    --border: 225 16% 88%;
+    --input: 225 16% 88%;
+    --ring: 42 85% 55%;
 
     --radius: 0.5rem;
 
-    --brand-gold: 43 72% 52%;
-    --brand-crimson: 4 63% 46%;
-    --brand-black: 0 0% 5%;
+    --brand-gold: 42 85% 55%;
+    --brand-crimson: 350 66% 38%;
+    --brand-black: 230 22% 10%;
     --brand-saffron: 37 90% 51%;
-    --brand-green: 149 63% 26%;
-    --brand-cream: 36 100% 97%;
+    --brand-green: 154 45% 22%;
+    --brand-cream: 40 40% 96%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(43 72% 52%), hsl(45 87% 60%), hsl(43 72% 52%));
-    --gradient-crimson: linear-gradient(135deg, hsl(4 63% 46%), hsl(6 78% 57%));
-    --gradient-saffron: linear-gradient(135deg, hsl(37 90% 51%), hsl(4 63% 46%));
+    --gradient-gold: linear-gradient(135deg, hsl(var(--brand-gold)), hsl(45 90% 62%), hsl(var(--brand-gold)));
+    --gradient-crimson: linear-gradient(135deg, hsl(var(--brand-crimson)), hsl(350 70% 48%));
+    --gradient-saffron: linear-gradient(135deg, hsl(37 90% 51%), hsl(var(--brand-crimson)));
 
-    --shadow-gold: 0 4px 20px hsla(43, 72%, 52%, 0.35);
-    --shadow-card: 0 4px 24px hsla(0, 0%, 0%, 0.08);
-    --shadow-card-hover: 0 8px 32px hsla(0, 0%, 0%, 0.12);
-    --shadow-crimson: 0 4px 20px hsla(4, 63%, 46%, 0.3);
+    --shadow-gold: none;
+    --shadow-card: none;
+    --shadow-card-hover: none;
+    --shadow-crimson: none;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -61,48 +61,52 @@
   }
 
   .dark {
-    --background: 0 0% 6%;
-    --foreground: 0 0% 98%;
+    --background: 232 30% 6%;
+    --foreground: 40 33% 98%;
 
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 98%;
+    --card: 232 26% 10%;
+    --card-foreground: 40 33% 98%;
 
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 232 26% 10%;
+    --popover-foreground: 40 33% 98%;
 
-    --primary: 43 72% 52%;
-    --primary-foreground: 0 0% 6%;
+    --primary: 42 85% 55%;
+    --primary-foreground: 232 30% 6%;
 
-    --secondary: 0 0% 14%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 232 18% 14%;
+    --secondary-foreground: 40 33% 98%;
 
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 70%;
+    --muted: 232 18% 16%;
+    --muted-foreground: 0 0% 72%;
 
-    --accent: 43 72% 52%;
-    --accent-foreground: 0 0% 6%;
+    --accent: 42 85% 55%;
+    --accent-foreground: 232 30% 6%;
 
     --destructive: 0 70% 45%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 43 72% 52%;
+    --border: 232 18% 18%;
+    --input: 232 18% 18%;
+    --ring: 42 85% 55%;
 
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 43 72% 52%;
-    --sidebar-primary-foreground: 0 0% 6%;
-    --sidebar-accent: 0 0% 12%;
+    --sidebar-background: 232 26% 8%;
+    --sidebar-foreground: 0 0% 92%;
+    --sidebar-primary: 42 85% 55%;
+    --sidebar-primary-foreground: 232 30% 6%;
+    --sidebar-accent: 232 18% 12%;
     --sidebar-accent-foreground: 0 0% 92%;
-    --sidebar-border: 0 0% 18%;
-    --sidebar-ring: 43 72% 52%;
+    --sidebar-border: 232 18% 18%;
+    --sidebar-ring: 42 85% 55%;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+  /* Flatten UI: remove all shadows */
+  [class*="shadow"] {
+    box-shadow: none !important;
   }
   html {
     font-size: 16px;
@@ -119,6 +123,20 @@
 }
 
 @layer components {
+  /* Reusable premium section backgrounds (no shadows). */
+  .bg-royal-dark {
+    background-color: hsl(var(--background));
+    background-image: url("./assets/backgrounds/royal-pattern-dark.svg");
+    background-size: 480px 480px;
+    background-repeat: repeat;
+  }
+  .bg-royal-light {
+    background-color: #ffffff;
+    background-image: url("./assets/backgrounds/royal-pattern-light.svg");
+    background-size: 480px 480px;
+    background-repeat: repeat;
+  }
+
   .font-brand {
     font-family: 'Cinzel Decorative', serif;
   }
@@ -130,7 +148,7 @@
   }
 
   .text-gradient-gold {
-    background: linear-gradient(135deg, hsl(43 72% 52%), hsl(45 87% 60%), hsl(43 72% 52%));
+    background: var(--gradient-gold);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -138,33 +156,28 @@
 
   .btn-gold {
     @apply relative overflow-hidden font-body font-semibold tracking-wide;
-    background: linear-gradient(135deg, hsl(43 72% 52%), hsl(45 87% 60%), hsl(43 72% 52%));
-    color: hsl(0 0% 5%);
-    box-shadow: 0 4px 20px hsla(43, 72%, 52%, 0.35);
+    background: var(--gradient-gold);
+    color: hsl(0 0% 100%);
     transition: all 0.3s ease;
   }
   .btn-gold:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 28px hsla(43, 72%, 52%, 0.5);
   }
 
   .btn-crimson {
     @apply font-body font-semibold tracking-wide;
-    background: linear-gradient(135deg, hsl(4 63% 46%), hsl(6 78% 57%));
+    background: var(--gradient-crimson);
     color: hsl(40 33% 98%);
-    box-shadow: 0 4px 20px hsla(4, 63%, 46%, 0.3);
     transition: all 0.3s ease;
   }
   .btn-crimson:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 28px hsla(4, 63%, 46%, 0.45);
   }
 
   .card-hover {
     @apply transition-all duration-300;
   }
   .card-hover:hover {
-    box-shadow: 0 8px 32px hsla(0, 0%, 0%, 0.12);
     border-color: hsl(43 72% 52% / 0.5);
     transform: translateY(-4px);
   }
@@ -176,16 +189,16 @@
   .golden-divider::after {
     content: '';
     @apply h-px flex-1;
-    background: linear-gradient(90deg, transparent, hsl(43 72% 52%), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--brand-gold)), transparent);
   }
 
   .glass-nav {
     @apply backdrop-blur-md;
-    background: hsla(0, 0%, 5%, 0.85);
+    background: hsl(var(--background) / 0.85);
   }
 
   .section-cream {
-    background-color: hsl(36 100% 97%);
+    background-color: hsl(var(--secondary));
   }
 
   .font-display {
@@ -197,31 +210,16 @@
 
   /* === Glass / glossy / metallic surfaces === */
   .glass-card {
-    background: linear-gradient(
-      135deg,
-      hsla(0, 0%, 100%, 0.18) 0%,
-      hsla(0, 0%, 100%, 0.06) 50%,
-      hsla(0, 0%, 100%, 0.12) 100%
-    );
+    background: linear-gradient(135deg, hsl(var(--card) / 0.55) 0%, hsl(var(--card) / 0.18) 60%, hsl(var(--card) / 0.35) 100%);
     backdrop-filter: blur(14px) saturate(140%);
     -webkit-backdrop-filter: blur(14px) saturate(140%);
-    border: 1px solid hsla(43, 72%, 52%, 0.18);
-    box-shadow:
-      0 8px 32px hsla(0, 0%, 0%, 0.18),
-      inset 0 1px 0 hsla(0, 0%, 100%, 0.35);
+    border: 1px solid hsl(var(--brand-gold) / 0.18);
   }
   .glass-panel {
-    background: linear-gradient(
-      135deg,
-      hsla(0, 0%, 100%, 0.85) 0%,
-      hsla(40, 100%, 97%, 0.75) 100%
-    );
+    background: linear-gradient(135deg, hsl(var(--card) / 0.92) 0%, hsl(var(--card) / 0.72) 100%);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid hsla(43, 72%, 52%, 0.25);
-    box-shadow:
-      0 10px 40px hsla(0, 0%, 0%, 0.08),
-      inset 0 1px 0 hsla(0, 0%, 100%, 0.6);
+    border: 1px solid hsl(var(--brand-gold) / 0.25);
   }
   .glass-chip {
     background: hsla(0, 0%, 5%, 0.55);
@@ -271,18 +269,14 @@
     background: linear-gradient(
       135deg,
       hsl(45 90% 78%) 0%,
-      hsl(43 72% 52%) 35%,
+      hsl(var(--brand-gold)) 35%,
       hsl(38 60% 38%) 55%,
-      hsl(43 72% 52%) 75%,
+      hsl(var(--brand-gold)) 75%,
       hsl(45 90% 78%) 100%
     );
     background-size: 200% 200%;
     animation: metalShift 6s ease infinite;
     color: hsl(0 0% 5%);
-    box-shadow:
-      0 4px 18px hsla(43, 72%, 52%, 0.45),
-      inset 0 1px 0 hsla(0, 0%, 100%, 0.5),
-      inset 0 -1px 0 hsla(0, 0%, 0%, 0.2);
   }
   .metallic-border {
     position: relative;
@@ -314,14 +308,10 @@
 
   /* Watery soft hover lift */
   .water-hover {
-    transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4),
-                box-shadow 0.5s ease;
+    transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4);
   }
   .water-hover:hover {
     transform: translateY(-4px) scale(1.01);
-    box-shadow:
-      0 18px 40px hsla(43, 72%, 52%, 0.25),
-      0 8px 18px hsla(0, 0%, 0%, 0.12);
   }
 
   .text-shine {

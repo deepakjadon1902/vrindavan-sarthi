@@ -63,10 +63,10 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
           {/* Profile Avatar - overlapping banner */}
           <div className="relative -mt-20 mb-6 px-4 sm:px-8 flex flex-col sm:flex-row items-start sm:items-end gap-4">
             <div className="relative">
-              <div className="w-28 h-28 rounded-2xl bg-card border-4 border-background shadow-xl flex items-center justify-center overflow-hidden">
+              <div className="w-28 h-28 rounded-2xl bg-card border-4 border-background flex items-center justify-center overflow-hidden">
                 <span className="text-5xl font-brand text-brand-gold">{user.name.charAt(0)}</span>
               </div>
-              <button className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-brand-crimson text-primary-foreground flex items-center justify-center shadow-lg hover:bg-brand-crimson/90 transition-colors">
+              <button className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-brand-crimson text-primary-foreground flex items-center justify-center hover:bg-brand-crimson/90 transition-colors">
                 <Camera size={14} />
               </button>
             </div>
@@ -93,28 +93,28 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-            <div className="bg-card rounded-xl border border-border p-4 text-center hover:shadow-md transition-shadow">
+            <div className="bg-card rounded-xl border border-border p-4 text-center">
               <div className="w-10 h-10 mx-auto rounded-lg bg-brand-crimson/10 flex items-center justify-center mb-2">
                 <ClipboardList size={18} className="text-brand-crimson" />
               </div>
               <p className="font-heading text-xl font-bold text-foreground">{totalBookings}</p>
               <p className="font-body text-xs text-muted-foreground">Total Bookings</p>
             </div>
-            <div className="bg-card rounded-xl border border-border p-4 text-center hover:shadow-md transition-shadow">
+            <div className="bg-card rounded-xl border border-border p-4 text-center">
               <div className="w-10 h-10 mx-auto rounded-lg bg-brand-green/10 flex items-center justify-center mb-2">
                 <Shield size={18} className="text-brand-green" />
               </div>
               <p className="font-heading text-xl font-bold text-foreground">{activeBookings}</p>
               <p className="font-body text-xs text-muted-foreground">Active Bookings</p>
             </div>
-            <div className="bg-card rounded-xl border border-border p-4 text-center hover:shadow-md transition-shadow">
+            <div className="bg-card rounded-xl border border-border p-4 text-center">
               <div className="w-10 h-10 mx-auto rounded-lg bg-brand-gold/10 flex items-center justify-center mb-2">
                 <CreditCard size={18} className="text-brand-gold" />
               </div>
               <p className="font-heading text-xl font-bold text-foreground">₹{totalSpent.toLocaleString('en-IN')}</p>
               <p className="font-body text-xs text-muted-foreground">Total Spent</p>
             </div>
-            <div className="bg-card rounded-xl border border-border p-4 text-center hover:shadow-md transition-shadow">
+            <div className="bg-card rounded-xl border border-border p-4 text-center">
               <div className="w-10 h-10 mx-auto rounded-lg bg-brand-saffron/10 flex items-center justify-center mb-2">
                 <Calendar size={18} className="text-brand-saffron" />
               </div>

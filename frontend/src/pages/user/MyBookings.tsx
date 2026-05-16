@@ -102,7 +102,7 @@ const MyBookings = () => {
                 onClick={() => setFilter(tab)}
                 className={`px-4 py-2 rounded-xl font-body text-sm whitespace-nowrap transition-all ${
                   filter === tab
-                    ? 'metallic-gold shadow-lg'
+                    ? 'metallic-gold'
                     : 'glass-panel text-muted-foreground hover:text-foreground'
                 }`}
               >

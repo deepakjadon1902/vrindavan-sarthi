@@ -51,7 +51,7 @@ const UpiPayment = ({ amount, bookingId, itemName, onPaymentConfirm, onCancel }:
       {step === 'qr' && (
         <>
           <div className="bg-muted rounded-xl p-6 text-center">
-            <img src={qrUrl} alt="UPI QR Code" className="mx-auto rounded-lg border-4 border-background shadow-lg" />
+            <img src={qrUrl} alt="UPI QR Code" className="mx-auto rounded-lg border-4 border-background" />
             <div className="mt-4 space-y-2">
               <p className="font-heading text-2xl font-bold text-brand-crimson">₹{amount.toLocaleString('en-IN')}</p>
               <p className="font-body text-xs text-muted-foreground">{bookingId}</p>
