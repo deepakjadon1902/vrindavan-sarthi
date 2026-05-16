@@ -5,6 +5,7 @@ import { api, withAuth } from '@/lib/api';
 import { Hotel, BedDouble, Car, Map, Eye, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { publishAppEvent } from '@/lib/broadcast';
+import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 
 type ItemType = 'hotel' | 'room' | 'cab' | 'tour';
 
@@ -28,8 +29,10 @@ const PartnerListings = () => {
   const load = async () => {
     if (!token) return;
     try {
+      const cached = getSessionCache<any[]>('vvs_partner_my_listings_all', 30_000);
+      if (cached && cached.length && allItems.length === 0) setAllItems(cached);
       setIsLoading(true);
-      const res = await api.get('/partner/my-listings', withAuth(token));
+      const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 500 } });
       const data = res.data?.data || {};
       const hotels = (Array.isArray(data.hotels) ? data.hotels : []).map((i: any) => ({ ...i, id: i._id, itemType: 'hotel' as const }));
       const rooms = (Array.isArray(data.rooms) ? data.rooms : []).map((i: any) => ({ ...i, id: i._id, itemType: 'room' as const }));
@@ -37,6 +40,7 @@ const PartnerListings = () => {
       const tours = (Array.isArray(data.tours) ? data.tours : []).map((i: any) => ({ ...i, id: i._id, itemType: 'tour' as const }));
       const all = [...hotels, ...rooms, ...cabs, ...tours].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setAllItems(all);
+      setSessionCache('vvs_partner_my_listings_all', all);
     } catch {
       toast.error('Failed to load listings');
       setAllItems([]);

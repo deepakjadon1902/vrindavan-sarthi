@@ -50,6 +50,7 @@ import PartnerAddTour from "@/pages/partner/PartnerAddTour";
 import PartnerListings from "@/pages/partner/PartnerListings";
 import PartnerBookings from "@/pages/partner/PartnerBookings";
 import PartnerPayments from "@/pages/partner/PartnerPayments";
+import PartnerInventory from "@/pages/partner/PartnerInventory";
 import AdminPayments from "@/pages/admin/AdminPayments";
 import BookingDetail from "@/pages/user/BookingDetail";
 import ProtectedRoute from "@/router/ProtectedRoute";
@@ -147,6 +148,7 @@ const App = () => {
               <Route index element={<PartnerDashboard />} />
               <Route path="hotels" element={<PartnerAddHotel />} />
               <Route path="rooms" element={<PartnerAddRoom />} />
+              <Route path="inventory" element={<PartnerInventory />} />
               <Route path="cabs" element={<PartnerAddCab />} />
               <Route path="tours" element={<PartnerAddTour />} />
               <Route path="listings" element={<PartnerListings />} />

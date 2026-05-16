@@ -33,5 +33,6 @@ const roomSchema = new mongoose.Schema({
 
 roomSchema.index({ status: 1, approvalStatus: 1, createdAt: -1 });
 roomSchema.index({ hotelId: 1, createdAt: -1 });
+roomSchema.index({ partnerId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Room', roomSchema);

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { api, withAuth } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
+import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 
 const PartnerDashboard = () => {
   const token = useAuthStore((s) => s.token);
@@ -22,15 +23,21 @@ const PartnerDashboard = () => {
     if (!token) return;
     const run = async () => {
       try {
+        const cached = getSessionCache<{ hotels: any[]; rooms: any[]; cabs: any[]; tours: any[] }>('vvs_partner_my_listings_raw', 30_000);
+        if (cached && !listings.hotels.length && !listings.rooms.length && !listings.cabs.length && !listings.tours.length) {
+          setListings(cached);
+        }
         setIsLoading(true);
-        const res = await api.get('/partner/my-listings', withAuth(token));
+        const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 300 } });
         const data = res.data?.data || {};
-        setListings({
+        const next = {
           hotels: Array.isArray(data.hotels) ? data.hotels : [],
           rooms: Array.isArray(data.rooms) ? data.rooms : [],
           cabs: Array.isArray(data.cabs) ? data.cabs : [],
           tours: Array.isArray(data.tours) ? data.tours : [],
-        });
+        };
+        setListings(next);
+        setSessionCache('vvs_partner_my_listings_raw', next);
       } finally {
         setIsLoading(false);
       }

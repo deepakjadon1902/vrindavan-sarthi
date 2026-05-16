@@ -13,6 +13,7 @@ const sidebarLinks = [
   { name: 'Dashboard', path: '/partner', icon: LayoutDashboard },
   { name: 'My Hotels', path: '/partner/hotels', icon: Hotel },
   { name: 'My Rooms', path: '/partner/rooms', icon: BedDouble },
+  { name: 'Inventory', path: '/partner/inventory', icon: BedDouble },
   { name: 'My Cabs', path: '/partner/cabs', icon: Car },
   { name: 'My Tours', path: '/partner/tours', icon: Map },
   { name: 'My Listings', path: '/partner/listings', icon: ClipboardList },

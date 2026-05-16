@@ -57,7 +57,7 @@ const PartnerAddTour = () => {
     if (!token) return;
     try {
       setIsLoading(true);
-      const res = await api.get('/partner/my-listings', withAuth(token));
+      const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 500 } });
       const tours = Array.isArray(res.data?.data?.tours) ? res.data.data.tours : [];
       setItems(tours);
     } catch {

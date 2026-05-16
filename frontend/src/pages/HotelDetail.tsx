@@ -13,12 +13,26 @@ const HotelDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
-  const { createBooking } = useBookingStore();
+  const { createRoomTypeBooking } = useBookingStore();
   const [hotel, setHotel] = useState<any>(() => getPrefetchedDetail('hotels', id) || getCachedListingItem('hotels', id) || null);
   const [isLoading, setIsLoading] = useState(true);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
-  const [guests, setGuests] = useState(1);
+  const [roomTypes, setRoomTypes] = useState<any[]>([]);
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState('');
+
+  // Detailed booking form
+  const [customerFullName, setCustomerFullName] = useState('');
+  const [customerMobile, setCustomerMobile] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [arrivalMode, setArrivalMode] = useState<'personal_vehicle' | 'transport'>('transport');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [arrivalTime, setArrivalTime] = useState('');
+  const [totalAdults, setTotalAdults] = useState(1);
+  const [totalChildren, setTotalChildren] = useState(0);
+  const [hasPet, setHasPet] = useState(false);
+  const [adultDetails, setAdultDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([{ name: '', age: '', gender: '' }]);
+  const [childDetails, setChildDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([]);
   const [showPayment, setShowPayment] = useState(false);
   const [booked, setBooked] = useState(false);
   const [bookingId, setBookingId] = useState('');
@@ -39,6 +53,45 @@ const HotelDetail = () => {
     void run();
   }, [id]);
 
+  useEffect(() => {
+    setCustomerFullName(user?.name || '');
+    setCustomerMobile(user?.phone || '');
+    setCustomerEmail(user?.email || '');
+  }, [user]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!id) return;
+      if (!checkIn || !checkOut) {
+        setRoomTypes([]);
+        setSelectedRoomTypeId('');
+        return;
+      }
+      try {
+        const res = await api.get(`/hotels/${id}/room-types`, { params: { checkIn, checkOut } });
+        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+        setRoomTypes(data);
+        if (selectedRoomTypeId && !data.some((rt: any) => rt._id === selectedRoomTypeId)) setSelectedRoomTypeId('');
+      } catch {
+        setRoomTypes([]);
+      }
+    };
+    void load();
+  }, [checkIn, checkOut, id, selectedRoomTypeId]);
+
+  useEffect(() => {
+    setAdultDetails((prev) => {
+      const next = [...prev];
+      while (next.length < totalAdults) next.push({ name: '', age: '', gender: '' });
+      return next.slice(0, totalAdults);
+    });
+    setChildDetails((prev) => {
+      const next = [...prev];
+      while (next.length < totalChildren) next.push({ name: '', age: '', gender: '' });
+      return next.slice(0, totalChildren);
+    });
+  }, [totalAdults, totalChildren]);
+
   if (isLoading && !hotel) return (
     <div className="pt-24 pb-16 text-center min-h-screen bg-background">
       <p className="font-body text-sm text-muted-foreground">Loading…</p>
@@ -53,12 +106,19 @@ const HotelDetail = () => {
   );
 
   const nights = checkIn && checkOut ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 1;
-  const total = hotel.pricePerNight * nights;
+  const selectedRoomType = roomTypes.find((rt) => rt._id === selectedRoomTypeId) || null;
+  const pricePerNight = selectedRoomType?.pricePerNight ?? hotel.pricePerNight;
+  const total = Number(pricePerNight || 0) * nights;
 
   const handleInitiateBooking = () => {
     if (!isAuthenticated) { toast.error('Please login to book'); navigate('/login'); return; }
     if (!checkIn || !checkOut) { toast.error('Please select check-in and check-out dates'); return; }
     if (!hotel?._id) { toast.error('Hotel not loaded yet'); return; }
+    if (!selectedRoomTypeId) { toast.error('Please select a room type'); return; }
+    if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) { toast.error('Please fill your name, mobile and email'); return; }
+    const invalidAdult = adultDetails.some((a) => !a.name.trim() || !Number(a.age || 0));
+    const invalidChild = childDetails.some((c) => !c.name.trim() || !Number(c.age || 0));
+    if (invalidAdult || invalidChild) { toast.error('Please fill name and age for each guest'); return; }
     const tempId = `VVS-2025-${String(Math.floor(10000 + Math.random() * 90000))}`;
     setBookingId(tempId);
     setShowPayment(true);
@@ -67,23 +127,31 @@ const HotelDetail = () => {
   const handlePaymentConfirm = async (transactionId: string) => {
     if (!user) return;
 
-    const res = await createBooking({
-      bookingType: 'hotel',
-      itemId: hotel?._id,
-      itemName: hotel?.name,
-      itemImage: hotel?.image,
-      partnerId: hotel?.partnerId,
-      partnerName: hotel?.partnerName,
+    const guestDetails = [
+      ...adultDetails.map((a) => ({ type: 'adult', name: a.name, age: Number(a.age || 0), gender: a.gender || null })),
+      ...childDetails.map((c) => ({ type: 'child', name: c.name, age: Number(c.age || 0), gender: c.gender || null })),
+    ];
+
+    const res = await createRoomTypeBooking({
+      hotelId: hotel?._id,
+      roomTypeId: selectedRoomTypeId,
       checkIn,
       checkOut,
-      guests,
+      customerFullName,
+      customerMobile,
+      customerEmail,
+      arrivalMode,
+      vehicleNumber: arrivalMode === 'personal_vehicle' ? vehicleNumber : '',
+      arrivalTime,
+      totalAdults,
+      totalChildren,
+      hasPet,
+      guestDetails,
       totalAmount: total,
       paymentMethod: 'online',
-      paymentStatus: 'pending',
-      bookingStatus: 'confirmed',
       upiTransactionId: transactionId,
       additionalInfo: `UPI Txn: ${transactionId}`,
-    } as any);
+    });
 
     if (!res.success) {
       toast.error(res.error || 'Booking failed');
@@ -188,16 +256,182 @@ const HotelDetail = () => {
               ) : (
                 <>
                   <div className="mb-4">
-                    <span className="font-display text-4xl font-bold text-shine">₹{hotel.pricePerNight?.toLocaleString('en-IN')}</span>
+                    <span className="font-display text-4xl font-bold text-shine">₹{Number(pricePerNight || 0).toLocaleString('en-IN')}</span>
                     <span className="font-body text-sm text-muted-foreground"> /night</span>
                   </div>
                   <div className="space-y-4">
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-in</label><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-out</label><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Guests</label><input type="number" min={1} max={10} value={guests} onChange={(e) => setGuests(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+
                   </div>
+
+                  <div className="mt-4 space-y-2">
+                    <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Room Type</label>
+                    {!checkIn || !checkOut ? (
+                      <p className="font-body text-xs text-muted-foreground">Select dates to see availability.</p>
+                    ) : roomTypes.length === 0 ? (
+                      <p className="font-body text-xs text-muted-foreground">No room types available.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {roomTypes.map((rt: any) => (
+                          <button
+                            key={rt._id}
+                            type="button"
+                            disabled={typeof rt.availableCount === 'number' && rt.availableCount <= 0}
+                            onClick={() => {
+                              if (typeof rt.availableCount === 'number' && rt.availableCount <= 0) return;
+                              setSelectedRoomTypeId(rt._id);
+                            }}
+                            className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
+                              typeof rt.availableCount === 'number' && rt.availableCount <= 0
+                                ? 'opacity-60 cursor-not-allowed'
+                                : 'hover:bg-background/80'
+                            } ${selectedRoomTypeId === rt._id ? 'border-brand-gold bg-brand-gold/10' : 'border-border bg-background/60'}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-body text-sm font-semibold text-foreground">{rt.name}</span>
+                              <span className="font-body text-xs text-muted-foreground">₹{Number(rt.pricePerNight || 0).toLocaleString('en-IN')}/night</span>
+                            </div>
+                            <div className="font-body text-xs text-muted-foreground mt-0.5">
+                              {typeof rt.availableCount === 'number' ? (
+                                rt.availableCount > 0 ? (
+                                  <span>{rt.availableCount} room(s) left</span>
+                                ) : (
+                                  <span className="text-destructive">Fully booked</span>
+                                )
+                              ) : (
+                                <span>Availability unknown</span>
+                              )}
+                              {' '}• Adults {rt.maxAdults ?? '-'} • Children {rt.maxChildren ?? '-'}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedRoomType && (
+                    <div className="mt-4 space-y-3">
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Full Name</label>
+                          <input value={customerFullName} onChange={(e) => setCustomerFullName(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+                        </div>
+                        <div>
+                          <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Mobile Number</label>
+                          <input value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+                        </div>
+                        <div>
+                          <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Email</label>
+                          <input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Arrival Mode</label>
+                          <select value={arrivalMode} onChange={(e) => setArrivalMode(e.target.value as any)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm">
+                            <option value="transport">Transport</option>
+                            <option value="personal_vehicle">Personal Vehicle</option>
+                          </select>
+                        </div>
+                        {arrivalMode === 'personal_vehicle' && (
+                          <div>
+                            <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Vehicle Number (optional)</label>
+                            <input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm" />
+                          </div>
+                        )}
+                        <div>
+                          <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Arrival Time</label>
+                          <input type="time" value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Adults</label>
+                          <select value={totalAdults} onChange={(e) => setTotalAdults(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm">
+                            {Array.from({ length: Math.max(1, Number(selectedRoomType.maxAdults || 1)) }, (_, i) => i + 1).map((v) => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Children</label>
+                          <select value={totalChildren} onChange={(e) => setTotalChildren(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm">
+                            {Array.from({ length: Math.max(0, Number(selectedRoomType.maxChildren || 0)) + 1 }, (_, i) => i).map((v) => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <input id="hasPet" type="checkbox" checked={hasPet} onChange={(e) => setHasPet(e.target.checked)} disabled={!hotel.petsAllowed} />
+                        <label htmlFor="hasPet" className={`font-body text-sm ${hotel.petsAllowed ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          Any Pet with guest? (Yes/No)
+                        </label>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="font-body text-sm font-semibold text-foreground">Guest Details</p>
+                        {adultDetails.map((a, idx) => (
+                          <div key={idx} className="grid grid-cols-4 gap-2">
+                            <input
+                              placeholder={`Adult ${idx + 1} Name`}
+                              value={a.name}
+                              onChange={(e) => setAdultDetails((prev) => prev.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)))}
+                              className="col-span-2 px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm"
+                            />
+                            <input
+                              placeholder="Age"
+                              value={a.age}
+                              onChange={(e) => setAdultDetails((prev) => prev.map((x, i) => (i === idx ? { ...x, age: e.target.value } : x)))}
+                              className="px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm"
+                            />
+                            <select
+                              value={a.gender || ''}
+                              onChange={(e) => setAdultDetails((prev) => prev.map((x, i) => (i === idx ? { ...x, gender: e.target.value } : x)))}
+                              className="px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm"
+                            >
+                              <option value="">Gender</option>
+                              <option value="male">Male</option>
+                              <option value="female">Female</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
+                        ))}
+                        {childDetails.map((c, idx) => (
+                          <div key={idx} className="grid grid-cols-4 gap-2">
+                            <input
+                              placeholder={`Child ${idx + 1} Name`}
+                              value={c.name}
+                              onChange={(e) => setChildDetails((prev) => prev.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)))}
+                              className="col-span-2 px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm"
+                            />
+                            <input
+                              placeholder="Age"
+                              value={c.age}
+                              onChange={(e) => setChildDetails((prev) => prev.map((x, i) => (i === idx ? { ...x, age: e.target.value } : x)))}
+                              className="px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm"
+                            />
+                            <select
+                              value={c.gender || ''}
+                              onChange={(e) => setChildDetails((prev) => prev.map((x, i) => (i === idx ? { ...x, gender: e.target.value } : x)))}
+                              className="px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm"
+                            >
+                              <option value="">Gender</option>
+                              <option value="male">Male</option>
+                              <option value="female">Female</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="border-t border-brand-gold/20 mt-4 pt-4 space-y-2">
-                    <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{hotel.pricePerNight?.toLocaleString('en-IN')} × {nights} night(s)</span><span className="text-foreground">₹{total.toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{Number(pricePerNight || 0).toLocaleString('en-IN')} × {nights} night(s)</span><span className="text-foreground">₹{total.toLocaleString('en-IN')}</span></div>
                     <div className="flex justify-between font-body text-sm font-semibold border-t border-brand-gold/20 pt-2"><span>Total</span><span className="text-brand-crimson font-display text-lg">₹{total.toLocaleString('en-IN')}</span></div>
                   </div>
                   <button onClick={handleInitiateBooking} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-4 tracking-wide">Pay & Book Now</button>

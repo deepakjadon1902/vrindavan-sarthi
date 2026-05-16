@@ -6,7 +6,7 @@ import axios from 'axios';
 export interface Booking {
   id: string; // Mongo _id
   bookingId: string; // human code like VVS-...
-  bookingType: 'hotel' | 'room' | 'cab' | 'tour';
+  bookingType: 'hotel' | 'room' | 'cab' | 'tour' | 'room_type';
   itemId: string;
   itemName: string;
   itemImage: string;
@@ -29,6 +29,11 @@ export interface Booking {
   upiTransactionId?: string;
   additionalInfo?: string;
   createdAt: string;
+  // Inventory booking extras
+  hotelId?: string;
+  roomTypeId?: string;
+  roomUnitId?: string;
+  roomNumber?: string;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -63,6 +68,10 @@ const normalizeBooking = (b: unknown): Booking => {
     upiTransactionId: getString(obj, 'upiTransactionId') || undefined,
     additionalInfo: getString(obj, 'additionalInfo') || undefined,
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
+    hotelId: getString(obj, 'hotelId') || undefined,
+    roomTypeId: getString(obj, 'roomTypeId') || undefined,
+    roomUnitId: getString(obj, 'roomUnitId') || undefined,
+    roomNumber: getString(obj, 'roomNumber') || undefined,
   };
 };
 
@@ -88,6 +97,7 @@ interface BookingState {
   fetchBookingById: (id: string) => Promise<Booking | null>;
 
   createBooking: (data: Omit<Booking, 'id' | 'bookingId' | 'createdAt' | 'userId' | 'userName' | 'userEmail' | 'userPhone'>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  createRoomTypeBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   cancelBooking: (id: string) => Promise<{ success: boolean; error?: string }>;
   submitPayment: (id: string, upiTransactionId: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   verifyPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
@@ -107,7 +117,7 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     if (!token) return;
     try {
       set({ isLoading: true });
-      const res = await api.get('/bookings/my', withAuth(token));
+      const res = await api.get('/bookings/my', { ...withAuth(token), params: { limit: 200 } });
       const bookings = (res.data?.data || []).map(normalizeBooking);
       set({ myBookings: bookings, isLoading: false });
     } catch {
@@ -120,7 +130,7 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     if (!token) return;
     try {
       set({ isLoading: true });
-      const res = await api.get('/bookings/partner', withAuth(token));
+      const res = await api.get('/bookings/partner', { ...withAuth(token), params: { limit: 200 } });
       const bookings = (res.data?.data || []).map(normalizeBooking);
       set({ partnerBookings: bookings, isLoading: false });
     } catch {
@@ -133,7 +143,7 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     if (!token) return;
     try {
       set({ isLoading: true });
-      const res = await api.get('/bookings/all', withAuth(token));
+      const res = await api.get('/bookings/all', { ...withAuth(token), params: { limit: 300 } });
       const bookings = (res.data?.data || []).map(normalizeBooking);
       set({ adminBookings: bookings, isLoading: false });
     } catch {
@@ -168,6 +178,19 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
       const res = await api.post('/bookings', data, withAuth(token));
+      const booking = normalizeBooking(res.data?.data);
+      set((state) => ({ myBookings: [booking, ...state.myBookings] }));
+      return { success: true, data: booking };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Booking failed') };
+    }
+  },
+
+  createRoomTypeBooking: async (data) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.post('/bookings/room-type', data, withAuth(token));
       const booking = normalizeBooking(res.data?.data);
       set((state) => ({ myBookings: [booking, ...state.myBookings] }));
       return { success: true, data: booking };

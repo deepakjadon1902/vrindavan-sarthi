@@ -1,8 +1,18 @@
 const mongoose = require('mongoose');
 
+const guestDetailSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ['adult', 'child'], required: true },
+    name: { type: String, required: true },
+    age: { type: Number, required: true },
+    gender: { type: String, enum: ['male', 'female', 'other'], default: null },
+  },
+  { _id: false }
+);
+
 const bookingSchema = new mongoose.Schema({
   bookingId: { type: String, unique: true },
-  bookingType: { type: String, enum: ['hotel', 'room', 'cab', 'tour'], required: true },
+  bookingType: { type: String, enum: ['hotel', 'room', 'cab', 'tour', 'room_type'], required: true },
   itemId: { type: String, required: true },
   itemName: String,
   itemImage: String,
@@ -12,9 +22,31 @@ const bookingSchema = new mongoose.Schema({
   userPhone: String,
   partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   partnerName: String,
+
+  // Hotel inventory booking (room-type based)
+  hotelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel' },
+  roomTypeId: { type: mongoose.Schema.Types.ObjectId, ref: 'RoomType' },
+  roomUnitId: { type: mongoose.Schema.Types.ObjectId, ref: 'RoomUnit' },
+  roomNumber: String,
+
   checkIn: Date,
   checkOut: Date,
   guests: Number,
+
+  // Detailed booking form fields
+  customerFullName: String,
+  customerMobile: String,
+  customerEmail: String,
+
+  arrivalMode: { type: String, enum: ['personal_vehicle', 'transport'], default: null },
+  vehicleNumber: String,
+  arrivalTime: String,
+
+  totalAdults: { type: Number, default: 0 },
+  totalChildren: { type: Number, default: 0 },
+  hasPet: { type: Boolean, default: false },
+  guestDetails: [guestDetailSchema],
+
   totalAmount: { type: Number, default: 0 },
   paymentMethod: { type: String, enum: ['online', 'doorstep'], default: 'online' },
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
@@ -30,9 +62,13 @@ const bookingSchema = new mongoose.Schema({
 
 bookingSchema.pre('save', function (next) {
   if (!this.bookingId) {
-    this.bookingId = `VVS-2025-${String(Math.floor(10000 + Math.random() * 90000))}`;
+    const year = new Date().getFullYear();
+    this.bookingId = `VVS-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
   }
   next();
 });
+
+bookingSchema.index({ bookingType: 1, createdAt: -1 });
+bookingSchema.index({ hotelId: 1, roomTypeId: 1, roomUnitId: 1, checkIn: 1, checkOut: 1 });
 
 module.exports = mongoose.model('Booking', bookingSchema);

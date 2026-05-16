@@ -16,6 +16,7 @@ interface PartnerHotel {
   images?: string[];
   description?: string;
   amenities?: string[];
+  petsAllowed?: boolean;
   status: 'active' | 'inactive';
   approvalStatus: 'pending' | 'approved' | 'rejected';
   adminRemarks?: string;
@@ -41,6 +42,7 @@ const PartnerAddHotel = () => {
     rating: '',
     description: '',
     amenities: '',
+    petsAllowed: false,
     images: [] as string[],
   });
 
@@ -48,7 +50,7 @@ const PartnerAddHotel = () => {
     if (!token) return;
     try {
       setIsLoading(true);
-      const res = await api.get('/partner/my-listings', withAuth(token));
+      const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 500 } });
       const hotels = Array.isArray(res.data?.data?.hotels) ? res.data.data.hotels : [];
       setItems(hotels);
     } catch {
@@ -77,6 +79,7 @@ const PartnerAddHotel = () => {
       rating: String(target.rating ?? ''),
       description: target.description || '',
       amenities: (target.amenities || []).join(', '),
+      petsAllowed: Boolean(target.petsAllowed),
       images: [target.image, ...(target.images || [])].filter(Boolean) as string[],
     });
     setEditingId(target._id);
@@ -95,6 +98,7 @@ const PartnerAddHotel = () => {
       rating: '',
       description: '',
       amenities: '',
+      petsAllowed: false,
       images: [],
     });
     setEditingId(null);
@@ -135,6 +139,7 @@ const PartnerAddHotel = () => {
         .split(',')
         .map((a) => a.trim())
         .filter(Boolean),
+      petsAllowed: Boolean(form.petsAllowed),
       image: form.images[0] || '/placeholder.svg',
       images: form.images.slice(1),
     };
@@ -166,6 +171,7 @@ const PartnerAddHotel = () => {
       rating: String(item.rating ?? ''),
       description: item.description || '',
       amenities: (item.amenities || []).join(', '),
+      petsAllowed: Boolean(item.petsAllowed),
       images: [item.image, ...(item.images || [])].filter(Boolean) as string[],
     });
     setEditingId(item._id);
@@ -289,6 +295,18 @@ const PartnerAddHotel = () => {
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 />
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                id="hotelPetsAllowed"
+                type="checkbox"
+                checked={form.petsAllowed}
+                onChange={(e) => setForm({ ...form, petsAllowed: e.target.checked })}
+              />
+              <label htmlFor="hotelPetsAllowed" className="font-body text-sm text-foreground">
+                Pets Allowed (Hotel Level)
+              </label>
             </div>
 
             <div>

@@ -197,10 +197,35 @@ router.delete('/tours/:id', protect, authorize('partner'), async (req, res) => {
 // Partner: Get my listings
 router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
   try {
-    const hotels = await Hotel.find({ partnerId: req.user._id });
-    const rooms = await Room.find({ partnerId: req.user._id });
-    const cabs = await Cab.find({ partnerId: req.user._id });
-    const tours = await Tour.find({ partnerId: req.user._id });
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(1000, Math.floor(limitRaw)) : null;
+
+    const hotelQuery = Hotel.find({ partnerId: req.user._id })
+      .sort({ createdAt: -1 })
+      .select('name location pricePerNight rating image images description amenities status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed createdAt updatedAt')
+      .lean();
+    const roomQuery = Room.find({ partnerId: req.user._id })
+      .sort({ createdAt: -1 })
+      .select('name hotelName hotelId type floor pricePerNight capacity bedCount isAC image images description amenities status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
+      .lean();
+    const cabQuery = Cab.find({ partnerId: req.user._id })
+      .sort({ createdAt: -1 })
+      .select('vehicleName vehicleType vehicleNumber capacity driverName driverPhone routes pricePerKm basePrice image images description features status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
+      .lean();
+    const tourQuery = Tour.find({ partnerId: req.user._id })
+      .sort({ createdAt: -1 })
+      .select('name duration pricePerPerson groupSize startPoint endPoint image images description itinerary includes excludes highlights contactPhone contactEmail status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
+      .lean();
+
+    if (limit) {
+      hotelQuery.limit(limit);
+      roomQuery.limit(limit);
+      cabQuery.limit(limit);
+      tourQuery.limit(limit);
+    }
+
+    const [hotels, rooms, cabs, tours] = await Promise.all([hotelQuery, roomQuery, cabQuery, tourQuery]);
     res.json({ success: true, data: { hotels, rooms, cabs, tours } });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -208,10 +233,35 @@ router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
 // Admin: Get all partner submissions
 router.get('/requests', protect, authorize('admin'), async (req, res) => {
   try {
-    const hotels = await Hotel.find({ partnerSubmitted: true });
-    const rooms = await Room.find({ partnerSubmitted: true });
-    const cabs = await Cab.find({ partnerSubmitted: true });
-    const tours = await Tour.find({ partnerSubmitted: true });
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(2000, Math.floor(limitRaw)) : null;
+
+    const hotelQuery = Hotel.find({ partnerSubmitted: true })
+      .sort({ createdAt: -1 })
+      .select('name location pricePerNight rating image images description amenities status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed createdAt updatedAt')
+      .lean();
+    const roomQuery = Room.find({ partnerSubmitted: true })
+      .sort({ createdAt: -1 })
+      .select('name hotelName hotelId type floor pricePerNight capacity bedCount isAC image images description amenities status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
+      .lean();
+    const cabQuery = Cab.find({ partnerSubmitted: true })
+      .sort({ createdAt: -1 })
+      .select('vehicleName vehicleType vehicleNumber capacity driverName driverPhone routes pricePerKm basePrice image images description features status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
+      .lean();
+    const tourQuery = Tour.find({ partnerSubmitted: true })
+      .sort({ createdAt: -1 })
+      .select('name duration pricePerPerson groupSize startPoint endPoint image images description itinerary includes excludes highlights contactPhone contactEmail status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
+      .lean();
+
+    if (limit) {
+      hotelQuery.limit(limit);
+      roomQuery.limit(limit);
+      cabQuery.limit(limit);
+      tourQuery.limit(limit);
+    }
+
+    const [hotels, rooms, cabs, tours] = await Promise.all([hotelQuery, roomQuery, cabQuery, tourQuery]);
     res.json({ success: true, data: { hotels, rooms, cabs, tours } });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

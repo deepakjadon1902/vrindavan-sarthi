@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
 import { api, withAuth } from '@/lib/api';
 import { APP_LOGO_URL } from '@/lib/brand';
+import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 
 const sidebarLinks = [
   { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -36,14 +37,18 @@ const AdminLayout = () => {
     if (!token) return;
     const run = async () => {
       try {
-        const res = await api.get('/partner/requests', withAuth(token));
+        const cached = getSessionCache<number>('vvs_admin_partner_pending_count', 30_000);
+        if (typeof cached === 'number' && pendingCount === 0) setPendingCount(cached);
+        const res = await api.get('/partner/requests', { ...withAuth(token), params: { limit: 600 } });
         const data = res.data?.data || {};
         const hotels = Array.isArray(data.hotels) ? data.hotels : [];
         const rooms = Array.isArray(data.rooms) ? data.rooms : [];
         const cabs = Array.isArray(data.cabs) ? data.cabs : [];
         const tours = Array.isArray(data.tours) ? data.tours : [];
         const all = [...hotels, ...rooms, ...cabs, ...tours];
-        setPendingCount(all.filter((i: any) => i?.approvalStatus === 'pending').length);
+        const next = all.filter((i: any) => i?.approvalStatus === 'pending').length;
+        setPendingCount(next);
+        setSessionCache('vvs_admin_partner_pending_count', next);
       } catch {
         setPendingCount(0);
       }

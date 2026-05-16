@@ -65,7 +65,7 @@ const PartnerAddRoom = () => {
     if (!token) return;
     try {
       setIsLoading(true);
-      const res = await api.get('/partner/my-listings', withAuth(token));
+      const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 500 } });
       const rooms = Array.isArray(res.data?.data?.rooms) ? res.data.data.rooms : [];
       setItems(rooms);
     } catch {

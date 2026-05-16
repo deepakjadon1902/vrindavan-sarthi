@@ -13,7 +13,8 @@ interface ListingCardProps {
   rating: number;
   reviewCount?: number;
   badge?: string;
-  badgeColor?: 'green' | 'saffron';
+  badgeColor?: 'green' | 'saffron' | 'crimson';
+  meta?: string;
   amenities?: string[];
   onViewDetails?: () => void;
   /** Auto-scroll interval in ms */
@@ -31,6 +32,7 @@ const ListingCard = ({
   reviewCount = 0,
   badge,
   badgeColor = 'saffron',
+  meta,
   amenities,
   onViewDetails,
   intervalMs = 2800,
@@ -87,6 +89,8 @@ const ListingCard = ({
             className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-body font-semibold z-10 ${
               badgeColor === 'green'
                 ? 'bg-brand-green text-primary-foreground'
+                : badgeColor === 'crimson'
+                  ? 'bg-brand-crimson text-primary-foreground'
                 : 'bg-brand-saffron text-primary-foreground'
             }`}
           >
@@ -122,7 +126,8 @@ const ListingCard = ({
       {/* Content */}
       <div className="p-4">
         <h3 className="font-heading text-lg font-semibold text-foreground line-clamp-1">{name}</h3>
-        <p className="font-body text-sm text-muted-foreground mt-1">📍 {location}</p>
+        <p className="font-body text-sm text-muted-foreground mt-1">{location}</p>
+        {meta && <p className="font-body text-xs text-muted-foreground mt-1">{meta}</p>}
 
         {/* Rating */}
         <div className="flex items-center gap-1.5 mt-3">

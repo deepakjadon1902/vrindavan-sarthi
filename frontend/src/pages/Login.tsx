@@ -53,7 +53,7 @@ const Login = () => {
         <img src={templeImg} alt="Vrindavan Temple" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-foreground/60 flex items-center justify-center">
           <div className="text-center px-8">
-            <span className="text-4xl mb-4 block">ðŸ¦š</span>
+            <span className="text-4xl mb-4 block"> </span>
             <h2 className="font-brand text-3xl text-brand-gold mb-2">{settings.siteName}</h2>
             <p className="font-heading italic text-xl text-primary-foreground/80">{settings.motto}</p>
           </div>
@@ -63,7 +63,7 @@ const Login = () => {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8 lg:hidden">
-            <span className="text-3xl">ðŸ¦š</span>
+            <span className="text-3xl"> </span>
             <h2 className="font-brand text-2xl text-brand-gold mt-2">{settings.siteName}</h2>
           </div>
 
@@ -91,7 +91,7 @@ const Login = () => {
             </div>
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Password</label>
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" />
+              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="............." />
             </div>
             <div className="text-right">
               <a href="#" className="font-body text-xs text-brand-gold hover:underline">Forgot Password?</a>

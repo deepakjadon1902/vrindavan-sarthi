@@ -1,7 +1,162 @@
 const express = require('express');
 const Booking = require('../models/Booking');
+const Hotel = require('../models/Hotel');
+const RoomType = require('../models/RoomType');
+const RoomUnit = require('../models/RoomUnit');
+const RoomUnitBlock = require('../models/RoomUnitBlock');
 const { protect, authorize } = require('../middleware/auth');
+const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
 const router = express.Router();
+
+const normalizeGender = (v) => {
+  const s = String(v || '').trim().toLowerCase();
+  if (!s) return null;
+  if (s === 'male' || s === 'm') return 'male';
+  if (s === 'female' || s === 'f') return 'female';
+  if (s === 'other' || s === 'o') return 'other';
+  return null;
+};
+
+const findAssignableRoomUnit = async ({ roomTypeId, checkIn, checkOut }) => {
+  const units = await RoomUnit.find({ roomTypeId, status: 'active' }).sort({ number: 1 }).lean();
+  if (!units.length) return null;
+
+  const blockedByBlocks = await RoomUnitBlock.distinct('roomUnitId', {
+    roomTypeId,
+    startDate: { $lt: checkOut },
+    endDate: { $gt: checkIn },
+  });
+
+  const blockedByBookings = await Booking.distinct('roomUnitId', {
+    roomTypeId,
+    bookingStatus: { $ne: 'cancelled' },
+    checkIn: { $lt: checkOut },
+    checkOut: { $gt: checkIn },
+  });
+
+  const blockedSet = new Set([...blockedByBlocks.map(String), ...blockedByBookings.map(String)]);
+  return units.find((u) => !blockedSet.has(String(u._id))) || null;
+};
+
+// Create booking for a room type (authenticated user)
+// Body: { hotelId, roomTypeId, checkIn, checkOut, customerFullName, customerMobile, customerEmail, arrivalMode, vehicleNumber, arrivalTime, totalAdults, totalChildren, hasPet, guestDetails[], paymentMethod, totalAmount, upiTransactionId? }
+router.post('/room-type', protect, async (req, res) => {
+  try {
+    const hotelId = String(req.body?.hotelId || '').trim();
+    const roomTypeId = String(req.body?.roomTypeId || '').trim();
+    if (!hotelId || !roomTypeId) return res.status(400).json({ success: false, message: 'hotelId and roomTypeId are required' });
+
+    const hotel = await Hotel.findById(hotelId).lean();
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+
+    const roomType = await RoomType.findOne({ _id: roomTypeId, hotelId: hotel._id, status: 'active' }).lean();
+    if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
+
+    const checkIn = parseDateOnlyToUTC(String(req.body?.checkIn || ''));
+    const checkOut = parseDateOnlyToUTC(String(req.body?.checkOut || ''));
+    if (!isValidDate(checkIn) || !isValidDate(checkOut) || checkIn >= checkOut) {
+      return res.status(400).json({ success: false, message: 'Valid checkIn and checkOut are required' });
+    }
+
+    const customerFullName = String(req.body?.customerFullName || '').trim();
+    const customerMobile = String(req.body?.customerMobile || '').trim();
+    const customerEmail = String(req.body?.customerEmail || '').trim();
+    if (!customerFullName || !customerMobile || !customerEmail) {
+      return res.status(400).json({ success: false, message: 'customerFullName, customerMobile and customerEmail are required' });
+    }
+
+    const totalAdults = Number(req.body?.totalAdults || 0);
+    const totalChildren = Number(req.body?.totalChildren || 0);
+    if (!Number.isFinite(totalAdults) || totalAdults < 1) return res.status(400).json({ success: false, message: 'At least 1 adult is required' });
+    if (!Number.isFinite(totalChildren) || totalChildren < 0) return res.status(400).json({ success: false, message: 'Invalid totalChildren' });
+
+    if (totalAdults > (roomType.maxAdults || 0)) return res.status(400).json({ success: false, message: `Max adults for this room type is ${roomType.maxAdults}` });
+    if (totalChildren > (roomType.maxChildren || 0)) return res.status(400).json({ success: false, message: `Max children for this room type is ${roomType.maxChildren}` });
+
+    const hasPet = Boolean(req.body?.hasPet);
+    if (hasPet && !hotel.petsAllowed) return res.status(400).json({ success: false, message: 'Pets are not allowed at this hotel' });
+
+    const guestDetailsInput = Array.isArray(req.body?.guestDetails) ? req.body.guestDetails : [];
+    const guestDetails = guestDetailsInput
+      .map((g) => ({
+        type: String(g?.type || '').trim().toLowerCase(),
+        name: String(g?.name || '').trim(),
+        age: Number(g?.age || 0),
+        gender: normalizeGender(g?.gender),
+      }))
+      .filter((g) => (g.type === 'adult' || g.type === 'child') && g.name && Number.isFinite(g.age) && g.age > 0);
+
+    const adultCountFromDetails = guestDetails.filter((g) => g.type === 'adult').length;
+    const childCountFromDetails = guestDetails.filter((g) => g.type === 'child').length;
+    if (adultCountFromDetails !== totalAdults || childCountFromDetails !== totalChildren) {
+      return res.status(400).json({ success: false, message: 'guestDetails must include name/age for each adult/child' });
+    }
+
+    // Find a free room unit and validate pets policy at room level
+    const assignable = await findAssignableRoomUnit({ roomTypeId: roomType._id, checkIn, checkOut });
+    if (!assignable) return res.status(409).json({ success: false, message: 'No rooms available for selected dates' });
+
+    const effectivePetsAllowed =
+      Boolean(hotel.petsAllowed) &&
+      (assignable.petsAllowedOverride === null || typeof assignable.petsAllowedOverride === 'undefined'
+        ? Boolean(roomType.petsAllowed)
+        : Boolean(assignable.petsAllowedOverride));
+    if (hasPet && !effectivePetsAllowed) return res.status(400).json({ success: false, message: 'Pets are not allowed for this room' });
+
+    const isOnline = (req.body?.paymentMethod || 'online') === 'online';
+    const totalAmount = Number(req.body?.totalAmount || 0);
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) return res.status(400).json({ success: false, message: 'Invalid totalAmount' });
+
+    const booking = await Booking.create({
+      bookingType: 'room_type',
+      itemId: String(roomType._id),
+      itemName: `${hotel.name} - ${roomType.name}`,
+      itemImage: (roomType.images && roomType.images[0]) || hotel.image,
+
+      userId: req.user._id,
+      userName: req.user.name,
+      userEmail: req.user.email,
+      userPhone: req.user.phone,
+
+      partnerId: hotel.partnerId,
+      partnerName: hotel.partnerName,
+
+      hotelId: hotel._id,
+      roomTypeId: roomType._id,
+      roomUnitId: assignable._id,
+      roomNumber: assignable.number,
+
+      checkIn,
+      checkOut,
+      guests: totalAdults + totalChildren,
+
+      customerFullName,
+      customerMobile,
+      customerEmail,
+      arrivalMode: req.body?.arrivalMode || null,
+      vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
+      arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
+      totalAdults,
+      totalChildren,
+      hasPet,
+      guestDetails,
+
+      totalAmount,
+      paymentMethod: isOnline ? 'online' : (req.body?.paymentMethod || 'doorstep'),
+      bookingStatus: isOnline ? 'confirmed' : (req.body?.bookingStatus || 'confirmed'),
+      paymentStatus: isOnline ? 'pending' : (req.body?.paymentStatus || 'pending'),
+      verificationStage: isOnline ? (hotel.partnerId ? 'pending_partner' : 'pending_admin') : 'verified',
+      partnerPaymentVerified: false,
+      adminPaymentVerified: false,
+      upiTransactionId: String(req.body?.upiTransactionId || '').trim() || undefined,
+      additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
+    });
+
+    res.status(201).json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // Create booking (authenticated user)
 router.post('/', protect, async (req, res) => {
@@ -30,7 +185,18 @@ router.post('/', protect, async (req, res) => {
 // Get user bookings
 router.get('/my', protect, async (req, res) => {
   try {
-    const bookings = await Booking.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const skipRaw = Number(req.query?.skip || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
+    const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+
+    const bookings = await Booking.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt')
+      .lean();
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -38,7 +204,18 @@ router.get('/my', protect, async (req, res) => {
 // Get partner bookings
 router.get('/partner', protect, authorize('partner'), async (req, res) => {
   try {
-    const bookings = await Booking.find({ partnerId: req.user._id }).sort({ createdAt: -1 });
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const skipRaw = Number(req.query?.skip || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
+    const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+
+    const bookings = await Booking.find({ partnerId: req.user._id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt')
+      .lean();
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -46,7 +223,18 @@ router.get('/partner', protect, authorize('partner'), async (req, res) => {
 // Get all bookings (admin)
 router.get('/all', protect, authorize('admin'), async (req, res) => {
   try {
-    const bookings = await Booking.find().sort({ createdAt: -1 });
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const skipRaw = Number(req.query?.skip || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(1000, Math.floor(limitRaw)) : 300;
+    const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+
+    const bookings = await Booking.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt')
+      .lean();
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -54,7 +242,8 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 // Get single booking (owner/admin/partner)
 router.get('/:id', protect, async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id);
+    res.set('Cache-Control', 'no-store');
+    const booking = await Booking.findById(req.params.id).lean();
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
     const isOwner = String(booking.userId) === String(req.user._id);

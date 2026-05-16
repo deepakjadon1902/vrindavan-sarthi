@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { APP_LOGO_URL } from '@/lib/brand';
+import { applyTheme, getInitialTheme } from '@/lib/theme';
 
 const navLinks = [
   { name: 'Hotels', path: '/hotels' },
@@ -29,6 +30,10 @@ const Navbar = () => {
     const onScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    applyTheme(getInitialTheme());
   }, []);
 
   useEffect(() => {
@@ -108,7 +113,7 @@ const Navbar = () => {
                         )}
                         {user.role === 'admin' && (
                           <Link to="/admin" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-brand-crimson hover:bg-muted transition-colors">
-                            ⚙️ Admin Panel
+                            Admin Panel
                           </Link>
                         )}
                         <div className="h-px bg-border my-1" />

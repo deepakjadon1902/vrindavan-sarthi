@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
 import axios from 'axios';
 import { publishAppEvent } from '@/lib/broadcast';
+import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 
 const ManagePartnerRequests = () => {
   const token = useAuthStore((s) => s.token);
@@ -28,8 +29,10 @@ const ManagePartnerRequests = () => {
   const loadRequests = async () => {
     if (!token) return;
     try {
+      const cached = getSessionCache<any[]>('vvs_admin_partner_requests_all', 30_000);
+      if (cached && cached.length && allItems.length === 0) setAllItems(cached);
       setIsLoading(true);
-      const res = await api.get('/partner/requests', withAuth(token));
+      const res = await api.get('/partner/requests', { ...withAuth(token), params: { limit: 1200 } });
       const data = res.data?.data || {};
       const hotels = (Array.isArray(data.hotels) ? data.hotels : []).map((i: any) => ({ ...i, id: i._id || i.id, itemType: 'hotel' }));
       const rooms = (Array.isArray(data.rooms) ? data.rooms : []).map((i: any) => ({ ...i, id: i._id || i.id, itemType: 'room' }));
@@ -37,6 +40,7 @@ const ManagePartnerRequests = () => {
       const tours = (Array.isArray(data.tours) ? data.tours : []).map((i: any) => ({ ...i, id: i._id || i.id, itemType: 'tour' }));
       const all = [...hotels, ...rooms, ...cabs, ...tours].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setAllItems(all);
+      setSessionCache('vvs_admin_partner_requests_all', all);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Failed to load partner requests'));
       setAllItems([]);

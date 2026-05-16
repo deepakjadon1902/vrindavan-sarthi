@@ -22,6 +22,8 @@ const hotelSchema = new mongoose.Schema({
   fullAddress: String,
   nearbyPlaces: String,
   policies: String,
+  // Pets allowed at hotel level (room type / room unit can still restrict further)
+  petsAllowed: { type: Boolean, default: false },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   // Partner
   partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -36,5 +38,6 @@ const hotelSchema = new mongoose.Schema({
 
 hotelSchema.index({ status: 1, approvalStatus: 1, createdAt: -1 });
 hotelSchema.index({ location: 1, createdAt: -1 });
+hotelSchema.index({ partnerId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Hotel', hotelSchema);
