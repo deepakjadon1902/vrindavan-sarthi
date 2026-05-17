@@ -41,7 +41,7 @@ const Navbar = () => {
     navigate('/');
   };
 
-  const navBg = scrolled || !isHome ? 'glass-nav' : 'bg-black/30 backdrop-blur-md';
+  const navBg = 'nav-dark';
 
   return (
     <>
@@ -140,7 +140,7 @@ const Navbar = () => {
           <motion.div
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-[60] glass-nav flex flex-col pt-20 px-8"
+            className="fixed inset-0 z-[60] nav-dark flex flex-col pt-20 px-8"
           >
             <button onClick={() => setMobileOpen(false)} className="absolute top-5 right-5 text-white" aria-label="Close menu">
               <X size={28} />
@@ -156,21 +156,21 @@ const Navbar = () => {
               <div className="h-px bg-brand-gold/20 my-4" />
               {isAuthenticated && user ? (
                 <>
-                  <Link to="/profile" className="font-body text-white/90 text-lg">Profile</Link>
-                  <Link to="/bookings" className="font-body text-white/90 text-lg">My Bookings</Link>
-                  <Link to="/my-orders" className="font-body text-white/90 text-lg">My Orders</Link>
+                  <Link to="/profile" className="font-body text-white text-lg">Profile</Link>
+                  <Link to="/bookings" className="font-body text-white text-lg">My Bookings</Link>
+                  <Link to="/my-orders" className="font-body text-white text-lg">My Orders</Link>
                   {user.role === 'partner' && (
                     <Link to="/partner" className="font-body text-brand-gold text-lg">Partner Panel</Link>
                   )}
                   {user.role === 'admin' && (
                     <Link to="/admin" className="font-body text-brand-gold text-lg">Admin Panel</Link>
                   )}
-                  <button onClick={handleLogout} className="font-body text-white/90 text-lg text-left">Sign Out</button>
+                  <button onClick={handleLogout} className="font-body text-white text-lg text-left">Sign Out</button>
                 </>
               ) : (
                 <>
-                  <Link to="/bookings" className="font-body text-white/90 text-lg">My Bookings</Link>
-                  <Link to="/login" className="font-body text-white/90 text-lg">Login</Link>
+                  <Link to="/bookings" className="font-body text-white text-lg">My Bookings</Link>
+                  <Link to="/login" className="font-body text-white text-lg">Login</Link>
                   <Link to="/register" className="btn-crimson px-6 py-3 rounded-lg text-center mt-2">Sign Up</Link>
                 </>
               )}

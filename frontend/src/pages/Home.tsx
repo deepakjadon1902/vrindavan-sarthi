@@ -143,7 +143,7 @@ const Home = () => {
           </motion.p>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }} className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link to="/hotels" className="btn-gold px-8 py-3.5 rounded-xl text-base font-semibold">Explore Now →</Link>
-            <Link to="/tours" className="px-8 py-3.5 rounded-xl text-base font-body font-semibold border-2 border-primary-foreground/30 text-primary-foreground hover:border-brand-gold hover:text-brand-gold transition-all">View Tours</Link>
+            <Link to="/tours" className="px-8 py-3.5 rounded-xl text-base font-body font-semibold border-2 border-white/30 text-white hover:border-brand-gold hover:text-brand-gold transition-all">View Tours</Link>
           </motion.div>
         </div>
         <motion.div animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute bottom-8 left-1/2 -translate-x-1/2">
@@ -192,8 +192,8 @@ const Home = () => {
 
       {/* ===== FEATURED HOTELS ===== */}
       <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
-        <img src="/backgrounds/hotel-room.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-18" />
-        <div className="absolute inset-0 bg-black/80" />
+        <img src="/backgrounds/hotel-room.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
+        <div className="absolute inset-0 bg-white/75" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle label="Featured Stays" title="Handpicked Hotels in Vrindavan" subtitle="Comfortable and affordable stays near the most sacred temples" />
           {hotels.length > 0 ? (
@@ -232,8 +232,8 @@ const Home = () => {
 
       {/* ===== FEATURED ROOMS ===== */}
       <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
-        <img src="/backgrounds/hotel-room.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-12" />
-        <div className="absolute inset-0 bg-black/85" />
+        <img src="/backgrounds/hotel-room.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-8" />
+        <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle label="Stay Options" title="Popular Rooms" subtitle="Comfortable rooms curated by our partners" />
           {rooms.length > 0 ? (
@@ -315,7 +315,7 @@ const Home = () => {
       {/* ===== FEATURED TOURS ===== */}
       <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
         <img src="/backgrounds/parikrama.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-14" />
-        <div className="absolute inset-0 bg-black/85" />
+        <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle label="Spiritual Journeys" title="Popular Tour Packages" subtitle="Experience the divine essence of Vrindavan with our guided tours" />
           {tours.length > 0 ? (
@@ -389,7 +389,7 @@ const Home = () => {
       {/* ===== WHY US ===== */}
       <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
         <img src="/backgrounds/temple-interior.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
-        <div className="absolute inset-0 bg-black/85" />
+        <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle label="Why Choose Us" title="Your Trusted Companion in Vrindavan" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -5,25 +5,25 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 230 22% 10%;
+    --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
-    --card-foreground: 230 22% 10%;
+    --card-foreground: 0 0% 0%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 230 22% 10%;
+    --popover-foreground: 0 0% 0%;
 
     --primary: 350 66% 38%;
     --primary-foreground: 40 33% 98%;
 
     --secondary: 40 40% 96%;
-    --secondary-foreground: 230 22% 12%;
+    --secondary-foreground: 0 0% 0%;
 
     --muted: 225 20% 96%;
-    --muted-foreground: 230 10% 35%;
+    --muted-foreground: 0 0% 0%;
 
     --accent: 42 85% 55%;
-    --accent-foreground: 230 22% 10%;
+    --accent-foreground: 0 0% 0%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -36,7 +36,7 @@
 
     --brand-gold: 42 85% 55%;
     --brand-crimson: 350 66% 38%;
-    --brand-black: 230 22% 10%;
+    --brand-black: 0 0% 0%;
     --brand-saffron: 37 90% 51%;
     --brand-green: 154 45% 22%;
     --brand-cream: 40 40% 96%;
@@ -62,22 +62,22 @@
 
   .dark {
     --background: 232 30% 6%;
-    --foreground: 40 33% 98%;
+    --foreground: 0 0% 100%;
 
     --card: 232 26% 10%;
-    --card-foreground: 40 33% 98%;
+    --card-foreground: 0 0% 100%;
 
     --popover: 232 26% 10%;
-    --popover-foreground: 40 33% 98%;
+    --popover-foreground: 0 0% 100%;
 
     --primary: 42 85% 55%;
     --primary-foreground: 232 30% 6%;
 
     --secondary: 232 18% 14%;
-    --secondary-foreground: 40 33% 98%;
+    --secondary-foreground: 0 0% 100%;
 
     --muted: 232 18% 16%;
-    --muted-foreground: 0 0% 72%;
+    --muted-foreground: 0 0% 100%;
 
     --accent: 42 85% 55%;
     --accent-foreground: 232 30% 6%;
@@ -108,14 +108,24 @@
   [class*="shadow"] {
     box-shadow: none !important;
   }
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
   html {
-    font-size: 16px;
+    font-size: 17px;
   }
   body {
     @apply bg-background text-foreground font-body antialiased;
-    font-size: 15px;
-    line-height: 1.55;
+    font-size: 1rem;
+    line-height: 1.6;
     text-rendering: geometricPrecision;
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--brand-gold));
+    outline-offset: 2px;
   }
   h1, h2, h3 {
     font-family: 'Cormorant Garamond', serif;
@@ -125,13 +135,13 @@
 @layer components {
   /* Reusable premium section backgrounds (no shadows). */
   .bg-royal-dark {
-    background-color: hsl(var(--background));
-    background-image: url("./assets/backgrounds/royal-pattern-dark.svg");
+    background-color: hsl(var(--secondary));
+    background-image: url("./assets/backgrounds/royal-pattern-light.svg");
     background-size: 480px 480px;
     background-repeat: repeat;
   }
   .bg-royal-light {
-    background-color: #ffffff;
+    background-color: hsl(var(--secondary));
     background-image: url("./assets/backgrounds/royal-pattern-light.svg");
     background-size: 480px 480px;
     background-repeat: repeat;
@@ -193,8 +203,14 @@
   }
 
   .glass-nav {
-    @apply backdrop-blur-md;
-    background: hsl(var(--background) / 0.85);
+    background: hsl(var(--background));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  /* Dark navbar only (per request) */
+  .nav-dark {
+    background: hsl(var(--brand-black));
+    border-bottom: 1px solid hsl(var(--brand-gold) / 0.25);
   }
 
   .section-cream {
@@ -210,35 +226,35 @@
 
   /* === Glass / glossy / metallic surfaces === */
   .glass-card {
-    background: linear-gradient(135deg, hsl(var(--card) / 0.55) 0%, hsl(var(--card) / 0.18) 60%, hsl(var(--card) / 0.35) 100%);
+    background: hsl(var(--card) / 0.95);
     backdrop-filter: blur(14px) saturate(140%);
     -webkit-backdrop-filter: blur(14px) saturate(140%);
-    border: 1px solid hsl(var(--brand-gold) / 0.18);
+    border: 1px solid hsl(var(--border));
   }
   .glass-panel {
-    background: linear-gradient(135deg, hsl(var(--card) / 0.92) 0%, hsl(var(--card) / 0.72) 100%);
+    background: hsl(var(--card) / 0.98);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid hsl(var(--brand-gold) / 0.25);
+    border: 1px solid hsl(var(--border));
   }
   .glass-chip {
-    background: hsla(0, 0%, 5%, 0.55);
-    color: hsl(40 33% 98%);
+    background: hsl(var(--card) / 0.9);
+    color: hsl(var(--foreground));
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid hsla(43, 72%, 52%, 0.4);
+    border: 1px solid hsl(var(--border));
   }
   .glass-button {
-    background: hsla(0, 0%, 100%, 0.18);
-    color: hsl(40 33% 98%);
+    background: hsl(var(--card) / 0.9);
+    color: hsl(var(--foreground));
     backdrop-filter: blur(12px) saturate(150%);
     -webkit-backdrop-filter: blur(12px) saturate(150%);
-    border: 1px solid hsla(0, 0%, 100%, 0.3);
+    border: 1px solid hsl(var(--border));
     transition: all 0.3s ease;
   }
   .glass-button:hover {
-    background: hsla(43, 72%, 52%, 0.35);
-    border-color: hsla(43, 72%, 52%, 0.7);
+    background: hsl(var(--muted));
+    border-color: hsl(var(--border));
     transform: translateY(-1px);
   }
 

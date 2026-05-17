@@ -51,11 +51,11 @@ const Login = () => {
     <div className="min-h-screen flex">
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img src={templeImg} alt="Vrindavan Temple" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
-          <div className="text-center px-8 bg-black/25 backdrop-blur-sm rounded-2xl py-10">
+        <div className="absolute inset-0 bg-white/40 flex items-center justify-center">
+          <div className="text-center px-8 bg-white/70 backdrop-blur-sm rounded-2xl py-10 border border-border">
             <span className="text-4xl mb-4 block"> </span>
             <h2 className="font-brand text-3xl text-brand-gold mb-2">{settings.siteName}</h2>
-            <p className="font-heading italic text-xl text-white">{settings.motto}</p>
+            <p className="font-heading italic text-xl text-foreground">{settings.motto}</p>
           </div>
         </div>
       </div>
