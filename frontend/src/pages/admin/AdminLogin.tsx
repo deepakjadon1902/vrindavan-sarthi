@@ -18,7 +18,7 @@ const AdminLogin = () => {
     if (result.success) {
       const user = useAuthStore.getState().user;
       if (user?.role === 'admin') {
-        toast.success('Welcome back, Admin!');
+        toast.success(`Welcome back, Admin${user.name ? ` ${user.name}` : ''}!`);
         navigate('/admin');
       } else {
         useAuthStore.getState().logout();

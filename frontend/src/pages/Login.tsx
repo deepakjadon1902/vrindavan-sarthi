@@ -33,8 +33,20 @@ const Login = () => {
     e.preventDefault();
     const result = await login({ email, password });
     if (result.success) {
-      toast.success('Welcome back! ðŸ™');
       const user = useAuthStore.getState().user;
+      if (user) {
+        const displayName =
+          user.role === 'partner'
+            ? (user.businessName || user.name || 'Partner')
+            : (user.name || (user.role === 'admin' ? 'Admin' : 'User'));
+        const message =
+          user.role === 'admin'
+            ? `Welcome back, Admin${displayName && displayName !== 'Admin' ? ` ${displayName}` : ''}!`
+            : `Welcome back, ${displayName}!`;
+        toast.success(message);
+      } else {
+        toast.success('Welcome back!');
+      }
       if (user?.role === 'partner') {
         navigate('/partner');
       } else if (user?.role === 'admin') {
