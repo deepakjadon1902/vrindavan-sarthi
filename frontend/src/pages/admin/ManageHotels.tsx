@@ -9,7 +9,6 @@ interface Hotel {
   _id: string;
   name: string;
   location: string;
-  pricePerNight: number;
   rating: number;
   image?: string;
   images?: string[];
@@ -33,7 +32,6 @@ const ManageHotels = () => {
   const [form, setForm] = useState({
     name: '',
     location: '',
-    pricePerNight: '',
     rating: '',
     description: '',
     amenities: '',
@@ -64,7 +62,6 @@ const ManageHotels = () => {
     setForm({
       name: '',
       location: '',
-      pricePerNight: '',
       rating: '',
       description: '',
       amenities: '',
@@ -92,7 +89,6 @@ const ManageHotels = () => {
     setForm({
       name: hotel.name || '',
       location: hotel.location || '',
-      pricePerNight: String(hotel.pricePerNight ?? ''),
       rating: String(hotel.rating ?? ''),
       description: hotel.description || '',
       amenities: (hotel.amenities || []).join(', '),
@@ -111,7 +107,6 @@ const ManageHotels = () => {
     const payload = {
       name: form.name,
       location: form.location,
-      pricePerNight: Number(form.pricePerNight),
       rating: Number(form.rating || 0),
       image: form.image || '/placeholder.svg',
       description: form.description,
@@ -252,16 +247,6 @@ const ManageHotels = () => {
                 />
               </div>
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Price / Night (₹)</label>
-                <input
-                  type="number"
-                  required
-                  value={form.pricePerNight}
-                  onChange={(e) => setForm({ ...form, pricePerNight: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                />
-              </div>
-              <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Rating</label>
                 <input
                   type="number"
@@ -345,7 +330,6 @@ const ManageHotels = () => {
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Image</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Name</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">Location</th>
-                  <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Price</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Rating</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Status</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Listed By</th>
@@ -368,7 +352,6 @@ const ManageHotels = () => {
                     </td>
                     <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{hotel.name}</td>
                     <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{hotel.location}</td>
-                    <td className="px-4 py-3 font-body text-sm text-foreground">₹{hotel.pricePerNight}</td>
                     <td className="px-4 py-3 font-body text-sm text-foreground hidden md:table-cell">⭐ {hotel.rating}</td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span

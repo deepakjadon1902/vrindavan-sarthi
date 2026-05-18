@@ -13,7 +13,7 @@ import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 const sidebarLinks = [
   { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
   { name: 'Hotels', path: '/admin/hotels', icon: Hotel },
-  { name: 'Rooms', path: '/admin/rooms', icon: BedDouble },
+  { name: 'Inventory', path: '/admin/inventory', icon: BedDouble },
   { name: 'Cabs', path: '/admin/cabs', icon: Car },
   { name: 'Tours', path: '/admin/tours', icon: Map },
   { name: 'Partner Requests', path: '/admin/partner-requests', icon: Handshake },

@@ -9,27 +9,30 @@ const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
 
 const router = express.Router();
 
-// Partner-only inventory APIs
-router.use(protect, authorize('partner'));
-
-const ensurePartnerHotel = async (hotelId, partnerId) => {
-  const hotel = await Hotel.findOne({ _id: hotelId, partnerId }).lean();
-  return hotel || null;
-};
+router.use(protect, authorize('admin'));
 
 const normalizeString = (v) => String(v || '').trim();
 const normalizeStringArray = (v) => (Array.isArray(v) ? v.map((x) => normalizeString(x)).filter(Boolean) : []);
 
-// Room Types (CRUD) under a partner hotel
+router.get('/hotels', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const hotels = await Hotel.find({})
+      .sort({ createdAt: -1 })
+      .select('_id name location status approvalStatus partnerId partnerName partnerEmail partnerPhone')
+      .lean();
+    res.json({ success: true, data: hotels });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get('/hotels/:hotelId/room-types', async (req, res) => {
   try {
-    const hotel = await ensurePartnerHotel(req.params.hotelId, req.user._id);
+    const hotel = await Hotel.findById(req.params.hotelId).lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
 
-    const roomTypes = await RoomType.find({ hotelId: hotel._id, partnerId: req.user._id })
-      .sort({ createdAt: -1 })
-      .lean();
-
+    const roomTypes = await RoomType.find({ hotelId: hotel._id }).sort({ createdAt: -1 }).lean();
     res.json({ success: true, data: roomTypes });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -38,7 +41,7 @@ router.get('/hotels/:hotelId/room-types', async (req, res) => {
 
 router.post('/hotels/:hotelId/room-types', async (req, res) => {
   try {
-    const hotel = await ensurePartnerHotel(req.params.hotelId, req.user._id);
+    const hotel = await Hotel.findById(req.params.hotelId).lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
 
     const name = normalizeString(req.body?.name);
@@ -48,9 +51,9 @@ router.post('/hotels/:hotelId/room-types', async (req, res) => {
 
     const roomType = await RoomType.create({
       hotelId: hotel._id,
-      partnerId: req.user._id,
+      partnerId: hotel.partnerId || null,
       createdByUserId: req.user._id,
-      createdByRole: 'partner',
+      createdByRole: 'admin',
       name,
       description: normalizeString(req.body?.description),
       images: normalizeStringArray(req.body?.images),
@@ -70,7 +73,7 @@ router.post('/hotels/:hotelId/room-types', async (req, res) => {
 
 router.put('/room-types/:roomTypeId', async (req, res) => {
   try {
-    const roomType = await RoomType.findOne({ _id: req.params.roomTypeId, partnerId: req.user._id });
+    const roomType = await RoomType.findById(req.params.roomTypeId);
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
 
     if (typeof req.body?.name !== 'undefined') roomType.name = normalizeString(req.body?.name) || roomType.name;
@@ -88,7 +91,7 @@ router.put('/room-types/:roomTypeId', async (req, res) => {
     if (typeof req.body?.status !== 'undefined') roomType.status = normalizeString(req.body?.status) === 'inactive' ? 'inactive' : 'active';
 
     roomType.createdByUserId = req.user._id;
-    roomType.createdByRole = 'partner';
+    roomType.createdByRole = 'admin';
     await roomType.save();
 
     res.json({ success: true, data: roomType });
@@ -99,10 +102,10 @@ router.put('/room-types/:roomTypeId', async (req, res) => {
 
 router.delete('/room-types/:roomTypeId', async (req, res) => {
   try {
-    const roomType = await RoomType.findOne({ _id: req.params.roomTypeId, partnerId: req.user._id });
+    const roomType = await RoomType.findById(req.params.roomTypeId);
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
 
-    await RoomUnit.deleteMany({ roomTypeId: roomType._id, partnerId: req.user._id });
+    await RoomUnit.deleteMany({ roomTypeId: roomType._id });
     await RoomUnitBlock.deleteMany({ roomTypeId: roomType._id });
     await roomType.deleteOne();
 
@@ -112,13 +115,12 @@ router.delete('/room-types/:roomTypeId', async (req, res) => {
   }
 });
 
-// Room Units (CRUD) under a partner room type
+// Room units
 router.get('/room-types/:roomTypeId/rooms', async (req, res) => {
   try {
-    const roomType = await RoomType.findOne({ _id: req.params.roomTypeId, partnerId: req.user._id }).lean();
+    const roomType = await RoomType.findById(req.params.roomTypeId).lean();
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
-
-    const rooms = await RoomUnit.find({ roomTypeId: roomType._id, partnerId: req.user._id }).sort({ number: 1 }).lean();
+    const rooms = await RoomUnit.find({ roomTypeId: roomType._id }).sort({ number: 1 }).lean();
     res.json({ success: true, data: rooms });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -127,18 +129,19 @@ router.get('/room-types/:roomTypeId/rooms', async (req, res) => {
 
 router.post('/room-types/:roomTypeId/rooms', async (req, res) => {
   try {
-    const roomType = await RoomType.findOne({ _id: req.params.roomTypeId, partnerId: req.user._id }).lean();
+    const roomType = await RoomType.findById(req.params.roomTypeId).lean();
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
 
     const number = normalizeString(req.body?.number);
     if (!number) return res.status(400).json({ success: false, message: 'Room number is required' });
 
+    const hotel = await Hotel.findById(roomType.hotelId).lean();
     const room = await RoomUnit.create({
       hotelId: roomType.hotelId,
       roomTypeId: roomType._id,
-      partnerId: req.user._id,
+      partnerId: hotel?.partnerId || null,
       createdByUserId: req.user._id,
-      createdByRole: 'partner',
+      createdByRole: 'admin',
       number,
       floor: normalizeString(req.body?.floor),
       petsAllowedOverride: typeof req.body?.petsAllowedOverride === 'boolean' ? Boolean(req.body?.petsAllowedOverride) : null,
@@ -156,7 +159,7 @@ router.post('/room-types/:roomTypeId/rooms', async (req, res) => {
 
 router.put('/rooms/:roomUnitId', async (req, res) => {
   try {
-    const room = await RoomUnit.findOne({ _id: req.params.roomUnitId, partnerId: req.user._id });
+    const room = await RoomUnit.findById(req.params.roomUnitId);
     if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
 
     if (typeof req.body?.number !== 'undefined') room.number = normalizeString(req.body?.number) || room.number;
@@ -167,7 +170,7 @@ router.put('/rooms/:roomUnitId', async (req, res) => {
     if (typeof req.body?.status !== 'undefined') room.status = normalizeString(req.body?.status) === 'inactive' ? 'inactive' : 'active';
 
     room.createdByUserId = req.user._id;
-    room.createdByRole = 'partner';
+    room.createdByRole = 'admin';
     await room.save();
 
     res.json({ success: true, data: room });
@@ -178,22 +181,20 @@ router.put('/rooms/:roomUnitId', async (req, res) => {
 
 router.delete('/rooms/:roomUnitId', async (req, res) => {
   try {
-    const room = await RoomUnit.findOne({ _id: req.params.roomUnitId, partnerId: req.user._id });
+    const room = await RoomUnit.findById(req.params.roomUnitId);
     if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
-
     await RoomUnitBlock.deleteMany({ roomUnitId: room._id });
     await room.deleteOne();
-
     res.json({ success: true, message: 'Deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// Calendar (blocks + bookings) for a room unit
+// Calendar
 router.get('/rooms/:roomUnitId/calendar', async (req, res) => {
   try {
-    const room = await RoomUnit.findOne({ _id: req.params.roomUnitId, partnerId: req.user._id }).lean();
+    const room = await RoomUnit.findById(req.params.roomUnitId).lean();
     if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
 
     const from = parseDateOnlyToUTC(String(req.query?.from || ''));
@@ -223,7 +224,7 @@ router.get('/rooms/:roomUnitId/calendar', async (req, res) => {
 
 router.post('/rooms/:roomUnitId/blocks', async (req, res) => {
   try {
-    const room = await RoomUnit.findOne({ _id: req.params.roomUnitId, partnerId: req.user._id }).lean();
+    const room = await RoomUnit.findById(req.params.roomUnitId).lean();
     if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
 
     const kind = normalizeString(req.body?.kind);
@@ -264,10 +265,6 @@ router.delete('/blocks/:blockId', async (req, res) => {
   try {
     const block = await RoomUnitBlock.findById(req.params.blockId);
     if (!block) return res.status(404).json({ success: false, message: 'Block not found' });
-
-    const room = await RoomUnit.findOne({ _id: block.roomUnitId, partnerId: req.user._id }).lean();
-    if (!room) return res.status(403).json({ success: false, message: 'Not authorized' });
-
     await block.deleteOne();
     res.json({ success: true, message: 'Deleted' });
   } catch (err) {

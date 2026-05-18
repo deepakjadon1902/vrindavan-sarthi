@@ -12,9 +12,8 @@ const PartnerDashboard = () => {
   const user = useAuthStore((s) => s.user);
   const { partnerBookings, fetchPartnerBookings } = useBookingStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [listings, setListings] = useState<{ hotels: any[]; rooms: any[]; cabs: any[]; tours: any[] }>({
+  const [listings, setListings] = useState<{ hotels: any[]; cabs: any[]; tours: any[] }>({
     hotels: [],
-    rooms: [],
     cabs: [],
     tours: [],
   });
@@ -23,8 +22,8 @@ const PartnerDashboard = () => {
     if (!token) return;
     const run = async () => {
       try {
-        const cached = getSessionCache<{ hotels: any[]; rooms: any[]; cabs: any[]; tours: any[] }>('vvs_partner_my_listings_raw', 30_000);
-        if (cached && !listings.hotels.length && !listings.rooms.length && !listings.cabs.length && !listings.tours.length) {
+        const cached = getSessionCache<{ hotels: any[]; cabs: any[]; tours: any[] }>('vvs_partner_my_listings_raw', 30_000);
+        if (cached && !listings.hotels.length && !listings.cabs.length && !listings.tours.length) {
           setListings(cached);
         }
         setIsLoading(true);
@@ -32,7 +31,6 @@ const PartnerDashboard = () => {
         const data = res.data?.data || {};
         const next = {
           hotels: Array.isArray(data.hotels) ? data.hotels : [],
-          rooms: Array.isArray(data.rooms) ? data.rooms : [],
           cabs: Array.isArray(data.cabs) ? data.cabs : [],
           tours: Array.isArray(data.tours) ? data.tours : [],
         };
@@ -54,7 +52,7 @@ const PartnerDashboard = () => {
   }, [fetchPartnerBookings, user]);
 
   const allItems = useMemo(
-    () => [...listings.hotels, ...listings.rooms, ...listings.cabs, ...listings.tours],
+    () => [...listings.hotels, ...listings.cabs, ...listings.tours],
     [listings]
   );
 
@@ -70,20 +68,13 @@ const PartnerDashboard = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-card rounded-xl p-5 border border-border">
           <div className="flex items-center justify-between mb-2">
             <span className="font-body text-xs text-muted-foreground">Hotels</span>
             <Hotel size={18} className="text-brand-gold" />
           </div>
           <p className="font-heading text-2xl font-bold text-foreground">{listings.hotels.length}</p>
-        </div>
-        <div className="bg-card rounded-xl p-5 border border-border">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-body text-xs text-muted-foreground">Rooms</span>
-            <BedDouble size={18} className="text-brand-saffron" />
-          </div>
-          <p className="font-heading text-2xl font-bold text-foreground">{listings.rooms.length}</p>
         </div>
         <div className="bg-card rounded-xl p-5 border border-border">
           <div className="flex items-center justify-between mb-2">
@@ -126,9 +117,9 @@ const PartnerDashboard = () => {
           <Hotel size={28} className="mx-auto mb-2 text-brand-gold" />
           <p className="font-heading text-sm font-semibold text-foreground">Add Hotel</p>
         </Link>
-        <Link to="/partner/rooms" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
+        <Link to="/partner/inventory" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
           <BedDouble size={28} className="mx-auto mb-2 text-brand-saffron" />
-          <p className="font-heading text-sm font-semibold text-foreground">Add Room</p>
+          <p className="font-heading text-sm font-semibold text-foreground">Manage Inventory</p>
         </Link>
         <Link to="/partner/cabs" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
           <Car size={28} className="mx-auto mb-2 text-brand-green" />

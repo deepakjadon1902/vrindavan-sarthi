@@ -10,7 +10,6 @@ interface PartnerHotel {
   _id: string;
   name: string;
   location: string;
-  pricePerNight: number;
   rating?: number;
   image?: string;
   images?: string[];
@@ -38,7 +37,6 @@ const PartnerAddHotel = () => {
   const [form, setForm] = useState({
     name: '',
     location: '',
-    pricePerNight: '',
     rating: '',
     description: '',
     amenities: '',
@@ -75,7 +73,6 @@ const PartnerAddHotel = () => {
     setForm({
       name: target.name || '',
       location: target.location || '',
-      pricePerNight: String(target.pricePerNight ?? ''),
       rating: String(target.rating ?? ''),
       description: target.description || '',
       amenities: (target.amenities || []).join(', '),
@@ -94,7 +91,6 @@ const PartnerAddHotel = () => {
     setForm({
       name: '',
       location: '',
-      pricePerNight: '',
       rating: '',
       description: '',
       amenities: '',
@@ -124,7 +120,7 @@ const PartnerAddHotel = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    if (!form.name || !form.location || !form.pricePerNight) {
+    if (!form.name || !form.location) {
       toast.error('Fill required fields');
       return;
     }
@@ -132,7 +128,6 @@ const PartnerAddHotel = () => {
     const payload = {
       name: form.name,
       location: form.location,
-      pricePerNight: Number(form.pricePerNight),
       rating: Number(form.rating || 0),
       description: form.description,
       amenities: form.amenities
@@ -167,7 +162,6 @@ const PartnerAddHotel = () => {
     setForm({
       name: item.name || '',
       location: item.location || '',
-      pricePerNight: String(item.pricePerNight ?? ''),
       rating: String(item.rating ?? ''),
       description: item.description || '',
       amenities: (item.amenities || []).join(', '),
@@ -270,16 +264,6 @@ const PartnerAddHotel = () => {
                   required
                   value={form.location}
                   onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                />
-              </div>
-              <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Price / Night (₹) *</label>
-                <input
-                  type="number"
-                  required
-                  value={form.pricePerNight}
-                  onChange={(e) => setForm({ ...form, pricePerNight: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 />
               </div>
@@ -388,7 +372,6 @@ const PartnerAddHotel = () => {
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Name</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Location</th>
-                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Price</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Status</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Admin</th>
                 <th className="text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
@@ -399,7 +382,6 @@ const PartnerAddHotel = () => {
                 <tr key={h._id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{h.name}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground">{h.location}</td>
-                  <td className="px-4 py-3 font-body text-sm text-foreground">₹{h.pricePerNight}</td>
                   <td className="px-4 py-3">
                     <span className={`font-body text-xs px-2 py-1 rounded-full ${statusBadge(h.approvalStatus)}`}>
                       {h.approvalStatus}

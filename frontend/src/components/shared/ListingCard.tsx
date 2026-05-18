@@ -8,7 +8,7 @@ interface ListingCardProps {
   images?: string[];
   name: string;
   location: string;
-  price: number;
+  price?: number;
   priceLabel?: string;
   rating: number;
   reviewCount?: number;
@@ -156,14 +156,15 @@ const ListingCard = ({
 
         {/* Price & CTA */}
         <div className="flex items-end justify-between mt-4 pt-4 border-t border-border">
-          <div>
-            <span className="font-heading text-2xl font-bold text-foreground">₹{price.toLocaleString('en-IN')}</span>
-            <span className="font-body text-sm text-muted-foreground">{priceLabel}</span>
-          </div>
-          <button
-            onClick={onViewDetails}
-            className="btn-gold px-3.5 py-1.5 rounded-lg text-sm font-body"
-          >
+          {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
+            <div>
+              <span className="font-heading text-2xl font-bold text-foreground">₹{price.toLocaleString('en-IN')}</span>
+              <span className="font-body text-sm text-muted-foreground">{priceLabel}</span>
+            </div>
+          ) : (
+            <div />
+          )}
+          <button onClick={onViewDetails} className="btn-gold px-3.5 py-1.5 rounded-lg text-sm font-body">
             View Details →
           </button>
         </div>

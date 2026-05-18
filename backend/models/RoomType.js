@@ -22,6 +22,10 @@ const roomTypeSchema = new mongoose.Schema(
 
     // Partner ownership (copied from Hotel to simplify filtering/authorization)
     partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+
+    // Who created/updated this room type (admin/partner)
+    createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, default: null },
+    createdByRole: { type: String, enum: ['admin', 'partner'], default: null },
   },
   { timestamps: true }
 );
@@ -30,4 +34,3 @@ roomTypeSchema.index({ hotelId: 1, status: 1, createdAt: -1 });
 roomTypeSchema.index({ partnerId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('RoomType', roomTypeSchema);
-

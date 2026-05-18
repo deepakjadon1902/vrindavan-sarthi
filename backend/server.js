@@ -7,13 +7,14 @@ const { seedAdminOnce } = require('./config/seedAdmin');
 
 const authRoutes = require('./routes/auth.routes');
 const hotelRoutes = require('./routes/hotel.routes');
-const roomRoutes = require('./routes/room.routes');
+const roomTypeRoutes = require('./routes/roomType.routes');
 const cabRoutes = require('./routes/cab.routes');
 const tourRoutes = require('./routes/tour.routes');
 const bookingRoutes = require('./routes/booking.routes');
 const userRoutes = require('./routes/user.routes');
 const partnerRoutes = require('./routes/partner.routes');
 const inventoryRoutes = require('./routes/inventory.routes');
+const adminInventoryRoutes = require('./routes/adminInventory.routes');
 const settingsRoutes = require('./routes/settings.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const productRoutes = require('./routes/product.routes');
@@ -48,6 +49,17 @@ const seedPoll = setInterval(() => {
 
 const app = express();
 
+// If MongoDB is down, return a clear error instead of hanging/throwing deep in handlers.
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health') return next();
+  if (mongoose.connection.readyState === 1) return next();
+  return res.status(503).json({
+    success: false,
+    message: 'Database not connected. Please check MONGO_URI in backend/.env and restart the backend.',
+    dbReadyState: mongoose.connection.readyState,
+  });
+});
+
 const allowedOrigins = new Set(
   [
     process.env.FRONTEND_BASE_URL,
@@ -73,7 +85,7 @@ app.use('/uploads', express.static('uploads'));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/hotels', hotelRoutes);
-app.use('/api/rooms', roomRoutes);
+app.use('/api/room-types', roomTypeRoutes);
 app.use('/api/cabs', cabRoutes);
 app.use('/api/tours', tourRoutes);
 app.use('/api/bookings', bookingRoutes);
@@ -85,6 +97,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminAnalyticsRoutes);
+app.use('/api/admin/inventory', adminInventoryRoutes);
 
 app.get('/api/health', (req, res) =>
   res.json({

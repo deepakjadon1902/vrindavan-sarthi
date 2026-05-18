@@ -3,13 +3,17 @@ import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { Plus, Trash2, Pencil, CalendarDays } from 'lucide-react';
+import { publishAppEvent } from '@/lib/broadcast';
 
-type Hotel = { _id: string; name: string };
+type Hotel = { _id: string; name: string; status?: string; approvalStatus?: string };
 
 type RoomType = {
   _id: string;
   hotelId: string;
   name: string;
+  description?: string;
+  images?: string[];
+  amenities?: string[];
   pricePerNight: number;
   maxAdults: number;
   maxChildren: number;
@@ -48,6 +52,9 @@ const PartnerInventory = () => {
   const [rtMaxAdults, setRtMaxAdults] = useState<number>(2);
   const [rtMaxChildren, setRtMaxChildren] = useState<number>(0);
   const [rtPetsAllowed, setRtPetsAllowed] = useState<boolean>(false);
+  const [rtDescription, setRtDescription] = useState<string>('');
+  const [rtAmenities, setRtAmenities] = useState<string>('');
+  const [rtImages, setRtImages] = useState<string[]>([]);
   const [editingRoomTypeId, setEditingRoomTypeId] = useState<string | null>(null);
 
   // Room unit form
@@ -71,7 +78,11 @@ const PartnerInventory = () => {
     const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 300 } });
     const data = res.data?.data || {};
     const list = Array.isArray(data.hotels) ? data.hotels : [];
-    setHotels(list.map((h: any) => ({ _id: h._id, name: h.name })).filter((h: any) => h._id && h.name));
+    setHotels(
+      list
+        .map((h: any) => ({ _id: h._id, name: h.name, status: h.status, approvalStatus: h.approvalStatus }))
+        .filter((h: any) => h._id && h.name)
+    );
   };
 
   const loadRoomTypes = async (hotelId: string) => {
@@ -81,8 +92,16 @@ const PartnerInventory = () => {
     setRooms([]);
     setSelectedRoomUnitId('');
     setCalendar(null);
-    const res = await api.get(`/partner/inventory/hotels/${hotelId}/room-types`, withAuth(token));
-    setRoomTypes(Array.isArray(res.data?.data) ? res.data.data : []);
+    try {
+      const res = await api.get(`/partner/inventory/hotels/${hotelId}/room-types`, withAuth(token));
+      setRoomTypes(Array.isArray(res.data?.data) ? res.data.data : []);
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || 'Failed to load room types';
+      if (status === 401) toast.error('Session expired. Please login again.');
+      else toast.error(msg);
+      setRoomTypes([]);
+    }
   };
 
   const loadRooms = async (roomTypeId: string) => {
@@ -90,8 +109,16 @@ const PartnerInventory = () => {
     setRooms([]);
     setSelectedRoomUnitId('');
     setCalendar(null);
-    const res = await api.get(`/partner/inventory/room-types/${roomTypeId}/rooms`, withAuth(token));
-    setRooms(Array.isArray(res.data?.data) ? res.data.data : []);
+    try {
+      const res = await api.get(`/partner/inventory/room-types/${roomTypeId}/rooms`, withAuth(token));
+      setRooms(Array.isArray(res.data?.data) ? res.data.data : []);
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || 'Failed to load rooms';
+      if (status === 401) toast.error('Session expired. Please login again.');
+      else toast.error(msg);
+      setRooms([]);
+    }
   };
 
   const loadCalendar = async (roomUnitId: string) => {
@@ -107,8 +134,8 @@ const PartnerInventory = () => {
     (async () => {
       try {
         await loadHotels();
-      } catch {
-        toast.error('Failed to load hotels');
+      } catch (e: any) {
+        toast.error(e?.response?.data?.message || 'Failed to load hotels');
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,6 +178,27 @@ const PartnerInventory = () => {
     setRtMaxAdults(2);
     setRtMaxChildren(0);
     setRtPetsAllowed(false);
+    setRtDescription('');
+    setRtAmenities('');
+    setRtImages([]);
+  };
+
+  const onRoomTypeImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setRtImages((prev) => [...prev, result]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeRoomTypeImage = (idx: number) => {
+    setRtImages((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const resetRoomForm = () => {
@@ -172,6 +220,12 @@ const PartnerInventory = () => {
           `/partner/inventory/room-types/${editingRoomTypeId}`,
           {
             name: rtName.trim(),
+            description: rtDescription.trim(),
+            amenities: rtAmenities
+              .split(',')
+              .map((a) => a.trim())
+              .filter(Boolean),
+            images: rtImages,
             pricePerNight: rtPrice,
             maxAdults: rtMaxAdults,
             maxChildren: rtMaxChildren,
@@ -182,11 +236,18 @@ const PartnerInventory = () => {
         const updated = res.data?.data;
         setRoomTypes((prev) => prev.map((x) => (x._id === updated?._id ? updated : x)));
         toast.success('Room type updated');
+        publishAppEvent('listing:changed');
       } else {
         const res = await api.post(
           `/partner/inventory/hotels/${selectedHotelId}/room-types`,
           {
             name: rtName.trim(),
+            description: rtDescription.trim(),
+            amenities: rtAmenities
+              .split(',')
+              .map((a) => a.trim())
+              .filter(Boolean),
+            images: rtImages,
             pricePerNight: rtPrice,
             maxAdults: rtMaxAdults,
             maxChildren: rtMaxChildren,
@@ -198,10 +259,11 @@ const PartnerInventory = () => {
         const created = res.data?.data;
         setRoomTypes((prev) => [created, ...prev]);
         toast.success('Room type created');
+        publishAppEvent('listing:changed');
       }
       resetRoomTypeForm();
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'Save failed');
+      toast.error(e?.response?.data?.message || e?.message || 'Save failed');
     }
   };
 
@@ -212,6 +274,9 @@ const PartnerInventory = () => {
     setRtMaxAdults(Number(rt.maxAdults || 2));
     setRtMaxChildren(Number(rt.maxChildren || 0));
     setRtPetsAllowed(Boolean(rt.petsAllowed));
+    setRtDescription(String(rt.description || ''));
+    setRtAmenities(Array.isArray(rt.amenities) ? rt.amenities.join(', ') : '');
+    setRtImages(Array.isArray(rt.images) ? rt.images : []);
   };
 
   const deleteRoomType = async (roomTypeId: string) => {
@@ -227,6 +292,7 @@ const PartnerInventory = () => {
         setCalendar(null);
       }
       toast.success('Deleted');
+      publishAppEvent('listing:changed');
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Delete failed');
     }
@@ -251,6 +317,7 @@ const PartnerInventory = () => {
         const updated = res.data?.data;
         setRooms((prev) => prev.map((x) => (x._id === updated?._id ? updated : x)));
         toast.success('Room updated');
+        publishAppEvent('listing:changed');
       } else {
         const res = await api.post(
           `/partner/inventory/room-types/${selectedRoomTypeId}/rooms`,
@@ -265,10 +332,11 @@ const PartnerInventory = () => {
         const created = res.data?.data;
         setRooms((prev) => [...prev, created].sort((a, b) => String(a.number).localeCompare(String(b.number))));
         toast.success('Room added');
+        publishAppEvent('listing:changed');
       }
       resetRoomForm();
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'Save failed');
+      toast.error(e?.response?.data?.message || e?.message || 'Save failed');
     }
   };
 
@@ -292,6 +360,7 @@ const PartnerInventory = () => {
         setCalendar(null);
       }
       toast.success('Deleted');
+      publishAppEvent('listing:changed');
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Delete failed');
     }
@@ -308,6 +377,7 @@ const PartnerInventory = () => {
         withAuth(token)
       );
       toast.success('Blocked');
+      publishAppEvent('listing:changed');
       setBlockNote('');
       void loadCalendar(selectedRoomUnitId);
     } catch (e: any) {
@@ -320,6 +390,7 @@ const PartnerInventory = () => {
     try {
       await api.delete(`/partner/inventory/blocks/${blockId}`, withAuth(token));
       toast.success('Block removed');
+      publishAppEvent('listing:changed');
       if (selectedRoomUnitId) void loadCalendar(selectedRoomUnitId);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Delete failed');
@@ -345,6 +416,8 @@ const PartnerInventory = () => {
             {hotels.map((h) => (
               <option key={h._id} value={h._id}>
                 {h.name}
+                {h.approvalStatus ? ` • ${h.approvalStatus}` : ''}
+                {h.status ? ` • ${h.status}` : ''}
               </option>
             ))}
           </select>
@@ -373,6 +446,14 @@ const PartnerInventory = () => {
               <label className="font-body text-xs text-muted-foreground">Room Type Name</label>
               <input value={rtName} onChange={(e) => setRtName(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
             </div>
+            <div className="md:col-span-2">
+              <label className="font-body text-xs text-muted-foreground">Description (optional)</label>
+              <textarea value={rtDescription} onChange={(e) => setRtDescription(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm min-h-[88px]" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="font-body text-xs text-muted-foreground">Amenities (comma separated)</label>
+              <input value={rtAmenities} onChange={(e) => setRtAmenities(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
+            </div>
             <div>
               <label className="font-body text-xs text-muted-foreground">Price / Night</label>
               <input type="number" min={0} value={rtPrice} onChange={(e) => setRtPrice(Number(e.target.value))} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
@@ -390,6 +471,27 @@ const PartnerInventory = () => {
               <label htmlFor="rtPets" className="font-body text-sm">
                 Pets allowed (this type)
               </label>
+            </div>
+            <div className="md:col-span-2">
+              <label className="font-body text-xs text-muted-foreground">Photos (room type)</label>
+              <input type="file" accept="image/*" multiple onChange={onRoomTypeImagesChange} className="mt-1 w-full font-body text-xs" />
+              {rtImages.length > 0 && (
+                <div className="mt-2 grid grid-cols-6 gap-2">
+                  {rtImages.map((img, idx) => (
+                    <button
+                      type="button"
+                      key={idx}
+                      onClick={() => removeRoomTypeImage(idx)}
+                      className="relative group rounded-lg overflow-hidden border border-border"
+                      title="Click to remove"
+                    >
+                      <img src={img} alt="" className="w-full h-16 object-cover" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {rtImages.length > 0 && <p className="font-body text-[11px] text-muted-foreground mt-1">Click a thumbnail to remove.</p>}
             </div>
           </div>
 

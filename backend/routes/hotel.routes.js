@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
 
     const hotels = await Hotel.find({ status: 'active', approvalStatus: 'approved' })
       .sort({ createdAt: -1 })
-      .select('name location pricePerNight rating image images amenities createdAt')
+      .select('name location rating image images amenities createdAt')
       .slice('images', 1)
       .lean();
 

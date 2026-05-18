@@ -4,7 +4,7 @@ const { protect, authorize } = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
 const Hotel = require('../models/Hotel');
-const Room = require('../models/Room');
+const RoomType = require('../models/RoomType');
 const Cab = require('../models/Cab');
 const Tour = require('../models/Tour');
 
@@ -31,7 +31,11 @@ router.get('/analytics', protect, authorize('admin'), async (req, res) => {
       Booking.countDocuments({}),
       User.countDocuments({ role: 'user' }),
       Hotel.countDocuments({ status: 'active', approvalStatus: 'approved' }),
-      Room.countDocuments({ status: 'available', approvalStatus: 'approved' }),
+      (async () => {
+        const hotelIds = await Hotel.find({ status: 'active', approvalStatus: 'approved' }).distinct('_id');
+        if (!hotelIds.length) return 0;
+        return RoomType.countDocuments({ hotelId: { $in: hotelIds }, status: 'active' });
+      })(),
       Cab.countDocuments({ status: 'available', approvalStatus: 'approved' }),
       Tour.countDocuments({ status: 'active', approvalStatus: 'approved' }),
       Booking.find({})
@@ -70,4 +74,3 @@ router.get('/analytics', protect, authorize('admin'), async (req, res) => {
 });
 
 module.exports = router;
-

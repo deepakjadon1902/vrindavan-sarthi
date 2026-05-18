@@ -9,7 +9,7 @@ import Home from "@/pages/Home";
 import Hotels from "@/pages/Hotels";
 import HotelDetail from "@/pages/HotelDetail";
 import Rooms from "@/pages/Rooms";
-import RoomDetail from "@/pages/RoomDetail";
+import RoomTypeDetail from "@/pages/RoomTypeDetail";
 import Cabs from "@/pages/Cabs";
 import CabDetail from "@/pages/CabDetail";
 import Tours from "@/pages/Tours";
@@ -32,7 +32,6 @@ import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import ManageHotels from "@/pages/admin/ManageHotels";
-import ManageRooms from "@/pages/admin/ManageRooms";
 import ManageCabs from "@/pages/admin/ManageCabs";
 import ManageTours from "@/pages/admin/ManageTours";
 import ManageBookings from "@/pages/admin/ManageBookings";
@@ -44,7 +43,6 @@ import AdminOrders from "@/pages/admin/AdminOrders";
 import PartnerLayout from "@/pages/partner/PartnerLayout";
 import PartnerDashboard from "@/pages/partner/PartnerDashboard";
 import PartnerAddHotel from "@/pages/partner/PartnerAddHotel";
-import PartnerAddRoom from "@/pages/partner/PartnerAddRoom";
 import PartnerAddCab from "@/pages/partner/PartnerAddCab";
 import PartnerAddTour from "@/pages/partner/PartnerAddTour";
 import PartnerListings from "@/pages/partner/PartnerListings";
@@ -52,6 +50,7 @@ import PartnerBookings from "@/pages/partner/PartnerBookings";
 import PartnerPayments from "@/pages/partner/PartnerPayments";
 import PartnerInventory from "@/pages/partner/PartnerInventory";
 import AdminPayments from "@/pages/admin/AdminPayments";
+import AdminInventory from "@/pages/admin/AdminInventory";
 import BookingDetail from "@/pages/user/BookingDetail";
 import ProtectedRoute from "@/router/ProtectedRoute";
 import AdminRoute from "@/router/AdminRoute";
@@ -122,7 +121,9 @@ const App = () => {
             <Route path="/hotels" element={<PublicLayout><Hotels /></PublicLayout>} />
             <Route path="/hotels/:id" element={<PublicLayout><HotelDetail /></PublicLayout>} />
             <Route path="/rooms" element={<PublicLayout><Rooms /></PublicLayout>} />
-            <Route path="/rooms/:id" element={<PublicLayout><RoomDetail /></PublicLayout>} />
+            {/* Room-type details are shown via Hotel page; keep legacy param route as redirect */}
+            <Route path="/rooms/:id" element={<Navigate to="/rooms" replace />} />
+            <Route path="/room-types/:id" element={<PublicLayout><RoomTypeDetail /></PublicLayout>} />
             <Route path="/cabs" element={<PublicLayout><Cabs /></PublicLayout>} />
             <Route path="/cabs/:id" element={<PublicLayout><CabDetail /></PublicLayout>} />
             <Route path="/tours" element={<PublicLayout><Tours /></PublicLayout>} />
@@ -147,7 +148,6 @@ const App = () => {
             <Route path="/partner" element={<PartnerRoute><PartnerLayout /></PartnerRoute>}>
               <Route index element={<PartnerDashboard />} />
               <Route path="hotels" element={<PartnerAddHotel />} />
-              <Route path="rooms" element={<PartnerAddRoom />} />
               <Route path="inventory" element={<PartnerInventory />} />
               <Route path="cabs" element={<PartnerAddCab />} />
               <Route path="tours" element={<PartnerAddTour />} />
@@ -160,7 +160,7 @@ const App = () => {
             <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
               <Route index element={<AdminDashboard />} />
               <Route path="hotels" element={<ManageHotels />} />
-              <Route path="rooms" element={<ManageRooms />} />
+              <Route path="inventory" element={<AdminInventory />} />
               <Route path="cabs" element={<ManageCabs />} />
               <Route path="tours" element={<ManageTours />} />
               <Route path="partner-requests" element={<ManagePartnerRequests />} />

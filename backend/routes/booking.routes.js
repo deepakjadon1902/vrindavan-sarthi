@@ -4,8 +4,9 @@ const Hotel = require('../models/Hotel');
 const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
+const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const { protect, authorize } = require('../middleware/auth');
-const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
+const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const router = express.Router();
 
 const normalizeGender = (v) => {
@@ -17,25 +18,9 @@ const normalizeGender = (v) => {
   return null;
 };
 
-const findAssignableRoomUnit = async ({ roomTypeId, checkIn, checkOut }) => {
-  const units = await RoomUnit.find({ roomTypeId, status: 'active' }).sort({ number: 1 }).lean();
-  if (!units.length) return null;
-
-  const blockedByBlocks = await RoomUnitBlock.distinct('roomUnitId', {
-    roomTypeId,
-    startDate: { $lt: checkOut },
-    endDate: { $gt: checkIn },
-  });
-
-  const blockedByBookings = await Booking.distinct('roomUnitId', {
-    roomTypeId,
-    bookingStatus: { $ne: 'cancelled' },
-    checkIn: { $lt: checkOut },
-    checkOut: { $gt: checkIn },
-  });
-
-  const blockedSet = new Set([...blockedByBlocks.map(String), ...blockedByBookings.map(String)]);
-  return units.find((u) => !blockedSet.has(String(u._id))) || null;
+const generateBookingCode = () => {
+  const year = new Date().getFullYear();
+  return `VVS-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
 };
 
 // Create booking for a room type (authenticated user)
@@ -92,67 +77,114 @@ router.post('/room-type', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'guestDetails must include name/age for each adult/child' });
     }
 
-    // Find a free room unit and validate pets policy at room level
-    const assignable = await findAssignableRoomUnit({ roomTypeId: roomType._id, checkIn, checkOut });
-    if (!assignable) return res.status(409).json({ success: false, message: 'No rooms available for selected dates' });
-
-    const effectivePetsAllowed =
-      Boolean(hotel.petsAllowed) &&
-      (assignable.petsAllowedOverride === null || typeof assignable.petsAllowedOverride === 'undefined'
-        ? Boolean(roomType.petsAllowed)
-        : Boolean(assignable.petsAllowedOverride));
-    if (hasPet && !effectivePetsAllowed) return res.status(400).json({ success: false, message: 'Pets are not allowed for this room' });
+    const daysToReserve = enumerateDatesUTC(checkIn, checkOut);
+    if (daysToReserve.length <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid date range' });
+    }
 
     const isOnline = (req.body?.paymentMethod || 'online') === 'online';
     const totalAmount = Number(req.body?.totalAmount || 0);
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) return res.status(400).json({ success: false, message: 'Invalid totalAmount' });
 
-    const booking = await Booking.create({
-      bookingType: 'room_type',
-      itemId: String(roomType._id),
-      itemName: `${hotel.name} - ${roomType.name}`,
-      itemImage: (roomType.images && roomType.images[0]) || hotel.image,
+    const units = await RoomUnit.find({ roomTypeId: roomType._id, status: 'active' }).sort({ number: 1 }).lean();
+    if (!units.length) return res.status(409).json({ success: false, message: 'No rooms available for selected dates' });
 
-      userId: req.user._id,
-      userName: req.user.name,
-      userEmail: req.user.email,
-      userPhone: req.user.phone,
-
-      partnerId: hotel.partnerId,
-      partnerName: hotel.partnerName,
-
-      hotelId: hotel._id,
+    const blockedByBlocks = await RoomUnitBlock.distinct('roomUnitId', {
       roomTypeId: roomType._id,
-      roomUnitId: assignable._id,
-      roomNumber: assignable.number,
-
-      checkIn,
-      checkOut,
-      guests: totalAdults + totalChildren,
-
-      customerFullName,
-      customerMobile,
-      customerEmail,
-      arrivalMode: req.body?.arrivalMode || null,
-      vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
-      arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
-      totalAdults,
-      totalChildren,
-      hasPet,
-      guestDetails,
-
-      totalAmount,
-      paymentMethod: isOnline ? 'online' : (req.body?.paymentMethod || 'doorstep'),
-      bookingStatus: isOnline ? 'confirmed' : (req.body?.bookingStatus || 'confirmed'),
-      paymentStatus: isOnline ? 'pending' : (req.body?.paymentStatus || 'pending'),
-      verificationStage: isOnline ? (hotel.partnerId ? 'pending_partner' : 'pending_admin') : 'verified',
-      partnerPaymentVerified: false,
-      adminPaymentVerified: false,
-      upiTransactionId: String(req.body?.upiTransactionId || '').trim() || undefined,
-      additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
+      startDate: { $lt: checkOut },
+      endDate: { $gt: checkIn },
     });
+    const blockedSet = new Set(blockedByBlocks.map(String));
 
-    res.status(201).json({ success: true, data: booking });
+    const bookingId = generateBookingCode();
+
+    let createdBooking = null;
+    for (const unit of units) {
+      if (blockedSet.has(String(unit._id))) continue;
+
+      const effectivePetsAllowed =
+        Boolean(hotel.petsAllowed) &&
+        (unit.petsAllowedOverride === null || typeof unit.petsAllowedOverride === 'undefined'
+          ? Boolean(roomType.petsAllowed)
+          : Boolean(unit.petsAllowedOverride));
+      if (hasPet && !effectivePetsAllowed) continue;
+
+      const booking = new Booking({
+        bookingId,
+        bookingType: 'room_type',
+        itemId: String(roomType._id),
+        itemName: `${hotel.name} - ${roomType.name}`,
+        itemImage: (roomType.images && roomType.images[0]) || hotel.image,
+
+        userId: req.user._id,
+        userName: req.user.name,
+        userEmail: req.user.email,
+        userPhone: req.user.phone,
+
+        partnerId: hotel.partnerId,
+        partnerName: hotel.partnerName,
+
+        hotelId: hotel._id,
+        roomTypeId: roomType._id,
+        roomUnitId: unit._id,
+        roomNumber: unit.number,
+
+        checkIn,
+        checkOut,
+        guests: totalAdults + totalChildren,
+
+        customerFullName,
+        customerMobile,
+        customerEmail,
+        arrivalMode: req.body?.arrivalMode || null,
+        vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
+        arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
+        totalAdults,
+        totalChildren,
+        hasPet,
+        guestDetails,
+
+        totalAmount,
+        paymentMethod: isOnline ? 'online' : (req.body?.paymentMethod || 'doorstep'),
+        bookingStatus: 'pending',
+        paymentStatus: isOnline ? 'pending' : (req.body?.paymentStatus || 'pending'),
+        verificationStage: isOnline ? (hotel.partnerId ? 'pending_partner' : 'pending_admin') : 'verified',
+        partnerPaymentVerified: false,
+        adminPaymentVerified: false,
+        upiTransactionId: String(req.body?.upiTransactionId || '').trim() || undefined,
+        additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
+      });
+
+      try {
+        await RoomUnitBookingDay.insertMany(
+          daysToReserve.map((d) => ({
+            hotelId: hotel._id,
+            roomTypeId: roomType._id,
+            roomUnitId: unit._id,
+            bookingId: booking._id,
+            date: d,
+          })),
+          { ordered: true }
+        );
+      } catch (err) {
+        if (String(err?.code) === '11000') continue;
+        throw err;
+      }
+
+      try {
+        await booking.save();
+      } catch (err) {
+        await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
+        throw err;
+      }
+
+      createdBooking = booking;
+      break;
+    }
+
+    if (!createdBooking) return res.status(409).json({ success: false, message: 'No rooms available for selected dates' });
+
+    res.status(201).json({ success: true, data: createdBooking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -263,12 +295,15 @@ router.get('/:id', protect, async (req, res) => {
 // Cancel booking
 router.put('/:id/cancel', protect, async (req, res) => {
   try {
-    const booking = await Booking.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user._id },
-      { bookingStatus: 'cancelled' },
-      { new: true }
-    );
+    const booking = await Booking.findOne({ _id: req.params.id, userId: req.user._id });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    booking.bookingStatus = 'cancelled';
+    await booking.save();
+
+    if (booking.roomUnitId) {
+      await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
+    }
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -334,6 +369,7 @@ router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
       { new: true }
     );
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
     res.json({ success: true, data: booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -387,6 +423,8 @@ router.put('/:id/partner-reject', protect, authorize('partner'), async (req, res
     booking.bookingStatus = 'cancelled';
     booking.verificationStage = 'rejected';
     await booking.save();
+
+    await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
 
     res.json({ success: true, data: booking });
   } catch (err) {

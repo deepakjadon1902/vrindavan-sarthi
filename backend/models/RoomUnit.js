@@ -13,6 +13,9 @@ const roomUnitSchema = new mongoose.Schema(
     status: { type: String, enum: ['active', 'inactive'], default: 'active', index: true },
 
     partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+
+    createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, default: null },
+    createdByRole: { type: String, enum: ['admin', 'partner'], default: null },
   },
   { timestamps: true }
 );
@@ -21,4 +24,3 @@ roomUnitSchema.index({ hotelId: 1, roomTypeId: 1, status: 1, createdAt: -1 });
 roomUnitSchema.index({ roomTypeId: 1, number: 1 }, { unique: true });
 
 module.exports = mongoose.model('RoomUnit', roomUnitSchema);
-

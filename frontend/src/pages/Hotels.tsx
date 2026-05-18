@@ -94,8 +94,6 @@ const Hotels = () => {
                 <p className="font-body text-muted-foreground text-sm">{filtered.length} hotels found</p>
                 <select className="font-body text-sm border border-border rounded-lg px-3 py-2 bg-card focus:outline-none focus:ring-2 focus:ring-brand-gold/50">
                   <option>Sort by: Recommended</option>
-                  <option>Price: Low to High</option>
-                  <option>Price: High to Low</option>
                   <option>Rating: High to Low</option>
                 </select>
               </div>
@@ -107,7 +105,6 @@ const Hotels = () => {
                     images={hotel.images}
                     name={hotel.name}
                     location={hotel.location}
-                    price={hotel.pricePerNight}
                     rating={hotel.rating}
                     reviewCount={0}
                     amenities={hotel.amenities || []}

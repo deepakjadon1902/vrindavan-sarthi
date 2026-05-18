@@ -24,10 +24,23 @@ const rangesOverlap = (aStart, aEnd, bStart, bEnd) =>
 
 const daysBetween = (start, end) => Math.max(0, Math.ceil((end.getTime() - start.getTime()) / MS_PER_DAY));
 
+/**
+ * Enumerate date-only boundaries for [start, end) where start/end are UTC midnights.
+ * Returns an array of Date objects at 00:00:00.000Z for each day.
+ */
+const enumerateDatesUTC = (start, end) => {
+  if (!isValidDate(start) || !isValidDate(end) || start >= end) return [];
+  const out = [];
+  for (let t = start.getTime(); t < end.getTime(); t += MS_PER_DAY) {
+    out.push(new Date(t));
+  }
+  return out;
+};
+
 module.exports = {
   parseDateOnlyToUTC,
   isValidDate,
   rangesOverlap,
   daysBetween,
+  enumerateDatesUTC,
 };
-

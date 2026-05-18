@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const hotelSchema = new mongoose.Schema({
   name: { type: String, required: true },
   location: { type: String, required: true },
-  pricePerNight: { type: Number, required: true },
+  // Deprecated: pricing is handled at RoomType level. Kept for backward compatibility.
+  pricePerNight: { type: Number, default: 0 },
   pricePerBed: { type: Number, default: 0 },
   priceDoubleAC: { type: Number, default: 0 },
   priceDoubleNonAC: { type: Number, default: 0 },

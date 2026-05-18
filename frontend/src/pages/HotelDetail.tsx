@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, Star, MapPin, User, CheckCircle, Sparkles, Shield, Clock, Award } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
@@ -12,14 +12,16 @@ import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 const HotelDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated } = useAuthStore();
   const { createRoomTypeBooking } = useBookingStore();
   const [hotel, setHotel] = useState<any>(() => getPrefetchedDetail('hotels', id) || getCachedListingItem('hotels', id) || null);
   const [isLoading, setIsLoading] = useState(true);
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
+  const initialQs = new URLSearchParams(location.search);
+  const [checkIn, setCheckIn] = useState(() => initialQs.get('checkIn') || '');
+  const [checkOut, setCheckOut] = useState(() => initialQs.get('checkOut') || '');
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
-  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState('');
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState(() => initialQs.get('roomTypeId') || '');
 
   // Detailed booking form
   const [customerFullName, setCustomerFullName] = useState('');
@@ -64,7 +66,7 @@ const HotelDetail = () => {
       if (!id) return;
       if (!checkIn || !checkOut) {
         setRoomTypes([]);
-        setSelectedRoomTypeId('');
+        // Keep selectedRoomTypeId so Rooms page deep-link still works after date selection.
         return;
       }
       try {
@@ -78,6 +80,30 @@ const HotelDetail = () => {
     };
     void load();
   }, [checkIn, checkOut, id, selectedRoomTypeId]);
+
+  // When deep-linked from Rooms page, auto-select the room type once data is available.
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search);
+    const qRoomTypeId = qs.get('roomTypeId') || '';
+    if (!qRoomTypeId) return;
+    if (!roomTypes.length) return;
+    if (roomTypes.some((rt: any) => rt?._id === qRoomTypeId)) {
+      setSelectedRoomTypeId(qRoomTypeId);
+    }
+  }, [location.search, roomTypes]);
+
+  useEffect(() => {
+    const rt = roomTypes.find((x) => x?._id === selectedRoomTypeId) || null;
+    if (!rt) {
+      setTotalAdults(1);
+      setTotalChildren(0);
+      return;
+    }
+    const maxAdults = Math.max(1, Number(rt.maxAdults || 1));
+    const maxChildren = Math.max(0, Number(rt.maxChildren || 0));
+    setTotalAdults((prev) => Math.min(maxAdults, Math.max(1, prev)));
+    setTotalChildren((prev) => Math.min(maxChildren, Math.max(0, prev)));
+  }, [roomTypes, selectedRoomTypeId]);
 
   useEffect(() => {
     setAdultDetails((prev) => {
@@ -107,7 +133,7 @@ const HotelDetail = () => {
 
   const nights = checkIn && checkOut ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 1;
   const selectedRoomType = roomTypes.find((rt) => rt._id === selectedRoomTypeId) || null;
-  const pricePerNight = selectedRoomType?.pricePerNight ?? hotel.pricePerNight;
+  const pricePerNight = selectedRoomType?.pricePerNight ?? 0;
   const total = Number(pricePerNight || 0) * nights;
 
   const handleInitiateBooking = () => {
@@ -115,11 +141,12 @@ const HotelDetail = () => {
     if (!checkIn || !checkOut) { toast.error('Please select check-in and check-out dates'); return; }
     if (!hotel?._id) { toast.error('Hotel not loaded yet'); return; }
     if (!selectedRoomTypeId) { toast.error('Please select a room type'); return; }
+    if (!selectedRoomType || !(Number(selectedRoomType.pricePerNight || 0) > 0)) { toast.error('This room type has no price set yet'); return; }
     if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) { toast.error('Please fill your name, mobile and email'); return; }
     const invalidAdult = adultDetails.some((a) => !a.name.trim() || !Number(a.age || 0));
     const invalidChild = childDetails.some((c) => !c.name.trim() || !Number(c.age || 0));
     if (invalidAdult || invalidChild) { toast.error('Please fill name and age for each guest'); return; }
-    const tempId = `VVS-2025-${String(Math.floor(10000 + Math.random() * 90000))}`;
+    const tempId = `VVS-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
     setBookingId(tempId);
     setShowPayment(true);
   };
@@ -351,7 +378,7 @@ const HotelDetail = () => {
                         <div>
                           <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Adults</label>
                           <select value={totalAdults} onChange={(e) => setTotalAdults(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm">
-                            {Array.from({ length: Math.max(1, Number(selectedRoomType.maxAdults || 1)) }, (_, i) => i + 1).map((v) => (
+                            {Array.from({ length: Math.max(1, Number(selectedRoomType?.maxAdults || 1)) }, (_, i) => i + 1).map((v) => (
                               <option key={v} value={v}>{v}</option>
                             ))}
                           </select>
@@ -359,7 +386,7 @@ const HotelDetail = () => {
                         <div>
                           <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Children</label>
                           <select value={totalChildren} onChange={(e) => setTotalChildren(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm">
-                            {Array.from({ length: Math.max(0, Number(selectedRoomType.maxChildren || 0)) + 1 }, (_, i) => i).map((v) => (
+                            {Array.from({ length: Math.max(0, Number(selectedRoomType?.maxChildren || 0)) + 1 }, (_, i) => i).map((v) => (
                               <option key={v} value={v}>{v}</option>
                             ))}
                           </select>

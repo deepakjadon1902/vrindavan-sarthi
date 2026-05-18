@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, Eye, X, Hotel, BedDouble, Car, Map, Clock, User, Phone, Mail, Building2 } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, X, Hotel, Car, Map, Clock, User, Phone, Mail, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
@@ -10,7 +10,7 @@ import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 const ManagePartnerRequests = () => {
   const token = useAuthStore((s) => s.token);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'cab' | 'tour'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'cab' | 'tour'>('all');
   const [viewItem, setViewItem] = useState<any>(null);
   const [remarkText, setRemarkText] = useState('');
   const [allItems, setAllItems] = useState<any[]>([]);
@@ -35,10 +35,9 @@ const ManagePartnerRequests = () => {
       const res = await api.get('/partner/requests', { ...withAuth(token), params: { limit: 1200 } });
       const data = res.data?.data || {};
       const hotels = (Array.isArray(data.hotels) ? data.hotels : []).map((i: any) => ({ ...i, id: i._id || i.id, itemType: 'hotel' }));
-      const rooms = (Array.isArray(data.rooms) ? data.rooms : []).map((i: any) => ({ ...i, id: i._id || i.id, itemType: 'room' }));
       const cabs = (Array.isArray(data.cabs) ? data.cabs : []).map((i: any) => ({ ...i, id: i._id || i.id, itemType: 'cab' }));
       const tours = (Array.isArray(data.tours) ? data.tours : []).map((i: any) => ({ ...i, id: i._id || i.id, itemType: 'tour' }));
-      const all = [...hotels, ...rooms, ...cabs, ...tours].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const all = [...hotels, ...cabs, ...tours].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setAllItems(all);
       setSessionCache('vvs_admin_partner_requests_all', all);
     } catch (err: unknown) {
@@ -62,11 +61,9 @@ const ManagePartnerRequests = () => {
     const url =
       item.itemType === 'hotel'
         ? `/partner/hotels/${item.id}/status`
-        : item.itemType === 'room'
-          ? `/partner/rooms/${item.id}/status`
-          : item.itemType === 'cab'
-            ? `/partner/cabs/${item.id}/status`
-            : `/partner/tours/${item.id}/status`;
+        : item.itemType === 'cab'
+          ? `/partner/cabs/${item.id}/status`
+          : `/partner/tours/${item.id}/status`;
     try {
       const res = await api.put(url, { approvalStatus: status, adminRemarks: remarks }, withAuth(token));
       const updated = res.data?.data;
@@ -90,16 +87,14 @@ const ManagePartnerRequests = () => {
 
   const typeIcon = (type: string) => {
     if (type === 'hotel') return <Hotel size={16} className="text-brand-gold" />;
-    if (type === 'room') return <BedDouble size={16} className="text-brand-saffron" />;
     if (type === 'cab') return <Car size={16} className="text-brand-green" />;
     return <Map size={16} className="text-brand-crimson" />;
   };
 
   const getItemName = (item: any) => item.name || item.vehicleName || 'Unnamed';
   const getItemPrice = (item: any) => {
-    if (item.pricePerNight) return `₹${item.pricePerNight}/night`;
-    if (item.basePrice) return `₹${item.basePrice}`;
-    if (item.pricePerPerson) return `₹${item.pricePerPerson}/person`;
+    if (item.itemType === 'cab' && item.basePrice) return `₹${item.basePrice}`;
+    if (item.itemType === 'tour' && item.pricePerPerson) return `₹${item.pricePerPerson}/person`;
     return '-';
   };
 
@@ -115,7 +110,7 @@ const ManagePartnerRequests = () => {
       )}
 
       <div className="flex gap-2 flex-wrap">
-        {(['all', 'hotel', 'room', 'cab', 'tour'] as const).map(f => (
+        {(['all', 'hotel', 'cab', 'tour'] as const).map(f => (
           <button key={f} onClick={() => setTypeFilter(f)} className={`px-3 py-1.5 rounded-lg font-body text-xs capitalize transition-colors ${typeFilter === f ? 'bg-brand-gold text-foreground' : 'bg-card border border-border hover:bg-muted'}`}>
             {f === 'all' ? 'All Types' : `${f}s`}
           </button>

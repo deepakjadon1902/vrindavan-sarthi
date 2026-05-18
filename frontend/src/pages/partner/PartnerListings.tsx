@@ -2,16 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
-import { Hotel, BedDouble, Car, Map, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Hotel, Car, Map, Eye, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 
-type ItemType = 'hotel' | 'room' | 'cab' | 'tour';
+type ItemType = 'hotel' | 'cab' | 'tour';
 
 const ADD_ROUTES: Record<ItemType, string> = {
   hotel: '/partner/hotels',
-  room: '/partner/rooms',
   cab: '/partner/cabs',
   tour: '/partner/tours',
 };
@@ -35,10 +34,9 @@ const PartnerListings = () => {
       const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 500 } });
       const data = res.data?.data || {};
       const hotels = (Array.isArray(data.hotels) ? data.hotels : []).map((i: any) => ({ ...i, id: i._id, itemType: 'hotel' as const }));
-      const rooms = (Array.isArray(data.rooms) ? data.rooms : []).map((i: any) => ({ ...i, id: i._id, itemType: 'room' as const }));
       const cabs = (Array.isArray(data.cabs) ? data.cabs : []).map((i: any) => ({ ...i, id: i._id, itemType: 'cab' as const }));
       const tours = (Array.isArray(data.tours) ? data.tours : []).map((i: any) => ({ ...i, id: i._id, itemType: 'tour' as const }));
-      const all = [...hotels, ...rooms, ...cabs, ...tours].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const all = [...hotels, ...cabs, ...tours].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setAllItems(all);
       setSessionCache('vvs_partner_my_listings_all', all);
     } catch {
@@ -65,16 +63,14 @@ const PartnerListings = () => {
 
   const typeIcon = (type: ItemType) => {
     if (type === 'hotel') return <Hotel size={14} className="text-brand-gold" />;
-    if (type === 'room') return <BedDouble size={14} className="text-brand-saffron" />;
     if (type === 'cab') return <Car size={14} className="text-brand-green" />;
     return <Map size={14} className="text-brand-crimson" />;
   };
 
   const getItemName = (item: any) => item.name || item.vehicleName || 'Unnamed';
   const getItemPrice = (item: any) => {
-    if (item.pricePerNight) return `₹${item.pricePerNight}/night`;
-    if (item.basePrice) return `₹${item.basePrice}`;
-    if (item.pricePerPerson) return `₹${item.pricePerPerson}/person`;
+    if (item.itemType === 'cab' && item.basePrice) return `₹${item.basePrice}`;
+    if (item.itemType === 'tour' && item.pricePerPerson) return `₹${item.pricePerPerson}/person`;
     return '-';
   };
 
@@ -87,11 +83,9 @@ const PartnerListings = () => {
     const url =
       item.itemType === 'hotel'
         ? `/partner/hotels/${item.id}`
-        : item.itemType === 'room'
-          ? `/partner/rooms/${item.id}`
-          : item.itemType === 'cab'
-            ? `/partner/cabs/${item.id}`
-            : `/partner/tours/${item.id}`;
+        : item.itemType === 'cab'
+          ? `/partner/cabs/${item.id}`
+          : `/partner/tours/${item.id}`;
     try {
       await api.delete(url, withAuth(token));
       setAllItems((prev) => prev.filter((x) => !(x.id === item.id && x.itemType === item.itemType)));
@@ -116,7 +110,7 @@ const PartnerListings = () => {
       <div>
         <h2 className="font-heading text-xl font-bold text-foreground">All My Listings</h2>
         <p className="font-body text-xs text-muted-foreground">
-          Manage every hotel, room, cab and tour you&apos;ve listed in one place.
+          Manage every hotel, cab and tour you&apos;ve listed in one place.
         </p>
       </div>
 
@@ -129,7 +123,7 @@ const PartnerListings = () => {
       )}
 
       <div className="flex gap-2 flex-wrap">
-        {(['all', 'hotel', 'room', 'cab', 'tour'] as const).map((f) => (
+        {(['all', 'hotel', 'cab', 'tour'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setTypeFilter(f)}

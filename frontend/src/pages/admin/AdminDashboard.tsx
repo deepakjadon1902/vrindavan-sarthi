@@ -72,7 +72,7 @@ const AdminDashboard = () => {
     const l = analytics?.listings;
     return [
       { label: 'Hotels', count: l?.hotels || 0, icon: Hotel, path: '/admin/hotels' },
-      { label: 'Rooms', count: l?.rooms || 0, icon: BedDouble, path: '/admin/rooms' },
+      { label: 'Inventory', count: l?.rooms || 0, icon: BedDouble, path: '/admin/inventory' },
       { label: 'Cabs', count: l?.cabs || 0, icon: Car, path: '/admin/cabs' },
       { label: 'Tours', count: l?.tours || 0, icon: Map, path: '/admin/tours' },
     ];
