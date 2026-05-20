@@ -19,6 +19,7 @@ interface ListingCardProps {
   onViewDetails?: () => void;
   /** Auto-scroll interval in ms */
   intervalMs?: number;
+  variant?: 'default' | 'hotel';
 }
 
 const ListingCard = ({
@@ -36,6 +37,7 @@ const ListingCard = ({
   amenities,
   onViewDetails,
   intervalMs = 2800,
+  variant = 'default',
 }: ListingCardProps) => {
   // Build full gallery: main image + extras (de-duplicated, placeholder filtered)
   const gallery = (() => {
@@ -64,7 +66,7 @@ const ListingCard = ({
     <div className="bg-card rounded-xl overflow-hidden border border-border card-hover group">
       {/* Image carousel */}
       <div
-        className="relative h-44 sm:h-48 overflow-hidden"
+        className={`relative overflow-hidden ${variant === 'hotel' ? 'h-48 sm:h-52' : 'h-44 sm:h-48'}`}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
@@ -125,8 +127,8 @@ const ListingCard = ({
 
       {/* Content */}
       <div className="p-4">
-        <h3 className="font-heading text-lg font-semibold text-foreground line-clamp-1">{name}</h3>
-        <p className="font-body text-sm text-muted-foreground mt-1">{location}</p>
+        <h3 className={`font-heading font-semibold text-foreground line-clamp-1 ${variant === 'hotel' ? 'text-base' : 'text-lg'}`}>{name}</h3>
+        <p className={`font-body text-muted-foreground mt-1 ${variant === 'hotel' ? 'text-xs' : 'text-sm'}`}>{location}</p>
         {meta && <p className="font-body text-xs text-muted-foreground mt-1">{meta}</p>}
 
         {/* Rating */}

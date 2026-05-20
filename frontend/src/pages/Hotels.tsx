@@ -7,23 +7,36 @@ import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 
+type HotelListItem = {
+  _id: string;
+  name: string;
+  location: string;
+  rating: number;
+  image: string;
+  images?: string[];
+  amenities?: string[];
+};
+
 const Hotels = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [hotels, setHotels] = useState<any[]>([]);
+  const [hotels, setHotels] = useState<HotelListItem[]>([]);
 
   useEffect(() => {
     const load = async () => {
+      // Show cached list instantly (if present) for perceived speed, then revalidate from API.
       try {
-        const params: any = {};
-        if (checkIn && checkOut) {
-          params.checkIn = checkIn;
-          params.checkOut = checkOut;
+        const cached = localStorage.getItem('vvs_hotels');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) setHotels(parsed);
         }
-        const res = await api.get('/hotels', { params });
-        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+      } catch {
+        // ignore
+      }
+      try {
+        const res = await api.get('/hotels');
+        const data = Array.isArray(res.data?.data) ? (res.data.data as HotelListItem[]) : [];
         setHotels(data);
         try {
           localStorage.setItem('vvs_hotels', JSON.stringify(data));
@@ -43,7 +56,7 @@ const Hotels = () => {
       unsub();
       window.removeEventListener('focus', onFocus);
     };
-  }, [checkIn, checkOut]);
+  }, []);
 
   const filtered = hotels.filter(h =>
     h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -59,23 +72,6 @@ const Hotels = () => {
             <div className="relative md:col-span-3">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
               <input type="text" placeholder="Search hotels by name or location..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold" />
-            </div>
-            <div>
-              <label className="font-body text-xs text-muted-foreground">Check-in</label>
-              <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="mt-1 w-full px-4 py-3 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold" />
-            </div>
-            <div>
-              <label className="font-body text-xs text-muted-foreground">Check-out</label>
-              <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="mt-1 w-full px-4 py-3 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold" />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={() => { setCheckIn(''); setCheckOut(''); }}
-                className="w-full py-3 rounded-xl border border-border bg-card font-body text-sm hover:bg-muted transition-colors"
-              >
-                Clear Dates
-              </button>
             </div>
           </div>
         </div>
@@ -101,6 +97,7 @@ const Hotels = () => {
                 {filtered.map((hotel) => (
                   <ListingCard
                     key={hotel._id}
+                    variant="hotel"
                     image={hotel.image}
                     images={hotel.images}
                     name={hotel.name}
@@ -108,9 +105,6 @@ const Hotels = () => {
                     rating={hotel.rating}
                     reviewCount={0}
                     amenities={hotel.amenities || []}
-                    meta={checkIn && checkOut ? (hotel.availableRooms > 0 ? `${hotel.availableRooms} rooms left` : 'Fully booked') : undefined}
-                    badge={checkIn && checkOut ? (hotel.availableRooms > 0 ? 'Available' : 'Sold out') : undefined}
-                    badgeColor={checkIn && checkOut ? (hotel.availableRooms > 0 ? 'green' : 'crimson') : undefined}
                     onViewDetails={() => {
                       prefetchDetail('hotels', hotel._id, hotel);
                       navigate(`/hotels/${hotel._id}`);

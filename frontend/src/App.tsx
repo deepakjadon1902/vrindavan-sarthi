@@ -43,8 +43,6 @@ import AdminOrders from "@/pages/admin/AdminOrders";
 import PartnerLayout from "@/pages/partner/PartnerLayout";
 import PartnerDashboard from "@/pages/partner/PartnerDashboard";
 import PartnerAddHotel from "@/pages/partner/PartnerAddHotel";
-import PartnerAddCab from "@/pages/partner/PartnerAddCab";
-import PartnerAddTour from "@/pages/partner/PartnerAddTour";
 import PartnerListings from "@/pages/partner/PartnerListings";
 import PartnerBookings from "@/pages/partner/PartnerBookings";
 import PartnerPayments from "@/pages/partner/PartnerPayments";
@@ -149,8 +147,6 @@ const App = () => {
               <Route index element={<PartnerDashboard />} />
               <Route path="hotels" element={<PartnerAddHotel />} />
               <Route path="inventory" element={<PartnerInventory />} />
-              <Route path="cabs" element={<PartnerAddCab />} />
-              <Route path="tours" element={<PartnerAddTour />} />
               <Route path="listings" element={<PartnerListings />} />
               <Route path="bookings" element={<PartnerBookings />} />
               <Route path="payments" element={<PartnerPayments />} />

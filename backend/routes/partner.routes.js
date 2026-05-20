@@ -1,7 +1,5 @@
 const express = require('express');
 const Hotel = require('../models/Hotel');
-const Cab = require('../models/Cab');
-const Tour = require('../models/Tour');
 const { protect, authorize } = require('../middleware/auth');
 const router = express.Router();
 
@@ -52,100 +50,6 @@ router.delete('/hotels/:id', protect, authorize('partner'), async (req, res) => 
   }
 });
 
-// Partner: Submit cab
-router.post('/cabs', protect, authorize('partner'), async (req, res) => {
-  try {
-    const cab = await Cab.create({
-      ...req.body,
-      partnerId: req.user._id,
-      partnerName: req.user.name,
-      partnerEmail: req.user.email,
-      partnerPhone: req.user.phone,
-      businessName: req.user.businessName,
-      partnerSubmitted: true,
-      approvalStatus: 'pending',
-      status: 'inactive',
-    });
-    res.status(201).json({ success: true, data: cab });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
-});
-
-// Partner: Update my cab submission (pending/rejected only)
-router.put('/cabs/:id', protect, authorize('partner'), async (req, res) => {
-  try {
-    const cab = await Cab.findOne({ _id: req.params.id, partnerId: req.user._id });
-    if (!cab) return res.status(404).json({ success: false, message: 'Cab not found' });
-
-    Object.assign(cab, req.body);
-    cab.partnerSubmitted = true;
-    cab.approvalStatus = 'pending';
-    cab.status = 'inactive';
-    await cab.save();
-    res.json({ success: true, data: cab });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// Partner: Delete my cab submission (pending/rejected only)
-router.delete('/cabs/:id', protect, authorize('partner'), async (req, res) => {
-  try {
-    const cab = await Cab.findOne({ _id: req.params.id, partnerId: req.user._id });
-    if (!cab) return res.status(404).json({ success: false, message: 'Cab not found' });
-    await cab.deleteOne();
-    res.json({ success: true, message: 'Deleted' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// Partner: Submit tour
-router.post('/tours', protect, authorize('partner'), async (req, res) => {
-  try {
-    const tour = await Tour.create({
-      ...req.body,
-      partnerId: req.user._id,
-      partnerName: req.user.name,
-      partnerEmail: req.user.email,
-      partnerPhone: req.user.phone,
-      businessName: req.user.businessName,
-      partnerSubmitted: true,
-      approvalStatus: 'pending',
-      status: 'inactive',
-    });
-    res.status(201).json({ success: true, data: tour });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
-});
-
-// Partner: Update my tour submission (pending/rejected only)
-router.put('/tours/:id', protect, authorize('partner'), async (req, res) => {
-  try {
-    const tour = await Tour.findOne({ _id: req.params.id, partnerId: req.user._id });
-    if (!tour) return res.status(404).json({ success: false, message: 'Tour not found' });
-
-    Object.assign(tour, req.body);
-    tour.partnerSubmitted = true;
-    tour.approvalStatus = 'pending';
-    tour.status = 'inactive';
-    await tour.save();
-    res.json({ success: true, data: tour });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// Partner: Delete my tour submission (pending/rejected only)
-router.delete('/tours/:id', protect, authorize('partner'), async (req, res) => {
-  try {
-    const tour = await Tour.findOne({ _id: req.params.id, partnerId: req.user._id });
-    if (!tour) return res.status(404).json({ success: false, message: 'Tour not found' });
-    await tour.deleteOne();
-    res.json({ success: true, message: 'Deleted' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
 // Partner: Get my listings
 router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
   try {
@@ -157,23 +61,13 @@ router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
       .sort({ createdAt: -1 })
       .select('name location rating image images description amenities status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed createdAt updatedAt')
       .lean();
-    const cabQuery = Cab.find({ partnerId: req.user._id })
-      .sort({ createdAt: -1 })
-      .select('vehicleName vehicleType vehicleNumber capacity driverName driverPhone routes pricePerKm basePrice image images description features status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
-      .lean();
-    const tourQuery = Tour.find({ partnerId: req.user._id })
-      .sort({ createdAt: -1 })
-      .select('name duration pricePerPerson groupSize startPoint endPoint image images description itinerary includes excludes highlights contactPhone contactEmail status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
-      .lean();
 
     if (limit) {
       hotelQuery.limit(limit);
-      cabQuery.limit(limit);
-      tourQuery.limit(limit);
     }
 
-    const [hotels, cabs, tours] = await Promise.all([hotelQuery, cabQuery, tourQuery]);
-    res.json({ success: true, data: { hotels, rooms: [], cabs, tours } });
+    const [hotels] = await Promise.all([hotelQuery]);
+    res.json({ success: true, data: { hotels, rooms: [], cabs: [], tours: [] } });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -188,23 +82,12 @@ router.get('/requests', protect, authorize('admin'), async (req, res) => {
       .sort({ createdAt: -1 })
       .select('name location rating image images description amenities status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed createdAt updatedAt')
       .lean();
-    const cabQuery = Cab.find({ partnerSubmitted: true })
-      .sort({ createdAt: -1 })
-      .select('vehicleName vehicleType vehicleNumber capacity driverName driverPhone routes pricePerKm basePrice image images description features status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
-      .lean();
-    const tourQuery = Tour.find({ partnerSubmitted: true })
-      .sort({ createdAt: -1 })
-      .select('name duration pricePerPerson groupSize startPoint endPoint image images description itinerary includes excludes highlights contactPhone contactEmail status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName createdAt updatedAt')
-      .lean();
-
     if (limit) {
       hotelQuery.limit(limit);
-      cabQuery.limit(limit);
-      tourQuery.limit(limit);
     }
 
-    const [hotels, cabs, tours] = await Promise.all([hotelQuery, cabQuery, tourQuery]);
-    res.json({ success: true, data: { hotels, rooms: [], cabs, tours } });
+    const [hotels] = await Promise.all([hotelQuery]);
+    res.json({ success: true, data: { hotels, rooms: [], cabs: [], tours: [] } });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -217,30 +100,6 @@ router.put('/hotels/:id/status', protect, authorize('admin'), async (req, res) =
     if (approvalStatus === 'rejected') update.status = 'inactive';
     const hotel = await Hotel.findByIdAndUpdate(req.params.id, update, { new: true });
     res.json({ success: true, data: hotel });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
-});
-
-// Admin: Approve/Reject cab
-router.put('/cabs/:id/status', protect, authorize('admin'), async (req, res) => {
-  try {
-    const { approvalStatus, adminRemarks } = req.body;
-    const update = { approvalStatus, adminRemarks };
-    if (approvalStatus === 'approved') update.status = 'available';
-    if (approvalStatus === 'rejected') update.status = 'inactive';
-    const cab = await Cab.findByIdAndUpdate(req.params.id, update, { new: true });
-    res.json({ success: true, data: cab });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
-});
-
-// Admin: Approve/Reject tour
-router.put('/tours/:id/status', protect, authorize('admin'), async (req, res) => {
-  try {
-    const { approvalStatus, adminRemarks } = req.body;
-    const update = { approvalStatus, adminRemarks };
-    if (approvalStatus === 'approved') update.status = 'active';
-    if (approvalStatus === 'rejected') update.status = 'inactive';
-    const tour = await Tour.findByIdAndUpdate(req.params.id, update, { new: true });
-    res.json({ success: true, data: tour });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

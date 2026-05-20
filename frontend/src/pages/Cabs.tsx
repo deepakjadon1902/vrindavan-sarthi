@@ -7,16 +7,36 @@ import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 
+type CabListItem = {
+  _id: string;
+  vehicleName: string;
+  driverName: string;
+  image: string;
+  images?: string[];
+  rating?: number;
+  location?: string;
+};
+
 const Cabs = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [cabs, setCabs] = useState<any[]>([]);
+  const [cabs, setCabs] = useState<CabListItem[]>([]);
 
   useEffect(() => {
     const load = async () => {
+      // Show cached list instantly (if present) for perceived speed, then revalidate from API.
+      try {
+        const cached = localStorage.getItem('vvs_cabs');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) setCabs(parsed);
+        }
+      } catch {
+        // ignore
+      }
       try {
         const res = await api.get('/cabs');
-        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+        const data = Array.isArray(res.data?.data) ? (res.data.data as CabListItem[]) : [];
         setCabs(data);
         try {
           localStorage.setItem('vvs_cabs', JSON.stringify(data));

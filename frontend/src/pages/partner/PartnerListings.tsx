@@ -2,24 +2,21 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
-import { Hotel, Car, Map, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Hotel, Eye, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 
-type ItemType = 'hotel' | 'cab' | 'tour';
+type ItemType = 'hotel';
 
 const ADD_ROUTES: Record<ItemType, string> = {
   hotel: '/partner/hotels',
-  cab: '/partner/cabs',
-  tour: '/partner/tours',
 };
 
 const PartnerListings = () => {
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | ItemType>('all');
   const [viewItem, setViewItem] = useState<any>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,9 +31,7 @@ const PartnerListings = () => {
       const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 500 } });
       const data = res.data?.data || {};
       const hotels = (Array.isArray(data.hotels) ? data.hotels : []).map((i: any) => ({ ...i, id: i._id, itemType: 'hotel' as const }));
-      const cabs = (Array.isArray(data.cabs) ? data.cabs : []).map((i: any) => ({ ...i, id: i._id, itemType: 'cab' as const }));
-      const tours = (Array.isArray(data.tours) ? data.tours : []).map((i: any) => ({ ...i, id: i._id, itemType: 'tour' as const }));
-      const all = [...hotels, ...cabs, ...tours].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const all = [...hotels].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setAllItems(all);
       setSessionCache('vvs_partner_my_listings_all', all);
     } catch {
@@ -52,8 +47,7 @@ const PartnerListings = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const filteredByType = typeFilter === 'all' ? allItems : allItems.filter((i) => i.itemType === typeFilter);
-  const filtered = filter === 'all' ? filteredByType : filteredByType.filter((i) => i.approvalStatus === filter);
+  const filtered = filter === 'all' ? allItems : allItems.filter((i) => i.approvalStatus === filter);
 
   const statusBadge = (status: string) => {
     if (status === 'approved') return 'bg-brand-green/10 text-brand-green';
@@ -61,18 +55,9 @@ const PartnerListings = () => {
     return 'bg-brand-saffron/10 text-brand-saffron';
   };
 
-  const typeIcon = (type: ItemType) => {
-    if (type === 'hotel') return <Hotel size={14} className="text-brand-gold" />;
-    if (type === 'cab') return <Car size={14} className="text-brand-green" />;
-    return <Map size={14} className="text-brand-crimson" />;
-  };
+  const typeIcon = (_type: ItemType) => <Hotel size={14} className="text-brand-gold" />;
 
-  const getItemName = (item: any) => item.name || item.vehicleName || 'Unnamed';
-  const getItemPrice = (item: any) => {
-    if (item.itemType === 'cab' && item.basePrice) return `₹${item.basePrice}`;
-    if (item.itemType === 'tour' && item.pricePerPerson) return `₹${item.pricePerPerson}/person`;
-    return '-';
-  };
+  const getItemName = (item: any) => item.name || 'Unnamed';
 
   const handleEdit = (item: any) => {
     navigate(`${ADD_ROUTES[item.itemType]}?edit=${item.id}`);
@@ -80,12 +65,7 @@ const PartnerListings = () => {
 
   const handleDelete = async (item: any) => {
     if (!token) return;
-    const url =
-      item.itemType === 'hotel'
-        ? `/partner/hotels/${item.id}`
-        : item.itemType === 'cab'
-          ? `/partner/cabs/${item.id}`
-          : `/partner/tours/${item.id}`;
+    const url = `/partner/hotels/${item.id}`;
     try {
       await api.delete(url, withAuth(token));
       setAllItems((prev) => prev.filter((x) => !(x.id === item.id && x.itemType === item.itemType)));
@@ -110,7 +90,7 @@ const PartnerListings = () => {
       <div>
         <h2 className="font-heading text-xl font-bold text-foreground">All My Listings</h2>
         <p className="font-body text-xs text-muted-foreground">
-          Manage every hotel, cab and tour you&apos;ve listed in one place.
+          Manage the hotels you&apos;ve submitted for admin approval.
         </p>
       </div>
 
@@ -123,20 +103,6 @@ const PartnerListings = () => {
       )}
 
       <div className="flex gap-2 flex-wrap">
-        {(['all', 'hotel', 'cab', 'tour'] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setTypeFilter(f)}
-            className={`px-3 py-1.5 rounded-lg font-body text-xs capitalize transition-colors ${
-              typeFilter === f ? 'bg-brand-gold text-foreground' : 'bg-card border border-border hover:bg-muted'
-            }`}
-          >
-            {f === 'all' ? 'All Types' : `${f}s`}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex gap-2 flex-wrap">
         {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
           <button
             key={f}
@@ -145,7 +111,7 @@ const PartnerListings = () => {
               filter === f ? 'bg-brand-crimson text-primary-foreground' : 'bg-card border border-border hover:bg-muted'
             }`}
           >
-            {f} ({f === 'all' ? filteredByType.length : filteredByType.filter((i) => i.approvalStatus === f).length})
+            {f} ({f === 'all' ? allItems.length : allItems.filter((i) => i.approvalStatus === f).length})
           </button>
         ))}
       </div>
@@ -174,15 +140,14 @@ const PartnerListings = () => {
                     {item.approvalStatus}
                   </span>
                 </div>
-                <p className="font-body text-xs text-muted-foreground capitalize">
-                  {item.itemType} • {item.location || item.hotelName || item.vehicleType || item.duration || ''}
+                <p className="font-body text-xs text-muted-foreground">
+                  {item.location || ''}
                 </p>
                 {item.adminRemarks && (
                   <p className="font-body text-xs text-destructive mt-1">Admin: {item.adminRemarks}</p>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-body text-sm font-medium text-foreground">{getItemPrice(item)}</span>
                 <button
                   onClick={() => setViewItem(viewItem?.id === item.id && viewItem?.itemType === item.itemType ? null : item)}
                   className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
@@ -253,9 +218,6 @@ const PartnerListings = () => {
             <div>
               <span className="text-muted-foreground">Status:</span>{' '}
               <span className={`px-2 py-0.5 rounded-full text-xs ${statusBadge(viewItem.approvalStatus)}`}>{viewItem.approvalStatus}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Price:</span> <span className="text-foreground">{getItemPrice(viewItem)}</span>
             </div>
             <div>
               <span className="text-muted-foreground">Submitted:</span>{' '}

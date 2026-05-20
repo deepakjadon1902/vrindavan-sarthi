@@ -7,16 +7,35 @@ import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 
+type TourListItem = {
+  _id: string;
+  name: string;
+  image: string;
+  images?: string[];
+  rating?: number;
+  location?: string;
+};
+
 const Tours = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [tours, setTours] = useState<any[]>([]);
+  const [tours, setTours] = useState<TourListItem[]>([]);
 
   useEffect(() => {
     const load = async () => {
+      // Show cached list instantly (if present) for perceived speed, then revalidate from API.
+      try {
+        const cached = localStorage.getItem('vvs_tours');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) setTours(parsed);
+        }
+      } catch {
+        // ignore
+      }
       try {
         const res = await api.get('/tours');
-        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+        const data = Array.isArray(res.data?.data) ? (res.data.data as TourListItem[]) : [];
         setTours(data);
         try {
           localStorage.setItem('vvs_tours', JSON.stringify(data));
