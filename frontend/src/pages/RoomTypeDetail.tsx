@@ -103,6 +103,29 @@ const RoomTypeDetail = () => {
     });
   }, [totalAdults, totalChildren]);
 
+  // Load calendar proactively (no hooks after early returns).
+  useEffect(() => {
+    if (!id) return;
+    setAvailabilityLoading(true);
+    const run = async () => {
+      try {
+        const now = new Date();
+        const fallbackFrom = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
+        const anchor = checkIn || fallbackFrom;
+        const to = new Date(new Date(`${anchor}T00:00:00.000Z`).getTime() + 30 * 86400000).toISOString().slice(0, 10);
+        const res = await api.get(`/room-types/${id}/calendar`, { params: { from: anchor, to } });
+        setAvailabilityCalendar(res.data?.data?.calendar || []);
+        setShowAvailability(true);
+      } catch {
+        // ignore (calendar is optional UI)
+      } finally {
+        setAvailabilityLoading(false);
+      }
+    };
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, checkIn]);
+
   if (loading && !roomType) {
     return (
       <div className="pt-24 pb-16 text-center min-h-screen bg-background">
@@ -126,14 +149,18 @@ const RoomTypeDetail = () => {
   const total = Number(roomType.pricePerNight || 0) * nights;
   const availableCount = typeof roomType.availableCount === 'number' ? roomType.availableCount : null;
   const totalCount = typeof roomType.totalCount === 'number' ? roomType.totalCount : null;
+  const isFullyBookedSelectedDates = Boolean(checkIn && checkOut && availableCount !== null && availableCount <= 0);
 
-  const loadAvailabilityCalendar = async () => {
+  const loadAvailabilityCalendar = async (opts?: { from?: string; to?: string }) => {
     if (!id) return;
     setAvailabilityLoading(true);
     try {
       const now = new Date();
-      const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
-      const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + 30 * 86400000).toISOString().slice(0, 10);
+      const fallbackFrom = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
+      const anchor = checkIn || fallbackFrom;
+      const fallbackTo = new Date(new Date(`${anchor}T00:00:00.000Z`).getTime() + 30 * 86400000).toISOString().slice(0, 10);
+      const from = opts?.from || anchor || fallbackFrom;
+      const to = opts?.to || fallbackTo;
       const res = await api.get(`/room-types/${id}/calendar`, { params: { from, to } });
       setAvailabilityCalendar(res.data?.data?.calendar || []);
       setShowAvailability(true);
@@ -146,34 +173,52 @@ const RoomTypeDetail = () => {
 
   const canPet = Boolean(hotel.petsAllowed) && Boolean(roomType.petsAllowed);
 
-  const handleInitiateBooking = () => {
+  const validateBookingForm = () => {
     if (!isAuthenticated) {
       toast.error('Please login to book');
       navigate('/login');
-      return;
+      return false;
     }
     if (!checkIn || !checkOut) {
       toast.error('Please select check-in and check-out dates');
-      return;
-    }
-    if (availableCount !== null && availableCount <= 0) {
-      toast.error('All rooms are booked for these dates. You can view availability or join the waitlist.');
-      void loadAvailabilityCalendar();
+      return false;
     }
     if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) {
       toast.error('Please fill your name, mobile and email');
-      return;
+      return false;
     }
     const invalidAdult = adultDetails.some((a) => !a.name.trim() || !Number(a.age || 0));
     const invalidChild = childDetails.some((c) => !c.name.trim() || !Number(c.age || 0));
     if (invalidAdult || invalidChild) {
       toast.error('Please fill name and age for each guest');
-      return;
+      return false;
     }
     if (hasPet && !canPet) {
       toast.error('Pets are not allowed for this room type');
+      return false;
+    }
+    return true;
+  };
+
+  const handleInitiateBooking = () => {
+    const ok = validateBookingForm();
+    if (!ok) return;
+
+    if (availableCount !== null && availableCount <= 0) {
+      setShowAvailability(true);
+      void loadAvailabilityCalendar();
+      toast.error('These dates are fully booked. Please choose other dates or join the waitlist.');
       return;
     }
+
+    const tempId = `VVS-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
+    setBookingId(tempId);
+    setShowPayment(true);
+  };
+
+  const handleJoinWaitlist = () => {
+    const ok = validateBookingForm();
+    if (!ok) return;
     const tempId = `VVS-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
     setBookingId(tempId);
     setShowPayment(true);
@@ -340,25 +385,24 @@ const RoomTypeDetail = () => {
                   </div>
                 </div>
 
-                {checkIn && checkOut && (
-                  <div className="mt-3 bg-muted/30 rounded-xl p-3">
+                <div className="mt-3 bg-muted/30 rounded-xl p-3">
                     <p className="font-body text-xs text-muted-foreground">
-                      {availableCount !== null ? (availableCount > 0 ? `${availableCount} rooms left` : 'Fully booked') : 'Availability will show here'}
+                      {checkIn && checkOut
+                        ? (availableCount !== null ? (availableCount > 0 ? `${availableCount} rooms left` : 'Fully booked') : 'Checking availability…')
+                        : 'Select dates to see availability, or browse upcoming availability below.'}
                     </p>
-                    {availableCount === 0 && (
                       <button
                         type="button"
-                        onClick={loadAvailabilityCalendar}
+                        onClick={() => void loadAvailabilityCalendar()}
                         disabled={availabilityLoading}
                         className="mt-2 text-xs font-body text-brand-crimson hover:underline disabled:opacity-60"
                       >
-                        {availabilityLoading ? 'Loading availabilityâ€¦' : 'View availability calendar'}
+                        {availabilityLoading ? 'Loading availability…' : 'Refresh availability calendar'}
                       </button>
-                    )}
 
                     {showAvailability && availabilityCalendar && availabilityCalendar.length > 0 && (
-                      <div className="mt-3 max-h-48 overflow-auto rounded-lg border border-border bg-background/60">
-                        <div className="grid grid-cols-2 gap-2 p-3 text-xs font-body">
+                      <div className="mt-3 max-h-56 overflow-auto rounded-lg border border-border bg-background/60">
+                        <div className="grid grid-cols-1 gap-2 p-3 text-xs font-body">
                           {availabilityCalendar.slice(0, 30).map((d: any) => (
                             <div key={String(d?.date)} className="rounded-md bg-card/60 px-2 py-1 border border-border">
                               <div className="flex items-center justify-between gap-2">
@@ -369,7 +413,7 @@ const RoomTypeDetail = () => {
                               </div>
                               {Array.isArray(d?.unavailableRooms) && d.unavailableRooms.length > 0 && (
                                 <div className="mt-1 text-[10px] text-muted-foreground">
-                                  Booked: {d.unavailableRooms.slice(0, 8).join(', ')}{d.unavailableRooms.length > 8 ? '…' : ''}
+                                  Booked room numbers: {d.unavailableRooms.slice(0, 12).join(', ')}{d.unavailableRooms.length > 12 ? '…' : ''}
                                 </div>
                               )}
                             </div>
@@ -377,8 +421,7 @@ const RoomTypeDetail = () => {
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
+                </div>
 
                 <div className="mt-5 space-y-3">
                   <p className="font-body text-sm font-semibold text-foreground">Your Details</p>
@@ -455,9 +498,27 @@ const RoomTypeDetail = () => {
                     </div>
                   </div>
 
-                  <button onClick={handleInitiateBooking} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-4 tracking-wide">
-                    Pay & Book Now
-                  </button>
+                  {!isFullyBookedSelectedDates ? (
+                    <button onClick={handleInitiateBooking} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-4 tracking-wide">
+                      Pay & Book Now
+                    </button>
+                  ) : (
+                    <div className="mt-4 space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAvailability(true);
+                          void loadAvailabilityCalendar();
+                        }}
+                        className="w-full py-3 rounded-xl border border-border bg-card font-body text-sm hover:bg-muted transition-colors"
+                      >
+                        View availability and change dates
+                      </button>
+                      <button onClick={handleJoinWaitlist} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold tracking-wide">
+                        Join waitlist for these dates
+                      </button>
+                    </div>
+                  )}
                   <p className="font-body text-[11px] text-muted-foreground text-center mt-3">Secure UPI · Instant confirmation after verification</p>
                 </div>
               </div>

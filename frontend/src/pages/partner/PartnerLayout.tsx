@@ -3,9 +3,8 @@ import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, LogOut, Menu, X, ClipboardList, CreditCard,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
-import { useEffect } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
 import { APP_LOGO_URL } from '@/lib/brand';
 

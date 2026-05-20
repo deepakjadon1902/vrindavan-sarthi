@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { useEffect, useRef, useState } from 'react';
 import { Star } from 'lucide-react';
 import { resolveBackendAssetUrl } from '@/lib/api';
 
