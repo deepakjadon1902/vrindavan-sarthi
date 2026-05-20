@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -11,8 +12,6 @@ import { prefetchDetail } from '@/lib/detailCache';
 const Rooms = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
 
   useEffect(() => {
@@ -20,7 +19,7 @@ const Rooms = () => {
       // Optimistically show cache while revalidating.
       try {
         const cached = localStorage.getItem('vvs_room_types');
-        if (cached && roomTypes.length === 0) {
+        if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) setRoomTypes(parsed);
         }
@@ -28,17 +27,11 @@ const Rooms = () => {
         // ignore
       }
 
-      const params: any = {};
-      if (checkIn && checkOut) {
-        params.checkIn = checkIn;
-        params.checkOut = checkOut;
-      }
-
       // Retry a few times (backend may be restarting).
       let lastErr: any = null;
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
-          const res = await api.get('/room-types', { params });
+          const res = await api.get('/room-types');
           const data = Array.isArray(res.data?.data) ? res.data.data : [];
           setRoomTypes(data);
           try {
@@ -69,7 +62,7 @@ const Rooms = () => {
       unsub();
       window.removeEventListener('focus', onFocus);
     };
-  }, [checkIn, checkOut]);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -87,7 +80,7 @@ const Rooms = () => {
       <section className="section-cream py-12 lg:py-16">
         <div className="container mx-auto px-4">
           <SectionTitle label="Room Options" title="Browse Rooms" subtitle="Choose a room type, then book from the hotel page" />
-          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="max-w-4xl mx-auto grid grid-cols-1 gap-3">
             <div className="relative md:col-span-3">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
               <input
@@ -97,26 +90,6 @@ const Rooms = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold"
               />
-            </div>
-            <div>
-              <label className="font-body text-xs text-muted-foreground">Check-in</label>
-              <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="mt-1 w-full px-4 py-3 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold" />
-            </div>
-            <div>
-              <label className="font-body text-xs text-muted-foreground">Check-out</label>
-              <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="mt-1 w-full px-4 py-3 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold" />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setCheckIn('');
-                  setCheckOut('');
-                }}
-                className="w-full py-3 rounded-xl border border-border bg-card font-body text-sm hover:bg-muted transition-colors"
-              >
-                Clear Dates
-              </button>
             </div>
           </div>
         </div>
@@ -143,19 +116,11 @@ const Rooms = () => {
                   rating={0}
                   reviewCount={0}
                   amenities={rt?.amenities || rt?.hotel?.amenities || []}
-                  meta={
-                    checkIn && checkOut
-                      ? (Number(rt?.availableCount || 0) > 0 ? `${rt.availableCount} rooms left` : 'Fully booked')
-                      : (Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined)
-                  }
-                  badge={checkIn && checkOut ? (Number(rt?.availableCount || 0) > 0 ? 'Available' : 'Sold out') : undefined}
-                  badgeColor={checkIn && checkOut ? (Number(rt?.availableCount || 0) > 0 ? 'green' : 'crimson') : undefined}
+                  meta={Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined}
+                  variant="compact"
                   onViewDetails={() => {
                     prefetchDetail('roomTypes', rt._id, rt);
-                    const qs = new URLSearchParams();
-                    if (checkIn) qs.set('checkIn', checkIn);
-                    if (checkOut) qs.set('checkOut', checkOut);
-                    navigate(`/room-types/${rt._id}?${qs.toString()}`);
+                    navigate(`/room-types/${rt._id}`);
                   }}
                 />
               ))}

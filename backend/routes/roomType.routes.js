@@ -3,9 +3,10 @@ const Hotel = require('../models/Hotel');
 const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
+const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
-const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
+const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 
 const router = express.Router();
 
@@ -221,6 +222,105 @@ router.get('/:id', async (req, res) => {
 
     const enriched = await enrichRoomType({ roomType, hotel, checkIn, checkOut });
     res.json({ success: true, data: enriched });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Public: calendar-style availability for a room type (per-day counts + room numbers)
+// Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (max 90 days)
+router.get('/:id/calendar', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+
+    const roomType = await RoomType.findById(req.params.id)
+      .select('_id hotelId status')
+      .lean();
+    if (!roomType || roomType.status !== 'active') return res.status(404).json({ success: false, message: 'Room type not found' });
+
+    const hotel = await Hotel.findOne({ _id: roomType.hotelId, status: 'active', approvalStatus: 'approved' })
+      .select('_id')
+      .lean();
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+    const fromRaw = parseDateOnlyToUTC(String(req.query?.from || ''));
+    const toRaw = parseDateOnlyToUTC(String(req.query?.to || ''));
+    const from = isValidDate(fromRaw) ? fromRaw : todayUtc;
+    const defaultTo = new Date(from.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const to = isValidDate(toRaw) && toRaw > from ? toRaw : defaultTo;
+
+    const maxTo = new Date(from.getTime() + 90 * 24 * 60 * 60 * 1000);
+    const boundedTo = to > maxTo ? maxTo : to;
+
+    const days = enumerateDatesUTC(from, boundedTo);
+    if (!days.length) return res.status(400).json({ success: false, message: 'Invalid date range' });
+
+    const units = await RoomUnit.find({ roomTypeId: roomType._id, status: 'active' })
+      .sort({ number: 1 })
+      .select('_id number')
+      .lean();
+
+    const totalCount = units.length;
+    const numberByUnitId = new Map(units.map((u) => [String(u._id), String(u.number)]));
+
+    const dateKey = (d) => d.toISOString().slice(0, 10);
+    const blockedByDate = new Map(days.map((d) => [dateKey(d), new Set()]));
+
+    // Blocks
+    const blocks = await RoomUnitBlock.find({
+      roomTypeId: roomType._id,
+      startDate: { $lt: boundedTo },
+      endDate: { $gt: from },
+    })
+      .select('roomUnitId startDate endDate')
+      .lean();
+
+    for (const b of blocks) {
+      const start = isValidDate(b.startDate) ? b.startDate : from;
+      const end = isValidDate(b.endDate) ? b.endDate : boundedTo;
+      const overlapStart = start < from ? from : start;
+      const overlapEnd = end > boundedTo ? boundedTo : end;
+      for (const d of enumerateDatesUTC(overlapStart, overlapEnd)) {
+        const key = dateKey(d);
+        const set = blockedByDate.get(key);
+        if (set) set.add(String(b.roomUnitId));
+      }
+    }
+
+    // Booked days
+    const bookingDays = await RoomUnitBookingDay.find({
+      roomTypeId: roomType._id,
+      date: { $gte: from, $lt: boundedTo },
+    })
+      .select('date roomUnitId')
+      .lean();
+
+    for (const bd of bookingDays) {
+      const key = dateKey(bd.date);
+      const set = blockedByDate.get(key);
+      if (set) set.add(String(bd.roomUnitId));
+    }
+
+    const calendar = days.map((d) => {
+      const key = dateKey(d);
+      const blockedSet = blockedByDate.get(key) || new Set();
+      const unavailableRooms = Array.from(blockedSet)
+        .map((id) => numberByUnitId.get(String(id)))
+        .filter(Boolean);
+      const unavailableCount = blockedSet.size;
+      const availableCount = Math.max(0, totalCount - unavailableCount);
+      return {
+        date: key,
+        totalCount,
+        availableCount,
+        unavailableRooms,
+      };
+    });
+
+    res.json({ success: true, data: { from: dateKey(from), to: dateKey(boundedTo), totalCount, calendar } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

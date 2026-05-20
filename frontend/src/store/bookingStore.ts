@@ -34,6 +34,8 @@ export interface Booking {
   roomTypeId?: string;
   roomUnitId?: string;
   roomNumber?: string;
+  isWaitlisted?: boolean;
+  waitlistAssignedAt?: string;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -72,6 +74,8 @@ const normalizeBooking = (b: unknown): Booking => {
     roomTypeId: getString(obj, 'roomTypeId') || undefined,
     roomUnitId: getString(obj, 'roomUnitId') || undefined,
     roomNumber: getString(obj, 'roomNumber') || undefined,
+    isWaitlisted: typeof obj.isWaitlisted === 'boolean' ? obj.isWaitlisted : undefined,
+    waitlistAssignedAt: getString(obj, 'waitlistAssignedAt') || undefined,
   };
 };
 

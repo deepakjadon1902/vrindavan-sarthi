@@ -7,6 +7,7 @@ const RoomUnitBlock = require('../models/RoomUnitBlock');
 const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
+const { processRoomTypeWaitlist } = require('../utils/waitlist');
 const router = express.Router();
 
 const normalizeGender = (v) => {
@@ -182,7 +183,58 @@ router.post('/room-type', protect, async (req, res) => {
       break;
     }
 
-    if (!createdBooking) return res.status(409).json({ success: false, message: 'No rooms available for selected dates' });
+    if (!createdBooking) {
+      const waitlistedBooking = await Booking.create({
+        bookingId,
+        bookingType: 'room_type',
+        itemId: String(roomType._id),
+        itemName: `${hotel.name} - ${roomType.name}`,
+        itemImage: (roomType.images && roomType.images[0]) || hotel.image,
+
+        userId: req.user._id,
+        userName: req.user.name,
+        userEmail: req.user.email,
+        userPhone: req.user.phone,
+
+        partnerId: hotel.partnerId,
+        partnerName: hotel.partnerName,
+
+        hotelId: hotel._id,
+        roomTypeId: roomType._id,
+
+        checkIn,
+        checkOut,
+        guests: totalAdults + totalChildren,
+
+        customerFullName,
+        customerMobile,
+        customerEmail,
+        arrivalMode: req.body?.arrivalMode || null,
+        vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
+        arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
+        totalAdults,
+        totalChildren,
+        hasPet,
+        guestDetails,
+
+        totalAmount,
+        paymentMethod: isOnline ? 'online' : (req.body?.paymentMethod || 'doorstep'),
+        bookingStatus: 'pending',
+        paymentStatus: isOnline ? 'pending' : (req.body?.paymentStatus || 'pending'),
+        verificationStage: isOnline ? (hotel.partnerId ? 'pending_partner' : 'pending_admin') : 'verified',
+        partnerPaymentVerified: false,
+        adminPaymentVerified: false,
+        upiTransactionId: String(req.body?.upiTransactionId || '').trim() || undefined,
+        additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
+        isWaitlisted: true,
+      });
+
+      return res.status(201).json({
+        success: true,
+        data: waitlistedBooking,
+        message: 'All rooms are booked for selected dates. Added to waitlist; we will auto-assign a room if a slot opens.',
+      });
+    }
 
     res.status(201).json({ success: true, data: createdBooking });
   } catch (err) {
@@ -303,6 +355,14 @@ router.put('/:id/cancel', protect, async (req, res) => {
 
     if (booking.roomUnitId) {
       await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
+    }
+
+    if (booking.roomTypeId) {
+      try {
+        await processRoomTypeWaitlist({ roomTypeId: booking.roomTypeId, max: 50 });
+      } catch {
+        // ignore waitlist processing errors
+      }
     }
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }

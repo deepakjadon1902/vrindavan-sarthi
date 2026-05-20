@@ -58,6 +58,11 @@ const bookingSchema = new mongoose.Schema({
   adminPaymentVerifiedAt: Date,
   additionalInfo: String,
   upiTransactionId: String,
+
+  // Waitlist (room_type bookings only): when no room unit could be assigned immediately.
+  // Such bookings have roomUnitId/roomNumber unset until later assignment.
+  isWaitlisted: { type: Boolean, default: false },
+  waitlistAssignedAt: Date,
 }, { timestamps: true });
 
 bookingSchema.pre('save', function (next) {

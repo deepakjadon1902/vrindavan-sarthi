@@ -24,12 +24,28 @@ const MyBookings = () => {
     void fetchMyBookings();
   }, [fetchMyBookings, user]);
 
+  useEffect(() => {
+    if (!user) return;
+    const onFocus = () => void fetchMyBookings();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchMyBookings, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const hasPendingWaitlist = myBookings.some((b) => Boolean(b.isWaitlisted) && !b.roomNumber && b.bookingStatus !== 'cancelled');
+    if (!hasPendingWaitlist) return;
+    const id = window.setInterval(() => void fetchMyBookings(), 15000);
+    return () => window.clearInterval(id);
+  }, [fetchMyBookings, myBookings, user]);
+
   const bookings = [...myBookings].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   const filtered =
     filter === 'All' ? bookings :
+    filter === 'Waitlist' ? bookings.filter(b => Boolean(b.isWaitlisted) && b.bookingStatus !== 'cancelled') :
     filter === 'Upcoming' ? bookings.filter(b => b.bookingStatus === 'confirmed') :
     filter === 'Pending' ? bookings.filter(b => b.bookingStatus === 'pending') :
     filter === 'Completed' ? bookings.filter(b => b.bookingStatus === 'completed') :
@@ -96,7 +112,7 @@ const MyBookings = () => {
 
           {/* Filters */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-            {['All', 'Upcoming', 'Pending', 'Completed', 'Cancelled'].map((tab) => (
+            {['All', 'Upcoming', 'Pending', 'Waitlist', 'Completed', 'Cancelled'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
@@ -154,10 +170,27 @@ const MyBookings = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <p className="font-body text-[10px] text-brand-crimson font-medium tracking-wider">{b.bookingId}</p>
-                          <span className={`font-body text-[10px] px-2 py-0.5 rounded-full capitalize border flex items-center gap-1 ${sb.cls}`}>
-                            <SIcon size={10} /> {b.bookingStatus}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            {b.roomNumber && (
+                              <span className="font-body text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted/40 text-foreground flex items-center gap-1">
+                                <BedDouble size={10} /> Room {String(b.roomNumber)}
+                              </span>
+                            )}
+                            {b.isWaitlisted && !b.roomNumber && (
+                              <span className="font-body text-[10px] px-2 py-0.5 rounded-full border border-brand-saffron/30 bg-brand-saffron/10 text-brand-saffron">
+                                Waitlist
+                              </span>
+                            )}
+                            <span className={`font-body text-[10px] px-2 py-0.5 rounded-full capitalize border flex items-center gap-1 ${sb.cls}`}>
+                              <SIcon size={10} /> {b.bookingStatus}
+                            </span>
+                          </div>
                         </div>
+                        {b.isWaitlisted && !b.roomNumber && (
+                          <p className="mt-1 font-body text-[11px] text-brand-saffron">
+                            Waitlisted â€¢ waiting for room assignment
+                          </p>
+                        )}
                         <h3 className="font-display text-base font-semibold text-foreground truncate mt-0.5">{b.itemName}</h3>
                         <div className="flex items-center gap-3 mt-2 font-body text-[11px] text-muted-foreground">
                           {b.checkIn && (

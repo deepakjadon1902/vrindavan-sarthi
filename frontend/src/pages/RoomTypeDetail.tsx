@@ -36,7 +36,12 @@ const RoomTypeDetail = () => {
   const [childDetails, setChildDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([]);
   const [showPayment, setShowPayment] = useState(false);
   const [bookingId, setBookingId] = useState('');
+  const [assignedRoomNumber, setAssignedRoomNumber] = useState('');
+  const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [showAvailability, setShowAvailability] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityCalendar, setAvailabilityCalendar] = useState<any[] | null>(null);
 
   useEffect(() => {
     setCustomerFullName(user?.name || '');
@@ -122,6 +127,23 @@ const RoomTypeDetail = () => {
   const availableCount = typeof roomType.availableCount === 'number' ? roomType.availableCount : null;
   const totalCount = typeof roomType.totalCount === 'number' ? roomType.totalCount : null;
 
+  const loadAvailabilityCalendar = async () => {
+    if (!id) return;
+    setAvailabilityLoading(true);
+    try {
+      const now = new Date();
+      const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
+      const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + 30 * 86400000).toISOString().slice(0, 10);
+      const res = await api.get(`/room-types/${id}/calendar`, { params: { from, to } });
+      setAvailabilityCalendar(res.data?.data?.calendar || []);
+      setShowAvailability(true);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to load availability calendar');
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
+
   const canPet = Boolean(hotel.petsAllowed) && Boolean(roomType.petsAllowed);
 
   const handleInitiateBooking = () => {
@@ -135,8 +157,8 @@ const RoomTypeDetail = () => {
       return;
     }
     if (availableCount !== null && availableCount <= 0) {
-      toast.error('No rooms available for selected dates');
-      return;
+      toast.error('All rooms are booked for these dates. You can view availability or join the waitlist.');
+      void loadAvailabilityCalendar();
     }
     if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) {
       toast.error('Please fill your name, mobile and email');
@@ -189,9 +211,12 @@ const RoomTypeDetail = () => {
       return;
     }
 
+    if (res.data?.bookingId) setBookingId(String(res.data.bookingId));
+    if (res.data?.roomNumber) setAssignedRoomNumber(String(res.data.roomNumber));
+    setIsWaitlistedBooking(Boolean(res.data?.isWaitlisted));
     setShowPayment(false);
     setBooked(true);
-    toast.success('Booking confirmed! Payment verification pending.');
+    toast.success(res.data?.isWaitlisted ? 'Added to waitlist. We will assign a room if a slot opens.' : 'Booking confirmed! Payment verification pending.');
   };
 
   const images = Array.isArray(roomType.images) && roomType.images.length ? roomType.images : [hotel.image, ...(hotel.images || [])].filter(Boolean);
@@ -209,7 +234,7 @@ const RoomTypeDetail = () => {
 
             <div className="glass-panel rounded-2xl p-6 metallic-border space-y-4">
               <div>
-                <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground leading-tight">{roomType.name}</h1>
+                <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground leading-tight">{roomType.name}</h1>
                 <p className="font-body text-sm text-muted-foreground mt-2">{roomType.description || ''}</p>
                 <div className="flex flex-wrap items-center gap-4 mt-4">
                   <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground">
@@ -283,7 +308,9 @@ const RoomTypeDetail = () => {
             {booked ? (
               <div className="bg-card rounded-2xl border border-border p-6 text-center">
                 <p className="font-heading text-xl text-foreground font-semibold">Booking created</p>
-                <p className="font-body text-sm text-muted-foreground mt-2">Verification pending.</p>
+                <p className="font-body text-sm text-muted-foreground mt-2">{isWaitlistedBooking ? 'Waitlisted.' : 'Verification pending.'}</p>
+                {bookingId && <p className="font-body text-xs text-muted-foreground mt-2">Booking ID: <span className="text-foreground">{bookingId}</span></p>}
+                {assignedRoomNumber && <p className="font-body text-xs text-muted-foreground mt-1">Assigned room: <span className="text-foreground">{assignedRoomNumber}</span></p>}
                 <Link to="/bookings" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-block mt-4">
                   View My Bookings
                 </Link>
@@ -299,7 +326,7 @@ const RoomTypeDetail = () => {
             ) : (
               <div className="glass-panel rounded-2xl p-6 metallic-border sticky top-24">
                 <p className="font-body text-xs text-muted-foreground">Price</p>
-                <p className="font-display text-3xl font-bold text-brand-crimson">₹{Number(roomType.pricePerNight || 0).toLocaleString('en-IN')}</p>
+                <p className="font-display text-2xl font-bold text-brand-crimson">₹{Number(roomType.pricePerNight || 0).toLocaleString('en-IN')}</p>
                 <p className="font-body text-xs text-muted-foreground">per night</p>
 
                 <div className="grid grid-cols-2 gap-3 mt-5">
@@ -318,6 +345,38 @@ const RoomTypeDetail = () => {
                     <p className="font-body text-xs text-muted-foreground">
                       {availableCount !== null ? (availableCount > 0 ? `${availableCount} rooms left` : 'Fully booked') : 'Availability will show here'}
                     </p>
+                    {availableCount === 0 && (
+                      <button
+                        type="button"
+                        onClick={loadAvailabilityCalendar}
+                        disabled={availabilityLoading}
+                        className="mt-2 text-xs font-body text-brand-crimson hover:underline disabled:opacity-60"
+                      >
+                        {availabilityLoading ? 'Loading availabilityâ€¦' : 'View availability calendar'}
+                      </button>
+                    )}
+
+                    {showAvailability && availabilityCalendar && availabilityCalendar.length > 0 && (
+                      <div className="mt-3 max-h-48 overflow-auto rounded-lg border border-border bg-background/60">
+                        <div className="grid grid-cols-2 gap-2 p-3 text-xs font-body">
+                          {availabilityCalendar.slice(0, 30).map((d: any) => (
+                            <div key={String(d?.date)} className="rounded-md bg-card/60 px-2 py-1 border border-border">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground">{String(d?.date || '')}</span>
+                                <span className={Number(d?.availableCount || 0) > 0 ? 'text-brand-green' : 'text-destructive'}>
+                                  {Number(d?.availableCount || 0) > 0 ? `${d.availableCount}/${d.totalCount}` : 'Full'}
+                                </span>
+                              </div>
+                              {Array.isArray(d?.unavailableRooms) && d.unavailableRooms.length > 0 && (
+                                <div className="mt-1 text-[10px] text-muted-foreground">
+                                  Booked: {d.unavailableRooms.slice(0, 8).join(', ')}{d.unavailableRooms.length > 8 ? '…' : ''}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -411,4 +470,3 @@ const RoomTypeDetail = () => {
 };
 
 export default RoomTypeDetail;
-

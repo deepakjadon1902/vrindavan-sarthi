@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import Navbar from '@/components/layout/Navbar';
@@ -61,9 +62,10 @@ const BookingDetail = () => {
     room: BedDouble,
     cab: Car,
     tour: MapIcon,
+    room_type: BedDouble,
   }[booking.bookingType];
 
-  const TypeIcon = typeIcon;
+  const TypeIcon = typeIcon || ClipboardList;
 
   const statusConfig = {
     confirmed: { color: 'bg-brand-green/10 text-brand-green border-brand-green/20', icon: CheckCircle2, label: 'Confirmed' },
@@ -79,6 +81,28 @@ const BookingDetail = () => {
     if (res.success) toast.success('Booking cancelled successfully');
     else toast.error(res.error || 'Cancel failed');
   };
+
+  const verificationLabel = (() => {
+    if (booking.isWaitlisted) return 'Waitlisted (awaiting room assignment)';
+    const stage = String(booking.verificationStage || '');
+    if (stage === 'verified') return 'Verified';
+    if (stage === 'pending_partner') return 'Pending partner verification';
+    if (stage === 'pending_admin') return 'Pending admin verification';
+    if (stage === 'rejected') return 'Rejected';
+    return booking.paymentMethod === 'doorstep' ? 'Pay at doorstep' : 'Verification pending';
+  })();
+
+  const viewItemHref = (() => {
+    const type = String(booking.bookingType || '');
+    if (type === 'room_type') {
+      const rtId = booking.roomTypeId || booking.itemId;
+      return rtId ? `/room-types/${rtId}` : '/rooms';
+    }
+    if (type === 'hotel') return booking.itemId ? `/hotels/${booking.itemId}` : '/hotels';
+    if (type === 'cab') return booking.itemId ? `/cabs/${booking.itemId}` : '/cabs';
+    if (type === 'tour') return booking.itemId ? `/tours/${booking.itemId}` : '/tours';
+    return '/';
+  })();
 
   return (
     <>
@@ -149,6 +173,15 @@ const BookingDetail = () => {
                       <p className="font-body text-sm font-medium text-foreground">{booking.guests} Guest(s)</p>
                     </div>
                   )}
+                  {booking.roomNumber && (
+                    <div>
+                      <p className="font-body text-xs text-muted-foreground mb-1">Room Number</p>
+                      <p className="font-body text-sm font-medium text-foreground flex items-center gap-1.5">
+                        <BedDouble size={14} className="text-brand-green" />
+                        {String(booking.roomNumber)}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <p className="font-body text-xs text-muted-foreground mb-1">Booked On</p>
                     <p className="font-body text-sm font-medium text-foreground">
@@ -213,6 +246,10 @@ const BookingDetail = () => {
                       {booking.paymentStatus}
                     </span>
                   </div>
+                  <div className="flex justify-between font-body text-sm">
+                    <span className="text-muted-foreground">Verification</span>
+                    <span className="text-foreground">{verificationLabel}</span>
+                  </div>
                   <div className="h-px bg-border" />
                   <div className="flex justify-between font-body text-base">
                     <span className="font-semibold text-foreground">Total Paid</span>
@@ -238,10 +275,10 @@ const BookingDetail = () => {
               )}
 
               <Link
-                to={`/${booking.bookingType}s/${booking.itemId}`}
+                to={viewItemHref}
                 className="block w-full py-3 rounded-xl bg-brand-crimson text-primary-foreground font-body text-sm font-medium text-center hover:bg-brand-crimson/90 transition-colors"
               >
-                View {booking.bookingType.charAt(0).toUpperCase() + booking.bookingType.slice(1)} Page
+                View Details
               </Link>
             </div>
           </div>

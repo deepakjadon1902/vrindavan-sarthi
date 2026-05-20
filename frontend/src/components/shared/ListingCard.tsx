@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Star } from 'lucide-react';
 import { resolveBackendAssetUrl } from '@/lib/api';
 
@@ -19,7 +20,7 @@ interface ListingCardProps {
   onViewDetails?: () => void;
   /** Auto-scroll interval in ms */
   intervalMs?: number;
-  variant?: 'default' | 'hotel';
+  variant?: 'default' | 'hotel' | 'compact';
 }
 
 const ListingCard = ({
@@ -66,7 +67,9 @@ const ListingCard = ({
     <div className="bg-card rounded-xl overflow-hidden border border-border card-hover group">
       {/* Image carousel */}
       <div
-        className={`relative overflow-hidden ${variant === 'hotel' ? 'h-48 sm:h-52' : 'h-44 sm:h-48'}`}
+        className={`relative overflow-hidden ${
+          variant === 'hotel' ? 'h-48 sm:h-52' : variant === 'compact' ? 'h-40 sm:h-44' : 'h-44 sm:h-48'
+        }`}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
@@ -126,9 +129,13 @@ const ListingCard = ({
       </div>
 
       {/* Content */}
-      <div className="p-4">
-        <h3 className={`font-heading font-semibold text-foreground line-clamp-1 ${variant === 'hotel' ? 'text-base' : 'text-lg'}`}>{name}</h3>
-        <p className={`font-body text-muted-foreground mt-1 ${variant === 'hotel' ? 'text-xs' : 'text-sm'}`}>{location}</p>
+      <div className={variant === 'compact' ? 'p-3' : 'p-4'}>
+        <h3 className={`font-heading font-semibold text-foreground line-clamp-1 ${
+          variant === 'hotel' ? 'text-base' : variant === 'compact' ? 'text-base' : 'text-lg'
+        }`}>{name}</h3>
+        <p className={`font-body text-muted-foreground mt-1 ${
+          variant === 'hotel' ? 'text-xs' : variant === 'compact' ? 'text-xs' : 'text-sm'
+        }`}>{location}</p>
         {meta && <p className="font-body text-xs text-muted-foreground mt-1">{meta}</p>}
 
         {/* Rating */}
@@ -161,12 +168,12 @@ const ListingCard = ({
           {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
             <div>
               <span className="font-heading text-2xl font-bold text-foreground">₹{price.toLocaleString('en-IN')}</span>
-              <span className="font-body text-sm text-muted-foreground">{priceLabel}</span>
+              <span className={`font-body text-muted-foreground ${variant === 'compact' ? 'text-xs' : 'text-sm'}`}>{priceLabel}</span>
             </div>
           ) : (
             <div />
           )}
-          <button onClick={onViewDetails} className="btn-gold px-3.5 py-1.5 rounded-lg text-sm font-body">
+          <button onClick={onViewDetails} className={`btn-gold rounded-lg font-body ${variant === 'compact' ? 'px-3 py-1.5 text-xs' : 'px-3.5 py-1.5 text-sm'}`}>
             View Details →
           </button>
         </div>

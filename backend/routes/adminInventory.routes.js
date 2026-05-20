@@ -3,6 +3,7 @@ const Hotel = require('../models/Hotel');
 const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
+const { processRoomTypeWaitlist } = require('../utils/waitlist');
 const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
@@ -148,6 +149,12 @@ router.post('/room-types/:roomTypeId/rooms', async (req, res) => {
       status: normalizeString(req.body?.status) === 'inactive' ? 'inactive' : 'active',
     });
 
+    try {
+      await processRoomTypeWaitlist({ roomTypeId: roomType._id, max: 50 });
+    } catch {
+      // ignore waitlist processing errors
+    }
+
     res.status(201).json({ success: true, data: room });
   } catch (err) {
     if (String(err?.code) === '11000') {
@@ -273,4 +280,3 @@ router.delete('/blocks/:blockId', async (req, res) => {
 });
 
 module.exports = router;
-
