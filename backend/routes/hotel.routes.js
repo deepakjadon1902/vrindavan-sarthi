@@ -12,7 +12,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     // Optimize payload for listing pages (Home/Hotels).
-    res.set('Cache-Control', 'no-store');
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
 
     const checkIn = parseDateOnlyToUTC(String(req.query?.checkIn || ''));
     const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));

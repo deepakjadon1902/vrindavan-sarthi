@@ -1,6 +1,9 @@
 require('dotenv').config();
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const { seedAdminOnce } = require('./config/seedAdmin');
@@ -48,6 +51,13 @@ const seedPoll = setInterval(() => {
 }, 2000);
 
 const app = express();
+
+app.use(
+  compression({
+    // Avoid compressing tiny payloads.
+    threshold: 1024,
+  })
+);
 
 // If MongoDB is down, return a clear error instead of hanging/throwing deep in handlers.
 app.use('/api', (req, res, next) => {

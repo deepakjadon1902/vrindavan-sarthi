@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Star } from 'lucide-react';
 import { resolveBackendAssetUrl } from '@/lib/api';
 
@@ -40,13 +40,13 @@ const ListingCard = ({
   variant = 'default',
 }: ListingCardProps) => {
   // Build full gallery: main image + extras (de-duplicated, placeholder filtered)
-  const gallery = (() => {
-    const all = [image, ...(images || [])].map((src) => resolveBackendAssetUrl(src)).filter(
-      (src): src is string => Boolean(src) && src !== '/placeholder.svg'
-    );
-    return Array.from(new Set(all));
-  })();
-  const safeGallery = gallery.length > 0 ? gallery : [image || '/placeholder.svg'];
+  const safeGallery = useMemo(() => {
+    const all = [image, ...(images || [])]
+      .map((src) => resolveBackendAssetUrl(src))
+      .filter((src): src is string => Boolean(src) && src !== '/placeholder.svg');
+    const gallery = Array.from(new Set(all));
+    return gallery.length > 0 ? gallery : [image || '/placeholder.svg'];
+  }, [image, images]);
 
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -62,6 +62,17 @@ const ListingCard = ({
     };
   }, [paused, safeGallery.length, intervalMs]);
 
+  // Only render the active image to avoid downloading the entire gallery for every card.
+  // Prefetch the next image after first paint for smoother transitions.
+  useEffect(() => {
+    if (safeGallery.length <= 1) return;
+    const next = safeGallery[(active + 1) % safeGallery.length];
+    if (!next) return;
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = next;
+  }, [active, safeGallery]);
+
   return (
     <div className="bg-card rounded-xl overflow-hidden border border-border card-hover group">
       {/* Image carousel */}
@@ -72,18 +83,15 @@ const ListingCard = ({
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
-        {safeGallery.map((src, i) => (
-          <img
-            key={`${src}-${i}`}
-            src={src}
-            alt={`${name} ${i + 1}`}
-            loading="lazy"
-            className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out ${
-              i === active ? 'opacity-100 scale-105' : 'opacity-0 scale-100'
-            } group-hover:scale-110`}
-            onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}
-          />
-        ))}
+        <img
+          key={`${safeGallery[active] || ''}-${active}`}
+          src={safeGallery[active]}
+          alt={`${name} ${active + 1}`}
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out scale-105 group-hover:scale-110"
+          onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}
+        />
 
         {/* Glossy sheen */}
         <div className="pointer-events-none absolute inset-0 glossy-sheen" />

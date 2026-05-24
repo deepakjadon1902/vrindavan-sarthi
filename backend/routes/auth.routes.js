@@ -1,5 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
@@ -17,6 +19,39 @@ const requireEnv = (key) => {
   }
   return value;
 };
+
+const canSendEmail = () =>
+  Boolean(process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.SMTP_USER && process.env.SMTP_PASS);
+
+const getMissingSmtpKeys = () => {
+  const keys = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'];
+  return keys.filter((k) => !String(process.env[k] || '').trim());
+};
+
+const buildMailer = () => {
+  const host = requireEnv('SMTP_HOST');
+  const port = Number(requireEnv('SMTP_PORT'));
+  const user = requireEnv('SMTP_USER');
+  const pass = requireEnv('SMTP_PASS');
+  const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465;
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    // Fail fast instead of hanging when SMTP is blocked by hosting/network.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
+};
+
+const hashOtp = (email, otp) => {
+  const salt = process.env.PASSWORD_RESET_OTP_SALT || process.env.JWT_SECRET || 'vvs_otp_salt';
+  return crypto.createHash('sha256').update(`${normalizeEmail(email)}|${otp}|${salt}`).digest('hex');
+};
+
+const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
 const redirectToLoginWithError = (res, error) => {
   const frontendBase = process.env.FRONTEND_BASE_URL || 'http://localhost:8080';
@@ -210,6 +245,149 @@ router.put('/me', protect, async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(req.user._id, req.body, { new: true }).select('-password');
     res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Forgot password: send OTP to email
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+
+    const user = await User.findOne({ email }).select('_id email name');
+    // Always respond success to avoid account enumeration.
+    if (!user) return res.json({ success: true, message: 'If an account exists, an OTP has been sent.' });
+
+    const otp = generateOtp();
+    const otpHash = hashOtp(email, otp);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          passwordResetOtpHash: otpHash,
+          passwordResetOtpExpiresAt: expiresAt,
+          passwordResetOtpAttempts: 0,
+          passwordResetOtpVerifiedAt: null,
+        },
+      }
+    );
+
+    if (canSendEmail()) {
+      try {
+        const transport = buildMailer();
+        const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+        await transport.sendMail({
+          from,
+          to: email,
+          subject: 'VrindavanSarthi Password Reset OTP',
+          text: `Your OTP for password reset is: ${otp}\n\nThis OTP expires in 10 minutes.`,
+        });
+      } catch (mailErr) {
+        console.error('[VVS] SMTP send failed:', mailErr?.code || mailErr?.name || mailErr, mailErr?.message || '');
+        return res.status(502).json({
+          success: false,
+          message:
+            'OTP email could not be sent. Please verify SMTP settings and ensure your server can access the SMTP host/port (some hosting providers block SMTP).',
+        });
+      }
+    } else {
+      // Dev fallback: show OTP in backend logs if SMTP isn't configured.
+      const missing = getMissingSmtpKeys();
+      console.log(
+        `[VVS] SMTP not configured (${missing.join(', ') || 'unknown missing keys'}). Password reset OTP for ${email}: ${otp} (expires in 10 minutes)`
+      );
+    }
+
+    res.json({ success: true, message: 'If an account exists, an OTP has been sent.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Verify OTP and return a short-lived reset token
+router.post('/verify-reset-otp', async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    const otp = String(req.body?.otp || '').trim();
+    if (!email || !otp) return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+
+    const user = await User.findOne({ email }).select('+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpAttempts');
+    if (!user?.passwordResetOtpHash || !user?.passwordResetOtpExpiresAt) {
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
+
+    if (user.passwordResetOtpAttempts >= 5) {
+      return res.status(429).json({ success: false, message: 'Too many attempts. Please request a new OTP.' });
+    }
+
+    if (new Date(user.passwordResetOtpExpiresAt).getTime() < Date.now()) {
+      return res.status(400).json({ success: false, message: 'OTP expired. Please request a new OTP.' });
+    }
+
+    const expected = user.passwordResetOtpHash;
+    const provided = hashOtp(email, otp);
+    if (expected !== provided) {
+      await User.updateOne({ _id: user._id }, { $inc: { passwordResetOtpAttempts: 1 } });
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
+
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: { passwordResetOtpVerifiedAt: new Date() },
+      }
+    );
+
+    const secret = requireEnv('JWT_SECRET');
+    const resetToken = jwt.sign({ email, action: 'reset_password' }, secret, { expiresIn: '15m' });
+    res.json({ success: true, resetToken });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Reset password using reset token
+router.post('/reset-password', async (req, res) => {
+  try {
+    const resetToken = String(req.body?.resetToken || '').trim();
+    const newPassword = String(req.body?.newPassword || '');
+    if (!resetToken || !newPassword) return res.status(400).json({ success: false, message: 'Missing reset token or password' });
+    if (newPassword.length < 6) return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+
+    const secret = requireEnv('JWT_SECRET');
+    let payload;
+    try {
+      payload = jwt.verify(resetToken, secret);
+    } catch {
+      return res.status(401).json({ success: false, message: 'Invalid or expired reset token' });
+    }
+
+    const email = normalizeEmail(payload?.email);
+    if (!email || payload?.action !== 'reset_password') {
+      return res.status(401).json({ success: false, message: 'Invalid reset token' });
+    }
+
+    const user = await User.findOne({ email }).select('+password +passwordResetOtpVerifiedAt');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // Require OTP verification before allowing reset.
+    if (!user.passwordResetOtpVerifiedAt) {
+      return res.status(400).json({ success: false, message: 'OTP verification required' });
+    }
+
+    user.password = newPassword;
+    user.authProvider = user.authProvider || 'local';
+    user.passwordResetOtpHash = undefined;
+    user.passwordResetOtpExpiresAt = undefined;
+    user.passwordResetOtpAttempts = 0;
+    user.passwordResetOtpVerifiedAt = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successful' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

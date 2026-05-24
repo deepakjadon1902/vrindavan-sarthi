@@ -106,7 +106,7 @@ const Login = () => {
               <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="............." />
             </div>
             <div className="text-right">
-              <a href="#" className="font-body text-xs text-brand-gold hover:underline">Forgot Password?</a>
+              <Link to="/forgot-password" className="font-body text-xs text-brand-gold hover:underline">Forgot Password?</Link>
             </div>
             <button type="submit" disabled={isLoading} className="btn-crimson w-full py-3.5 rounded-xl text-sm disabled:opacity-50">
               {isLoading ? 'Signing in...' : 'Sign In'}

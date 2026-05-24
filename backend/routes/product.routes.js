@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
     // - optional filter: ?inStock=true to only show in-stock items
     // - only send 1 image for list cards (detail endpoint returns full product)
     // - lean() to reduce Mongoose overhead
-    res.set('Cache-Control', 'no-store');
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     const inStockOnly = String(req.query?.inStock || '').toLowerCase() === 'true';
     const query = inStockOnly ? { $or: [{ inStock: true }, { inStock: { $exists: false } }] } : {};
 

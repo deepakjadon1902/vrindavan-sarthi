@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import ImageCarousel from '@/components/shared/ImageCarousel';
 import UpiPayment from '@/components/UpiPayment';
+import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
 
 const RoomTypeDetail = () => {
   const { id } = useParams();
@@ -42,6 +45,13 @@ const RoomTypeDetail = () => {
   const [showAvailability, setShowAvailability] = useState(false);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityCalendar, setAvailabilityCalendar] = useState<any[] | null>(null);
+  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(() => {
+    const from = checkIn ? new Date(`${checkIn}T00:00:00.000Z`) : undefined;
+    const to = checkOut ? new Date(`${checkOut}T00:00:00.000Z`) : undefined;
+    if (from && Number.isFinite(from.getTime()) && to && Number.isFinite(to.getTime()) && to > from) return { from, to };
+    if (from && Number.isFinite(from.getTime())) return { from };
+    return undefined;
+  });
 
   useEffect(() => {
     setCustomerFullName(user?.name || '');
@@ -76,6 +86,14 @@ const RoomTypeDetail = () => {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkIn, checkOut]);
+
+  useEffect(() => {
+    const from = checkIn ? new Date(`${checkIn}T00:00:00.000Z`) : undefined;
+    const to = checkOut ? new Date(`${checkOut}T00:00:00.000Z`) : undefined;
+    if (from && Number.isFinite(from.getTime()) && to && Number.isFinite(to.getTime()) && to > from) setSelectedRange({ from, to });
+    else if (from && Number.isFinite(from.getTime())) setSelectedRange({ from });
+    else setSelectedRange(undefined);
   }, [checkIn, checkOut]);
 
   const roomType = data || null;
@@ -125,6 +143,24 @@ const RoomTypeDetail = () => {
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, checkIn]);
+
+  const availabilityByDate = useMemo(() => {
+    const map = new Map<string, { totalCount: number; availableCount: number }>();
+    for (const d of availabilityCalendar || []) {
+      const key = String(d?.date || '');
+      if (!key) continue;
+      map.set(key, {
+        totalCount: Number(d?.totalCount || 0),
+        availableCount: Number(d?.availableCount || 0),
+      });
+    }
+    return map;
+  }, [availabilityCalendar]);
+
+  const todayUtc = useMemo(() => {
+    const now = new Date();
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  }, []);
 
   if (loading && !roomType) {
     return (
@@ -400,25 +436,70 @@ const RoomTypeDetail = () => {
                         {availabilityLoading ? 'Loading availability…' : 'Refresh availability calendar'}
                       </button>
 
-                    {showAvailability && availabilityCalendar && availabilityCalendar.length > 0 && (
-                      <div className="mt-3 max-h-56 overflow-auto rounded-lg border border-border bg-background/60">
-                        <div className="grid grid-cols-1 gap-2 p-3 text-xs font-body">
-                          {availabilityCalendar.slice(0, 30).map((d: any) => (
-                            <div key={String(d?.date)} className="rounded-md bg-card/60 px-2 py-1 border border-border">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-muted-foreground">{String(d?.date || '')}</span>
-                                <span className={Number(d?.availableCount || 0) > 0 ? 'text-brand-green' : 'text-destructive'}>
-                                  {Number(d?.availableCount || 0) > 0 ? `${d.availableCount}/${d.totalCount}` : 'Full'}
-                                </span>
-                              </div>
-                              {Array.isArray(d?.unavailableRooms) && d.unavailableRooms.length > 0 && (
-                                <div className="mt-1 text-[10px] text-muted-foreground">
-                                  Booked room numbers: {d.unavailableRooms.slice(0, 12).join(', ')}{d.unavailableRooms.length > 12 ? '…' : ''}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                    {showAvailability && (
+                      <div className="mt-3 rounded-lg border border-border bg-background/60">
+                        <div className="p-3 border-b border-border">
+                          <p className="font-body text-xs text-muted-foreground">
+                            Tap dates to select check-in/check-out. Numbers show available rooms per day.
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-body text-muted-foreground">
+                            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-brand-green/70" /> Available</span>
+                            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-brand-saffron/70" /> Low</span>
+                            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-destructive/70" /> Full</span>
+                          </div>
                         </div>
+
+                        <Calendar
+                          mode="range"
+                          selected={selectedRange}
+                          onSelect={(range) => {
+                            setSelectedRange(range);
+                            const from = range?.from ? format(range.from, 'yyyy-MM-dd') : '';
+                            const to = range?.to ? format(range.to, 'yyyy-MM-dd') : '';
+                            setCheckIn(from);
+                            setCheckOut(to);
+                          }}
+                          numberOfMonths={1}
+                          fromDate={todayUtc}
+                          modifiers={{
+                            fullyBooked: (date) => {
+                              const key = format(date, 'yyyy-MM-dd');
+                              const item = availabilityByDate.get(key);
+                              return typeof item?.availableCount === 'number' && item.availableCount <= 0;
+                            },
+                            lowAvailability: (date) => {
+                              const key = format(date, 'yyyy-MM-dd');
+                              const item = availabilityByDate.get(key);
+                              return typeof item?.availableCount === 'number' && item.availableCount > 0 && item.availableCount <= 2;
+                            },
+                            available: (date) => {
+                              const key = format(date, 'yyyy-MM-dd');
+                              const item = availabilityByDate.get(key);
+                              return typeof item?.availableCount === 'number' && item.availableCount > 2;
+                            },
+                          }}
+                          modifiersClassNames={{
+                            fullyBooked: 'bg-destructive/15 text-destructive hover:bg-destructive/20',
+                            lowAvailability: 'bg-brand-saffron/15 text-foreground hover:bg-brand-saffron/20',
+                            available: 'bg-brand-green/10 text-foreground hover:bg-brand-green/15',
+                          }}
+                          components={{
+                            DayContent: (props) => {
+                              const key = format(props.date, 'yyyy-MM-dd');
+                              const item = availabilityByDate.get(key);
+                              const count = item ? item.availableCount : null;
+                              return (
+                                <div className="flex flex-col items-center justify-center leading-none">
+                                  <div>{props.date.getDate()}</div>
+                                  {typeof count === 'number' && (
+                                    <div className="mt-0.5 text-[10px] text-muted-foreground">{count}</div>
+                                  )}
+                                </div>
+                              );
+                            },
+                          }}
+                          className="w-full"
+                        />
                       </div>
                     )}
                 </div>

@@ -65,7 +65,7 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
 // Optional query: ?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD (returns totalCount/availableCount)
 router.get('/', async (req, res) => {
   try {
-    res.set('Cache-Control', 'no-store');
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
 
     const checkIn = parseDateOnlyToUTC(String(req.query?.checkIn || ''));
     const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));
@@ -204,7 +204,7 @@ router.get('/', async (req, res) => {
 // Public: get one room type with hotel/uploader details and optional availability
 router.get('/:id', async (req, res) => {
   try {
-    res.set('Cache-Control', 'no-store');
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
 
     const roomType = await RoomType.findById(req.params.id)
       .select('_id hotelId partnerId createdByUserId createdByRole name description images amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
@@ -231,7 +231,7 @@ router.get('/:id', async (req, res) => {
 // Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (max 90 days)
 router.get('/:id/calendar', async (req, res) => {
   try {
-    res.set('Cache-Control', 'no-store');
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
 
     const roomType = await RoomType.findById(req.params.id)
       .select('_id hotelId status')

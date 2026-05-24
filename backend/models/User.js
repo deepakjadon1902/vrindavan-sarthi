@@ -25,6 +25,12 @@ const userSchema = new mongoose.Schema({
   businessEmail: String,
   businessDescription: String,
   partnerStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+
+  // Password reset via email OTP
+  passwordResetOtpHash: { type: String, select: false },
+  passwordResetOtpExpiresAt: { type: Date, select: false },
+  passwordResetOtpAttempts: { type: Number, default: 0, select: false },
+  passwordResetOtpVerifiedAt: { type: Date, select: false },
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {

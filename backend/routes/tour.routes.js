@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    res.set('Cache-Control', 'no-store');
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     const tours = await Tour.find({ status: 'active', approvalStatus: 'approved' })
       .sort({ createdAt: -1 })
       .select('name duration pricePerPerson image images includes status createdAt')
