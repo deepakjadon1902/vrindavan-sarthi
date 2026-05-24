@@ -10,6 +10,20 @@ const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils
 
 const router = express.Router();
 
+const memCache = new Map();
+const getMemCache = (key) => {
+  const hit = memCache.get(key);
+  if (!hit) return null;
+  if (Date.now() > hit.expiresAt) {
+    memCache.delete(key);
+    return null;
+  }
+  return hit.value;
+};
+const setMemCache = (key, value, ttlMs) => {
+  memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+};
+
 const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
   const totalCount = await RoomUnit.countDocuments({ roomTypeId: roomType._id, status: 'active' });
 
@@ -71,6 +85,82 @@ router.get('/', async (req, res) => {
     const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));
     const withAvailability = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
 
+    // Fast path for Rooms page (no date filters): single aggregation instead of multiple round trips.
+    if (!withAvailability) {
+      const data = await RoomType.aggregate([
+        { $match: { status: 'active' } },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: 'hotels',
+            let: { hid: '$hotelId' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$_id', '$$hid'] },
+                  status: 'active',
+                  approvalStatus: 'approved',
+                },
+              },
+              {
+                $project: {
+                  _id: 1,
+                  name: 1,
+                  location: 1,
+                  rating: 1,
+                  image: 1,
+                  images: { $slice: ['$images', 1] },
+                  amenities: 1,
+                  petsAllowed: 1,
+                  checkInTime: 1,
+                  checkOutTime: 1,
+                  partnerId: 1,
+                  partnerName: 1,
+                  partnerEmail: 1,
+                  partnerPhone: 1,
+                },
+              },
+            ],
+            as: 'hotel',
+          },
+        },
+        { $unwind: { path: '$hotel', preserveNullAndEmptyArrays: false } },
+        {
+          $lookup: {
+            from: 'roomunits',
+            let: { rtId: '$_id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$roomTypeId', '$$rtId'] }, status: 'active' } },
+              { $group: { _id: null, total: { $sum: 1 } } },
+            ],
+            as: 'totals',
+          },
+        },
+        {
+          $addFields: {
+            totalCount: {
+              $ifNull: [{ $arrayElemAt: ['$totals.total', 0] }, 0],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            let: { uid: '$createdByUserId' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$_id', '$$uid'] } } },
+              { $project: { _id: 1, name: 1, email: 1, phone: 1, role: 1, businessName: 1 } },
+            ],
+            as: 'uploader',
+          },
+        },
+        { $addFields: { uploader: { $ifNull: [{ $arrayElemAt: ['$uploader', 0] }, null] } } },
+        { $project: { totals: 0 } },
+      ]);
+
+      return res.json({ success: true, data });
+    }
+
     const hotels = await Hotel.find({ status: 'active', approvalStatus: 'approved' })
       .select('_id name location rating image images amenities petsAllowed checkInTime checkOutTime')
       .slice('images', 1)
@@ -100,37 +190,6 @@ router.get('/', async (req, res) => {
       .select('_id name email phone role businessName')
       .lean();
     const creatorById = new Map(creators.map((u) => [String(u._id), u]));
-
-    if (!withAvailability) {
-      const data = roomTypes
-        .map((rt) => {
-          const hotel = hotelById.get(String(rt.hotelId));
-          if (!hotel) return null;
-          return {
-            ...rt,
-            totalCount: totalByRoomType.get(String(rt._id)) || 0,
-            uploader: rt.createdByUserId ? creatorById.get(String(rt.createdByUserId)) || null : null,
-            hotel: {
-              _id: hotel._id,
-              name: hotel.name,
-              location: hotel.location,
-              rating: hotel.rating,
-              image: hotel.image,
-              images: hotel.images,
-              amenities: hotel.amenities,
-              petsAllowed: hotel.petsAllowed,
-              checkInTime: hotel.checkInTime,
-              checkOutTime: hotel.checkOutTime,
-              partnerId: hotel.partnerId,
-              partnerName: hotel.partnerName,
-              partnerEmail: hotel.partnerEmail,
-              partnerPhone: hotel.partnerPhone,
-            },
-          };
-        })
-        .filter(Boolean);
-      return res.json({ success: true, data });
-    }
 
     const blocksAgg = await RoomUnitBlock.aggregate([
       {
@@ -206,6 +265,14 @@ router.get('/:id', async (req, res) => {
   try {
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
 
+    const cacheKey = (() => {
+      const checkInQ = String(req.query?.checkIn || '').trim();
+      const checkOutQ = String(req.query?.checkOut || '').trim();
+      return `roomType:${String(req.params.id)}:${checkInQ}:${checkOutQ}`;
+    })();
+    const cached = getMemCache(cacheKey);
+    if (cached) return res.json({ success: true, data: cached });
+
     const roomType = await RoomType.findById(req.params.id)
       .select('_id hotelId partnerId createdByUserId createdByRole name description images amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
       .lean();
@@ -221,6 +288,8 @@ router.get('/:id', async (req, res) => {
     const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));
 
     const enriched = await enrichRoomType({ roomType, hotel, checkIn, checkOut });
+    const hasDates = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
+    setMemCache(cacheKey, enriched, hasDates ? 10_000 : 60_000);
     res.json({ success: true, data: enriched });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

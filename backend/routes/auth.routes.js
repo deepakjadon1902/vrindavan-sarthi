@@ -53,6 +53,48 @@ const hashOtp = (email, otp) => {
 
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
+const canSendResend = () => Boolean(String(process.env.RESEND_API_KEY || '').trim());
+
+const sendOtpEmail = async ({ to, otp }) => {
+  const subject = 'VrindavanSarthi Password Reset OTP';
+  const text = `Your OTP for password reset is: ${otp}\n\nThis OTP expires in 10 minutes.`;
+
+  // Prefer HTTPS email provider for deployments where SMTP ports are blocked.
+  if (canSendResend()) {
+    const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+    const from = String(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
+    if (!from) throw new Error('Missing RESEND_FROM (or SMTP_FROM/SMTP_USER)');
+
+    const resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject,
+        text,
+      }),
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      const err = new Error(`Resend send failed: HTTP ${resp.status} ${body}`);
+      err.code = 'RESEND_SEND_FAILED';
+      throw err;
+    }
+
+    return;
+  }
+
+  // SMTP fallback (local/dev)
+  const transport = buildMailer();
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  await transport.sendMail({ from, to, subject, text });
+};
+
 const redirectToLoginWithError = (res, error) => {
   const frontendBase = process.env.FRONTEND_BASE_URL || 'http://localhost:8080';
   const url = new URL('/login', frontendBase);
@@ -276,22 +318,15 @@ router.post('/forgot-password', async (req, res) => {
       }
     );
 
-    if (canSendEmail()) {
+    if (canSendResend() || canSendEmail()) {
       try {
-        const transport = buildMailer();
-        const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-        await transport.sendMail({
-          from,
-          to: email,
-          subject: 'VrindavanSarthi Password Reset OTP',
-          text: `Your OTP for password reset is: ${otp}\n\nThis OTP expires in 10 minutes.`,
-        });
+        await sendOtpEmail({ to: email, otp });
       } catch (mailErr) {
-        console.error('[VVS] SMTP send failed:', mailErr?.code || mailErr?.name || mailErr, mailErr?.message || '');
+        console.error('[VVS] OTP email send failed:', mailErr?.code || mailErr?.name || mailErr, mailErr?.message || '');
         return res.status(502).json({
           success: false,
           message:
-            'OTP email could not be sent. Please verify SMTP settings and ensure your server can access the SMTP host/port (some hosting providers block SMTP).',
+            'OTP email could not be sent. Please verify email settings. If you are deployed, prefer RESEND_API_KEY (HTTPS) because many hosting providers block SMTP ports.',
         });
       }
     } else {

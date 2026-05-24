@@ -28,7 +28,7 @@ const Rooms = () => {
 
       // Retry a few times (backend may be restarting).
       let lastErr: any = null;
-      for (let attempt = 0; attempt < 3; attempt += 1) {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
           const res = await api.get('/room-types');
           const data = Array.isArray(res.data?.data) ? res.data.data : [];
@@ -41,7 +41,10 @@ const Rooms = () => {
           return;
         } catch (e: any) {
           lastErr = e;
-          await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+          const status = e?.response?.status;
+          const isRetryable = status === 503 || !e?.response;
+          if (!isRetryable) break;
+          await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
         }
       }
 

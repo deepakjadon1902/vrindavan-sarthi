@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,6 +10,7 @@ import ImageCarousel from '@/components/shared/ImageCarousel';
 import UpiPayment from '@/components/UpiPayment';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
+import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 
 const RoomTypeDetail = () => {
   const { id } = useParams();
@@ -22,8 +23,9 @@ const RoomTypeDetail = () => {
   const [checkIn, setCheckIn] = useState(() => qs.get('checkIn') || '');
   const [checkOut, setCheckOut] = useState(() => qs.get('checkOut') || '');
 
-  const [data, setData] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any | null>(() => getPrefetchedDetail('roomTypes', id) || getCachedListingItem('roomTypes', id) || null);
+  const [loading, setLoading] = useState(() => !(getPrefetchedDetail('roomTypes', id) || getCachedListingItem('roomTypes', id)));
+  const reqSeq = useRef(0);
 
   // Detailed booking form
   const [customerFullName, setCustomerFullName] = useState('');
@@ -59,34 +61,40 @@ const RoomTypeDetail = () => {
     setCustomerEmail(user?.email || '');
   }, [user]);
 
-  const load = async () => {
+  useEffect(() => {
     if (!id) return;
-    setLoading(true);
-    try {
-      const params: any = {};
-      if (checkIn && checkOut) {
-        params.checkIn = checkIn;
-        params.checkOut = checkOut;
-      }
-      const res = await api.get(`/room-types/${id}`, { params });
-      setData(res.data?.data || null);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'Failed to load room type');
-      setData(null);
-    } finally {
+
+    const cached = getPrefetchedDetail('roomTypes', id) || getCachedListingItem('roomTypes', id);
+    if (cached) {
+      setData((prev) => prev || cached);
       setLoading(false);
+    } else {
+      setLoading(true);
     }
-  };
 
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+    const seq = (reqSeq.current += 1);
+    const run = async () => {
+      try {
+        const params: any = {};
+        if (checkIn && checkOut) {
+          params.checkIn = checkIn;
+          params.checkOut = checkOut;
+        }
+        const res = await api.get(`/room-types/${id}`, { params });
+        if (reqSeq.current !== seq) return;
+        setData(res.data?.data || null);
+      } catch (e: any) {
+        if (reqSeq.current !== seq) return;
+        toast.error(e?.response?.data?.message || 'Failed to load room type');
+        setData(cached || null);
+      } finally {
+        if (reqSeq.current !== seq) return;
+        setLoading(false);
+      }
+    };
 
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkIn, checkOut]);
+    void run();
+  }, [id, checkIn, checkOut]);
 
   useEffect(() => {
     const from = checkIn ? new Date(`${checkIn}T00:00:00.000Z`) : undefined;
