@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const https = require('https');
 const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const User = require('../models/User');
@@ -55,6 +56,80 @@ const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
 const canSendResend = () => Boolean(String(process.env.RESEND_API_KEY || '').trim());
 
+const postJson = (urlString, { headers = {}, body, timeoutMs = 15_000 } = {}) =>
+  new Promise((resolve, reject) => {
+    const url = new URL(urlString);
+    const req = https.request(
+      {
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: `${url.pathname}${url.search}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        timeout: timeoutMs,
+      },
+      (res) => {
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => resolve({ status: res.statusCode || 0, headers: res.headers, body: data }));
+      }
+    );
+
+    req.on('timeout', () => {
+      req.destroy(new Error('Request timeout'));
+    });
+    req.on('error', reject);
+    req.write(JSON.stringify(body ?? {}));
+    req.end();
+  });
+
+const resendSendEmail = async ({ apiKey, from, to, subject, text }) => {
+  const fromLower = String(from || '').trim().toLowerCase();
+  if (!fromLower) {
+    const err = new Error('Missing RESEND_FROM (or SMTP_FROM/SMTP_USER)');
+    err.code = 'RESEND_FROM_MISSING';
+    throw err;
+  }
+
+  // Resend requires a verified sender. Personal inbox domains typically won't work.
+  const fromDomain = fromLower.includes('@') ? fromLower.split('@').pop() : '';
+  if (fromDomain === 'gmail.com' || fromDomain === 'yahoo.com' || fromDomain === 'outlook.com' || fromDomain === 'hotmail.com') {
+    const err = new Error(
+      `RESEND_FROM must be a verified sender (usually your domain), not a personal inbox like ${fromDomain}.`
+    );
+    err.code = 'RESEND_FROM_NOT_VERIFIED';
+    throw err;
+  }
+
+  const resp = await postJson('https://api.resend.com/emails', {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: { from, to: [to], subject, text },
+    timeoutMs: 15_000,
+  });
+
+  if (resp.status >= 200 && resp.status < 300) return;
+
+  // Resend returns JSON errors; keep a short excerpt for logs and a safer message for clients.
+  let resendMessage = '';
+  try {
+    const parsed = JSON.parse(resp.body || '{}');
+    resendMessage = String(parsed?.message || parsed?.error || '').trim();
+  } catch {
+    // ignore
+  }
+
+  const err = new Error(`Resend send failed: HTTP ${resp.status}${resendMessage ? ` - ${resendMessage}` : ''}`);
+  err.code = 'RESEND_SEND_FAILED';
+  err.httpStatus = resp.status;
+  err.resendMessage = resendMessage;
+  throw err;
+};
+
 const sendOtpEmail = async ({ to, otp }) => {
   const subject = 'VrindavanSarthi Password Reset OTP';
   const text = `Your OTP for password reset is: ${otp}\n\nThis OTP expires in 10 minutes.`;
@@ -63,29 +138,7 @@ const sendOtpEmail = async ({ to, otp }) => {
   if (canSendResend()) {
     const apiKey = String(process.env.RESEND_API_KEY || '').trim();
     const from = String(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
-    if (!from) throw new Error('Missing RESEND_FROM (or SMTP_FROM/SMTP_USER)');
-
-    const resp = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject,
-        text,
-      }),
-    });
-
-    if (!resp.ok) {
-      const body = await resp.text().catch(() => '');
-      const err = new Error(`Resend send failed: HTTP ${resp.status} ${body}`);
-      err.code = 'RESEND_SEND_FAILED';
-      throw err;
-    }
-
+    await resendSendEmail({ apiKey, from, to, subject, text });
     return;
   }
 
@@ -323,10 +376,20 @@ router.post('/forgot-password', async (req, res) => {
         await sendOtpEmail({ to: email, otp });
       } catch (mailErr) {
         console.error('[VVS] OTP email send failed:', mailErr?.code || mailErr?.name || mailErr, mailErr?.message || '');
+
+        let message =
+          'OTP email could not be sent. Please verify email settings. If you are deployed, prefer RESEND_API_KEY (HTTPS) because many hosting providers block SMTP ports.';
+
+        if (mailErr?.code === 'RESEND_FROM_NOT_VERIFIED') {
+          message =
+            'OTP email could not be sent. RESEND_FROM must be a verified sender in Resend (typically your own domain like no-reply@yourdomain.com), not a personal Gmail address.';
+        } else if (mailErr?.code === 'RESEND_SEND_FAILED') {
+          message = 'OTP email could not be sent due to email provider error. Please verify RESEND_API_KEY and RESEND_FROM.';
+        }
+
         return res.status(502).json({
           success: false,
-          message:
-            'OTP email could not be sent. Please verify email settings. If you are deployed, prefer RESEND_API_KEY (HTTPS) because many hosting providers block SMTP ports.',
+          message,
         });
       }
     } else {
