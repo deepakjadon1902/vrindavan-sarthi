@@ -6,7 +6,15 @@ const router = express.Router();
 // Get all payments (admin)
 router.get('/all', protect, authorize('admin'), async (req, res) => {
   try {
-    const bookings = await Booking.find().sort({ createdAt: -1 }).select('bookingId bookingType itemName userName userPhone userEmail totalAmount paymentMethod paymentStatus bookingStatus partnerId partnerName createdAt');
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(5000, Math.floor(limitRaw)) : 1000;
+
+    const bookings = await Booking.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .select('bookingId bookingType itemName userName userPhone userEmail totalAmount paymentMethod paymentStatus bookingStatus partnerId partnerName createdAt')
+      .lean();
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -14,7 +22,15 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 // Get partner payments
 router.get('/partner', protect, authorize('partner'), async (req, res) => {
   try {
-    const bookings = await Booking.find({ partnerId: req.user._id }).sort({ createdAt: -1 }).select('bookingId bookingType itemName userName userPhone userEmail totalAmount paymentMethod paymentStatus bookingStatus partnerName createdAt');
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(2000, Math.floor(limitRaw)) : 500;
+
+    const bookings = await Booking.find({ partnerId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .select('bookingId bookingType itemName userName userPhone userEmail totalAmount paymentMethod paymentStatus bookingStatus partnerName createdAt')
+      .lean();
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

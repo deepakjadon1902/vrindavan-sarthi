@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
+import { getApiErrorMessage } from '@/lib/apiError';
 
 interface PartnerHotel {
   _id: string;
@@ -51,8 +52,8 @@ const PartnerAddHotel = () => {
       const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 500 } });
       const hotels = Array.isArray(res.data?.data?.hotels) ? res.data.data.hotels : [];
       setItems(hotels);
-    } catch {
-      toast.error('Failed to load your hotels');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to load your hotels'));
       setItems([]);
     } finally {
       setIsLoading(false);

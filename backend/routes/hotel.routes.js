@@ -6,7 +6,17 @@ const RoomUnitBlock = require('../models/RoomUnitBlock');
 const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
+const { normalizeImageFields } = require('../utils/imageFields');
 const router = express.Router();
+
+const stripLargeInlineImage = (value) => {
+  const v = typeof value === 'string' ? value : '';
+  if (!v) return '';
+  // If images were saved as base64 data URLs, they can be huge and slow to transfer.
+  // Return empty so the frontend uses a placeholder in list views.
+  if (v.startsWith('data:') && v.length > 2048) return '';
+  return v;
+};
 
 // Get all active hotels (public)
 router.get('/', async (req, res) => {
@@ -106,7 +116,25 @@ router.get('/', async (req, res) => {
 // Get all hotels (admin)
 router.get('/all', protect, authorize('admin'), async (req, res) => {
   try {
-    const hotels = await Hotel.find().sort({ createdAt: -1 }).lean();
+    res.set('Cache-Control', 'no-store');
+
+    const limitRaw = Number(req.query?.limit || 0);
+    const skipRaw = Number(req.query?.skip || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(5000, Math.floor(limitRaw)) : 1000;
+    const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+
+    // Avoid unindexed in-memory sorts in large collections.
+    // Keep payload small: large base64 images in DB can make this endpoint extremely slow.
+    const hotels = await Hotel.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      // Do not fetch image by default; it may be huge base64.
+      .select('name location rating status approvalStatus partnerName createdAt updatedAt')
+      .lean();
+
+    for (const h of hotels) h.image = '/placeholder.svg';
+
     res.json({ success: true, data: hotels });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -170,7 +198,9 @@ router.get('/:id/room-types', async (req, res) => {
 // Create (admin)
 router.post('/', protect, authorize('admin'), async (req, res) => {
   try {
-    const hotel = await Hotel.create(req.body);
+    const body = { ...req.body };
+    await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
+    const hotel = await Hotel.create(body);
     res.status(201).json({ success: true, data: hotel });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -178,7 +208,9 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
 // Update (admin)
 router.put('/:id', protect, authorize('admin'), async (req, res) => {
   try {
-    const hotel = await Hotel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const body = { ...req.body };
+    await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
+    const hotel = await Hotel.findByIdAndUpdate(req.params.id, body, { new: true });
     res.json({ success: true, data: hotel });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

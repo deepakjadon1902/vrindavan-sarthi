@@ -25,6 +25,6 @@ const roomUnitBlockSchema = new mongoose.Schema(
 
 roomUnitBlockSchema.index({ roomUnitId: 1, startDate: 1, endDate: 1 });
 roomUnitBlockSchema.index({ hotelId: 1, startDate: 1, endDate: 1 });
+roomUnitBlockSchema.index({ roomTypeId: 1, startDate: 1, endDate: 1 });
 
 module.exports = mongoose.model('RoomUnitBlock', roomUnitBlockSchema);
-

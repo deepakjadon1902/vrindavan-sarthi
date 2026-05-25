@@ -3,7 +3,9 @@ import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { Plus, Trash2, Pencil, CalendarDays } from 'lucide-react';
-import { publishAppEvent } from '@/lib/broadcast';
+import { publishAppEvent, subscribeAppEvent } from '@/lib/broadcast';
+import { clearSessionCache } from '@/lib/panelCache';
+import { getApiErrorMessage } from '@/lib/apiError';
 
 type Hotel = { _id: string; name: string; status?: string; approvalStatus?: string };
 
@@ -142,13 +144,21 @@ const PartnerInventory = () => {
   }, [token]);
 
   useEffect(() => {
+    const unsub = subscribeAppEvent('listing:changed', () => {
+      // Clear any cached listings and reload hotels/room types if needed.
+      clearSessionCache('vvs_partner_my_listings_all');
+      void loadHotels();
+      if (selectedHotelId) void loadRoomTypes(selectedHotelId);
+    });
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, selectedHotelId]);
+
+  useEffect(() => {
     if (!selectedHotelId) return;
     (async () => {
-      try {
-        await loadRoomTypes(selectedHotelId);
-      } catch {
-        toast.error('Failed to load room types');
-      }
+      try { await loadRoomTypes(selectedHotelId); }
+      catch (e: unknown) { toast.error(getApiErrorMessage(e, 'Failed to load room types')); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedHotelId, token]);
@@ -156,11 +166,8 @@ const PartnerInventory = () => {
   useEffect(() => {
     if (!selectedRoomTypeId) return;
     (async () => {
-      try {
-        await loadRooms(selectedRoomTypeId);
-      } catch {
-        toast.error('Failed to load rooms');
-      }
+      try { await loadRooms(selectedRoomTypeId); }
+      catch (e: unknown) { toast.error(getApiErrorMessage(e, 'Failed to load rooms')); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoomTypeId, token]);

@@ -4,8 +4,9 @@ import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
 import { Hotel, Eye, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { publishAppEvent } from '@/lib/broadcast';
-import { getSessionCache, setSessionCache } from '@/lib/panelCache';
+import { publishAppEvent, subscribeAppEvent } from '@/lib/broadcast';
+import { clearSessionCache, getSessionCache, setSessionCache } from '@/lib/panelCache';
+import { getApiErrorMessage } from '@/lib/apiError';
 
 type ItemType = 'hotel';
 
@@ -34,8 +35,8 @@ const PartnerListings = () => {
       const all = [...hotels].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setAllItems(all);
       setSessionCache('vvs_partner_my_listings_all', all);
-    } catch {
-      toast.error('Failed to load listings');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to load listings'));
       setAllItems([]);
     } finally {
       setIsLoading(false);
@@ -44,6 +45,15 @@ const PartnerListings = () => {
 
   useEffect(() => {
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    const unsub = subscribeAppEvent('listing:changed', () => {
+      clearSessionCache('vvs_partner_my_listings_all');
+      void load();
+    });
+    return () => unsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 

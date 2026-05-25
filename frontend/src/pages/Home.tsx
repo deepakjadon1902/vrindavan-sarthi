@@ -46,6 +46,7 @@ const Home = () => {
   const [hotels, setHotels] = useState<any[]>([]);
   const [cabs, setCabs] = useState<any[]>([]);
   const [tours, setTours] = useState<any[]>([]);
+  const featuredLimit = 6;
 
   const featuredProducts = products.filter(p => p.inStock).slice(0, 4);
 
@@ -54,15 +55,15 @@ const Home = () => {
       // Show cached lists fast (if any), but always revalidate from API so new listings reflect quickly.
       try {
         const cachedHotels = localStorage.getItem('vvs_hotels');
-        if (cachedHotels) setHotels(JSON.parse(cachedHotels).slice(0, 3));
+        if (cachedHotels) setHotels(JSON.parse(cachedHotels).slice(0, featuredLimit));
       } catch {}
       try {
         const cachedCabs = localStorage.getItem('vvs_cabs');
-        if (cachedCabs) setCabs(JSON.parse(cachedCabs).slice(0, 3));
+        if (cachedCabs) setCabs(JSON.parse(cachedCabs).slice(0, featuredLimit));
       } catch {}
       try {
         const cachedTours = localStorage.getItem('vvs_tours');
-        if (cachedTours) setTours(JSON.parse(cachedTours).filter((t: any) => t?.status === 'active').slice(0, 3));
+        if (cachedTours) setTours(JSON.parse(cachedTours).filter((t: any) => t?.status === 'active').slice(0, featuredLimit));
       } catch {}
 
       const [hotelsRes, cabsRes, toursRes] = await Promise.allSettled([
@@ -73,19 +74,19 @@ const Home = () => {
 
       if (hotelsRes.status === 'fulfilled') {
         const data = Array.isArray(hotelsRes.value.data?.data) ? hotelsRes.value.data.data : [];
-        setHotels(data.slice(0, 3));
+        setHotels(data.slice(0, featuredLimit));
         try { localStorage.setItem('vvs_hotels', JSON.stringify(data)); } catch {}
       } else setHotels([]);
 
       if (cabsRes.status === 'fulfilled') {
         const data = Array.isArray(cabsRes.value.data?.data) ? cabsRes.value.data.data : [];
-        setCabs(data.slice(0, 3));
+        setCabs(data.slice(0, featuredLimit));
         try { localStorage.setItem('vvs_cabs', JSON.stringify(data)); } catch {}
       } else setCabs([]);
 
       if (toursRes.status === 'fulfilled') {
         const data = Array.isArray(toursRes.value.data?.data) ? toursRes.value.data.data : [];
-        const active = data.filter((t: any) => t?.status === 'active').slice(0, 3);
+        const active = data.filter((t: any) => t?.status === 'active').slice(0, featuredLimit);
         setTours(active);
         try { localStorage.setItem('vvs_tours', JSON.stringify(data)); } catch {}
       } else setTours([]);

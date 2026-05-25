@@ -6,6 +6,13 @@
 2. Run `npm install`
 3. Run `npm run dev` for development or `npm start` for production
 
+## Images (Cloudinary)
+
+This backend supports storing images as Cloudinary URLs (recommended):
+
+- Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (and optionally `CLOUDINARY_FOLDER`) in `backend/.env`
+- When enabled, the backend automatically uploads any incoming `data:image/*` strings to Cloudinary and saves only the URL in MongoDB.
+
 ## API Endpoints
 
 ### Auth

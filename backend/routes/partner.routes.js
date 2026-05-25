@@ -1,13 +1,16 @@
 const express = require('express');
 const Hotel = require('../models/Hotel');
 const { protect, authorize } = require('../middleware/auth');
+const { normalizeImageFields } = require('../utils/imageFields');
 const router = express.Router();
 
 // Partner: Submit hotel
 router.post('/hotels', protect, authorize('partner'), async (req, res) => {
   try {
+    const body = { ...req.body };
+    await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
     const hotel = await Hotel.create({
-      ...req.body,
+      ...body,
       partnerId: req.user._id,
       partnerName: req.user.name,
       partnerEmail: req.user.email,
@@ -27,7 +30,9 @@ router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
     const hotel = await Hotel.findOne({ _id: req.params.id, partnerId: req.user._id });
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
 
-    Object.assign(hotel, req.body);
+    const body = { ...req.body };
+    await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
+    Object.assign(hotel, body);
     hotel.partnerSubmitted = true;
     hotel.approvalStatus = 'pending';
     hotel.status = 'inactive';
@@ -55,16 +60,15 @@ router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
     const limitRaw = Number(req.query?.limit || 0);
-    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(1000, Math.floor(limitRaw)) : null;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(2000, Math.floor(limitRaw)) : 1000;
 
     const hotelQuery = Hotel.find({ partnerId: req.user._id })
       .sort({ createdAt: -1 })
-      .select('name location rating image images description amenities status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed createdAt updatedAt')
+      // Keep listing payload small; images may be stored as huge base64 strings.
+      .select('name location rating status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed createdAt updatedAt')
       .lean();
 
-    if (limit) {
-      hotelQuery.limit(limit);
-    }
+    hotelQuery.limit(limit);
 
     const [hotels] = await Promise.all([hotelQuery]);
     res.json({ success: true, data: { hotels, rooms: [], cabs: [], tours: [] } });
@@ -76,15 +80,14 @@ router.get('/requests', protect, authorize('admin'), async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
     const limitRaw = Number(req.query?.limit || 0);
-    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(2000, Math.floor(limitRaw)) : null;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(5000, Math.floor(limitRaw)) : 2000;
 
     const hotelQuery = Hotel.find({ partnerSubmitted: true })
       .sort({ createdAt: -1 })
-      .select('name location rating image images description amenities status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed createdAt updatedAt')
+      // Keep listing payload small; images may be stored as huge base64 strings.
+      .select('name location rating status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed createdAt updatedAt')
       .lean();
-    if (limit) {
-      hotelQuery.limit(limit);
-    }
+    hotelQuery.limit(limit);
 
     const [hotels] = await Promise.all([hotelQuery]);
     res.json({ success: true, data: { hotels, rooms: [], cabs: [], tours: [] } });

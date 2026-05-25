@@ -26,8 +26,11 @@ const cabSchema = new mongoose.Schema({
   adminRemarks: String,
 }, { timestamps: true });
 
+// Support global lists (admin) that sort by createdAt.
+cabSchema.index({ createdAt: -1 });
 cabSchema.index({ status: 1, approvalStatus: 1, createdAt: -1 });
 cabSchema.index({ vehicleType: 1, createdAt: -1 });
 cabSchema.index({ partnerId: 1, createdAt: -1 });
+cabSchema.index({ partnerSubmitted: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Cab', cabSchema);

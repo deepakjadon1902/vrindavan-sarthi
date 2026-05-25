@@ -9,6 +9,7 @@ const productSchema = new mongoose.Schema({
   inStock: { type: Boolean, default: true },
 }, { timestamps: true });
 
+productSchema.index({ createdAt: -1 });
 productSchema.index({ inStock: 1, createdAt: -1 });
 productSchema.index({ category: 1, createdAt: -1 });
 

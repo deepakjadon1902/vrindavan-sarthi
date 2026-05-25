@@ -33,14 +33,63 @@ router.get('/track/:trackingId', async (req, res) => {
 
 router.get('/my', protect, async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
+    const orders = await Order.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
     res.json({ success: true, data: orders });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
 router.get('/all', protect, authorize('admin'), async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const skipRaw = Number(req.query?.skip || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(5000, Math.floor(limitRaw)) : 1000;
+    const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+
+    const withImages = String(req.query?.withImages || '').toLowerCase() === 'true';
+
+    const orders = await Order.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select(
+        withImages
+          ? undefined
+          : [
+              'orderId',
+              'trackingId',
+              'productId',
+              'productName',
+              // omit productImage by default (can be large base64)
+              'productPrice',
+              'quantity',
+              'totalAmount',
+              'userId',
+              'userName',
+              'userEmail',
+              'userPhone',
+              'shippingAddress',
+              'orderNotes',
+              'paymentStatus',
+              'orderStatus',
+              'upiTransactionId',
+              'createdAt',
+              'updatedAt',
+            ]
+      )
+      .lean();
+
+    if (!withImages) {
+      for (const o of orders) {
+        o.productImage = '/placeholder.svg';
+      }
+    }
     res.json({ success: true, data: orders });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

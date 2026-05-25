@@ -10,6 +10,13 @@ const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils
 
 const router = express.Router();
 
+const stripLargeInlineImage = (value) => {
+  const v = typeof value === 'string' ? value : '';
+  if (!v) return '';
+  if (v.startsWith('data:') && v.length > 2048) return '';
+  return v;
+};
+
 const memCache = new Map();
 const getMemCache = (key) => {
   const hit = memCache.get(key);
@@ -85,11 +92,22 @@ router.get('/', async (req, res) => {
     const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));
     const withAvailability = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
 
+    const limitRaw = Number(req.query?.limit || 0);
+    const skipRaw = Number(req.query?.skip || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(300, Math.floor(limitRaw)) : 200;
+    const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+
     // Fast path for Rooms page (no date filters): single aggregation instead of multiple round trips.
     if (!withAvailability) {
+      const cacheKey = `rt:noAvail:${skip}:${limit}`;
+      const cached = getMemCache(cacheKey);
+      if (cached) return res.json({ success: true, data: cached });
+
       const data = await RoomType.aggregate([
         { $match: { status: 'active' } },
         { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
         {
           $lookup: {
             from: 'hotels',
@@ -156,10 +174,24 @@ router.get('/', async (req, res) => {
         },
         { $addFields: { uploader: { $ifNull: [{ $arrayElemAt: ['$uploader', 0] }, null] } } },
         { $project: { totals: 0 } },
-      ]);
+      ]).option({ allowDiskUse: true });
 
+      for (const rt of data) {
+        if (rt?.hotel) {
+          rt.hotel.image = stripLargeInlineImage(rt.hotel.image) || '/placeholder.svg';
+          if (Array.isArray(rt.hotel.images)) rt.hotel.images = rt.hotel.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+        }
+        if (Array.isArray(rt.images)) rt.images = rt.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+        if (!rt.images?.length && rt?.hotel?.image) rt.images = [rt.hotel.image];
+      }
+
+      setMemCache(cacheKey, data, 30_000);
       return res.json({ success: true, data });
     }
+
+    // Availability mode is expensive; keep it bounded.
+    // If the client doesn't pass dates, they will hit the fast path above.
+    // Ensure pagination is enforced (default 200).
 
     const hotels = await Hotel.find({ status: 'active', approvalStatus: 'approved' })
       .select('_id name location rating image images amenities petsAllowed checkInTime checkOutTime')
@@ -167,14 +199,34 @@ router.get('/', async (req, res) => {
       .lean();
     if (!hotels.length) return res.json({ success: true, data: [] });
 
+    for (const h of hotels) {
+      h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
+      if (Array.isArray(h.images)) {
+        h.images = h.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+      }
+    }
+
     const hotelById = new Map(hotels.map((h) => [String(h._id), h]));
     const hotelIds = hotels.map((h) => h._id);
 
+    const availCacheKey = `rt:avail:${checkIn.toISOString()}:${checkOut.toISOString()}:${skip}:${limit}`;
+    const cachedAvail = getMemCache(availCacheKey);
+    if (cachedAvail) return res.json({ success: true, data: cachedAvail });
+
     const roomTypes = await RoomType.find({ hotelId: { $in: hotelIds }, status: 'active' })
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .select('_id hotelId partnerId createdByUserId createdByRole name description images amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
+      .slice('images', 1)
       .lean();
     if (!roomTypes.length) return res.json({ success: true, data: [] });
+
+    for (const rt of roomTypes) {
+      if (Array.isArray(rt.images)) {
+        rt.images = rt.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+      }
+    }
 
     // Total rooms per type (for displaying "X rooms" even without date filters).
     const roomTypeIds = roomTypes.map((rt) => rt._id);
@@ -254,6 +306,7 @@ router.get('/', async (req, res) => {
       })
       .filter(Boolean);
 
+    setMemCache(availCacheKey, data, 20_000);
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

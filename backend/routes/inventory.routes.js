@@ -7,11 +7,19 @@ const { processRoomTypeWaitlist } = require('../utils/waitlist');
 const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
+const { normalizeImageFields } = require('../utils/imageFields');
 
 const router = express.Router();
 
 // Partner-only inventory APIs
 router.use(protect, authorize('partner'));
+
+const stripLargeInlineImage = (value) => {
+  const v = typeof value === 'string' ? value : '';
+  if (!v) return '';
+  if (v.startsWith('data:') && v.length > 2048) return '';
+  return v;
+};
 
 const ensurePartnerHotel = async (hotelId, partnerId) => {
   const hotel = await Hotel.findOne({ _id: hotelId, partnerId }).lean();
@@ -29,6 +37,7 @@ router.get('/hotels/:hotelId/room-types', async (req, res) => {
 
     const roomTypes = await RoomType.find({ hotelId: hotel._id, partnerId: req.user._id })
       .sort({ createdAt: -1 })
+      .select('_id hotelId name description amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
       .lean();
 
     res.json({ success: true, data: roomTypes });
@@ -47,6 +56,9 @@ router.post('/hotels/:hotelId/room-types', async (req, res) => {
     if (!name) return res.status(400).json({ success: false, message: 'Room type name is required' });
     if (!Number.isFinite(pricePerNight) || pricePerNight <= 0) return res.status(400).json({ success: false, message: 'Valid pricePerNight is required' });
 
+    const body = { ...req.body };
+    await normalizeImageFields(body, { folder: 'vrindavan-sarthi/room-types', multi: ['images'], tags: ['roomType', 'partner'] });
+
     const roomType = await RoomType.create({
       hotelId: hotel._id,
       partnerId: req.user._id,
@@ -54,7 +66,7 @@ router.post('/hotels/:hotelId/room-types', async (req, res) => {
       createdByRole: 'partner',
       name,
       description: normalizeString(req.body?.description),
-      images: normalizeStringArray(req.body?.images),
+      images: normalizeStringArray(body?.images),
       amenities: normalizeStringArray(req.body?.amenities),
       pricePerNight,
       maxAdults: Math.max(1, Number(req.body?.maxAdults || 1)),
@@ -74,9 +86,12 @@ router.put('/room-types/:roomTypeId', async (req, res) => {
     const roomType = await RoomType.findOne({ _id: req.params.roomTypeId, partnerId: req.user._id });
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
 
+    const body = { ...req.body };
+    await normalizeImageFields(body, { folder: 'vrindavan-sarthi/room-types', multi: ['images'], tags: ['roomType', 'partner'] });
+
     if (typeof req.body?.name !== 'undefined') roomType.name = normalizeString(req.body?.name) || roomType.name;
     if (typeof req.body?.description !== 'undefined') roomType.description = normalizeString(req.body?.description);
-    if (typeof req.body?.images !== 'undefined') roomType.images = normalizeStringArray(req.body?.images);
+    if (typeof req.body?.images !== 'undefined') roomType.images = normalizeStringArray(body?.images);
     if (typeof req.body?.amenities !== 'undefined') roomType.amenities = normalizeStringArray(req.body?.amenities);
     if (typeof req.body?.pricePerNight !== 'undefined') {
       const pricePerNight = Number(req.body?.pricePerNight || 0);

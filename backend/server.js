@@ -1,5 +1,4 @@
 require('dotenv').config();
-require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
@@ -7,6 +6,8 @@ const compression = require('compression');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const { seedAdminOnce } = require('./config/seedAdmin');
+const { ensureIndexesOnce } = require('./config/ensureIndexes');
+const { requestTiming } = require('./middleware/requestTiming');
 
 const authRoutes = require('./routes/auth.routes');
 const hotelRoutes = require('./routes/hotel.routes');
@@ -40,17 +41,22 @@ const trySeedAdmin = async () => {
 
 mongoose.connection.on('connected', () => {
   void trySeedAdmin();
+  void ensureIndexesOnce();
 });
 
 // In case the connection event fires before the listener attaches (rare),
 // or the initial connection is delayed, poll until connected and seed once.
 void trySeedAdmin();
+void ensureIndexesOnce();
 const seedPoll = setInterval(() => {
   if (adminSeedTriggered) return clearInterval(seedPoll);
   void trySeedAdmin();
 }, 2000);
 
 const app = express();
+
+// Log only slow requests to help identify hangs/timeouts in prod/local.
+app.use(requestTiming());
 
 app.use(
   compression({
@@ -63,6 +69,28 @@ app.use(
 app.use('/api', (req, res, next) => {
   if (req.path === '/health') return next();
   if (mongoose.connection.readyState === 1) return next();
+
+  // If the DB is currently connecting, wait briefly to avoid transient "DB not connected" errors
+  // during startup/reconnects.
+  const start = Date.now();
+  const maxWaitMs = 1500;
+
+  const check = () => mongoose.connection.readyState === 1;
+  if (mongoose.connection.readyState === 2) {
+    const interval = setInterval(() => {
+      if (check() || Date.now() - start > maxWaitMs) clearInterval(interval);
+    }, 50);
+
+    return setTimeout(() => {
+      if (check()) return next();
+      return res.status(503).json({
+        success: false,
+        message: 'Database not connected. Please check MONGO_URI in backend/.env and restart the backend.',
+        dbReadyState: mongoose.connection.readyState,
+      });
+    }, maxWaitMs);
+  }
+
   return res.status(503).json({
     success: false,
     message: 'Database not connected. Please check MONGO_URI in backend/.env and restart the backend.',

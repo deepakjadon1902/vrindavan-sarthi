@@ -4,6 +4,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { Plus, Trash2, Pencil, CalendarDays } from 'lucide-react';
 import { publishAppEvent } from '@/lib/broadcast';
+import { getApiErrorMessage } from '@/lib/apiError';
 
 type Hotel = { _id: string; name: string; status?: string; approvalStatus?: string; location?: string; partnerName?: string };
 
@@ -136,7 +137,7 @@ const AdminInventory = () => {
       try {
         await loadHotels();
       } catch (e: any) {
-        toast.error(e?.response?.data?.message || 'Failed to load hotels');
+        toast.error(getApiErrorMessage(e, 'Failed to load hotels'));
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -147,8 +148,8 @@ const AdminInventory = () => {
     (async () => {
       try {
         await loadRoomTypes(selectedHotelId);
-      } catch {
-        toast.error('Failed to load room types');
+      } catch (e: unknown) {
+        toast.error(getApiErrorMessage(e, 'Failed to load room types'));
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,8 +160,8 @@ const AdminInventory = () => {
     (async () => {
       try {
         await loadRooms(selectedRoomTypeId);
-      } catch {
-        toast.error('Failed to load rooms');
+      } catch (e: unknown) {
+        toast.error(getApiErrorMessage(e, 'Failed to load rooms'));
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,8 +172,8 @@ const AdminInventory = () => {
     (async () => {
       try {
         await loadCalendar(selectedRoomUnitId);
-      } catch {
-        toast.error('Failed to load calendar');
+      } catch (e: unknown) {
+        toast.error(getApiErrorMessage(e, 'Failed to load calendar'));
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

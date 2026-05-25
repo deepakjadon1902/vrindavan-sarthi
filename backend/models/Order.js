@@ -2,7 +2,9 @@ const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
   orderId: { type: String, unique: true },
-  trackingId: { type: String, unique: true, index: true, sparse: true },
+  // NOTE: Do not use sparse here. Existing deployments may already have a non-sparse
+  // unique index named trackingId_1; using sparse would cause createIndexes conflicts.
+  trackingId: { type: String, unique: true, index: true },
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   productName: String,
   productImage: String,
@@ -21,6 +23,11 @@ const orderSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const generate5DigitTrackingId = () => String(Math.floor(10000 + Math.random() * 90000));
+
+orderSchema.index({ createdAt: -1 });
+orderSchema.index({ userId: 1, createdAt: -1 });
+orderSchema.index({ paymentStatus: 1, createdAt: -1 });
+orderSchema.index({ orderStatus: 1, createdAt: -1 });
 
 orderSchema.pre('save', function (next) {
   if (!this.orderId) {

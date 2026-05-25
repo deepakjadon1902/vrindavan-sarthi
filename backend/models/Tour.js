@@ -27,7 +27,10 @@ const tourSchema = new mongoose.Schema({
   adminRemarks: String,
 }, { timestamps: true });
 
+// Support global lists (admin) that sort by createdAt.
+tourSchema.index({ createdAt: -1 });
 tourSchema.index({ status: 1, approvalStatus: 1, createdAt: -1 });
 tourSchema.index({ partnerId: 1, createdAt: -1 });
+tourSchema.index({ partnerSubmitted: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Tour', tourSchema);

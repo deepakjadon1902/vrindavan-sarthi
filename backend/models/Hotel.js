@@ -37,8 +37,11 @@ const hotelSchema = new mongoose.Schema({
   adminRemarks: String,
 }, { timestamps: true });
 
+// Support global lists (admin) that sort by createdAt without additional filters.
+hotelSchema.index({ createdAt: -1 });
 hotelSchema.index({ status: 1, approvalStatus: 1, createdAt: -1 });
 hotelSchema.index({ location: 1, createdAt: -1 });
 hotelSchema.index({ partnerId: 1, createdAt: -1 });
+hotelSchema.index({ partnerSubmitted: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Hotel', hotelSchema);

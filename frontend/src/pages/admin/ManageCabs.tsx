@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
+import { getApiErrorMessage } from '@/lib/apiError';
 
 interface Cab {
   _id: string;
@@ -46,8 +47,8 @@ const ManageCabs = () => {
       setIsLoading(true);
       const res = await api.get('/cabs/all', withAuth(token));
       setItems(Array.isArray(res.data?.data) ? res.data.data : []);
-    } catch {
-      toast.error('Failed to load cabs');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to load cabs'));
       setItems([]);
     } finally {
       setIsLoading(false);

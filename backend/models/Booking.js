@@ -75,5 +75,9 @@ bookingSchema.pre('save', function (next) {
 
 bookingSchema.index({ bookingType: 1, createdAt: -1 });
 bookingSchema.index({ hotelId: 1, roomTypeId: 1, roomUnitId: 1, checkIn: 1, checkOut: 1 });
+bookingSchema.index({ createdAt: -1 });
+bookingSchema.index({ userId: 1, createdAt: -1 });
+bookingSchema.index({ partnerId: 1, createdAt: -1 });
+bookingSchema.index({ roomTypeId: 1, bookingStatus: 1, checkIn: 1, checkOut: 1 });
 
 module.exports = mongoose.model('Booking', bookingSchema);

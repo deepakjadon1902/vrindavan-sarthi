@@ -1,45 +1,23 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
 const Settings = require('../models/Settings');
 const { protect, authorize } = require('../middleware/auth');
+const { uploadDataUri, dataUriFromBuffer, getDefaultFolder, isCloudinaryEnabled } = require('../utils/cloudinary');
 const router = express.Router();
-
-const uploadsRoot = path.join(process.cwd(), 'uploads', 'settings');
-const ensureUploadsDir = () => {
-  if (!fs.existsSync(uploadsRoot)) fs.mkdirSync(uploadsRoot, { recursive: true });
-};
 
 const imageFileFilter = (req, file, cb) => {
   if (file.mimetype && file.mimetype.startsWith('image/')) return cb(null, true);
   cb(new Error('Only image uploads are allowed'));
 };
 
-const makeStorage = (prefix) =>
-  multer.diskStorage({
-    destination: (req, file, cb) => {
-      try {
-        ensureUploadsDir();
-        cb(null, uploadsRoot);
-      } catch (err) {
-        cb(err);
-      }
-    },
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname || '').toLowerCase() || '.png';
-      cb(null, `${prefix}-${Date.now()}${ext}`);
-    },
-  });
-
 const uploadLogo = multer({
-  storage: makeStorage('logo'),
+  storage: multer.memoryStorage(),
   fileFilter: imageFileFilter,
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
 const uploadFavicon = multer({
-  storage: makeStorage('favicon'),
+  storage: multer.memoryStorage(),
   fileFilter: imageFileFilter,
   limits: { fileSize: 1 * 1024 * 1024 },
 });
@@ -74,12 +52,18 @@ router.post('/logo', protect, authorize('admin'), uploadLogo.single('file'), asy
     let settings = await Settings.findOne();
     if (!settings) settings = await Settings.create({});
 
-    const urlPath = `/uploads/settings/${req.file.filename}`;
-    settings.logoUrl = urlPath;
-    if (!settings.ogImageUrl) settings.ogImageUrl = urlPath;
+    const folder = `${getDefaultFolder()}/settings`;
+    const dataUri = dataUriFromBuffer(req.file.buffer, req.file.mimetype);
+    const url = isCloudinaryEnabled() ? await uploadDataUri(dataUri, { folder, tags: ['settings', 'logo'] }) : null;
+
+    // If Cloudinary isn't configured, keep existing value and let the admin update env later.
+    if (url) {
+      settings.logoUrl = url;
+      if (!settings.ogImageUrl) settings.ogImageUrl = url;
+    }
     await settings.save();
 
-    res.json({ success: true, data: settings, url: urlPath });
+    res.json({ success: true, data: settings, url: url || settings.logoUrl });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -93,11 +77,14 @@ router.post('/favicon', protect, authorize('admin'), uploadFavicon.single('file'
     let settings = await Settings.findOne();
     if (!settings) settings = await Settings.create({});
 
-    const urlPath = `/uploads/settings/${req.file.filename}`;
-    settings.faviconUrl = urlPath;
+    const folder = `${getDefaultFolder()}/settings`;
+    const dataUri = dataUriFromBuffer(req.file.buffer, req.file.mimetype);
+    const url = isCloudinaryEnabled() ? await uploadDataUri(dataUri, { folder, tags: ['settings', 'favicon'] }) : null;
+
+    if (url) settings.faviconUrl = url;
     await settings.save();
 
-    res.json({ success: true, data: settings, url: urlPath });
+    res.json({ success: true, data: settings, url: url || settings.faviconUrl });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

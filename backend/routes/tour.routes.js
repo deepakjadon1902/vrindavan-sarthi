@@ -1,16 +1,66 @@
 const express = require('express');
 const Tour = require('../models/Tour');
 const { protect, authorize } = require('../middleware/auth');
+const { normalizeImageFields } = require('../utils/imageFields');
 const router = express.Router();
+
+const memCache = new Map();
+const getCache = (key) => {
+  const hit = memCache.get(key);
+  if (!hit) return null;
+  if (Date.now() > hit.expiresAt) {
+    memCache.delete(key);
+    return null;
+  }
+  return hit.value;
+};
+const setCache = (key, value, ttlMs) => {
+  memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+};
+
+const stripLargeInlineImage = (value) => {
+  const v = typeof value === 'string' ? value : '';
+  if (!v) return '';
+  if (v.startsWith('data:') && v.length > 2048) return '';
+  return v;
+};
 
 router.get('/', async (req, res) => {
   try {
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-    const tours = await Tour.find({ status: 'active', approvalStatus: 'approved' })
+
+    const limitRaw = Number(req.query?.limit || 0);
+    const skipRaw = Number(req.query?.skip || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
+    const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+
+    const withImages = String(req.query?.withImages || '').toLowerCase() === 'true';
+    const cacheKey = JSON.stringify({ limit, skip, withImages });
+    const cached = getCache(cacheKey);
+    if (cached) return res.json({ success: true, data: cached });
+
+    const q = Tour.find({ status: 'active', approvalStatus: 'approved' })
       .sort({ createdAt: -1 })
-      .select('name duration pricePerPerson image images includes status createdAt')
-      .slice('images', 1)
-      .lean();
+      .skip(skip)
+      .limit(limit)
+      .select(withImages ? 'name duration pricePerPerson image images includes status createdAt' : 'name duration pricePerPerson includes status createdAt');
+
+    if (withImages) q.slice('images', 1);
+
+    const tours = await q.lean();
+
+    for (const t of tours) {
+      if (!withImages) {
+        t.image = '/placeholder.svg';
+        t.images = ['/placeholder.svg'];
+        continue;
+      }
+      t.image = stripLargeInlineImage(t.image) || '/placeholder.svg';
+      if (Array.isArray(t.images)) t.images = t.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+      if (!t.images?.length) t.images = [t.image || '/placeholder.svg'];
+    }
+
+    setCache(cacheKey, tours, 30_000);
     res.json({ success: true, data: tours });
   }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }
@@ -19,7 +69,20 @@ router.get('/', async (req, res) => {
 // Get all tours (admin)
 router.get('/all', protect, authorize('admin'), async (req, res) => {
   try {
-    const tours = await Tour.find().sort({ createdAt: -1 }).lean();
+    res.set('Cache-Control', 'no-store');
+    const limitRaw = Number(req.query?.limit || 0);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(5000, Math.floor(limitRaw)) : 2000;
+
+    const tours = await Tour.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .select('name duration pricePerPerson groupSize startPoint endPoint image images includes excludes highlights status partnerId partnerName partnerEmail partnerPhone businessName partnerSubmitted approvalStatus adminRemarks createdAt updatedAt')
+      .lean();
+
+    for (const t of tours) {
+      t.image = stripLargeInlineImage(t.image) || '/placeholder.svg';
+      t.images = [];
+    }
     res.json({ success: true, data: tours });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -30,12 +93,22 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', protect, authorize('admin'), async (req, res) => {
-  try { const tour = await Tour.create(req.body); res.status(201).json({ success: true, data: tour }); }
+  try {
+    const body = { ...req.body };
+    await normalizeImageFields(body, { folder: 'vrindavan-sarthi/tours', single: ['image'], multi: ['images'], tags: ['tour'] });
+    const tour = await Tour.create(body);
+    res.status(201).json({ success: true, data: tour });
+  }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
 router.put('/:id', protect, authorize('admin'), async (req, res) => {
-  try { const tour = await Tour.findByIdAndUpdate(req.params.id, req.body, { new: true }); res.json({ success: true, data: tour }); }
+  try {
+    const body = { ...req.body };
+    await normalizeImageFields(body, { folder: 'vrindavan-sarthi/tours', single: ['image'], multi: ['images'], tags: ['tour'] });
+    const tour = await Tour.findByIdAndUpdate(req.params.id, body, { new: true });
+    res.json({ success: true, data: tour });
+  }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

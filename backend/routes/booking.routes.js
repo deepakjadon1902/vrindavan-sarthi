@@ -10,6 +10,13 @@ const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils
 const { processRoomTypeWaitlist } = require('../utils/waitlist');
 const router = express.Router();
 
+const stripLargeInlineImage = (value) => {
+  const v = typeof value === 'string' ? value : '';
+  if (!v) return '';
+  if (v.startsWith('data:') && v.length > 2048) return '';
+  return v;
+};
+
 const normalizeGender = (v) => {
   const s = String(v || '').trim().toLowerCase();
   if (!s) return null;
@@ -274,13 +281,24 @@ router.get('/my', protect, async (req, res) => {
     const skipRaw = Number(req.query?.skip || 0);
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
     const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+    const withImages = String(req.query?.withImages || '').toLowerCase() === 'true';
 
     const bookings = await Booking.find({ userId: req.user._id })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt')
+      .select(
+        withImages
+          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+      )
       .lean();
+
+    if (!withImages) {
+      for (const b of bookings) b.itemImage = '/placeholder.svg';
+    } else {
+      for (const b of bookings) b.itemImage = stripLargeInlineImage(b.itemImage) || '/placeholder.svg';
+    }
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -293,13 +311,24 @@ router.get('/partner', protect, authorize('partner'), async (req, res) => {
     const skipRaw = Number(req.query?.skip || 0);
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
     const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+    const withImages = String(req.query?.withImages || '').toLowerCase() === 'true';
 
     const bookings = await Booking.find({ partnerId: req.user._id })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt')
+      .select(
+        withImages
+          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+      )
       .lean();
+
+    if (!withImages) {
+      for (const b of bookings) b.itemImage = '/placeholder.svg';
+    } else {
+      for (const b of bookings) b.itemImage = stripLargeInlineImage(b.itemImage) || '/placeholder.svg';
+    }
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -312,13 +341,24 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
     const skipRaw = Number(req.query?.skip || 0);
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(1000, Math.floor(limitRaw)) : 300;
     const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+    const withImages = String(req.query?.withImages || '').toLowerCase() === 'true';
 
     const bookings = await Booking.find()
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt')
+      .select(
+        withImages
+          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+      )
       .lean();
+
+    if (!withImages) {
+      for (const b of bookings) b.itemImage = '/placeholder.svg';
+    } else {
+      for (const b of bookings) b.itemImage = stripLargeInlineImage(b.itemImage) || '/placeholder.svg';
+    }
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

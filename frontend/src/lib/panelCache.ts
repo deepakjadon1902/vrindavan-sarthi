@@ -30,3 +30,10 @@ export const setSessionCache = <T,>(key: string, value: T) => {
   }
 };
 
+export const clearSessionCache = (key: string) => {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+};
