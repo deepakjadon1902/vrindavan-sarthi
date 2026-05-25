@@ -15,6 +15,7 @@ const sidebarLinks = [
   { name: 'Hotels', path: '/admin/hotels', icon: Hotel },
   { name: 'Inventory', path: '/admin/inventory', icon: BedDouble },
   { name: 'Cabs', path: '/admin/cabs', icon: Car },
+  { name: 'Cab Fares', path: '/admin/cab-fares', icon: ClipboardList },
   { name: 'Tours', path: '/admin/tours', icon: Map },
   { name: 'Partner Requests', path: '/admin/partner-requests', icon: Handshake },
   { name: 'Bookings', path: '/admin/bookings', icon: ClipboardList },

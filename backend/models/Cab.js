@@ -7,6 +7,7 @@ const cabSchema = new mongoose.Schema({
   capacity: { type: Number, required: true },
   driverName: { type: String, required: true },
   driverPhone: { type: String, required: true },
+  driverEmail: String,
   driverLicense: String,
   routes: [String],
   pricePerKm: Number,

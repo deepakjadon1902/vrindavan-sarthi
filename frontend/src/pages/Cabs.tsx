@@ -10,7 +10,6 @@ import { prefetchDetail } from '@/lib/detailCache';
 type CabListItem = {
   _id: string;
   vehicleName: string;
-  driverName: string;
   image: string;
   images?: string[];
   rating?: number;
@@ -60,8 +59,7 @@ const Cabs = () => {
 
   const filtered = cabs.filter(
     (c) =>
-      c.vehicleName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.driverName.toLowerCase().includes(searchQuery.toLowerCase())
+      c.vehicleName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

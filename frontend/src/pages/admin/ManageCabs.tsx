@@ -13,6 +13,7 @@ interface Cab {
   capacity: number;
   driverName: string;
   driverPhone: string;
+  driverEmail?: string;
   routes?: string[];
   image?: string;
   images?: string[];
@@ -36,6 +37,7 @@ const ManageCabs = () => {
     capacity: '4',
     driverName: '',
     driverPhone: '',
+    driverEmail: '',
     routes: '',
     status: 'available' as Cab['status'],
     image: '',
@@ -67,6 +69,7 @@ const ManageCabs = () => {
       capacity: '4',
       driverName: '',
       driverPhone: '',
+      driverEmail: '',
       routes: '',
       status: 'available',
       image: '',
@@ -95,6 +98,7 @@ const ManageCabs = () => {
       capacity: String(item.capacity ?? 4),
       driverName: item.driverName || '',
       driverPhone: item.driverPhone || '',
+      driverEmail: item.driverEmail || '',
       routes: (item.routes || []).join(', '),
       status: item.status || 'available',
       image: item.image || '',
@@ -114,6 +118,7 @@ const ManageCabs = () => {
       capacity: Number(form.capacity || 4),
       driverName: form.driverName,
       driverPhone: form.driverPhone,
+      driverEmail: form.driverEmail,
       routes: form.routes
         .split(',')
         .map((r) => r.trim())
@@ -295,6 +300,16 @@ const ManageCabs = () => {
                   onChange={(e) => setForm({ ...form, driverPhone: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                   placeholder="9999999999"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Driver Email</label>
+                <input
+                  type="email"
+                  value={form.driverEmail}
+                  onChange={(e) => setForm({ ...form, driverEmail: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="driver@example.com"
                 />
               </div>
             </div>

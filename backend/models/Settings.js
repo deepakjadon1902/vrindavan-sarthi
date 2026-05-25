@@ -15,6 +15,7 @@ const settingsSchema = new mongoose.Schema({
   adminEmail: { type: String, default: '' },
   termsOfService: { type: String, default: '' },
   privacyPolicy: { type: String, default: '' },
+  hotelTaxPercent: { type: Number, default: 12 },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Settings', settingsSchema);

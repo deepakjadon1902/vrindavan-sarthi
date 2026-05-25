@@ -67,7 +67,11 @@ const MyBookings = () => {
 
   const handleCancel = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    const res = await cancelBooking(id);
+    const target = bookings.find((b) => b.id === id);
+    const needsReason = target?.bookingStatus === 'confirmed';
+    const reason = needsReason ? window.prompt('Please enter a reason for cancellation request:') || '' : '';
+    if (needsReason && !reason.trim()) return toast.error('Cancellation reason is required for confirmed bookings');
+    const res = await cancelBooking(id, reason.trim() || undefined);
     if (res.success) toast.success('Booking cancelled');
     else toast.error(res.error || 'Cancel failed');
   };

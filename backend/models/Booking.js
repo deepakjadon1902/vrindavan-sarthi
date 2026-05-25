@@ -33,6 +33,23 @@ const bookingSchema = new mongoose.Schema({
   checkOut: Date,
   guests: Number,
 
+  // Cab booking fields
+  pickupLocation: String,
+  dropLocation: String,
+  pickupDate: String,
+  pickupTime: String,
+  cabType: String,
+  cabFareRuleId: { type: mongoose.Schema.Types.ObjectId, ref: 'CabFare' },
+  cabFareBase: { type: Number, default: 0 },
+  cabFareExtra: { type: Number, default: 0 },
+  cabFareTotal: { type: Number, default: 0 },
+  assignedCabId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cab' },
+  assignedVehicleName: String,
+  assignedVehicleType: String,
+  assignedDriverName: String,
+  assignedDriverPhone: String,
+  assignedDriverEmail: String,
+
   // Detailed booking form fields
   customerFullName: String,
   customerMobile: String,
@@ -63,6 +80,13 @@ const bookingSchema = new mongoose.Schema({
   // Such bookings have roomUnitId/roomNumber unset until later assignment.
   isWaitlisted: { type: Boolean, default: false },
   waitlistAssignedAt: Date,
+
+  // Cancellation control
+  cancellationRequested: { type: Boolean, default: false },
+  cancellationReason: String,
+  cancellationRequestedAt: Date,
+  cancellationReviewedByAdmin: { type: Boolean, default: false },
+  cancellationReviewedAt: Date,
 }, { timestamps: true });
 
 bookingSchema.pre('save', function (next) {

@@ -24,6 +24,7 @@ const paymentRoutes = require('./routes/payment.routes');
 const productRoutes = require('./routes/product.routes');
 const orderRoutes = require('./routes/order.routes');
 const adminAnalyticsRoutes = require('./routes/adminAnalytics.routes');
+const cabFareRoutes = require('./routes/cabFare.routes');
 
 connectDB();
 
@@ -134,6 +135,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/cab-fares', cabFareRoutes);
 app.use('/api/admin', adminAnalyticsRoutes);
 app.use('/api/admin/inventory', adminInventoryRoutes);
 

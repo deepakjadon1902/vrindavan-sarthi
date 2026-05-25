@@ -79,7 +79,7 @@ const Shop = () => {
             <p className="font-body text-sm text-muted-foreground">Check back soon for new arrivals from Vrindavan.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((product) => (
               <Link
                 key={product.id}
@@ -87,7 +87,7 @@ const Shop = () => {
                 onClick={() => prefetchDetail('products', product.id, product)}
                 className="glass-panel rounded-xl overflow-hidden water-hover group"
               >
-                <div className="h-44 sm:h-48 overflow-hidden relative">
+                <div className="h-36 sm:h-40 overflow-hidden relative">
                   <img
                     src={product.images[0] || '/placeholder.svg'}
                     alt={product.name}
@@ -95,12 +95,12 @@ const Shop = () => {
                   />
                   <div className="absolute inset-0 glossy-sheen pointer-events-none" />
                 </div>
-                <div className="p-3.5">
+                <div className="p-3">
                   <span className="font-body text-[10px] glass-chip px-2 py-0.5 rounded capitalize">{product.category}</span>
-                  <h3 className="font-display text-base font-semibold text-foreground mt-2 truncate">{product.name}</h3>
-                  <p className="font-body text-xs text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
+                  <h3 className="font-display text-sm font-semibold text-foreground mt-2 truncate">{product.name}</h3>
+                  <p className="font-body text-[11px] text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
                   <div className="flex items-center justify-between mt-3">
-                    <span className="font-display text-lg font-bold text-brand-crimson">₹{product.price.toLocaleString('en-IN')}</span>
+                    <span className="font-display text-base font-bold text-brand-crimson">₹{product.price.toLocaleString('en-IN')}</span>
                     <span className={`font-body text-xs font-medium ${product.inStock ? 'text-brand-green' : 'text-destructive'}`}>
                       {product.inStock ? 'In Stock' : 'Out of Stock'}
                     </span>

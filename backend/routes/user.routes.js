@@ -61,4 +61,19 @@ router.delete('/:id', protect, authorize('admin'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Update partner status (admin)
+router.put('/:id/partner-status', protect, authorize('admin'), async (req, res) => {
+  try {
+    const status = String(req.body?.partnerStatus || '').trim().toLowerCase();
+    if (status !== 'pending' && status !== 'approved' && status !== 'rejected') {
+      return res.status(400).json({ success: false, message: 'Invalid partnerStatus' });
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, { partnerStatus: status }, { new: true }).select('-password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, data: user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

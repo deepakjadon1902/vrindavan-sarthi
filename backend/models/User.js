@@ -25,6 +25,18 @@ const userSchema = new mongoose.Schema({
   businessEmail: String,
   businessDescription: String,
   partnerStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  partnerLocation: {
+    lat: Number,
+    lng: Number,
+    address: String,
+  },
+  partnerDocuments: [
+    {
+      name: String,
+      url: String,
+      uploadedAt: Date,
+    },
+  ],
 
   // Password reset via email OTP
   passwordResetOtpHash: { type: String, select: false },

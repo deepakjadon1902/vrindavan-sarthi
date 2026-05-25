@@ -42,7 +42,8 @@ router.get('/', async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('vehicleName vehicleType capacity driverName routes image images status createdAt')
+      // Do not expose driver contact details publicly (shown only after admin confirms booking).
+      .select('vehicleName vehicleType capacity routes image images status createdAt')
       .slice('images', 1)
       .lean();
 
@@ -69,7 +70,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
     const cabs = await Cab.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select('vehicleName vehicleType vehicleNumber capacity driverName driverPhone routes image images status partnerId partnerName partnerEmail partnerPhone businessName partnerSubmitted approvalStatus adminRemarks createdAt updatedAt')
+      .select('vehicleName vehicleType vehicleNumber capacity driverName driverPhone driverEmail routes image images status partnerId partnerName partnerEmail partnerPhone businessName partnerSubmitted approvalStatus adminRemarks createdAt updatedAt')
       .lean();
 
     for (const c of cabs) {
@@ -82,7 +83,13 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 });
 
 router.get('/:id', async (req, res) => {
-  try { const cab = await Cab.findById(req.params.id).lean(); res.json({ success: true, data: cab }); }
+  try {
+    // Public detail: hide driver contact details until booking is confirmed.
+    const cab = await Cab.findById(req.params.id)
+      .select('vehicleName vehicleType vehicleNumber capacity routes image images description features status createdAt updatedAt')
+      .lean();
+    res.json({ success: true, data: cab });
+  }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

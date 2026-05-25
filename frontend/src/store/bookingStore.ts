@@ -36,6 +36,25 @@ export interface Booking {
   roomNumber?: string;
   isWaitlisted?: boolean;
   waitlistAssignedAt?: string;
+
+  // Cab booking fields
+  pickupLocation?: string;
+  dropLocation?: string;
+  pickupDate?: string;
+  pickupTime?: string;
+  cabType?: string;
+  cabFareTotal?: number;
+  assignedVehicleName?: string;
+  assignedVehicleType?: string;
+  assignedDriverName?: string;
+  assignedDriverPhone?: string;
+  assignedDriverEmail?: string;
+
+  // Cancellation
+  cancellationRequested?: boolean;
+  cancellationReason?: string;
+  cancellationRequestedAt?: string;
+  cancellationReviewedByAdmin?: boolean;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -76,6 +95,21 @@ const normalizeBooking = (b: unknown): Booking => {
     roomNumber: getString(obj, 'roomNumber') || undefined,
     isWaitlisted: typeof obj.isWaitlisted === 'boolean' ? obj.isWaitlisted : undefined,
     waitlistAssignedAt: getString(obj, 'waitlistAssignedAt') || undefined,
+    pickupLocation: getString(obj, 'pickupLocation') || undefined,
+    dropLocation: getString(obj, 'dropLocation') || undefined,
+    pickupDate: getString(obj, 'pickupDate') || undefined,
+    pickupTime: getString(obj, 'pickupTime') || undefined,
+    cabType: getString(obj, 'cabType') || undefined,
+    cabFareTotal: getNumber(obj, 'cabFareTotal') || undefined,
+    assignedVehicleName: getString(obj, 'assignedVehicleName') || undefined,
+    assignedVehicleType: getString(obj, 'assignedVehicleType') || undefined,
+    assignedDriverName: getString(obj, 'assignedDriverName') || undefined,
+    assignedDriverPhone: getString(obj, 'assignedDriverPhone') || undefined,
+    assignedDriverEmail: getString(obj, 'assignedDriverEmail') || undefined,
+    cancellationRequested: typeof obj.cancellationRequested === 'boolean' ? obj.cancellationRequested : undefined,
+    cancellationReason: getString(obj, 'cancellationReason') || undefined,
+    cancellationRequestedAt: getString(obj, 'cancellationRequestedAt') || undefined,
+    cancellationReviewedByAdmin: typeof obj.cancellationReviewedByAdmin === 'boolean' ? obj.cancellationReviewedByAdmin : undefined,
   };
 };
 
@@ -102,7 +136,8 @@ interface BookingState {
 
   createBooking: (data: Omit<Booking, 'id' | 'bookingId' | 'createdAt' | 'userId' | 'userName' | 'userEmail' | 'userPhone'>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   createRoomTypeBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
-  cancelBooking: (id: string) => Promise<{ success: boolean; error?: string }>;
+  createCabBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  cancelBooking: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
   submitPayment: (id: string, upiTransactionId: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   verifyPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   rejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
@@ -203,11 +238,24 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     }
   },
 
-  cancelBooking: async (id) => {
+  createCabBooking: async (data) => {
     const token = useAuthStore.getState().token;
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const res = await api.put(`/bookings/${id}/cancel`, {}, withAuth(token));
+      const res = await api.post('/bookings/cab', data, withAuth(token));
+      const booking = normalizeBooking(res.data?.data);
+      set((state) => ({ myBookings: [booking, ...state.myBookings] }));
+      return { success: true, data: booking };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Booking failed') };
+    }
+  },
+
+  cancelBooking: async (id, reason) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/cancel`, { reason }, withAuth(token));
       const updated = normalizeBooking(res.data?.data);
       set((state) => ({
         myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),

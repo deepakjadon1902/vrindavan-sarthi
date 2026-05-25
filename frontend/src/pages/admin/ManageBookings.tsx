@@ -2,8 +2,11 @@ import { useBookingStore } from '@/store/bookingStore';
 import { ClipboardList } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { api, withAuth } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 
 const ManageBookings = () => {
+  const token = useAuthStore((s) => s.token);
   const {
     adminBookings,
     fetchAllBookings,
@@ -13,10 +16,25 @@ const ManageBookings = () => {
   } = useBookingStore();
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'completed' | 'pending'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'cab' | 'tour'>('all');
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignBookingId, setAssignBookingId] = useState<string>('');
+  const [cabs, setCabs] = useState<any[]>([]);
+  const [selectedCabId, setSelectedCabId] = useState<string>('');
 
   useEffect(() => {
     void fetchAllBookings();
   }, [fetchAllBookings]);
+
+  const loadCabs = async () => {
+    if (!token) return;
+    try {
+      const res = await api.get('/cabs/all', withAuth(token));
+      const list = Array.isArray(res.data?.data) ? res.data.data : [];
+      setCabs(list);
+    } catch {
+      setCabs([]);
+    }
+  };
 
   const bookings = useMemo(
     () => [...adminBookings].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
@@ -62,6 +80,28 @@ const ManageBookings = () => {
     else toast.error(res.error || 'Reject failed');
   };
 
+  const openAssign = async (bookingId: string) => {
+    setAssignBookingId(bookingId);
+    setSelectedCabId('');
+    setAssignOpen(true);
+    await loadCabs();
+  };
+
+  const submitAssign = async () => {
+    if (!token) return toast.error('Not authenticated');
+    if (!assignBookingId || !selectedCabId) return toast.error('Select a cab');
+    try {
+      await api.put(`/bookings/${assignBookingId}/assign-cab`, { cabId: selectedCabId }, withAuth(token));
+      toast.success('Cab assigned');
+      setAssignOpen(false);
+      setAssignBookingId('');
+      setSelectedCabId('');
+      void fetchAllBookings();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Assign failed');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
@@ -104,6 +144,40 @@ const ManageBookings = () => {
         </div>
       ) : (
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
+          {assignOpen && (
+            <div className="p-4 border-b border-border bg-muted/20">
+              <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                <div className="font-body text-sm text-muted-foreground">Assign cab for booking</div>
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={selectedCabId}
+                    onChange={(e) => setSelectedCabId(e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-border bg-card font-body text-sm"
+                  >
+                    <option value="">Select cab</option>
+                    {cabs.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.vehicleName} ({c.vehicleType}) - {c.driverName}
+                      </option>
+                    ))}
+                  </select>
+                  <button onClick={submitAssign} className="px-3 py-2 rounded-lg text-xs font-body bg-brand-green text-primary-foreground">
+                    Assign
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAssignOpen(false);
+                      setAssignBookingId('');
+                      setSelectedCabId('');
+                    }}
+                    className="px-3 py-2 rounded-lg text-xs font-body border border-border"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/50">
@@ -157,7 +231,16 @@ const ManageBookings = () => {
                         </span>
                       )
                     ) : (
-                      <span className="font-body text-[11px] text-muted-foreground">-</span>
+                      b.bookingType === 'cab' && b.bookingStatus === 'pending' ? (
+                        <button
+                          onClick={() => void openAssign(b.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-gold text-foreground hover:bg-brand-gold/90"
+                        >
+                          Assign Driver
+                        </button>
+                      ) : (
+                        <span className="font-body text-[11px] text-muted-foreground">-</span>
+                      )
                     )}
                   </td>
                 </tr>
@@ -171,4 +254,3 @@ const ManageBookings = () => {
 };
 
 export default ManageBookings;
-

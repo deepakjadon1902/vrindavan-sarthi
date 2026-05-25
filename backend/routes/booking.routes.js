@@ -5,9 +5,13 @@ const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
 const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
+const Settings = require('../models/Settings');
+const Cab = require('../models/Cab');
+const CabFare = require('../models/CabFare');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const { processRoomTypeWaitlist } = require('../utils/waitlist');
+const { sendEmail } = require('../utils/email');
 const router = express.Router();
 
 const stripLargeInlineImage = (value) => {
@@ -30,6 +34,99 @@ const generateBookingCode = () => {
   const year = new Date().getFullYear();
   return `VVS-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
 };
+
+const getHotelTaxPercent = async () => {
+  try {
+    const s = await Settings.findOne().select('hotelTaxPercent').lean();
+    const p = Number(s?.hotelTaxPercent ?? 12);
+    if (!Number.isFinite(p) || p < 0) return 0;
+    return Math.min(50, p);
+  } catch {
+    return 12;
+  }
+};
+
+const normalize = (v) => String(v || '').trim();
+const normalizeLocationKey = (v) => normalize(v).replace(/\s+/g, ' ');
+
+const calcCabFare = ({ baseFare, includedPersons, extraPersonCharge, persons }) => {
+  const base = Number(baseFare || 0);
+  const included = Math.max(1, Number(includedPersons || 1));
+  const extraCharge = Math.max(0, Number(extraPersonCharge || 0));
+  const pax = Math.max(1, Number(persons || 1));
+  const extraPersons = Math.max(0, pax - included);
+  const extra = extraPersons * extraCharge;
+  const total = Math.max(0, base + extra);
+  return { base, included, extraCharge, pax, extraPersons, extra, total };
+};
+
+// Create cab booking (authenticated user)
+// Body: { fullName, mobileNumber, pickupLocation, dropLocation, pickupDate, pickupTime, persons, cabType }
+router.post('/cab', protect, async (req, res) => {
+  try {
+    const fullName = normalize(req.body?.fullName) || normalize(req.body?.customerFullName) || normalize(req.user?.name);
+    const mobileNumber = normalize(req.body?.mobileNumber) || normalize(req.body?.customerMobile) || normalize(req.user?.phone);
+    const pickupLocation = normalizeLocationKey(req.body?.pickupLocation);
+    const dropLocation = normalizeLocationKey(req.body?.dropLocation);
+    const pickupDate = normalize(req.body?.pickupDate);
+    const pickupTime = normalize(req.body?.pickupTime);
+    const cabType = normalize(req.body?.cabType);
+    const persons = Number(req.body?.persons || req.body?.guests || 1);
+
+    if (!fullName || !mobileNumber) return res.status(400).json({ success: false, message: 'Full Name and Mobile Number are required' });
+    if (!pickupLocation || !dropLocation || !pickupDate || !pickupTime || !cabType) {
+      return res.status(400).json({ success: false, message: 'pickupLocation, dropLocation, pickupDate, pickupTime, and cabType are required' });
+    }
+    if (!Number.isFinite(persons) || persons < 1) return res.status(400).json({ success: false, message: 'Invalid number of persons' });
+
+    const rule = await CabFare.findOne({ pickupLocation, dropLocation, cabType, status: 'active' }).lean();
+    if (!rule) return res.status(404).json({ success: false, message: 'Fare not set for this route/cab type' });
+
+    const breakdown = calcCabFare({ ...rule, persons });
+    const bookingId = generateBookingCode();
+
+    const booking = await Booking.create({
+      bookingId,
+      bookingType: 'cab',
+      itemId: 'cab_request',
+      itemName: `${pickupLocation} → ${dropLocation} (${cabType})`,
+      itemImage: '/placeholder.svg',
+
+      userId: req.user._id,
+      userName: req.user.name,
+      userEmail: req.user.email,
+      userPhone: req.user.phone,
+
+      checkIn: parseDateOnlyToUTC(pickupDate),
+      guests: persons,
+
+      customerFullName: fullName,
+      customerMobile: mobileNumber,
+      customerEmail: normalize(req.user.email),
+
+      pickupLocation,
+      dropLocation,
+      pickupDate,
+      pickupTime,
+      cabType,
+      cabFareRuleId: rule._id,
+      cabFareBase: breakdown.base,
+      cabFareExtra: breakdown.extra,
+      cabFareTotal: breakdown.total,
+
+      totalAmount: breakdown.total,
+      paymentMethod: 'doorstep',
+      paymentStatus: 'pending',
+      bookingStatus: 'pending',
+      verificationStage: 'verified',
+      additionalInfo: `Cab booking request. Pay cash to driver after trip.`,
+    });
+
+    res.status(201).json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // Create booking for a room type (authenticated user)
 // Body: { hotelId, roomTypeId, checkIn, checkOut, customerFullName, customerMobile, customerEmail, arrivalMode, vehicleNumber, arrivalTime, totalAdults, totalChildren, hasPet, guestDetails[], paymentMethod, totalAmount, upiTransactionId? }
@@ -90,9 +187,14 @@ router.post('/room-type', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid date range' });
     }
 
+    // Server-side total amount calculation (includes admin-controlled hotel tax).
+    const nights = Math.max(1, daysToReserve.length);
+    const baseAmount = Math.max(0, Number(roomType.pricePerNight || 0)) * nights;
+    const taxPercent = await getHotelTaxPercent();
+    const taxAmount = Math.round((baseAmount * taxPercent) / 100);
+    const totalAmount = Math.round(baseAmount + taxAmount);
+
     const isOnline = (req.body?.paymentMethod || 'online') === 'online';
-    const totalAmount = Number(req.body?.totalAmount || 0);
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) return res.status(400).json({ success: false, message: 'Invalid totalAmount' });
 
     const units = await RoomUnit.find({ roomTypeId: roomType._id, status: 'active' }).sort({ number: 1 }).lean();
     if (!units.length) return res.status(409).json({ success: false, message: 'No rooms available for selected dates' });
@@ -289,8 +391,8 @@ router.get('/my', protect, async (req, res) => {
       .limit(limit)
       .select(
         withImages
-          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
-          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
       )
       .lean();
 
@@ -299,6 +401,14 @@ router.get('/my', protect, async (req, res) => {
     } else {
       for (const b of bookings) b.itemImage = stripLargeInlineImage(b.itemImage) || '/placeholder.svg';
     }
+    // Redact sensitive cab driver contact details until confirmed.
+    for (const b of bookings) {
+      if (b.bookingType === 'cab' && b.bookingStatus !== 'confirmed') {
+        b.assignedDriverPhone = '';
+        b.assignedDriverEmail = '';
+      }
+    }
+
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -319,8 +429,8 @@ router.get('/partner', protect, authorize('partner'), async (req, res) => {
       .limit(limit)
       .select(
         withImages
-          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
-          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
       )
       .lean();
 
@@ -329,6 +439,22 @@ router.get('/partner', protect, authorize('partner'), async (req, res) => {
     } else {
       for (const b of bookings) b.itemImage = stripLargeInlineImage(b.itemImage) || '/placeholder.svg';
     }
+    // Partners should only see limited customer info until booking is confirmed.
+    for (const b of bookings) {
+      if (b.bookingStatus !== 'confirmed') {
+        b.userName = '';
+        b.userPhone = '';
+        b.userEmail = '';
+        b.customerFullName = '';
+        b.customerMobile = '';
+        b.customerEmail = '';
+      } else {
+        // Even after confirmation, keep customer email hidden.
+        b.userEmail = '';
+        b.customerEmail = '';
+      }
+    }
+
     res.json({ success: true, data: bookings });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -390,7 +516,25 @@ router.put('/:id/cancel', protect, async (req, res) => {
     const booking = await Booking.findOne({ _id: req.params.id, userId: req.user._id });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
+    const reason = normalize(req.body?.reason || req.body?.cancellationReason);
+
+    // If already confirmed, require a reason and route through admin review.
+    if (booking.bookingStatus === 'confirmed') {
+      if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required for confirmed bookings' });
+      booking.cancellationRequested = true;
+      booking.cancellationReason = reason;
+      booking.cancellationRequestedAt = new Date();
+      await booking.save();
+      return res.json({ success: true, data: booking, message: 'Cancellation request submitted. Admin will review.' });
+    }
+
+    // Pending bookings can be cancelled immediately.
     booking.bookingStatus = 'cancelled';
+    booking.cancellationRequested = true;
+    booking.cancellationReason = reason || 'user_cancelled';
+    booking.cancellationRequestedAt = new Date();
+    booking.cancellationReviewedByAdmin = true;
+    booking.cancellationReviewedAt = new Date();
     await booking.save();
 
     if (booking.roomUnitId) {
@@ -406,6 +550,93 @@ router.put('/:id/cancel', protect, async (req, res) => {
     }
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// Admin: approve/deny cancellation request
+router.put('/:id/cancel-review', protect, authorize('admin'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    const approve = Boolean(req.body?.approve);
+    booking.cancellationReviewedByAdmin = true;
+    booking.cancellationReviewedAt = new Date();
+
+    if (approve) {
+      booking.bookingStatus = 'cancelled';
+      await booking.save();
+
+      if (booking.roomUnitId) {
+        await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
+      }
+      if (booking.roomTypeId) {
+        try {
+          await processRoomTypeWaitlist({ roomTypeId: booking.roomTypeId, max: 50 });
+        } catch {
+          // ignore waitlist processing errors
+        }
+      }
+      return res.json({ success: true, data: booking });
+    }
+
+    // Deny: keep booking status as-is, just mark reviewed.
+    await booking.save();
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: assign cab/driver to a cab booking + confirm
+router.put('/:id/assign-cab', protect, authorize('admin'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (booking.bookingType !== 'cab') return res.status(400).json({ success: false, message: 'Not a cab booking' });
+
+    const cabId = normalize(req.body?.cabId);
+    if (!cabId) return res.status(400).json({ success: false, message: 'cabId is required' });
+
+    const cab = await Cab.findById(cabId).lean();
+    if (!cab) return res.status(404).json({ success: false, message: 'Cab not found' });
+    if (cab.status !== 'available' || cab.approvalStatus !== 'approved') {
+      return res.status(400).json({ success: false, message: 'Cab is not available/approved' });
+    }
+
+    booking.assignedCabId = cab._id;
+    booking.assignedVehicleName = cab.vehicleName;
+    booking.assignedVehicleType = cab.vehicleType;
+    booking.assignedDriverName = cab.driverName;
+    booking.assignedDriverPhone = cab.driverPhone;
+    booking.assignedDriverEmail = normalize(cab.driverEmail);
+    booking.itemId = String(cab._id);
+    booking.itemName = cab.vehicleName;
+    booking.itemImage = cab.image || booking.itemImage;
+    booking.bookingStatus = 'confirmed';
+    await booking.save();
+
+    // Email driver (best-effort)
+    if (booking.assignedDriverEmail) {
+      const subject = `New Cab Booking Assigned (${booking.bookingId})`;
+      const text =
+        `Booking ID: ${booking.bookingId}\n` +
+        `Customer: ${booking.customerFullName || booking.userName}\n` +
+        `Mobile: ${booking.customerMobile || booking.userPhone}\n` +
+        `Pickup: ${booking.pickupLocation}\n` +
+        `Drop: ${booking.dropLocation}\n` +
+        `Date: ${booking.pickupDate}\n` +
+        `Time: ${booking.pickupTime}\n` +
+        `Passengers: ${booking.guests || 1}\n` +
+        `Cab Type: ${booking.cabType}\n` +
+        `Total Fare: ₹${Number(booking.cabFareTotal || booking.totalAmount || 0).toLocaleString('en-IN')}\n\n` +
+        `Payment: Cash (Pay after trip completion)\n`;
+      try { await sendEmail({ to: booking.assignedDriverEmail, subject, text }); } catch { /* ignore */ }
+    }
+
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // Submit payment transaction id (user)

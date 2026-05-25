@@ -37,7 +37,7 @@ const ListingCard = ({
   amenities,
   onViewDetails,
   intervalMs = 2800,
-  variant = 'default',
+  variant = 'compact',
 }: ListingCardProps) => {
   // Build full gallery: main image + extras (de-duplicated, placeholder filtered)
   const safeGallery = useMemo(() => {

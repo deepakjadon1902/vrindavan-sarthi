@@ -6,6 +6,7 @@ const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { maybeUploadImageArray } = require('../utils/imageFields');
 const router = express.Router();
 
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
@@ -299,7 +300,7 @@ router.post('/register', async (req, res) => {
       name, email: normalizedEmail, phone, password,
       address: { street, city, state, pin },
       role: role || 'user',
-      ...(role === 'partner' ? { businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription, partnerStatus: 'approved' } : {}),
+      ...(role === 'partner' ? { businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription, partnerStatus: 'pending' } : {}),
     });
 
     const token = generateToken(user._id);
@@ -340,6 +341,51 @@ router.put('/me', protect, async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(req.user._id, req.body, { new: true }).select('-password');
     res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Partner: upload verification documents (base64 data:image/* strings).
+// Body: { documents: string[] , location?: { lat, lng, address } }
+router.post('/me/partner-verification', protect, async (req, res) => {
+  try {
+    if (req.user.role !== 'partner') return res.status(403).json({ success: false, message: 'Not a partner account' });
+
+    const docsInput = Array.isArray(req.body?.documents) ? req.body.documents : [];
+    if (!docsInput.length) return res.status(400).json({ success: false, message: 'documents[] is required' });
+
+    const urls = await maybeUploadImageArray(docsInput, { folder: 'vrindavan-sarthi/partner-documents', tags: ['partner', 'document'], max: 10 });
+    if (!urls.length) return res.status(400).json({ success: false, message: 'No valid documents provided' });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const now = new Date();
+    const existing = Array.isArray(user.partnerDocuments) ? user.partnerDocuments : [];
+    user.partnerDocuments = [
+      ...existing,
+      ...urls.map((url) => ({ name: 'document', url, uploadedAt: now })),
+    ];
+
+    const loc = req.body?.location;
+    if (loc && typeof loc === 'object') {
+      const lat = Number(loc.lat);
+      const lng = Number(loc.lng);
+      const address = String(loc.address || '').trim();
+      user.partnerLocation = {
+        lat: Number.isFinite(lat) ? lat : undefined,
+        lng: Number.isFinite(lng) ? lng : undefined,
+        address: address || undefined,
+      };
+    }
+
+    // Keep status pending until admin approval.
+    user.partnerStatus = 'pending';
+    await user.save();
+
+    const safe = await User.findById(user._id).select('-password');
+    res.json({ success: true, user: safe });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

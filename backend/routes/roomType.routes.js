@@ -39,11 +39,11 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
       ? await User.findById(roomType.createdByUserId).select('_id name email phone role businessName').lean()
       : null;
 
-  const base = {
-    ...roomType,
-    totalCount,
-    uploader: creator || null,
-    hotel: {
+      const base = {
+        ...roomType,
+        totalCount,
+        uploader: creator || null,
+        hotel: {
       _id: hotel._id,
       name: hotel.name,
       location: hotel.location,
@@ -52,14 +52,13 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
       images: hotel.images,
       amenities: hotel.amenities,
       petsAllowed: hotel.petsAllowed,
-      checkInTime: hotel.checkInTime,
-      checkOutTime: hotel.checkOutTime,
-      partnerId: hotel.partnerId,
-      partnerName: hotel.partnerName,
-      partnerEmail: hotel.partnerEmail,
-      partnerPhone: hotel.partnerPhone,
-    },
-  };
+          checkInTime: hotel.checkInTime,
+          checkOutTime: hotel.checkOutTime,
+          partnerId: hotel.partnerId,
+          partnerName: hotel.partnerName,
+          // Do not expose partner contact details publicly.
+        },
+      };
 
   const withAvailability = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
   if (!withAvailability) return base;
@@ -134,8 +133,7 @@ router.get('/', async (req, res) => {
                   checkOutTime: 1,
                   partnerId: 1,
                   partnerName: 1,
-                  partnerEmail: 1,
-                  partnerPhone: 1,
+                  // Do not expose partner contact details publicly.
                 },
               },
             ],
@@ -299,8 +297,7 @@ router.get('/', async (req, res) => {
             checkOutTime: hotel.checkOutTime,
             partnerId: hotel.partnerId,
             partnerName: hotel.partnerName,
-            partnerEmail: hotel.partnerEmail,
-            partnerPhone: hotel.partnerPhone,
+            // Do not expose partner contact details publicly.
           },
         };
       })
@@ -332,7 +329,7 @@ router.get('/:id', async (req, res) => {
     if (!roomType || roomType.status !== 'active') return res.status(404).json({ success: false, message: 'Room type not found' });
 
     const hotel = await Hotel.findOne({ _id: roomType.hotelId, status: 'active', approvalStatus: 'approved' })
-      .select('_id name location rating image images amenities petsAllowed checkInTime checkOutTime partnerId partnerName partnerEmail partnerPhone')
+      .select('_id name location rating image images amenities petsAllowed checkInTime checkOutTime partnerId partnerName')
       .slice('images', 1)
       .lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });

@@ -76,7 +76,10 @@ const BookingDetail = () => {
   const StatusIcon = statusConfig.icon;
 
   const handleCancel = async () => {
-    const res = await cancelBooking(booking.id);
+    const needsReason = booking.bookingStatus === 'confirmed';
+    const reason = needsReason ? window.prompt('Please enter a reason for cancellation request:') || '' : '';
+    if (needsReason && !reason.trim()) return toast.error('Cancellation reason is required for confirmed bookings');
+    const res = await cancelBooking(booking.id, reason.trim() || undefined);
     if (res.success) toast.success('Booking cancelled successfully');
     else toast.error(res.error || 'Cancel failed');
   };
@@ -192,6 +195,34 @@ const BookingDetail = () => {
                   <div className="mt-4 pt-4 border-t border-border">
                     <p className="font-body text-xs text-muted-foreground mb-1">Additional Notes</p>
                     <p className="font-body text-sm text-foreground">{booking.additionalInfo}</p>
+                  </div>
+                )}
+
+                {booking.bookingType === 'cab' && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <p className="font-body text-xs text-muted-foreground mb-2">Cab Details</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-body text-sm">
+                      <div><span className="text-muted-foreground text-xs block">Pickup</span><span className="font-medium">{booking.pickupLocation || '-'}</span></div>
+                      <div><span className="text-muted-foreground text-xs block">Drop</span><span className="font-medium">{booking.dropLocation || '-'}</span></div>
+                      <div><span className="text-muted-foreground text-xs block">Date</span><span className="font-medium">{booking.pickupDate || (booking.checkIn ? new Date(booking.checkIn).toLocaleDateString('en-IN') : '-') }</span></div>
+                      <div><span className="text-muted-foreground text-xs block">Time</span><span className="font-medium">{booking.pickupTime || '-'}</span></div>
+                      <div><span className="text-muted-foreground text-xs block">Cab Type</span><span className="font-medium">{booking.cabType || '-'}</span></div>
+                      <div><span className="text-muted-foreground text-xs block">Fare</span><span className="font-medium">₹{Number(booking.cabFareTotal || booking.totalAmount || 0).toLocaleString('en-IN')}</span></div>
+                    </div>
+
+                    {booking.bookingStatus === 'confirmed' && (booking.assignedVehicleName || booking.assignedDriverName) ? (
+                      <div className="mt-4 rounded-xl bg-secondary/40 border border-border p-4">
+                        <p className="font-body text-xs text-muted-foreground mb-2">Assigned Driver</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-body text-sm">
+                          <div><span className="text-muted-foreground text-xs block">Vehicle</span><span className="font-medium">{booking.assignedVehicleName || '-'}</span></div>
+                          <div><span className="text-muted-foreground text-xs block">Vehicle Type</span><span className="font-medium">{booking.assignedVehicleType || '-'}</span></div>
+                          <div><span className="text-muted-foreground text-xs block">Driver</span><span className="font-medium">{booking.assignedDriverName || '-'}</span></div>
+                          <div><span className="text-muted-foreground text-xs block">Contact</span><span className="font-medium">{booking.assignedDriverPhone || '-'}</span></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-3 font-body text-[11px] text-muted-foreground">Driver details will appear here after admin confirms your booking.</p>
+                    )}
                   </div>
                 )}
               </div>

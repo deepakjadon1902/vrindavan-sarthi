@@ -44,6 +44,7 @@ const AdminLayout = lazy(() => import("@/pages/admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
 const ManageHotels = lazy(() => import("@/pages/admin/ManageHotels"));
 const ManageCabs = lazy(() => import("@/pages/admin/ManageCabs"));
+const ManageCabFares = lazy(() => import("@/pages/admin/ManageCabFares"));
 const ManageTours = lazy(() => import("@/pages/admin/ManageTours"));
 const ManageBookings = lazy(() => import("@/pages/admin/ManageBookings"));
 const AdminInventory = lazy(() => import("@/pages/admin/AdminInventory"));
@@ -166,6 +167,7 @@ const App = () => {
                 <Route path="hotels" element={<ManageHotels />} />
                 <Route path="inventory" element={<AdminInventory />} />
                 <Route path="cabs" element={<ManageCabs />} />
+                <Route path="cab-fares" element={<ManageCabFares />} />
                 <Route path="tours" element={<ManageTours />} />
                 <Route path="partner-requests" element={<ManagePartnerRequests />} />
                 <Route path="bookings" element={<ManageBookings />} />
