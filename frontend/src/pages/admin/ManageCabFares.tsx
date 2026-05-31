@@ -29,8 +29,6 @@ const ManageCabFares = () => {
     dropLocation: '',
     cabType: '',
     baseFare: '0',
-    includedPersons: '1',
-    extraPersonCharge: '0',
     status: 'active' as Fare['status'],
   });
 
@@ -40,8 +38,6 @@ const ManageCabFares = () => {
       dropLocation: '',
       cabType: '',
       baseFare: '0',
-      includedPersons: '1',
-      extraPersonCharge: '0',
       status: 'active',
     });
     setEditingId(null);
@@ -78,8 +74,6 @@ const ManageCabFares = () => {
       dropLocation: f.dropLocation || '',
       cabType: f.cabType || '',
       baseFare: String(f.baseFare ?? 0),
-      includedPersons: String(f.includedPersons ?? 1),
-      extraPersonCharge: String(f.extraPersonCharge ?? 0),
       status: f.status || 'active',
     });
     setEditingId(f._id);
@@ -96,8 +90,8 @@ const ManageCabFares = () => {
       dropLocation: form.dropLocation,
       cabType: form.cabType,
       baseFare: Number(form.baseFare || 0),
-      includedPersons: Number(form.includedPersons || 1),
-      extraPersonCharge: Number(form.extraPersonCharge || 0),
+      includedPersons: 0,
+      extraPersonCharge: 0,
       status: form.status,
     };
 
@@ -165,20 +159,12 @@ const ManageCabFares = () => {
               <input value={form.dropLocation} onChange={(e) => setForm({ ...form, dropLocation: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm" />
             </div>
             <div>
-              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Cab Type</label>
-              <input value={form.cabType} onChange={(e) => setForm({ ...form, cabType: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm" />
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Vehicle Model & Seats</label>
+              <input value={form.cabType} onChange={(e) => setForm({ ...form, cabType: e.target.value })} placeholder="Swift Dzire - 4-Seater" className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm" />
             </div>
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Base Fare</label>
               <input type="number" min={0} value={form.baseFare} onChange={(e) => setForm({ ...form, baseFare: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm" />
-            </div>
-            <div>
-              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Included Persons</label>
-              <input type="number" min={1} value={form.includedPersons} onChange={(e) => setForm({ ...form, includedPersons: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm" />
-            </div>
-            <div>
-              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Extra Person Charge</label>
-              <input type="number" min={0} value={form.extraPersonCharge} onChange={(e) => setForm({ ...form, extraPersonCharge: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm" />
             </div>
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Status</label>
@@ -213,10 +199,8 @@ const ManageCabFares = () => {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Route</th>
-                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Cab Type</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Vehicle</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Base</th>
-                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Included</th>
-                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Extra</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Status</th>
                 <th className="text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
               </tr>
@@ -227,8 +211,6 @@ const ManageCabFares = () => {
                   <td className="px-4 py-3 font-body text-sm text-foreground">{f.pickupLocation} → {f.dropLocation}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground">{f.cabType}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground">₹{Number(f.baseFare || 0).toLocaleString('en-IN')}</td>
-                  <td className="px-4 py-3 font-body text-sm text-muted-foreground">{f.includedPersons}</td>
-                  <td className="px-4 py-3 font-body text-sm text-muted-foreground">₹{Number(f.extraPersonCharge || 0).toLocaleString('en-IN')}</td>
                   <td className="px-4 py-3">
                     <span className={`font-body text-xs px-2 py-1 rounded-full capitalize ${f.status === 'active' ? 'bg-brand-green/10 text-brand-green' : 'bg-muted text-muted-foreground'}`}>{f.status}</span>
                   </td>
@@ -263,4 +245,3 @@ const ManageCabFares = () => {
 };
 
 export default ManageCabFares;
-

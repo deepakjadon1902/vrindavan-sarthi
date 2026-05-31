@@ -1,14 +1,27 @@
 import { useState } from 'react';
 import { MapPin, Phone, Mail, MessageCircle, Send } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
+import { api } from '@/lib/api';
+import { toast } from 'sonner';
 
 const Contact = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    if (isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      await api.post('/contact', formData);
+      setSubmitted(true);
+      toast.success('Message sent successfully');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Message could not be sent');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const whatsappLink = `https://wa.me/919876543210?text=${encodeURIComponent('Hello Vrindavan Sarthi, I need help with...')}`;
@@ -114,9 +127,9 @@ const Contact = () => {
                     <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Message</label>
                     <textarea required rows={5} value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none" placeholder="Tell us about your requirements..." />
                   </div>
-                  <button type="submit" className="btn-crimson px-8 py-3.5 rounded-xl flex items-center gap-2 w-full justify-center">
+                  <button type="submit" disabled={isSubmitting} className="btn-crimson px-8 py-3.5 rounded-xl flex items-center gap-2 w-full justify-center disabled:opacity-60">
                     <Send size={18} />
-                    Send Message
+                    {isSubmitting ? 'Sending...' : 'Send Message'}
                   </button>
                 </form>
               )}

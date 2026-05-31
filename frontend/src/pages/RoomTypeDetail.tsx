@@ -11,6 +11,7 @@ import UpiPayment from '@/components/UpiPayment';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
+import { useSettingsStore } from '@/store/settingsStore';
 
 const RoomTypeDetail = () => {
   const { id } = useParams();
@@ -18,6 +19,7 @@ const RoomTypeDetail = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
   const { createRoomTypeBooking } = useBookingStore();
+  const hotelTaxPercent = useSettingsStore((s) => s.settings.hotelTaxPercent);
 
   const qs = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const [checkIn, setCheckIn] = useState(() => qs.get('checkIn') || '');
@@ -190,7 +192,10 @@ const RoomTypeDetail = () => {
   }
 
   const nights = checkIn && checkOut ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 1;
-  const total = Number(roomType.pricePerNight || 0) * nights;
+  const baseTotal = Number(roomType.pricePerNight || 0) * nights;
+  const taxPercent = Math.min(50, Math.max(0, Number(hotelTaxPercent ?? 12)));
+  const taxTotal = Math.round((baseTotal * taxPercent) / 100);
+  const total = baseTotal + taxTotal;
   const availableCount = typeof roomType.availableCount === 'number' ? roomType.availableCount : null;
   const totalCount = typeof roomType.totalCount === 'number' ? roomType.totalCount : null;
   const isFullyBookedSelectedDates = Boolean(checkIn && checkOut && availableCount !== null && availableCount <= 0);
@@ -579,7 +584,11 @@ const RoomTypeDetail = () => {
                   <div className="border-t border-brand-gold/20 mt-4 pt-4 space-y-2">
                     <div className="flex justify-between font-body text-sm">
                       <span className="text-muted-foreground">₹{Number(roomType.pricePerNight || 0).toLocaleString('en-IN')} × {nights} night(s)</span>
-                      <span className="text-foreground">₹{total.toLocaleString('en-IN')}</span>
+                      <span className="text-foreground">₹{baseTotal.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between font-body text-sm">
+                      <span className="text-muted-foreground">Hotel tax ({taxPercent}%)</span>
+                      <span className="text-foreground">₹{taxTotal.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between font-body text-sm font-semibold border-t border-brand-gold/20 pt-2">
                       <span>Total</span>

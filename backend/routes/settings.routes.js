@@ -34,10 +34,16 @@ router.get('/', async (req, res) => {
 // Update settings (admin only)
 router.put('/', protect, authorize('admin'), async (req, res) => {
   try {
+    const body = { ...req.body };
+    if (typeof body.hotelTaxPercent !== 'undefined') {
+      const p = Number(body.hotelTaxPercent);
+      body.hotelTaxPercent = Number.isFinite(p) ? Math.min(50, Math.max(0, p)) : 12;
+    }
+
     let settings = await Settings.findOne();
-    if (!settings) settings = await Settings.create(req.body);
+    if (!settings) settings = await Settings.create(body);
     else {
-      Object.assign(settings, req.body);
+      Object.assign(settings, body);
       await settings.save();
     }
     res.json({ success: true, data: settings });

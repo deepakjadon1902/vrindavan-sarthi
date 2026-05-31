@@ -37,14 +37,11 @@ const Shop = () => {
   );
 
   return (
-    <div className="pt-24 pb-16 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
-      <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-gold/15 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 -left-24 w-80 h-80 rounded-full bg-brand-crimson/15 blur-3xl" />
-
-      <div className="container mx-auto px-4 max-w-7xl relative">
-        <div className="text-center mb-10">
+    <div className="pt-24 pb-16 min-h-screen bg-background">
+      <div className="container mx-auto px-3 sm:px-4 max-w-7xl">
+        <div className="text-center mb-8">
           <p className="font-ui text-[11px] uppercase tracking-[0.3em] text-brand-gold mb-2"> Divine Shop </p>
-          <h1 className="font-display text-5xl font-bold text-shine">Sacred Souvenirs</h1>
+          <h1 className="font-display text-4xl font-bold text-shine">Sacred Souvenirs</h1>
           <p className="font-body text-sm text-muted-foreground mt-3 max-w-xl mx-auto">Hand-picked pooja items, devotional books, and blessed memorabilia from the holy land of Vrindavan</p>
         </div>
 
@@ -79,29 +76,30 @@ const Shop = () => {
             <p className="font-body text-sm text-muted-foreground">Check back soon for new arrivals from Vrindavan.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
             {filtered.map((product) => (
               <Link
                 key={product.id}
                 to={`/shop/${product.id}`}
                 onClick={() => prefetchDetail('products', product.id, product)}
-                className="glass-panel rounded-xl overflow-hidden water-hover group"
+                className="glass-panel rounded-lg overflow-hidden water-hover group"
               >
-                <div className="h-36 sm:h-40 overflow-hidden relative">
+                <div className="h-24 sm:h-32 overflow-hidden relative">
                   <img
                     src={product.images[0] || '/placeholder.svg'}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}
                   />
                   <div className="absolute inset-0 glossy-sheen pointer-events-none" />
                 </div>
-                <div className="p-3">
+                <div className="p-2 sm:p-2.5">
                   <span className="font-body text-[10px] glass-chip px-2 py-0.5 rounded capitalize">{product.category}</span>
-                  <h3 className="font-display text-sm font-semibold text-foreground mt-2 truncate">{product.name}</h3>
-                  <p className="font-body text-[11px] text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
-                  <div className="flex items-center justify-between mt-3">
-                    <span className="font-display text-base font-bold text-brand-crimson">₹{product.price.toLocaleString('en-IN')}</span>
-                    <span className={`font-body text-xs font-medium ${product.inStock ? 'text-brand-green' : 'text-destructive'}`}>
+                  <h3 className="font-display text-[13px] sm:text-sm font-semibold text-foreground mt-1.5 sm:mt-2 truncate">{product.name}</h3>
+                  <p className="font-body text-[10px] sm:text-[11px] text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
+                  <div className="flex flex-col items-start gap-0.5 mt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:mt-3">
+                    <span className="font-display text-[13px] sm:text-sm font-bold text-brand-crimson">Rs. {product.price.toLocaleString('en-IN')}</span>
+                    <span className={`font-body text-[10px] sm:text-xs font-medium ${product.inStock ? 'text-brand-green' : 'text-destructive'}`}>
                       {product.inStock ? 'In Stock' : 'Out of Stock'}
                     </span>
                   </div>

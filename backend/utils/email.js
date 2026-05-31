@@ -40,10 +40,24 @@ const postJson = (urlString, { headers = {}, body, timeoutMs = 15_000 } = {}) =>
     req.end();
   });
 
-const resendSendEmail = async ({ apiKey, from, to, subject, text }) => {
+const normalizeAttachments = (attachments) =>
+  (Array.isArray(attachments) ? attachments : [])
+    .map((a) => ({
+      filename: String(a?.filename || 'attachment.pdf'),
+      content: Buffer.isBuffer(a?.content) ? a.content : Buffer.from(String(a?.content || ''), 'utf8'),
+      contentType: String(a?.contentType || 'application/pdf'),
+    }))
+    .filter((a) => a.content.length > 0);
+
+const resendSendEmail = async ({ apiKey, from, to, subject, text, attachments, replyTo }) => {
+  const files = normalizeAttachments(attachments).map((a) => ({
+    filename: a.filename,
+    content: a.content.toString('base64'),
+    content_type: a.contentType,
+  }));
   const resp = await postJson('https://api.resend.com/emails', {
     headers: { Authorization: `Bearer ${apiKey}` },
-    body: { from, to: [to], subject, text },
+    body: { from, to: [to], subject, text, ...(replyTo ? { reply_to: replyTo } : {}), ...(files.length ? { attachments: files } : {}) },
   });
   if (resp.status >= 200 && resp.status < 300) return;
   const err = new Error(`Resend send failed: HTTP ${resp.status}`);
@@ -68,23 +82,24 @@ const buildMailer = () => {
   });
 };
 
-const sendEmail = async ({ to, subject, text }) => {
+const sendEmail = async ({ to, subject, text, attachments, replyTo }) => {
   const toAddr = String(to || '').trim();
+  const replyToAddr = String(replyTo || '').trim();
   if (!toAddr) return;
+  const files = normalizeAttachments(attachments);
 
   if (canSendResend()) {
     const apiKey = String(process.env.RESEND_API_KEY || '').trim();
     const from = String(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
     if (!from) throw new Error('Missing RESEND_FROM (or SMTP_FROM/SMTP_USER)');
-    await resendSendEmail({ apiKey, from, to: toAddr, subject, text });
+    await resendSendEmail({ apiKey, from, to: toAddr, subject, text, attachments: files, replyTo: replyToAddr });
     return;
   }
 
   if (!canSendSmtp()) return;
   const transport = buildMailer();
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  await transport.sendMail({ from, to: toAddr, subject, text });
+  await transport.sendMail({ from, to: toAddr, subject, text, replyTo: replyToAddr || undefined, attachments: files });
 };
 
 module.exports = { sendEmail };
-

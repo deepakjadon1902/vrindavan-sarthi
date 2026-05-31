@@ -120,6 +120,20 @@ const AdminSettings = () => {
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                   placeholder="VrindavanSarthi" />
               </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Hotel Room Tax (%)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step={0.01}
+                  value={String(form.hotelTaxPercent ?? 12)}
+                  onChange={(e) => setForm({ ...form, hotelTaxPercent: Number(e.target.value || 0) })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="12"
+                />
+                <p className="font-body text-xs text-muted-foreground mt-1">Applied to room type bookings at checkout.</p>
+              </div>
             </div>
             {form.upiId && (
               <div className="bg-muted rounded-xl p-6 text-center">

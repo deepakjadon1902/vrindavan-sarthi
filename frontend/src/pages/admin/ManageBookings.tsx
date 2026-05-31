@@ -67,6 +67,10 @@ const ManageBookings = () => {
     (b.partnerId ? b.partnerPaymentVerified === true : true) &&
     b.verificationStage !== 'verified' &&
     b.verificationStage !== 'rejected';
+  const canAssignCab = (b: any) =>
+    b.bookingType === 'cab' &&
+    b.bookingStatus === 'pending' &&
+    (b.paymentMethod !== 'online' || b.paymentStatus === 'paid');
 
   const handleVerify = async (id: string) => {
     const res = await verifyPayment(id);
@@ -198,8 +202,18 @@ const ManageBookings = () => {
                   <td className="px-4 py-3">
                     <span className="font-body text-xs bg-secondary px-2 py-0.5 rounded capitalize">{b.bookingType}</span>
                   </td>
-                  <td className="px-4 py-3 font-body text-sm font-medium text-foreground max-w-[200px] truncate">{b.itemName}</td>
-                  <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{b.userName}</td>
+                  <td className="px-4 py-3 font-body text-sm font-medium text-foreground max-w-[240px]">
+                    <div className="truncate">{b.itemName}</div>
+                    {b.bookingType === 'cab' && (
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        {b.pickupDate} {b.pickupTime} • {b.guests || 1} passengers • {b.tollOption === 'included' ? 'Tolls included' : 'Tolls excluded'}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">
+                    <div>{b.userName}</div>
+                    {b.bookingType === 'cab' && <div className="text-[11px]">{b.userPhone}</div>}
+                  </td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground">
                     {b.paymentMethod === 'doorstep' ? 'Doorstep' : `UPI ${b.paymentStatus}`}
                     <span className="ml-2 inline-flex">{verificationBadge(b)}</span>
@@ -209,7 +223,14 @@ const ManageBookings = () => {
                   </td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">{b.partnerName || 'Admin'}</td>
                   <td className="px-4 py-3 text-right">
-                    {b.paymentMethod === 'online' ? (
+                    {canAssignCab(b) ? (
+                      <button
+                        onClick={() => void openAssign(b.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-gold text-foreground hover:bg-brand-gold/90"
+                      >
+                        Assign Driver
+                      </button>
+                    ) : b.paymentMethod === 'online' ? (
                       canAdminVerify(b) ? (
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -231,16 +252,7 @@ const ManageBookings = () => {
                         </span>
                       )
                     ) : (
-                      b.bookingType === 'cab' && b.bookingStatus === 'pending' ? (
-                        <button
-                          onClick={() => void openAssign(b.id)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-gold text-foreground hover:bg-brand-gold/90"
-                        >
-                          Assign Driver
-                        </button>
-                      ) : (
-                        <span className="font-body text-[11px] text-muted-foreground">-</span>
-                      )
+                      <span className="font-body text-[11px] text-muted-foreground">-</span>
                     )}
                   </td>
                 </tr>

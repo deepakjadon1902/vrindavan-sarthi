@@ -12,6 +12,8 @@ const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const { processRoomTypeWaitlist } = require('../utils/waitlist');
 const { sendEmail } = require('../utils/email');
+const { sendSms } = require('../utils/sms');
+const { buildPdf } = require('../utils/invoicePdf');
 const router = express.Router();
 
 const stripLargeInlineImage = (value) => {
@@ -49,19 +51,51 @@ const getHotelTaxPercent = async () => {
 const normalize = (v) => String(v || '').trim();
 const normalizeLocationKey = (v) => normalize(v).replace(/\s+/g, ' ');
 
-const calcCabFare = ({ baseFare, includedPersons, extraPersonCharge, persons }) => {
+const calcCabFare = ({ baseFare }) => {
   const base = Number(baseFare || 0);
-  const included = Math.max(1, Number(includedPersons || 1));
-  const extraCharge = Math.max(0, Number(extraPersonCharge || 0));
-  const pax = Math.max(1, Number(persons || 1));
-  const extraPersons = Math.max(0, pax - included);
-  const extra = extraPersons * extraCharge;
-  const total = Math.max(0, base + extra);
-  return { base, included, extraCharge, pax, extraPersons, extra, total };
+  return { base, included: 0, extraCharge: 0, pax: 0, extraPersons: 0, extra: 0, total: Math.max(0, base) };
+};
+
+const buildInvoiceLines = (booking) => {
+  const total = Number(booking.totalAmount || 0);
+  const advance = Number(booking.advanceAmount || 0);
+  const balance = Number(booking.balanceAmount || Math.max(0, total - advance));
+  return [
+    `Invoice/Booking ID: ${booking.bookingId}`,
+    `Customer: ${booking.customerFullName || booking.userName}`,
+    `Mobile: ${booking.customerMobile || booking.userPhone}`,
+    `Service: ${booking.itemName}`,
+    booking.bookingType === 'cab' ? `Route: ${booking.pickupLocation} to ${booking.dropLocation}` : '',
+    booking.bookingType === 'cab' ? `Pickup: ${booking.pickupDate} ${booking.pickupTime}` : '',
+    booking.bookingType === 'cab' ? `Passengers: ${booking.guests || 1}` : '',
+    booking.bookingType === 'cab' ? `Tolls: ${booking.tollOption === 'included' ? 'Included' : 'Excluded'}` : '',
+    `Total amount: INR ${total.toLocaleString('en-IN')}`,
+    `Advance paid online: INR ${advance.toLocaleString('en-IN')}`,
+    `Balance payable later: INR ${balance.toLocaleString('en-IN')}`,
+    `Payment status: ${booking.paymentStatus}`,
+  ].filter(Boolean);
+};
+
+const sendCustomerInvoice = async (booking) => {
+  const to = normalize(booking.customerEmail || booking.userEmail);
+  if (!to || booking.invoiceSentAt) return;
+  const lines = buildInvoiceLines(booking);
+  await sendEmail({
+    to,
+    subject: `Vrindavan Sarthi Invoice ${booking.bookingId}`,
+    text: ['Vrindavan Sarthi Invoice', ...lines].join('\n'),
+    attachments: [
+      {
+        filename: `invoice-${booking.bookingId}.pdf`,
+        content: buildPdf({ lines }),
+        contentType: 'application/pdf',
+      },
+    ],
+  });
 };
 
 // Create cab booking (authenticated user)
-// Body: { fullName, mobileNumber, pickupLocation, dropLocation, pickupDate, pickupTime, persons, cabType }
+// Body: { fullName, mobileNumber, pickupLocation, dropLocation, pickupDate, pickupTime, passengers, cabType, tollOption, upiTransactionId }
 router.post('/cab', protect, async (req, res) => {
   try {
     const fullName = normalize(req.body?.fullName) || normalize(req.body?.customerFullName) || normalize(req.user?.name);
@@ -71,18 +105,30 @@ router.post('/cab', protect, async (req, res) => {
     const pickupDate = normalize(req.body?.pickupDate);
     const pickupTime = normalize(req.body?.pickupTime);
     const cabType = normalize(req.body?.cabType);
-    const persons = Number(req.body?.persons || req.body?.guests || 1);
+    const passengers = Number(req.body?.passengers || req.body?.persons || req.body?.guests || 1);
+    const tollOptionInput = normalize(req.body?.tollOption).toLowerCase();
+    const tollOption = tollOptionInput === 'included' || tollOptionInput === 'tolls_included'
+      ? 'included'
+      : tollOptionInput === 'excluded' || tollOptionInput === 'tolls_excluded'
+        ? 'excluded'
+        : '';
+    const upiTransactionId = normalize(req.body?.upiTransactionId);
 
     if (!fullName || !mobileNumber) return res.status(400).json({ success: false, message: 'Full Name and Mobile Number are required' });
     if (!pickupLocation || !dropLocation || !pickupDate || !pickupTime || !cabType) {
       return res.status(400).json({ success: false, message: 'pickupLocation, dropLocation, pickupDate, pickupTime, and cabType are required' });
     }
-    if (!Number.isFinite(persons) || persons < 1) return res.status(400).json({ success: false, message: 'Invalid number of persons' });
+    if (!Number.isFinite(passengers) || passengers < 1) return res.status(400).json({ success: false, message: 'Invalid number of passengers' });
+    if (!tollOption) return res.status(400).json({ success: false, message: 'Please choose Tolls Included or Tolls Excluded' });
+    if (!upiTransactionId) return res.status(400).json({ success: false, message: 'UPI transaction ID is required for the 30% advance payment' });
 
     const rule = await CabFare.findOne({ pickupLocation, dropLocation, cabType, status: 'active' }).lean();
-    if (!rule) return res.status(404).json({ success: false, message: 'Fare not set for this route/cab type' });
+    if (!rule) return res.status(404).json({ success: false, message: 'Fare not set for this route/vehicle' });
 
-    const breakdown = calcCabFare({ ...rule, persons });
+    const breakdown = calcCabFare(rule);
+    const totalAmount = breakdown.total;
+    const advanceAmount = Math.round(totalAmount * 0.3);
+    const balanceAmount = Math.max(0, totalAmount - advanceAmount);
     const bookingId = generateBookingCode();
 
     const booking = await Booking.create({
@@ -98,7 +144,7 @@ router.post('/cab', protect, async (req, res) => {
       userPhone: req.user.phone,
 
       checkIn: parseDateOnlyToUTC(pickupDate),
-      guests: persons,
+      guests: passengers,
 
       customerFullName: fullName,
       customerMobile: mobileNumber,
@@ -113,13 +159,18 @@ router.post('/cab', protect, async (req, res) => {
       cabFareBase: breakdown.base,
       cabFareExtra: breakdown.extra,
       cabFareTotal: breakdown.total,
+      tollOption,
 
-      totalAmount: breakdown.total,
-      paymentMethod: 'doorstep',
+      totalAmount,
+      advanceAmount,
+      balanceAmount,
+      advancePercent: 30,
+      paymentMethod: 'online',
       paymentStatus: 'pending',
       bookingStatus: 'pending',
-      verificationStage: 'verified',
-      additionalInfo: `Cab booking request. Pay cash to driver after trip.`,
+      verificationStage: 'pending_admin',
+      upiTransactionId,
+      additionalInfo: `30% advance submitted by UPI. Balance INR ${balanceAmount.toLocaleString('en-IN')} payable later. Tolls ${tollOption}.`,
     });
 
     res.status(201).json({ success: true, data: booking });
@@ -391,8 +442,8 @@ router.get('/my', protect, async (req, res) => {
       .limit(limit)
       .select(
         withImages
-          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
-          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption advanceAmount balanceAmount assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption advanceAmount balanceAmount assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
       )
       .lean();
 
@@ -475,8 +526,8 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .limit(limit)
       .select(
         withImages
-          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
-          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption advanceAmount balanceAmount totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption advanceAmount balanceAmount totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
       )
       .lean();
 
@@ -615,9 +666,9 @@ router.put('/:id/assign-cab', protect, authorize('admin'), async (req, res) => {
     booking.bookingStatus = 'confirmed';
     await booking.save();
 
-    // Email driver (best-effort)
-    if (booking.assignedDriverEmail) {
-      const subject = `New Cab Booking Assigned (${booking.bookingId})`;
+    // SMS driver (best-effort). Drivers must be notified by mobile number, not email.
+    if (booking.assignedDriverPhone) {
+      const subject = '';
       const text =
         `Booking ID: ${booking.bookingId}\n` +
         `Customer: ${booking.customerFullName || booking.userName}\n` +
@@ -629,8 +680,8 @@ router.put('/:id/assign-cab', protect, authorize('admin'), async (req, res) => {
         `Passengers: ${booking.guests || 1}\n` +
         `Cab Type: ${booking.cabType}\n` +
         `Total Fare: ₹${Number(booking.cabFareTotal || booking.totalAmount || 0).toLocaleString('en-IN')}\n\n` +
-        `Payment: Cash (Pay after trip completion)\n`;
-      try { await sendEmail({ to: booking.assignedDriverEmail, subject, text }); } catch { /* ignore */ }
+        `Payment: 30% advance online, 70% balance later\n`;
+      try { await sendSms({ to: booking.assignedDriverPhone, message: text }); } catch { /* ignore */ }
     }
 
     res.json({ success: true, data: booking });
@@ -673,12 +724,19 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
 
     const booking = await Booking.findByIdAndUpdate(req.params.id, {
       paymentStatus: 'paid',
-      bookingStatus: 'confirmed',
+      bookingStatus: bookingExisting.bookingType === 'cab' ? 'pending' : 'confirmed',
       verificationStage: 'verified',
       adminPaymentVerified: true,
       adminPaymentVerifiedAt: new Date(),
     }, { new: true });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    try {
+      await sendCustomerInvoice(booking);
+      booking.invoiceSentAt = new Date();
+      await booking.save();
+    } catch {
+      // Email is best-effort; verification should not fail if mail is down.
+    }
     res.json({ success: true, data: booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

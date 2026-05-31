@@ -44,6 +44,9 @@ export interface Booking {
   pickupTime?: string;
   cabType?: string;
   cabFareTotal?: number;
+  tollOption?: 'included' | 'excluded';
+  advanceAmount?: number;
+  balanceAmount?: number;
   assignedVehicleName?: string;
   assignedVehicleType?: string;
   assignedDriverName?: string;
@@ -101,6 +104,9 @@ const normalizeBooking = (b: unknown): Booking => {
     pickupTime: getString(obj, 'pickupTime') || undefined,
     cabType: getString(obj, 'cabType') || undefined,
     cabFareTotal: getNumber(obj, 'cabFareTotal') || undefined,
+    tollOption: (getString(obj, 'tollOption') as Booking['tollOption']) || undefined,
+    advanceAmount: getNumber(obj, 'advanceAmount') || undefined,
+    balanceAmount: getNumber(obj, 'balanceAmount') || undefined,
     assignedVehicleName: getString(obj, 'assignedVehicleName') || undefined,
     assignedVehicleType: getString(obj, 'assignedVehicleType') || undefined,
     assignedDriverName: getString(obj, 'assignedDriverName') || undefined,

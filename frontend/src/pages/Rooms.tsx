@@ -79,8 +79,8 @@ const Rooms = () => {
 
   return (
     <div className="pt-20">
-      <section className="section-cream py-12 lg:py-16">
-        <div className="container mx-auto px-4">
+      <section className="section-cream py-10 lg:py-16">
+        <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle label="Room Options" title="Browse Rooms" subtitle="Choose a room type, then book from the hotel page" />
           <div className="max-w-4xl mx-auto grid grid-cols-1 gap-3">
             <div className="relative md:col-span-3">
@@ -97,15 +97,15 @@ const Rooms = () => {
         </div>
       </section>
 
-      <section className="py-12 lg:py-16">
-        <div className="container mx-auto px-4">
+      <section className="py-10 lg:py-16">
+        <div className="container mx-auto px-3 sm:px-4">
           {roomTypes.length === 0 ? (
             <div className="text-center py-20">
               <p className="font-heading text-2xl text-muted-foreground mb-2">No Rooms Listed Yet</p>
               <p className="font-body text-sm text-muted-foreground">Room types will appear here once hotels are approved and inventory is added.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {filtered.map((rt: any) => (
                 <ListingCard
                   key={rt._id}
@@ -120,6 +120,7 @@ const Rooms = () => {
                   amenities={rt?.amenities || rt?.hotel?.amenities || []}
                   meta={Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined}
                   variant="compact"
+                  ctaLabel="Book Room"
                   onViewDetails={() => {
                     prefetchDetail('roomTypes', rt._id, rt);
                     navigate(`/room-types/${rt._id}`);

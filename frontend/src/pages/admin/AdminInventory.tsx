@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Plus, Trash2, Pencil, CalendarDays } from 'lucide-react';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { useSettingsStore } from '@/store/settingsStore';
 
 type Hotel = { _id: string; name: string; status?: string; approvalStatus?: string; location?: string; partnerName?: string };
 
@@ -35,6 +36,7 @@ type BlockKind = 'closed' | 'maintenance' | 'offline_booking' | 'temp_unavailabl
 
 const AdminInventory = () => {
   const token = useAuthStore((s) => s.token);
+  const hotelTaxPercent = useSettingsStore((s) => s.settings.hotelTaxPercent);
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [selectedHotelId, setSelectedHotelId] = useState<string>('');
 
@@ -73,6 +75,8 @@ const AdminInventory = () => {
   const selectedHotel = useMemo(() => hotels.find((h) => h._id === selectedHotelId) || null, [hotels, selectedHotelId]);
   const selectedRoomType = useMemo(() => roomTypes.find((rt) => rt._id === selectedRoomTypeId) || null, [roomTypes, selectedRoomTypeId]);
   const selectedRoomUnit = useMemo(() => rooms.find((r) => r._id === selectedRoomUnitId) || null, [rooms, selectedRoomUnitId]);
+  const taxPercent = Math.min(50, Math.max(0, Number(hotelTaxPercent ?? 12)));
+  const priceWithTax = (price: number) => Math.round(Number(price || 0) * (1 + taxPercent / 100));
 
   const loadHotels = async () => {
     if (!token) return;
@@ -516,6 +520,9 @@ const AdminInventory = () => {
                           <p className="font-body text-sm font-semibold text-foreground truncate">{rt.name}</p>
                           <p className="font-body text-xs text-muted-foreground truncate">
                             ₹{Number(rt.pricePerNight || 0).toLocaleString('en-IN')} • Adults {rt.maxAdults} • Children {rt.maxChildren}
+                          </p>
+                          <p className="font-body text-[11px] text-muted-foreground truncate">
+                            Customer pays ₹{priceWithTax(rt.pricePerNight).toLocaleString('en-IN')} / night incl. {taxPercent}% tax
                           </p>
                         </div>
                         <div className="flex items-center gap-1">

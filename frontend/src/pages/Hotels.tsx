@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
+import { toast } from 'sonner';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
@@ -63,10 +64,39 @@ const Hotels = () => {
     h.location.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const removeHotelFromCache = (hotelId: string) => {
+    setHotels((prev) => {
+      const next = prev.filter((hotel) => hotel._id !== hotelId);
+      try {
+        localStorage.setItem('vvs_hotels', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const openHotel = async (hotel: HotelListItem) => {
+    prefetchDetail('hotels', hotel._id, hotel);
+    try {
+      const res = await api.get(`/hotels/${hotel._id}`);
+      const freshHotel = res.data?.data || hotel;
+      prefetchDetail('hotels', hotel._id, freshHotel);
+      navigate(`/hotels/${hotel._id}`);
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        removeHotelFromCache(hotel._id);
+        toast.error('This hotel is no longer available. The list has been refreshed.');
+        return;
+      }
+      navigate(`/hotels/${hotel._id}`);
+    }
+  };
+
   return (
     <div className="pt-20">
-      <section className="section-cream py-12 lg:py-16">
-        <div className="container mx-auto px-4">
+      <section className="section-cream py-10 lg:py-16">
+        <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle label="Stays in Vrindavan" title="Find Your Perfect Hotel" subtitle="Comfortable, verified stays near the most sacred sites" />
           <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="relative md:col-span-3">
@@ -77,8 +107,8 @@ const Hotels = () => {
         </div>
       </section>
 
-      <section className="py-12 lg:py-16">
-        <div className="container mx-auto px-4">
+      <section className="py-10 lg:py-16">
+        <div className="container mx-auto px-3 sm:px-4">
           {hotels.length === 0 ? (
             <div className="text-center py-20">
               <p className="font-heading text-2xl text-muted-foreground mb-2">No Hotels Listed Yet</p>
@@ -86,14 +116,14 @@ const Hotels = () => {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-5">
                 <p className="font-body text-muted-foreground text-sm">{filtered.length} hotels found</p>
                 <select className="font-body text-sm border border-border rounded-lg px-3 py-2 bg-card focus:outline-none focus:ring-2 focus:ring-brand-gold/50">
                   <option>Sort by: Recommended</option>
                   <option>Rating: High to Low</option>
                 </select>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 {filtered.map((hotel) => (
                   <ListingCard
                     key={hotel._id}
@@ -105,10 +135,7 @@ const Hotels = () => {
                     rating={hotel.rating}
                     reviewCount={0}
                     amenities={hotel.amenities || []}
-                    onViewDetails={() => {
-                      prefetchDetail('hotels', hotel._id, hotel);
-                      navigate(`/hotels/${hotel._id}`);
-                    }}
+                    onViewDetails={() => void openHotel(hotel)}
                   />
                 ))}
               </div>

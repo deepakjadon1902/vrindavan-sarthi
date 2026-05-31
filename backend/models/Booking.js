@@ -43,6 +43,7 @@ const bookingSchema = new mongoose.Schema({
   cabFareBase: { type: Number, default: 0 },
   cabFareExtra: { type: Number, default: 0 },
   cabFareTotal: { type: Number, default: 0 },
+  tollOption: { type: String, enum: ['included', 'excluded'], default: null },
   assignedCabId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cab' },
   assignedVehicleName: String,
   assignedVehicleType: String,
@@ -65,6 +66,10 @@ const bookingSchema = new mongoose.Schema({
   guestDetails: [guestDetailSchema],
 
   totalAmount: { type: Number, default: 0 },
+  advanceAmount: { type: Number, default: 0 },
+  balanceAmount: { type: Number, default: 0 },
+  advancePercent: { type: Number, default: 30 },
+  invoiceSentAt: Date,
   paymentMethod: { type: String, enum: ['online', 'doorstep'], default: 'online' },
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
   bookingStatus: { type: String, enum: ['pending', 'confirmed', 'cancelled', 'completed'], default: 'pending' },

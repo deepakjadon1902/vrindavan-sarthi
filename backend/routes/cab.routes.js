@@ -48,10 +48,8 @@ router.get('/', async (req, res) => {
       .lean();
 
     for (const c of cabs) {
-      c.image = stripLargeInlineImage(c.image) || '/placeholder.svg';
-      if (Array.isArray(c.images)) {
-        c.images = c.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
-      }
+      c.image = c.image || '/placeholder.svg';
+      if (Array.isArray(c.images)) c.images = c.images.filter(Boolean);
     }
 
     setCache(cacheKey, cabs, 30_000);

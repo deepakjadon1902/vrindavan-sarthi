@@ -7,23 +7,17 @@ const normalize = (v) => String(v || '').trim();
 
 const normalizeLocationKey = (v) => normalize(v).replace(/\s+/g, ' ');
 
-const calcFare = ({ baseFare, includedPersons, extraPersonCharge, persons }) => {
+const calcFare = ({ baseFare }) => {
   const base = Number(baseFare || 0);
-  const included = Math.max(1, Number(includedPersons || 1));
-  const extraCharge = Math.max(0, Number(extraPersonCharge || 0));
-  const pax = Math.max(1, Number(persons || 1));
-
-  const extraPersons = Math.max(0, pax - included);
-  const extra = extraPersons * extraCharge;
-  const total = Math.max(0, base + extra);
+  const total = Math.max(0, base);
 
   return {
     baseFare: base,
-    includedPersons: included,
-    extraPersonCharge: extraCharge,
-    persons: pax,
-    extraPersons,
-    extraAmount: extra,
+    includedPersons: 0,
+    extraPersonCharge: 0,
+    persons: 0,
+    extraPersons: 0,
+    extraAmount: 0,
     totalFare: total,
   };
 };
@@ -41,13 +35,12 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Public: calculate fare for a route/type/persons
+// Public: calculate fare for a route/vehicle. Cab fares are whole-vehicle base fares.
 router.get('/calculate', async (req, res) => {
   try {
     const pickup = normalizeLocationKey(req.query?.pickupLocation);
     const drop = normalizeLocationKey(req.query?.dropLocation);
     const cabType = normalize(req.query?.cabType);
-    const persons = Number(req.query?.persons || 1);
 
     if (!pickup || !drop || !cabType) {
       return res.status(400).json({ success: false, message: 'pickupLocation, dropLocation and cabType are required' });
@@ -62,7 +55,7 @@ router.get('/calculate', async (req, res) => {
 
     if (!rule) return res.status(404).json({ success: false, message: 'Fare not set for this route/cab type' });
 
-    const breakdown = calcFare({ ...rule, persons });
+    const breakdown = calcFare(rule);
     res.json({ success: true, data: { ruleId: String(rule._id), ...breakdown } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -87,16 +80,14 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
     const dropLocation = normalizeLocationKey(req.body?.dropLocation);
     const cabType = normalize(req.body?.cabType);
     const baseFare = Number(req.body?.baseFare || 0);
-    const includedPersons = Number(req.body?.includedPersons || 1);
-    const extraPersonCharge = Number(req.body?.extraPersonCharge || 0);
+    const includedPersons = 0;
+    const extraPersonCharge = 0;
     const status = normalize(req.body?.status) === 'inactive' ? 'inactive' : 'active';
 
     if (!pickupLocation || !dropLocation || !cabType) {
       return res.status(400).json({ success: false, message: 'pickupLocation, dropLocation and cabType are required' });
     }
     if (!Number.isFinite(baseFare) || baseFare < 0) return res.status(400).json({ success: false, message: 'Invalid baseFare' });
-    if (!Number.isFinite(includedPersons) || includedPersons < 1) return res.status(400).json({ success: false, message: 'Invalid includedPersons' });
-    if (!Number.isFinite(extraPersonCharge) || extraPersonCharge < 0) return res.status(400).json({ success: false, message: 'Invalid extraPersonCharge' });
 
     const fare = await CabFare.create({
       pickupLocation,
@@ -123,8 +114,8 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
     if (typeof req.body?.dropLocation !== 'undefined') update.dropLocation = normalizeLocationKey(req.body.dropLocation);
     if (typeof req.body?.cabType !== 'undefined') update.cabType = normalize(req.body.cabType);
     if (typeof req.body?.baseFare !== 'undefined') update.baseFare = Number(req.body.baseFare || 0);
-    if (typeof req.body?.includedPersons !== 'undefined') update.includedPersons = Number(req.body.includedPersons || 1);
-    if (typeof req.body?.extraPersonCharge !== 'undefined') update.extraPersonCharge = Number(req.body.extraPersonCharge || 0);
+    update.includedPersons = 0;
+    update.extraPersonCharge = 0;
     if (typeof req.body?.status !== 'undefined') update.status = normalize(req.body.status) === 'inactive' ? 'inactive' : 'active';
 
     const fare = await CabFare.findByIdAndUpdate(req.params.id, update, { new: true });

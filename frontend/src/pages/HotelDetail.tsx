@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, ShieldCheck, Star } from 'lucide-react';
+import { ArrowLeft, BedDouble, CalendarDays, MapPin, ShieldCheck, Star } from 'lucide-react';
 import ImageCarousel from '@/components/shared/ImageCarousel';
+import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
-import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
+import { getCachedListingItem, getPrefetchedDetail, prefetchDetail } from '@/lib/detailCache';
 
 type Hotel = {
   _id: string;
@@ -20,6 +21,23 @@ type Hotel = {
   checkOutTime?: string;
 };
 
+type RoomType = {
+  _id: string;
+  hotelId?: string;
+  name: string;
+  description?: string;
+  images?: string[];
+  amenities?: string[];
+  pricePerNight?: number;
+  maxAdults?: number;
+  maxChildren?: number;
+  totalCount?: number;
+  availableCount?: number;
+  hotel?: Hotel;
+};
+
+const sameId = (a?: string | null, b?: string | null) => String(a || '') === String(b || '');
+
 const HotelDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -27,22 +45,75 @@ const HotelDetail = () => {
 
   const [hotel, setHotel] = useState<Hotel | null>(() => getPrefetchedDetail<Hotel>('hotels', id) || getCachedListingItem<Hotel>('hotels', id) || null);
   const [isLoading, setIsLoading] = useState(true);
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [isRoomsLoading, setIsRoomsLoading] = useState(false);
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
 
   useEffect(() => {
     const run = async () => {
       if (!id) return;
+      const cached = getPrefetchedDetail<Hotel>('hotels', id) || getCachedListingItem<Hotel>('hotels', id) || null;
       setIsLoading(true);
       try {
         const res = await api.get(`/hotels/${id}`);
         setHotel(res.data?.data || null);
-      } catch {
-        setHotel(null);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          try {
+            const cachedHotels = localStorage.getItem('vvs_hotels');
+            const parsed = cachedHotels ? JSON.parse(cachedHotels) : [];
+            if (Array.isArray(parsed)) {
+              localStorage.setItem('vvs_hotels', JSON.stringify(parsed.filter((h: Hotel) => h?._id !== id)));
+            }
+          } catch {
+            // ignore
+          }
+          setHotel(cached);
+        } else {
+          setHotel(cached);
+        }
       } finally {
         setIsLoading(false);
       }
     };
     void run();
   }, [id]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!id) return;
+      setIsRoomsLoading(true);
+      try {
+        const params: Record<string, string> = {};
+        if (checkIn && checkOut) {
+          params.checkIn = checkIn;
+          params.checkOut = checkOut;
+        }
+        const res = await api.get(`/hotels/${id}/room-types`, { params });
+        let data = Array.isArray(res.data?.data) ? (res.data.data as RoomType[]) : [];
+
+        // Fallback to the global public room-type list so hotel detail stays aligned
+        // with the Rooms page if an older backend/proxy misses the hotel-specific route.
+        if (data.length === 0) {
+          try {
+            const fallbackRes = await api.get('/room-types', { params });
+            const fallbackData = Array.isArray(fallbackRes.data?.data) ? (fallbackRes.data.data as RoomType[]) : [];
+            data = fallbackData.filter((rt) => sameId(rt.hotelId, id) || sameId(rt.hotel?._id, id));
+          } catch {
+            // Keep the original empty hotel-specific result.
+          }
+        }
+
+        setRoomTypes(data);
+      } catch {
+        setRoomTypes([]);
+      } finally {
+        setIsRoomsLoading(false);
+      }
+    };
+    void run();
+  }, [id, checkIn, checkOut]);
 
   // Clean query params like checkIn/checkOut that may be deep-linked from legacy pages.
   useEffect(() => {
@@ -63,6 +134,14 @@ const HotelDetail = () => {
     if (!hotel) return [];
     return [hotel.image, ...(hotel.images || [])].filter(Boolean);
   }, [hotel]);
+
+  const roomDetailsUrl = (roomTypeId: string) => {
+    const qs = new URLSearchParams();
+    if (checkIn) qs.set('checkIn', checkIn);
+    if (checkOut) qs.set('checkOut', checkOut);
+    const query = qs.toString();
+    return `/room-types/${roomTypeId}${query ? `?${query}` : ''}`;
+  };
 
   if (!isLoading && !hotel) {
     return (
@@ -153,6 +232,87 @@ const HotelDetail = () => {
                 </div>
               </div>
             )}
+
+            <div id="hotel-room-types" className="rounded-xl border border-border bg-card p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="font-heading text-lg font-semibold text-foreground">Room Types</h2>
+                  <p className="font-body text-sm text-muted-foreground">
+                    Choose from the rooms listed under this hotel.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:w-80">
+                  <div>
+                    <label className="font-body text-xs text-muted-foreground">Check-in</label>
+                    <input
+                      type="date"
+                      value={checkIn}
+                      onChange={(e) => setCheckIn(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-body text-xs text-muted-foreground">Check-out</label>
+                    <input
+                      type="date"
+                      value={checkOut}
+                      onChange={(e) => setCheckOut(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {isRoomsLoading ? (
+                <div className="mt-5 rounded-lg border border-border bg-background p-6 text-center">
+                  <p className="font-body text-sm text-muted-foreground">Loading room types...</p>
+                </div>
+              ) : roomTypes.length === 0 ? (
+                <div className="mt-5 rounded-lg border border-border bg-background p-6 text-center">
+                  <BedDouble size={28} className="mx-auto mb-2 text-muted-foreground/50" />
+                  <p className="font-body text-sm text-muted-foreground">No room types are listed for this hotel yet.</p>
+                </div>
+              ) : (
+                <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                  {roomTypes.map((rt) => {
+                    const rtHotel = rt.hotel || hotel;
+                    const availabilityText =
+                      typeof rt.availableCount === 'number'
+                        ? rt.availableCount > 0
+                          ? `${rt.availableCount} available`
+                          : 'Fully booked'
+                        : Number(rt.totalCount || 0) > 0
+                          ? `${rt.totalCount} rooms`
+                          : undefined;
+                    const enrichedRoom = {
+                      ...rt,
+                      hotel: rtHotel,
+                    };
+                    return (
+                      <ListingCard
+                        key={rt._id}
+                        image={rt.images?.[0] || rtHotel?.image || '/placeholder.svg'}
+                        images={rt.images?.length ? rt.images : rtHotel?.images}
+                        name={rt.name}
+                        location={rtHotel?.name || 'Hotel room'}
+                        price={rt.pricePerNight}
+                        priceLabel="/night"
+                        rating={rtHotel?.rating || 0}
+                        reviewCount={0}
+                        amenities={rt.amenities || rtHotel?.amenities || []}
+                        meta={availabilityText}
+                        variant="compact"
+                        ctaLabel="Book Room"
+                        onViewDetails={() => {
+                          prefetchDetail('roomTypes', rt._id, enrichedRoom);
+                          navigate(roomDetailsUrl(rt._id));
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="lg:col-span-1">
@@ -188,11 +348,12 @@ const HotelDetail = () => {
               </div>
 
               <div className="mt-5 pt-4 border-t border-border">
-                <Link to="/rooms" className="w-full inline-flex items-center justify-center btn-gold px-4 py-2.5 rounded-lg text-sm font-body">
-                  View Rooms
-                </Link>
-                <p className="mt-2 font-body text-xs text-muted-foreground text-center">
-                  Booking is currently disabled for hotels. Details only.
+                <a href="#hotel-room-types" className="w-full inline-flex items-center justify-center btn-gold px-4 py-2.5 rounded-lg text-sm font-body">
+                  View Hotel Rooms
+                </a>
+                <p className="mt-2 font-body text-xs text-muted-foreground text-center inline-flex items-center justify-center gap-1 w-full">
+                  <CalendarDays size={13} />
+                  Book a specific room type from this hotel page.
                 </p>
               </div>
             </div>

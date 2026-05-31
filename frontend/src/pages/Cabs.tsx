@@ -14,6 +14,9 @@ type CabListItem = {
   images?: string[];
   rating?: number;
   location?: string;
+  routes?: string[];
+  vehicleType?: string;
+  capacity?: number;
 };
 
 const Cabs = () => {
@@ -64,8 +67,8 @@ const Cabs = () => {
 
   return (
     <div className="pt-20">
-      <section className="section-cream py-12 lg:py-16">
-        <div className="container mx-auto px-4">
+      <section className="section-cream py-10 lg:py-16">
+        <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle
             label="Transportation"
             title="Book a Cab in Vrindavan"
@@ -85,28 +88,28 @@ const Cabs = () => {
       </section>
 
       <section className="py-6">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-3 sm:px-4">
           <div className="bg-brand-green/10 border border-brand-green/30 rounded-xl p-6 text-center">
             <p className="font-heading text-xl font-semibold text-foreground mb-2">🚗 Cab Fare Policy</p>
             <p className="font-body text-sm text-muted-foreground">
-              Fare is decided by the driver based on your destination and distance.
+              Fare is fixed route-wise for the whole vehicle. A 30% online advance is required to confirm a request.
             </p>
             <p className="font-body text-sm text-muted-foreground mt-1">
-              💳 Payment is made directly to the driver at your destination. No online payment required.
+              Balance 70% is paid later after admin confirmation and driver assignment.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="py-12 lg:py-16">
-        <div className="container mx-auto px-4">
+      <section className="py-10 lg:py-16">
+        <div className="container mx-auto px-3 sm:px-4">
           {cabs.length === 0 ? (
             <div className="text-center py-20">
               <p className="font-heading text-2xl text-muted-foreground mb-2">No Cabs Listed Yet</p>
               <p className="font-body text-sm text-muted-foreground">Cabs will appear here once listed.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {filtered.map((cab) => (
                 <ListingCard
                   key={cab._id}
@@ -119,8 +122,9 @@ const Cabs = () => {
                   rating={0}
                   reviewCount={0}
                   amenities={[cab.vehicleType, `${cab.capacity} Seater`]}
-                  badge="💰 Pay at Doorstep"
+                  badge="30% Advance"
                   badgeColor="green"
+                  variant="compact"
                   onViewDetails={() => {
                     prefetchDetail('cabs', cab._id, cab);
                     navigate(`/cabs/${cab._id}`);

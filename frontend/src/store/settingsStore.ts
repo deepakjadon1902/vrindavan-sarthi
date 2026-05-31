@@ -19,6 +19,7 @@ export interface AppSettings {
   adminEmail: string;
   termsOfService: string;
   privacyPolicy: string;
+  hotelTaxPercent: number;
 }
 
 interface SettingsState {
@@ -43,6 +44,7 @@ const defaultSettings: AppSettings = {
   upiName: 'Vrindavan Sarthi',
   adminPhone: '+91 9999999999',
   adminEmail: 'vrindavansarthi108@gmail.com',
+  hotelTaxPercent: 12,
   termsOfService: `1. Acceptance of Terms
 By accessing and using Vrindavan Sarthi ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.
 
@@ -90,6 +92,10 @@ For privacy-related inquiries, contact us at vrindavansarthi108@gmail.com or thr
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 const getString = (obj: Record<string, unknown>, key: string) => (typeof obj[key] === 'string' ? obj[key] : '');
+const getNumber = (obj: Record<string, unknown>, key: string, fallback: number) => {
+  const n = Number(obj[key]);
+  return Number.isFinite(n) ? n : fallback;
+};
 
 const normalizeSettings = (raw: unknown): AppSettings => {
   const obj = isRecord(raw) ? raw : {};
@@ -107,6 +113,7 @@ const normalizeSettings = (raw: unknown): AppSettings => {
     upiName: getString(obj, 'upiName') || defaultSettings.upiName,
     adminPhone: getString(obj, 'adminPhone') || defaultSettings.adminPhone,
     adminEmail: getString(obj, 'adminEmail') || defaultSettings.adminEmail,
+    hotelTaxPercent: Math.min(50, Math.max(0, getNumber(obj, 'hotelTaxPercent', defaultSettings.hotelTaxPercent))),
     termsOfService: getString(obj, 'termsOfService') || defaultSettings.termsOfService,
     privacyPolicy: getString(obj, 'privacyPolicy') || defaultSettings.privacyPolicy,
   };

@@ -1,4 +1,6 @@
-require('dotenv').config();
+const path = require('path');
+
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
@@ -25,6 +27,7 @@ const productRoutes = require('./routes/product.routes');
 const orderRoutes = require('./routes/order.routes');
 const adminAnalyticsRoutes = require('./routes/adminAnalytics.routes');
 const cabFareRoutes = require('./routes/cabFare.routes');
+const contactRoutes = require('./routes/contact.routes');
 
 connectDB();
 
@@ -136,6 +139,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/cab-fares', cabFareRoutes);
+app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminAnalyticsRoutes);
 app.use('/api/admin/inventory', adminInventoryRoutes);
 

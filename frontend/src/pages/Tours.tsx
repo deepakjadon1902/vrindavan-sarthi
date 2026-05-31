@@ -63,8 +63,8 @@ const Tours = () => {
 
   return (
     <div className="pt-20">
-      <section className="section-cream py-12 lg:py-16">
-        <div className="container mx-auto px-4">
+      <section className="section-cream py-10 lg:py-16">
+        <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle label="Spiritual Journeys" title="Explore Tour Packages" subtitle="Guided tours to experience the divine essence of Vrindavan" />
           <div className="max-w-xl mx-auto relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
@@ -72,15 +72,15 @@ const Tours = () => {
           </div>
         </div>
       </section>
-      <section className="py-12 lg:py-16">
-        <div className="container mx-auto px-4">
+      <section className="py-10 lg:py-16">
+        <div className="container mx-auto px-3 sm:px-4">
           {tours.length === 0 ? (
             <div className="text-center py-20">
               <p className="font-heading text-2xl text-muted-foreground mb-2">No Tours Listed Yet</p>
               <p className="font-body text-sm text-muted-foreground">Tour packages will appear here once the admin adds them.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {filtered.map((tour) => (
                 <ListingCard
                   key={tour._id}
@@ -94,6 +94,7 @@ const Tours = () => {
                   reviewCount={0}
                   badge={tour.duration}
                   amenities={tour.includes || []}
+                  variant="compact"
                   onViewDetails={() => {
                     prefetchDetail('tours', tour._id, tour);
                     navigate(`/tours/${tour._id}`);

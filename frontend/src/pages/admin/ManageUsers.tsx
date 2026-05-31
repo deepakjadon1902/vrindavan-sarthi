@@ -88,7 +88,7 @@ const ManageUsers = () => {
     <div className="space-y-6">
       {isLoading ? (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
-          <p className="font-body text-sm text-muted-foreground">Loading usersâ€¦</p>
+          <p className="font-body text-sm text-muted-foreground">Loading users... </p>
         </div>
       ) : sorted.length === 0 ? (
         <div className="bg-card rounded-xl border border-border p-12 text-center">

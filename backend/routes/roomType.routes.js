@@ -176,10 +176,10 @@ router.get('/', async (req, res) => {
 
       for (const rt of data) {
         if (rt?.hotel) {
-          rt.hotel.image = stripLargeInlineImage(rt.hotel.image) || '/placeholder.svg';
-          if (Array.isArray(rt.hotel.images)) rt.hotel.images = rt.hotel.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+          rt.hotel.image = rt.hotel.image || '/placeholder.svg';
+          if (Array.isArray(rt.hotel.images)) rt.hotel.images = rt.hotel.images.filter(Boolean);
         }
-        if (Array.isArray(rt.images)) rt.images = rt.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+        if (Array.isArray(rt.images)) rt.images = rt.images.filter(Boolean);
         if (!rt.images?.length && rt?.hotel?.image) rt.images = [rt.hotel.image];
       }
 
@@ -198,9 +198,9 @@ router.get('/', async (req, res) => {
     if (!hotels.length) return res.json({ success: true, data: [] });
 
     for (const h of hotels) {
-      h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
+      h.image = h.image || '/placeholder.svg';
       if (Array.isArray(h.images)) {
-        h.images = h.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+        h.images = h.images.filter(Boolean);
       }
     }
 
@@ -222,7 +222,7 @@ router.get('/', async (req, res) => {
 
     for (const rt of roomTypes) {
       if (Array.isArray(rt.images)) {
-        rt.images = rt.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+        rt.images = rt.images.filter(Boolean);
       }
     }
 

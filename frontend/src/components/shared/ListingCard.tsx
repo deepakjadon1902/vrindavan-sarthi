@@ -4,7 +4,6 @@ import { resolveBackendAssetUrl } from '@/lib/api';
 
 interface ListingCardProps {
   image: string;
-  /** Optional gallery — when provided, the card auto-rotates through these images. */
   images?: string[];
   name: string;
   location: string;
@@ -17,7 +16,7 @@ interface ListingCardProps {
   meta?: string;
   amenities?: string[];
   onViewDetails?: () => void;
-  /** Auto-scroll interval in ms */
+  ctaLabel?: string;
   intervalMs?: number;
   variant?: 'default' | 'hotel' | 'compact';
 }
@@ -36,10 +35,10 @@ const ListingCard = ({
   meta,
   amenities,
   onViewDetails,
+  ctaLabel = 'View Details',
   intervalMs = 2800,
   variant = 'compact',
 }: ListingCardProps) => {
-  // Build full gallery: main image + extras (de-duplicated, placeholder filtered)
   const safeGallery = useMemo(() => {
     const all = [image, ...(images || [])]
       .map((src) => resolveBackendAssetUrl(src))
@@ -62,8 +61,6 @@ const ListingCard = ({
     };
   }, [paused, safeGallery.length, intervalMs]);
 
-  // Only render the active image to avoid downloading the entire gallery for every card.
-  // Prefetch the next image after first paint for smoother transitions.
   useEffect(() => {
     if (safeGallery.length <= 1) return;
     const next = safeGallery[(active + 1) % safeGallery.length];
@@ -74,11 +71,10 @@ const ListingCard = ({
   }, [active, safeGallery]);
 
   return (
-    <div className="bg-card rounded-xl overflow-hidden border border-border card-hover group">
-      {/* Image carousel */}
+    <div className="bg-card rounded-lg overflow-hidden border border-border card-hover group min-w-0">
       <div
         className={`relative overflow-hidden ${
-          variant === 'hotel' ? 'h-48 sm:h-52' : variant === 'compact' ? 'h-40 sm:h-44' : 'h-44 sm:h-48'
+          variant === 'hotel' ? 'h-24 sm:h-32' : variant === 'compact' ? 'h-24 sm:h-32' : 'h-28 sm:h-36'
         }`}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
@@ -93,41 +89,41 @@ const ListingCard = ({
           onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}
         />
 
-        {/* Glossy sheen */}
         <div className="pointer-events-none absolute inset-0 glossy-sheen" />
 
         {badge && (
           <span
-            className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-body font-semibold z-10 ${
+            className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] sm:text-[11px] font-body font-semibold z-10 ${
               badgeColor === 'green'
                 ? 'bg-brand-green text-primary-foreground'
                 : badgeColor === 'crimson'
                   ? 'bg-brand-crimson text-primary-foreground'
-                : 'bg-brand-saffron text-primary-foreground'
+                  : 'bg-brand-saffron text-primary-foreground'
             }`}
           >
             {badge}
           </span>
         )}
 
-        {/* Image counter */}
         {safeGallery.length > 1 && (
-          <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full glass-chip text-[10px] font-body z-10">
+          <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full glass-chip text-[9px] sm:text-[10px] font-body z-10">
             {active + 1} / {safeGallery.length}
           </span>
         )}
 
-        {/* Dot indicators */}
         {safeGallery.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-10">
             {safeGallery.map((_, i) => (
               <button
                 key={i}
                 type="button"
-                onClick={(e) => { e.stopPropagation(); setActive(i); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActive(i);
+                }}
                 aria-label={`Show image ${i + 1}`}
                 className={`h-1 rounded-full transition-all ${
-                  i === active ? 'w-5 bg-brand-gold' : 'w-1.5 bg-primary-foreground/60'
+                  i === active ? 'w-4 bg-brand-gold' : 'w-1.5 bg-primary-foreground/60'
                 }`}
               />
             ))}
@@ -135,53 +131,58 @@ const ListingCard = ({
         )}
       </div>
 
-      {/* Content */}
-      <div className={variant === 'compact' ? 'p-3' : 'p-4'}>
-        <h3 className={`font-heading font-semibold text-foreground line-clamp-1 ${
-          variant === 'hotel' ? 'text-base' : variant === 'compact' ? 'text-base' : 'text-lg'
-        }`}>{name}</h3>
-        <p className={`font-body text-muted-foreground mt-1 ${
-          variant === 'hotel' ? 'text-xs' : variant === 'compact' ? 'text-xs' : 'text-sm'
-        }`}>{location}</p>
-        {meta && <p className="font-body text-xs text-muted-foreground mt-1">{meta}</p>}
+      <div className="p-2 sm:p-2.5">
+        <h3
+          className={`font-heading font-semibold text-foreground line-clamp-1 ${
+            variant === 'default' ? 'text-sm sm:text-base' : 'text-[13px] sm:text-[15px]'
+          }`}
+        >
+          {name}
+        </h3>
+        <p className={`font-body text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1 ${variant === 'default' ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}`}>
+          {location}
+        </p>
+        {meta && <p className="font-body text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1">{meta}</p>}
 
-        {/* Rating */}
-        <div className="flex items-center gap-1.5 mt-3">
+        <div className="flex items-center gap-1 mt-1 sm:gap-1.5 sm:mt-1.5">
           <div className="flex items-center gap-0.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
                 key={i}
-                size={13}
+                size={10}
                 className={i < Math.floor(rating) ? 'fill-brand-gold text-brand-gold' : 'text-muted-foreground/30'}
               />
             ))}
           </div>
-          <span className="font-body text-xs text-muted-foreground">({reviewCount})</span>
+          <span className="font-body text-[10px] sm:text-xs text-muted-foreground">({reviewCount})</span>
         </div>
 
-        {/* Amenities */}
         {amenities && amenities.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {amenities.slice(0, 3).map((a) => (
-              <span key={a} className="font-body text-xs bg-secondary px-2 py-0.5 rounded-full text-secondary-foreground">
+          <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2 min-h-5">
+            {amenities.slice(0, 3).map((a, index) => (
+              <span
+                key={a}
+                className={`font-body text-[9px] sm:text-[11px] bg-secondary px-1.5 sm:px-2 py-0.5 rounded-full text-secondary-foreground line-clamp-1 ${
+                  index > 1 ? 'hidden sm:inline-flex' : ''
+                }`}
+              >
                 {a}
               </span>
             ))}
           </div>
         )}
 
-        {/* Price & CTA */}
-        <div className="flex items-end justify-between mt-4 pt-4 border-t border-border">
+        <div className="flex flex-col items-stretch gap-1.5 mt-2 pt-2 border-t border-border sm:flex-row sm:items-end sm:justify-between sm:gap-2 sm:mt-2.5 sm:pt-2.5">
           {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
             <div>
-              <span className="font-heading text-2xl font-bold text-foreground">₹{price.toLocaleString('en-IN')}</span>
-              <span className={`font-body text-muted-foreground ${variant === 'compact' ? 'text-xs' : 'text-sm'}`}>{priceLabel}</span>
+              <span className="font-heading text-[13px] sm:text-base font-bold text-foreground">Rs. {price.toLocaleString('en-IN')}</span>
+              <span className={`font-body text-muted-foreground ${variant === 'compact' ? 'text-[10px] sm:text-xs' : 'text-xs sm:text-sm'}`}>{priceLabel}</span>
             </div>
           ) : (
             <div />
           )}
-          <button onClick={onViewDetails} className={`btn-gold rounded-lg font-body ${variant === 'compact' ? 'px-3 py-1.5 text-xs' : 'px-3.5 py-1.5 text-sm'}`}>
-            View Details →
+          <button onClick={onViewDetails} className="btn-gold rounded-md font-body px-2 py-1.5 text-[10px] sm:px-2.5 sm:text-[11px] whitespace-nowrap">
+            {ctaLabel}
           </button>
         </div>
       </div>

@@ -154,7 +154,7 @@ export const useProductStore = create<ProductState>()((set, get) => ({
   fetchProducts: async () => {
     try {
       set({ isLoadingProducts: true });
-      const res = await api.get('/products');
+      const res = await api.get('/products', { params: { withImages: true } });
       const products = (res.data?.data || []).map(normalizeProduct);
       set({ products, isLoadingProducts: false });
     } catch {

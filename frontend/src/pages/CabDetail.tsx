@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import ImageCarousel from '@/components/shared/ImageCarousel';
+import UpiPayment from '@/components/UpiPayment';
 import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 
@@ -21,10 +22,13 @@ const CabDetail = () => {
   const [pickupTime, setPickupTime] = useState('');
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
-  const [persons, setPersons] = useState(1);
+  const [passengers, setPassengers] = useState(1);
   const [cabType, setCabType] = useState('');
+  const [tollOption, setTollOption] = useState<'included' | 'excluded' | ''>('');
   const [fare, setFare] = useState<number | null>(null);
   const [fareErr, setFareErr] = useState<string>('');
+  const [showPayment, setShowPayment] = useState(false);
+  const [pendingBookingId, setPendingBookingId] = useState('');
   const [booked, setBooked] = useState(false);
 
   useEffect(() => {
@@ -49,8 +53,9 @@ const CabDetail = () => {
   }, [user?.name, user?.phone]);
 
   useEffect(() => {
-    setCabType((prev) => prev || cab?.vehicleType || '');
-  }, [cab?.vehicleType]);
+    const vehicleLabel = cab?.vehicleName && cab?.capacity ? `${cab.vehicleName} - ${cab.capacity}-Seater` : '';
+    setCabType((prev) => prev || vehicleLabel);
+  }, [cab?.vehicleName, cab?.capacity]);
 
   useEffect(() => {
     const run = async () => {
@@ -63,18 +68,17 @@ const CabDetail = () => {
             pickupLocation: pickup,
             dropLocation: dropoff,
             cabType,
-            persons,
           },
         });
         const total = Number(res.data?.data?.totalFare ?? res.data?.data?.cabFareTotal ?? 0);
         if (Number.isFinite(total) && total >= 0) setFare(total);
       } catch (e: any) {
-        const msg = e?.response?.data?.message || 'Fare not set for this route/cab type.';
+        const msg = e?.response?.data?.message || 'Fare not set for this route/vehicle.';
         setFareErr(String(msg));
       }
     };
     void run();
-  }, [pickup, dropoff, cabType, persons]);
+  }, [pickup, dropoff, cabType]);
 
   if (isLoading && !cab) return (
     <div className="pt-24 pb-16 text-center min-h-screen bg-background">
@@ -96,10 +100,17 @@ const CabDetail = () => {
     if (!pickupDate) { toast.error('Please select pickup date'); return; }
     if (!pickupTime) { toast.error('Please select pickup time'); return; }
     if (!pickup || !dropoff) { toast.error('Please enter pickup and drop'); return; }
-    if (!cabType) { toast.error('Please select cab type'); return; }
+    if (!cabType) { toast.error('Please select vehicle'); return; }
+    if (!tollOption) { toast.error('Please choose whether tolls are included or excluded'); return; }
     if (fareErr) { toast.error(fareErr); return; }
+    if (typeof fare !== 'number') { toast.error('Please select a valid route fare'); return; }
 
     if (!user) return;
+    setPendingBookingId(`CAB-${Date.now()}`);
+    setShowPayment(true);
+  };
+
+  const handlePaymentConfirm = async (transactionId: string) => {
     const res = await createCabBooking({
       fullName,
       mobileNumber,
@@ -107,19 +118,25 @@ const CabDetail = () => {
       dropLocation: dropoff,
       pickupDate,
       pickupTime,
-      persons,
+      passengers,
       cabType,
+      tollOption,
+      upiTransactionId: transactionId,
     });
 
     if (!res.success) {
       toast.error(res.error || 'Booking failed');
       return;
     }
+    setShowPayment(false);
     setBooked(true);
-    toast.success('Cab request submitted! Admin will confirm and assign a driver.');
+    toast.success('Cab request submitted! Advance payment verification is pending.');
   };
 
   const allImages = [cab.image, ...(cab.images || [])].filter(Boolean);
+  const vehicleLabel = cab?.vehicleName && cab?.capacity ? `${cab.vehicleName} - ${cab.capacity}-Seater` : cabType;
+  const advanceAmount = typeof fare === 'number' ? Math.round(fare * 0.3) : 0;
+  const balanceAmount = typeof fare === 'number' ? Math.max(0, fare - advanceAmount) : 0;
 
   return (
     <div className="pt-20 pb-16 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
@@ -167,8 +184,8 @@ const CabDetail = () => {
 
             <div className="relative overflow-hidden rounded-2xl p-6 text-center metallic-border glass-panel">
               <ShieldCheck size={32} className="mx-auto text-brand-green mb-2" />
-              <p className="font-display text-xl font-semibold text-foreground mb-1">💰 Pay at Doorstep</p>
-              <p className="font-body text-sm text-muted-foreground">Fare decided by driver. Pay directly upon arrival — no advance needed.</p>
+              <p className="font-display text-xl font-semibold text-foreground mb-1">30% Advance Required</p>
+              <p className="font-body text-sm text-muted-foreground">Fare is fixed for the whole vehicle. Pay 30% online now and 70% later.</p>
             </div>
           </div>
 
@@ -178,9 +195,17 @@ const CabDetail = () => {
                 <div className="text-center py-8">
                   <CheckCircle size={48} className="mx-auto mb-4 text-brand-green animate-float-slow" />
                   <h3 className="font-display text-2xl font-semibold text-foreground mb-2">Cab Booked!</h3>
-                  <p className="font-body text-sm text-muted-foreground mb-4">Pay directly to the driver</p>
+                  <p className="font-body text-sm text-muted-foreground mb-4">Advance submitted. Admin will verify payment and assign a driver.</p>
                   <Link to="/bookings" className="btn-gold px-6 py-2.5 rounded-lg text-sm">View My Bookings</Link>
                 </div>
+              ) : showPayment ? (
+                <UpiPayment
+                  amount={advanceAmount}
+                  bookingId={pendingBookingId}
+                  itemName={`${pickup} to ${dropoff} (${cabType})`}
+                  onPaymentConfirm={handlePaymentConfirm}
+                  onCancel={() => setShowPayment(false)}
+                />
               ) : (
                 <>
                   <h3 className="font-display text-2xl font-semibold text-foreground mb-4">Book this Cab</h3>
@@ -192,24 +217,25 @@ const CabDetail = () => {
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Location</label><input type="text" value={pickup} onChange={(e) => setPickup(e.target.value)} placeholder="e.g. Vrindavan" className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Drop Location</label><input type="text" value={dropoff} onChange={(e) => setDropoff(e.target.value)} placeholder="e.g. Mathura" className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Persons</label><input type="number" min={1} value={persons} onChange={(e) => setPersons(Math.max(1, Number(e.target.value || 1)))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                      <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Cab Type</label><input type="text" value={cabType} onChange={(e) => setCabType(e.target.value)} placeholder="e.g. Sedan" className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                      <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Passengers</label><input type="number" min={1} max={cab?.capacity || undefined} value={passengers} onChange={(e) => setPassengers(Math.max(1, Number(e.target.value || 1)))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                      <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Vehicle</label><select value={cabType} onChange={(e) => setCabType(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select vehicle</option><option value={vehicleLabel}>{vehicleLabel}</option></select></div>
                     </div>
+                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Toll Tax</label><select value={tollOption} onChange={(e) => setTollOption(e.target.value as 'included' | 'excluded' | '')} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select toll option</option><option value="included">Tolls Included</option><option value="excluded">Tolls Excluded</option></select></div>
 
                     <div className="rounded-xl border border-border bg-secondary/40 p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm font-body text-muted-foreground">
-                          <IndianRupee size={16} className="text-brand-gold" /> Estimated Fare
+                          <IndianRupee size={16} className="text-brand-gold" /> Base Fare
                         </div>
                         <div className="font-display text-lg font-semibold text-foreground">
                           {typeof fare === 'number' ? `₹${fare.toLocaleString('en-IN')}` : '-'}
                         </div>
                       </div>
                       {fareErr && <p className="mt-2 text-xs font-body text-destructive">{fareErr}</p>}
-                      {!fareErr && <p className="mt-2 text-[11px] font-body text-muted-foreground">Cash payment to driver after trip completion.</p>}
+                      {!fareErr && typeof fare === 'number' && <p className="mt-2 text-[11px] font-body text-muted-foreground">Advance now: ₹{advanceAmount.toLocaleString('en-IN')} • Balance later: ₹{balanceAmount.toLocaleString('en-IN')}</p>}
                     </div>
                   </div>
-                  <button onClick={handleBook} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-6 tracking-wide">Submit Booking Request</button>
+                  <button onClick={handleBook} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-6 tracking-wide">Pay 30% Advance</button>
                 </>
               )}
             </div>

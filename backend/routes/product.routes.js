@@ -69,7 +69,7 @@ router.get('/', async (req, res) => {
         p.images = ['/placeholder.svg'];
         continue;
       }
-      if (Array.isArray(p.images)) p.images = p.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+      if (Array.isArray(p.images)) p.images = p.images.filter(Boolean);
       if (!p.images?.length) p.images = ['/placeholder.svg'];
     }
 
@@ -104,7 +104,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       }
     } else {
       for (const p of products) {
-        if (Array.isArray(p.images)) p.images = p.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
+        if (Array.isArray(p.images)) p.images = p.images.filter(Boolean);
         if (!p.images?.length) p.images = ['/placeholder.svg'];
       }
     }

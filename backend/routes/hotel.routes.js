@@ -18,6 +18,49 @@ const stripLargeInlineImage = (value) => {
   return v;
 };
 
+const normalizePublicHotel = (hotel) => {
+  if (!hotel) return hotel;
+  return {
+    ...hotel,
+    image: stripLargeInlineImage(hotel.image) || '/placeholder.svg',
+    images: Array.isArray(hotel.images) ? hotel.images.map(stripLargeInlineImage).filter(Boolean).slice(0, 4) : [],
+  };
+};
+
+const normalizePublicRoomType = (roomType) => {
+  if (!roomType) return roomType;
+  return {
+    ...roomType,
+    images: Array.isArray(roomType.images) ? roomType.images.map(stripLargeInlineImage).filter(Boolean).slice(0, 4) : [],
+  };
+};
+
+const publicHotelListProjection = {
+  name: 1,
+  location: 1,
+  rating: 1,
+  amenities: 1,
+  createdAt: 1,
+  image: {
+    $let: {
+      vars: { imageValue: { $ifNull: ['$image', ''] } },
+      in: {
+        $cond: [
+          {
+            $and: [
+              { $regexMatch: { input: '$$imageValue', regex: /^data:/ } },
+              { $gt: [{ $strLenBytes: '$$imageValue' }, 2048] },
+            ],
+          },
+          '',
+          '$$imageValue',
+        ],
+      },
+    },
+  },
+  images: [],
+};
+
 // Get all active hotels (public)
 router.get('/', async (req, res) => {
   try {
@@ -28,11 +71,16 @@ router.get('/', async (req, res) => {
     const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));
     const withAvailability = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
 
-    const hotels = await Hotel.find({ status: 'active', approvalStatus: 'approved' })
-      .sort({ createdAt: -1 })
-      .select('name location rating image images amenities createdAt')
-      .slice('images', 1)
-      .lean();
+    const hotels = await Hotel.aggregate([
+      { $match: { status: 'active', approvalStatus: 'approved' } },
+      { $sort: { createdAt: -1 } },
+      { $project: publicHotelListProjection },
+    ]).option({ maxTimeMS: 7000 });
+
+    for (const h of hotels) {
+      const normalized = normalizePublicHotel(h);
+      Object.assign(h, normalized);
+    }
 
     if (!withAvailability || hotels.length === 0) {
       return res.json({ success: true, data: hotels });
@@ -139,35 +187,44 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
-// Get single hotel (public)
-router.get('/:id', async (req, res) => {
-  try {
-    const hotel = await Hotel.findById(req.params.id).lean();
-    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
-    res.json({ success: true, data: hotel });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
-});
-
 // Get room types for a hotel (public) with optional availability
 // Query: ?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD
 router.get('/:id/room-types', async (req, res) => {
   try {
-    const hotel = await Hotel.findById(req.params.id).lean();
+    const hotel = await Hotel.findOne({ _id: req.params.id, status: 'active', approvalStatus: 'approved' }).lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
 
-    const roomTypes = await RoomType.find({ hotelId: hotel._id, status: 'active' }).sort({ createdAt: -1 }).lean();
+    const roomTypes = await RoomType.find({ hotelId: hotel._id, status: 'active' })
+      .sort({ createdAt: -1 })
+      .select('_id hotelId partnerId createdByUserId createdByRole name description images amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
+      .lean();
+
+    const roomTypeIds = roomTypes.map((rt) => rt._id);
+    const totalsAgg = roomTypeIds.length
+      ? await RoomUnit.aggregate([
+        { $match: { roomTypeId: { $in: roomTypeIds }, status: 'active' } },
+        { $group: { _id: '$roomTypeId', total: { $sum: 1 } } },
+      ])
+      : [];
+    const totalByRoomType = new Map(totalsAgg.map((r) => [String(r._id), Number(r.total || 0)]));
 
     const checkIn = parseDateOnlyToUTC(String(req.query?.checkIn || ''));
     const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));
     const withAvailability = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
 
     if (!withAvailability) {
-      return res.json({ success: true, data: roomTypes });
+      return res.json({
+        success: true,
+        data: roomTypes.map((rt) => normalizePublicRoomType({
+          ...rt,
+          totalCount: totalByRoomType.get(String(rt._id)) || 0,
+        })),
+      });
     }
 
     const enriched = await Promise.all(
       roomTypes.map(async (rt) => {
-        const totalCount = await RoomUnit.countDocuments({ roomTypeId: rt._id, status: 'active' });
+        const totalCount = totalByRoomType.get(String(rt._id)) || 0;
         if (totalCount <= 0) return { ...rt, totalCount: 0, availableCount: 0 };
 
         const blockedByBlocks = await RoomUnitBlock.distinct('roomUnitId', {
@@ -185,7 +242,7 @@ router.get('/:id/room-types', async (req, res) => {
 
         const blockedSet = new Set([...blockedByBlocks.map(String), ...blockedByBookings.map(String)]);
         const availableCount = Math.max(0, totalCount - blockedSet.size);
-        return { ...rt, totalCount, availableCount };
+        return normalizePublicRoomType({ ...rt, totalCount, availableCount });
       })
     );
 
@@ -193,6 +250,28 @@ router.get('/:id/room-types', async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
+});
+
+// Get single hotel (public)
+router.get('/:id', async (req, res) => {
+  try {
+    const [hotel] = await Hotel.aggregate([
+      { $match: { _id: new Hotel.base.Types.ObjectId(req.params.id), status: 'active', approvalStatus: 'approved' } },
+      {
+        $project: {
+          ...publicHotelListProjection,
+          description: 1,
+          partnerName: 1,
+          petsAllowed: 1,
+          checkInTime: 1,
+          checkOutTime: 1,
+          updatedAt: 1,
+        },
+      },
+    ]).option({ maxTimeMS: 7000 });
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    res.json({ success: true, data: normalizePublicHotel(hotel) });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
 // Create (admin)
