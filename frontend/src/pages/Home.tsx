@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, CarTaxiFront, MapPinned, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag } from 'lucide-react';
+import { Building2, CarTaxiFront, MapPinned, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag, MessageCircle } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import TestimonialCard from '@/components/shared/TestimonialCard';
@@ -113,10 +113,10 @@ const Home = () => {
   return (
     <div>
       {/* ===== HERO ===== */}
-      <section className="relative h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden pt-20">
         <img src={heroImg} alt="Vrindavan temples at sunset" className="absolute inset-0 w-full h-full object-cover" width={1920} height={1080} />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+        <div className="absolute inset-0 bg-gradient-to-b from-black/72 via-black/45 to-brand-black/90" />
+        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
           <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="font-body text-sm tracking-[0.3em] uppercase text-brand-gold mb-4">
             ✦ Vrindavan, Mathura, UP ✦
           </motion.p>
@@ -131,7 +131,9 @@ const Home = () => {
           </motion.p>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }} className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link to="/hotels" className="btn-gold px-8 py-3.5 rounded-xl text-base font-semibold">Explore Now →</Link>
-            <Link to="/tours" className="px-8 py-3.5 rounded-xl text-base font-body font-semibold border-2 border-white/30 text-white hover:border-brand-gold hover:text-brand-gold transition-all">View Tours</Link>
+            <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="px-8 py-3.5 rounded-lg text-base font-body font-semibold border border-white/35 text-white hover:border-brand-gold hover:text-brand-gold transition-all inline-flex items-center gap-2">
+              <MessageCircle size={18} /> WhatsApp Now
+            </a>
           </motion.div>
         </div>
         <motion.div animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute bottom-8 left-1/2 -translate-x-1/2">
@@ -140,13 +142,13 @@ const Home = () => {
       </section>
 
       {/* ===== STATS ===== */}
-      <section className="bg-primary py-6">
+      <section className="bg-brand-black py-6">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map((stat) => (
               <div key={stat.label} className="text-center">
-                <p className="font-heading text-3xl md:text-4xl font-bold text-black">{stat.value}</p>
-                <p className="font-body text-sm text-black mt-1">{stat.label}</p>
+                <p className="font-heading text-3xl md:text-4xl font-bold text-brand-gold">{stat.value}</p>
+                <p className="font-body text-sm text-white/70 mt-1">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -165,9 +167,9 @@ const Home = () => {
                   ? 'sm:col-span-2 sm:justify-self-center sm:max-w-md lg:col-span-2 lg:col-start-2 lg:justify-self-center lg:max-w-md'
                   : '';
               return (
-              <Link key={service.title} to={service.link} className={`bg-card rounded-xl p-6 text-center border border-border card-hover group ${lastPos}`}>
-                <div className="w-14 h-14 rounded-full bg-brand-gold/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-brand-gold/20 transition-colors">
-                  <service.icon className="text-brand-gold" size={24} />
+              <Link key={service.title} to={service.link} className={`travel-card p-6 text-center card-hover group ${lastPos}`}>
+                <div className="w-14 h-14 rounded-md bg-brand-saffron/12 flex items-center justify-center mx-auto mb-4 group-hover:bg-brand-saffron/20 transition-colors">
+                  <service.icon className="text-brand-saffron" size={24} />
                 </div>
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-1.5">{service.title}</h3>
                 <p className="font-body text-sm text-muted-foreground">{service.desc}</p>

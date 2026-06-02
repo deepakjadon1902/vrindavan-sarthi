@@ -35,11 +35,25 @@ const normalizePublicRoomType = (roomType) => {
   };
 };
 
+const normalizeHotelTaxControls = (body) => {
+  if (!body || typeof body !== 'object') return body;
+  const hasTaxFlag = typeof body.taxEnabled !== 'undefined';
+  const hasTaxPercent = typeof body.taxPercent !== 'undefined';
+  if (hasTaxFlag) body.taxEnabled = Boolean(body.taxEnabled);
+  if (hasTaxPercent) {
+    const p = Number(body.taxPercent);
+    body.taxPercent = Number.isFinite(p) && p >= 0 ? Math.min(50, p) : 12;
+  }
+  return body;
+};
+
 const publicHotelListProjection = {
   name: 1,
   location: 1,
   rating: 1,
   amenities: 1,
+  taxEnabled: 1,
+  taxPercent: 1,
   createdAt: 1,
   image: {
     $let: {
@@ -178,10 +192,10 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
-      .select('name location rating status approvalStatus partnerName createdAt updatedAt')
+      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent createdAt updatedAt')
       .lean();
 
-    for (const h of hotels) h.image = '/placeholder.svg';
+    for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
 
     res.json({ success: true, data: hotels });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
@@ -263,6 +277,8 @@ router.get('/:id', async (req, res) => {
           description: 1,
           partnerName: 1,
           petsAllowed: 1,
+          taxEnabled: 1,
+          taxPercent: 1,
           checkInTime: 1,
           checkOutTime: 1,
           updatedAt: 1,
@@ -278,6 +294,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', protect, authorize('admin'), async (req, res) => {
   try {
     const body = { ...req.body };
+    normalizeHotelTaxControls(body);
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
     const hotel = await Hotel.create(body);
     res.status(201).json({ success: true, data: hotel });
@@ -288,6 +305,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
 router.put('/:id', protect, authorize('admin'), async (req, res) => {
   try {
     const body = { ...req.body };
+    normalizeHotelTaxControls(body);
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
     const hotel = await Hotel.findByIdAndUpdate(req.params.id, body, { new: true });
     res.json({ success: true, data: hotel });

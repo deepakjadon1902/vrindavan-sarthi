@@ -15,6 +15,8 @@ interface Hotel {
   images?: string[];
   description?: string;
   amenities?: string[];
+  taxEnabled?: boolean;
+  taxPercent?: number;
   status: 'active' | 'inactive';
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   partnerName?: string;
@@ -38,6 +40,8 @@ const ManageHotels = () => {
     amenities: '',
     status: 'active' as Hotel['status'],
     image: '',
+    taxEnabled: false,
+    taxPercent: '12',
   });
 
   const load = async () => {
@@ -68,6 +72,8 @@ const ManageHotels = () => {
       amenities: '',
       status: 'active',
       image: '',
+      taxEnabled: false,
+      taxPercent: '12',
     });
     setImagePreview('');
     setEditingId(null);
@@ -95,6 +101,8 @@ const ManageHotels = () => {
       amenities: (hotel.amenities || []).join(', '),
       status: hotel.status || 'active',
       image: hotel.image || '',
+      taxEnabled: Boolean(hotel.taxEnabled),
+      taxPercent: String(hotel.taxPercent ?? 12),
     });
     setImagePreview(hotel.image || '');
     setEditingId(hotel._id);
@@ -105,7 +113,10 @@ const ManageHotels = () => {
     e.preventDefault();
     if (!token) return;
 
-    const payload = {
+    const payload: Partial<Hotel> & {
+      amenities: string[];
+      partnerSubmitted?: boolean;
+    } = {
       name: form.name,
       location: form.location,
       rating: Number(form.rating || 0),
@@ -118,7 +129,10 @@ const ManageHotels = () => {
       status: form.status,
       approvalStatus: 'approved',
       partnerSubmitted: false,
+      taxEnabled: form.taxEnabled,
+      taxPercent: Number(form.taxPercent || 12),
     };
+    if (editingId && payload.image === '/placeholder.svg') delete payload.image;
 
     try {
       if (editingId) {
@@ -274,6 +288,34 @@ const ManageHotels = () => {
               </select>
             </div>
 
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <label className="flex items-start gap-3 font-body text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.taxEnabled}
+                  onChange={(e) => setForm({ ...form, taxEnabled: e.target.checked })}
+                  className="mt-1"
+                />
+                <span>
+                  Apply 12% hotel tax to this hotel
+                  <span className="block text-xs text-muted-foreground mt-1">
+                    Leave unchecked to keep this hotel tax-free. Only admin controls this setting.
+                  </span>
+                </span>
+              </label>
+              {form.taxEnabled && (
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  step="0.01"
+                  value={form.taxPercent}
+                  onChange={(e) => setForm({ ...form, taxPercent: e.target.value })}
+                  className="mt-3 w-36 px-3 py-2 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              )}
+            </div>
+
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Amenities (comma separated)</label>
               <input
@@ -333,6 +375,7 @@ const ManageHotels = () => {
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">Location</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Rating</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Status</th>
+                  <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Tax</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Listed By</th>
                   <th className="text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
                 </tr>
@@ -362,6 +405,9 @@ const ManageHotels = () => {
                       >
                         {hotel.status}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">
+                      {hotel.taxEnabled ? `${hotel.taxPercent ?? 12}%` : 'Free'}
                     </td>
                     <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">
                       {hotel.partnerName || 'Admin'}

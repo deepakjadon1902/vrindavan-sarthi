@@ -19,7 +19,7 @@ const RoomTypeDetail = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
   const { createRoomTypeBooking } = useBookingStore();
-  const hotelTaxPercent = useSettingsStore((s) => s.settings.hotelTaxPercent);
+  const defaultHotelTaxPercent = useSettingsStore((s) => s.settings.hotelTaxPercent);
 
   const qs = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const [checkIn, setCheckIn] = useState(() => qs.get('checkIn') || '');
@@ -193,7 +193,8 @@ const RoomTypeDetail = () => {
 
   const nights = checkIn && checkOut ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 1;
   const baseTotal = Number(roomType.pricePerNight || 0) * nights;
-  const taxPercent = Math.min(50, Math.max(0, Number(hotelTaxPercent ?? 12)));
+  const taxEnabled = Boolean(hotel?.taxEnabled);
+  const taxPercent = taxEnabled ? Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? defaultHotelTaxPercent ?? 12))) : 0;
   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
   const total = baseTotal + taxTotal;
   const availableCount = typeof roomType.availableCount === 'number' ? roomType.availableCount : null;
@@ -586,10 +587,12 @@ const RoomTypeDetail = () => {
                       <span className="text-muted-foreground">₹{Number(roomType.pricePerNight || 0).toLocaleString('en-IN')} × {nights} night(s)</span>
                       <span className="text-foreground">₹{baseTotal.toLocaleString('en-IN')}</span>
                     </div>
-                    <div className="flex justify-between font-body text-sm">
-                      <span className="text-muted-foreground">Hotel tax ({taxPercent}%)</span>
-                      <span className="text-foreground">₹{taxTotal.toLocaleString('en-IN')}</span>
-                    </div>
+                    {taxEnabled && (
+                      <div className="flex justify-between font-body text-sm">
+                        <span className="text-muted-foreground">Hotel tax ({taxPercent}%)</span>
+                        <span className="text-foreground">₹{taxTotal.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between font-body text-sm font-semibold border-t border-brand-gold/20 pt-2">
                       <span>Total</span>
                       <span className="text-brand-crimson font-display text-lg">₹{total.toLocaleString('en-IN')}</span>

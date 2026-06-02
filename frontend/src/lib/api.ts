@@ -31,8 +31,8 @@ export const resolveBackendAssetUrl = (value?: string | null): string => {
 export const api = axios.create({
   baseURL: API_BASE_URL,
   // Prevent pages from hanging forever if backend/proxy is down or slow.
-  // Keep it tight so the UI can fail fast and show an error toast.
-  timeout: 8000,
+  // Image uploads can legitimately take longer than a simple list fetch.
+  timeout: 30000,
 });
 
 export const withAuth = (token?: string | null): AxiosRequestConfig => {

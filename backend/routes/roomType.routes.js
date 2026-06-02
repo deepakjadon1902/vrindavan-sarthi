@@ -52,6 +52,8 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
       images: hotel.images,
       amenities: hotel.amenities,
       petsAllowed: hotel.petsAllowed,
+      taxEnabled: hotel.taxEnabled,
+      taxPercent: hotel.taxPercent,
           checkInTime: hotel.checkInTime,
           checkOutTime: hotel.checkOutTime,
           partnerId: hotel.partnerId,
@@ -129,6 +131,8 @@ router.get('/', async (req, res) => {
                   images: { $slice: ['$images', 1] },
                   amenities: 1,
                   petsAllowed: 1,
+                  taxEnabled: 1,
+                  taxPercent: 1,
                   checkInTime: 1,
                   checkOutTime: 1,
                   partnerId: 1,
@@ -192,7 +196,7 @@ router.get('/', async (req, res) => {
     // Ensure pagination is enforced (default 200).
 
     const hotels = await Hotel.find({ status: 'active', approvalStatus: 'approved' })
-      .select('_id name location rating image images amenities petsAllowed checkInTime checkOutTime')
+      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime')
       .slice('images', 1)
       .lean();
     if (!hotels.length) return res.json({ success: true, data: [] });
@@ -293,6 +297,8 @@ router.get('/', async (req, res) => {
             images: hotel.images,
             amenities: hotel.amenities,
             petsAllowed: hotel.petsAllowed,
+            taxEnabled: hotel.taxEnabled,
+            taxPercent: hotel.taxPercent,
             checkInTime: hotel.checkInTime,
             checkOutTime: hotel.checkOutTime,
             partnerId: hotel.partnerId,
@@ -329,7 +335,7 @@ router.get('/:id', async (req, res) => {
     if (!roomType || roomType.status !== 'active') return res.status(404).json({ success: false, message: 'Room type not found' });
 
     const hotel = await Hotel.findOne({ _id: roomType.hotelId, status: 'active', approvalStatus: 'approved' })
-      .select('_id name location rating image images amenities petsAllowed checkInTime checkOutTime partnerId partnerName')
+      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime partnerId partnerName')
       .slice('images', 1)
       .lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });

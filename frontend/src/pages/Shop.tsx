@@ -4,6 +4,7 @@ import { ShoppingBag, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
+import { resolveBackendAssetUrl } from '@/lib/api';
 
 const Shop = () => {
   const { products, fetchProducts, isLoadingProducts } = useProductStore();
@@ -86,7 +87,7 @@ const Shop = () => {
               >
                 <div className="h-24 sm:h-32 overflow-hidden relative">
                   <img
-                    src={product.images[0] || '/placeholder.svg'}
+                    src={resolveBackendAssetUrl(product.images[0]) || '/placeholder.svg'}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}

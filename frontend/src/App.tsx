@@ -99,7 +99,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="bg-royal-dark">
+    <div className="braj-page">
       <Navbar />
       <main>{children}</main>
       <Footer />

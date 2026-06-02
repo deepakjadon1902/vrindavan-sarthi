@@ -71,7 +71,7 @@ const ListingCard = ({
   }, [active, safeGallery]);
 
   return (
-    <div className="bg-card rounded-lg overflow-hidden border border-border card-hover group min-w-0">
+    <div className="travel-card overflow-hidden card-hover group min-w-0">
       <div
         className={`relative overflow-hidden ${
           variant === 'hotel' ? 'h-24 sm:h-32' : variant === 'compact' ? 'h-24 sm:h-32' : 'h-28 sm:h-36'
@@ -90,10 +90,11 @@ const ListingCard = ({
         />
 
         <div className="pointer-events-none absolute inset-0 glossy-sheen" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/55 to-transparent" />
 
         {badge && (
           <span
-            className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] sm:text-[11px] font-body font-semibold z-10 ${
+            className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md text-[9px] sm:text-[11px] font-body font-semibold z-10 ${
               badgeColor === 'green'
                 ? 'bg-brand-green text-primary-foreground'
                 : badgeColor === 'crimson'
@@ -106,7 +107,7 @@ const ListingCard = ({
         )}
 
         {safeGallery.length > 1 && (
-          <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full glass-chip text-[9px] sm:text-[10px] font-body z-10">
+          <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md glass-chip text-[9px] sm:text-[10px] font-body z-10">
             {active + 1} / {safeGallery.length}
           </span>
         )}
@@ -131,7 +132,7 @@ const ListingCard = ({
         )}
       </div>
 
-      <div className="p-2 sm:p-2.5">
+      <div className="p-3 sm:p-3.5">
         <h3
           className={`font-heading font-semibold text-foreground line-clamp-1 ${
             variant === 'default' ? 'text-sm sm:text-base' : 'text-[13px] sm:text-[15px]'
@@ -162,7 +163,7 @@ const ListingCard = ({
             {amenities.slice(0, 3).map((a, index) => (
               <span
                 key={a}
-                className={`font-body text-[9px] sm:text-[11px] bg-secondary px-1.5 sm:px-2 py-0.5 rounded-full text-secondary-foreground line-clamp-1 ${
+                className={`font-body text-[9px] sm:text-[11px] bg-secondary px-1.5 sm:px-2 py-0.5 rounded-md text-secondary-foreground line-clamp-1 ${
                   index > 1 ? 'hidden sm:inline-flex' : ''
                 }`}
               >
@@ -181,7 +182,7 @@ const ListingCard = ({
           ) : (
             <div />
           )}
-          <button onClick={onViewDetails} className="btn-gold rounded-md font-body px-2 py-1.5 text-[10px] sm:px-2.5 sm:text-[11px] whitespace-nowrap">
+          <button onClick={onViewDetails} className="btn-gold rounded-md font-body px-3 py-1.5 text-[10px] sm:px-3 sm:text-[11px] whitespace-nowrap">
             {ctaLabel}
           </button>
         </div>

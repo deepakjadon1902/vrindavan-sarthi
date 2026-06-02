@@ -42,7 +42,7 @@ const defaultSettings: AppSettings = {
   ogImageUrl: '',
   upiId: '',
   upiName: 'Vrindavan Sarthi',
-  adminPhone: '+91 9999999999',
+  adminPhone: '+91 9876543210',
   adminEmail: 'vrindavansarthi108@gmail.com',
   hotelTaxPercent: 12,
   termsOfService: `1. Acceptance of Terms

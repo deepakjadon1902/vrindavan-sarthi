@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, ChevronDown, Hotel } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown, Hotel, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -21,7 +21,6 @@ const Navbar = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const isHome = location.pathname === '/';
   const { isAuthenticated, user, logout } = useAuthStore();
   const { settings } = useSettingsStore();
 
@@ -45,31 +44,28 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navBg}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navBg} ${scrolled ? 'border-brand-gold/40' : ''}`}>
         <div className="container mx-auto px-4 lg:px-8">
-          <div className="flex items-center justify-between h-16 lg:h-20">
+          <div className="flex items-center justify-between h-16 lg:h-[4.75rem]">
             <Link to="/" className="flex items-center gap-2">
               <img
                 src={APP_LOGO_URL}
                 alt={settings.siteName}
                 className="h-9 w-9 rounded-full object-cover border border-brand-gold/30"
               />
-              <span className="font-brand text-lg lg:text-xl text-brand-gold tracking-wider">{settings.siteName}</span>
+              <span className="font-brand text-base lg:text-xl text-brand-gold tracking-wider">{settings.siteName}</span>
             </Link>
 
-            <div className="hidden lg:flex items-center gap-8">
+            <div className="hidden lg:flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`relative font-body text-sm tracking-wide transition-colors duration-300 pb-1 ${
-                    location.pathname === link.path ? 'text-brand-gold' : 'text-white hover:text-brand-gold'
+                  className={`relative rounded-full px-3 py-2 font-body text-[13px] font-semibold tracking-wide transition-colors duration-300 ${
+                    location.pathname === link.path ? 'bg-brand-gold text-brand-black' : 'text-white hover:bg-white/10 hover:text-brand-gold'
                   }`}
                 >
                   {link.name}
-                  {location.pathname === link.path && (
-                    <motion.div layoutId="nav-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-gold rounded-full" />
-                  )}
                 </Link>
               ))}
             </div>
@@ -123,7 +119,10 @@ const Navbar = () => {
                 <>
                   <Link to="/bookings" className="font-body text-sm text-white hover:text-brand-gold transition-colors">My Bookings</Link>
                   <Link to="/login" className="font-body text-sm text-white hover:text-brand-gold transition-colors">Login</Link>
-                  <Link to="/register" className="btn-crimson px-5 py-2 rounded-lg text-sm">Sign Up</Link>
+                  <Link to="/contact" className="btn-gold px-5 py-2 rounded-lg text-sm inline-flex items-center gap-1.5">
+                    <MessageCircle size={15} /> Enquire
+                  </Link>
+                  <Link to="/register" className="btn-crimson px-4 py-2 rounded-lg text-sm">Sign Up</Link>
                 </>
               )}
             </div>
@@ -154,6 +153,9 @@ const Navbar = () => {
                 </motion.div>
               ))}
               <div className="h-px bg-brand-gold/20 my-4" />
+              <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="btn-gold px-6 py-3 rounded-lg text-center inline-flex items-center justify-center gap-2">
+                <MessageCircle size={18} /> WhatsApp Enquiry
+              </a>
               {isAuthenticated && user ? (
                 <>
                   <Link to="/profile" className="font-body text-white text-lg">Profile</Link>

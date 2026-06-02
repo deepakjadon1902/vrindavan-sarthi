@@ -7,6 +7,7 @@ import { useProductStore, type Product } from '@/store/productStore';
 import UpiPayment from '@/components/UpiPayment';
 import AddressForm, { type AddressFormValue } from '@/components/AddressForm';
 import { getPrefetchedDetail } from '@/lib/detailCache';
+import { resolveBackendAssetUrl } from '@/lib/api';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -82,6 +83,8 @@ const ProductDetail = () => {
     );
   }
 
+  const productImages = product.images.map((img) => resolveBackendAssetUrl(img)).filter(Boolean);
+  const selectedProductImage = productImages[selectedImage] || '/placeholder.svg';
   const total = product.price * quantity;
 
   const formatShippingAddress = (a: AddressFormValue) => {
@@ -142,7 +145,7 @@ const ProductDetail = () => {
     const res = await createOrder({
       productId: product.id,
       productName: product.name,
-      productImage: product.images[0] || '',
+      productImage: productImages[0] || '',
       productPrice: product.price,
       quantity,
       totalAmount: total,
@@ -183,14 +186,15 @@ const ProductDetail = () => {
           <div className="space-y-4">
             <div className="rounded-2xl overflow-hidden h-80 md:h-[28rem] bg-muted">
               <img
-                src={product.images[selectedImage] || '/placeholder.svg'}
+                src={selectedProductImage}
                 alt={product.name}
                 className="w-full h-full object-cover"
+                onError={(e) => ((e.currentTarget as HTMLImageElement).src = '/placeholder.svg')}
               />
             </div>
-            {product.images.length > 1 && (
+            {productImages.length > 1 && (
               <div className="flex gap-2 overflow-x-auto">
-                {product.images.map((img, i) => (
+                {productImages.map((img, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedImage(i)}
@@ -198,7 +202,7 @@ const ProductDetail = () => {
                       selectedImage === i ? 'border-brand-gold' : 'border-border'
                     }`}
                   >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={img} alt="" className="w-full h-full object-cover" onError={(e) => ((e.currentTarget as HTMLImageElement).src = '/placeholder.svg')} />
                   </button>
                 ))}
               </div>

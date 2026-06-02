@@ -4,60 +4,60 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
+    --background: 42 62% 97%;
+    --foreground: 22 31% 14%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
+    --card: 40 70% 99%;
+    --card-foreground: 22 31% 14%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
+    --popover: 40 70% 99%;
+    --popover-foreground: 22 31% 14%;
 
-    --primary: 350 66% 38%;
-    --primary-foreground: 40 33% 98%;
+    --primary: 13 71% 42%;
+    --primary-foreground: 42 62% 97%;
 
-    --secondary: 40 40% 96%;
-    --secondary-foreground: 0 0% 0%;
+    --secondary: 38 85% 93%;
+    --secondary-foreground: 22 31% 14%;
 
-    --muted: 225 20% 96%;
-    --muted-foreground: 0 0% 0%;
+    --muted: 36 55% 90%;
+    --muted-foreground: 24 16% 39%;
 
-    --accent: 42 85% 55%;
-    --accent-foreground: 0 0% 0%;
+    --accent: 43 88% 54%;
+    --accent-foreground: 22 31% 14%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 225 16% 88%;
-    --input: 225 16% 88%;
-    --ring: 42 85% 55%;
+    --border: 34 39% 80%;
+    --input: 34 39% 80%;
+    --ring: 43 88% 54%;
 
     --radius: 0.5rem;
 
-    --brand-gold: 42 85% 55%;
-    --brand-crimson: 350 66% 38%;
-    --brand-black: 0 0% 0%;
-    --brand-saffron: 37 90% 51%;
-    --brand-green: 154 45% 22%;
-    --brand-cream: 40 40% 96%;
+    --brand-gold: 43 88% 54%;
+    --brand-crimson: 350 60% 36%;
+    --brand-black: 22 31% 10%;
+    --brand-saffron: 29 91% 49%;
+    --brand-green: 145 38% 26%;
+    --brand-cream: 42 62% 97%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(var(--brand-gold)), hsl(45 90% 62%), hsl(var(--brand-gold)));
-    --gradient-crimson: linear-gradient(135deg, hsl(var(--brand-crimson)), hsl(350 70% 48%));
-    --gradient-saffron: linear-gradient(135deg, hsl(37 90% 51%), hsl(var(--brand-crimson)));
+    --gradient-gold: linear-gradient(135deg, hsl(43 88% 54%), hsl(31 93% 55%));
+    --gradient-crimson: linear-gradient(135deg, hsl(350 60% 36%), hsl(13 71% 42%));
+    --gradient-saffron: linear-gradient(135deg, hsl(29 91% 49%), hsl(43 88% 54%), hsl(145 38% 26%));
 
     --shadow-gold: none;
     --shadow-card: none;
     --shadow-card-hover: none;
     --shadow-crimson: none;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 4 63% 46%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 40 100% 97%;
-    --sidebar-accent-foreground: 0 0% 10%;
-    --sidebar-border: 40 20% 90%;
-    --sidebar-ring: 43 72% 52%;
+    --sidebar-background: 21 36% 11%;
+    --sidebar-foreground: 42 62% 97%;
+    --sidebar-primary: 43 88% 54%;
+    --sidebar-primary-foreground: 22 31% 10%;
+    --sidebar-accent: 29 51% 18%;
+    --sidebar-accent-foreground: 42 62% 97%;
+    --sidebar-border: 37 45% 24%;
+    --sidebar-ring: 43 88% 54%;
   }
 
   .dark {
@@ -104,16 +104,6 @@
   * {
     @apply border-border;
   }
-  /* Flatten UI: remove all shadows */
-  [class*="shadow"] {
-    box-shadow: none !important;
-  }
-  *,
-  *::before,
-  *::after {
-    box-shadow: none !important;
-    text-shadow: none !important;
-  }
   html {
     font-size: 17px;
   }
@@ -122,6 +112,7 @@
     font-size: 1rem;
     line-height: 1.6;
     text-rendering: geometricPrecision;
+    background: linear-gradient(180deg, hsl(var(--background)), hsl(39 68% 94%));
   }
   :focus-visible {
     outline: 2px solid hsl(var(--brand-gold));
@@ -130,20 +121,26 @@
   h1, h2, h3 {
     font-family: 'Cormorant Garamond', serif;
   }
+
+  ::selection {
+    background: hsl(var(--brand-gold) / 0.35);
+  }
 }
 
 @layer components {
   /* Reusable premium section backgrounds (no shadows). */
   .bg-royal-dark {
-    background-color: hsl(var(--secondary));
-    background-image: url("./assets/backgrounds/royal-pattern-light.svg");
-    background-size: 480px 480px;
+    background:
+      linear-gradient(180deg, hsl(42 62% 97%), hsl(38 83% 94%)),
+      url("./assets/backgrounds/royal-pattern-light.svg");
+    background-size: auto, 520px 520px;
     background-repeat: repeat;
   }
   .bg-royal-light {
-    background-color: hsl(var(--secondary));
-    background-image: url("./assets/backgrounds/royal-pattern-light.svg");
-    background-size: 480px 480px;
+    background:
+      linear-gradient(180deg, hsl(40 74% 98%), hsl(37 71% 95%)),
+      url("./assets/backgrounds/royal-pattern-light.svg");
+    background-size: auto, 520px 520px;
     background-repeat: repeat;
   }
 
@@ -167,8 +164,9 @@
   .btn-gold {
     @apply relative overflow-hidden font-body font-semibold tracking-wide;
     background: var(--gradient-gold);
-    color: hsl(0 0% 100%);
+    color: hsl(22 31% 12%);
     transition: all 0.3s ease;
+    border: 1px solid hsl(37 80% 38% / 0.3);
   }
   .btn-gold:hover {
     transform: translateY(-2px);
@@ -188,8 +186,8 @@
     @apply transition-all duration-300;
   }
   .card-hover:hover {
-    border-color: hsl(43 72% 52% / 0.5);
-    transform: translateY(-4px);
+    border-color: hsl(var(--brand-saffron) / 0.55);
+    transform: translateY(-3px);
   }
 
   .golden-divider {
@@ -203,18 +201,23 @@
   }
 
   .glass-nav {
-    background: hsl(var(--background));
+    background: hsl(42 62% 97% / 0.92);
     border-bottom: 1px solid hsl(var(--border));
+    backdrop-filter: blur(16px);
   }
 
-  /* Dark navbar only (per request) */
   .nav-dark {
-    background: hsl(var(--brand-black));
-    border-bottom: 1px solid hsl(var(--brand-gold) / 0.25);
+    background:
+      linear-gradient(90deg, hsl(21 36% 11% / 0.98), hsl(350 60% 22% / 0.96), hsl(21 36% 11% / 0.98));
+    border-bottom: 1px solid hsl(var(--brand-gold) / 0.28);
+    backdrop-filter: blur(14px);
   }
 
   .section-cream {
-    background-color: hsl(var(--secondary));
+    background:
+      linear-gradient(180deg, hsl(40 74% 98% / 0.96), hsl(38 85% 93% / 0.96)),
+      url("./assets/backgrounds/royal-pattern-light.svg");
+    background-size: auto, 520px 520px;
   }
 
   .font-display {
@@ -226,19 +229,19 @@
 
   /* === Glass / glossy / metallic surfaces === */
   .glass-card {
-    background: hsl(var(--card) / 0.95);
+    background: hsl(var(--card) / 0.93);
     backdrop-filter: blur(14px) saturate(140%);
     -webkit-backdrop-filter: blur(14px) saturate(140%);
     border: 1px solid hsl(var(--border));
   }
   .glass-panel {
-    background: hsl(var(--card) / 0.98);
+    background: hsl(var(--card) / 0.96);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid hsl(var(--border));
   }
   .glass-chip {
-    background: hsl(var(--card) / 0.9);
+    background: hsl(42 62% 97% / 0.88);
     color: hsl(var(--foreground));
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -327,7 +330,7 @@
     transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4);
   }
   .water-hover:hover {
-    transform: translateY(-4px) scale(1.01);
+    transform: translateY(-3px) scale(1.005);
   }
 
   .text-shine {
@@ -344,6 +347,81 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: shine 4s linear infinite;
+  }
+
+  .braj-page {
+    min-height: 100vh;
+    background:
+      linear-gradient(180deg, hsl(42 62% 97%), hsl(38 78% 94%)),
+      url("./assets/backgrounds/royal-pattern-light.svg");
+    background-size: auto, 560px 560px;
+  }
+
+  .panel-shell {
+    background:
+      linear-gradient(180deg, hsl(42 62% 97%), hsl(36 70% 93%)),
+      url("./assets/backgrounds/royal-pattern-light.svg");
+    background-size: auto, 560px 560px;
+  }
+
+  .panel-sidebar {
+    background:
+      linear-gradient(180deg, hsl(21 36% 11%), hsl(350 50% 18%));
+    color: hsl(var(--brand-cream));
+  }
+
+  .panel-hero {
+    background:
+      linear-gradient(135deg, hsl(350 60% 27% / 0.94), hsl(29 91% 35% / 0.88)),
+      url("./assets/images/temple-about.jpg");
+    background-size: cover;
+    background-position: center;
+  }
+
+  .travel-card {
+    background: hsl(var(--card) / 0.94);
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.5rem;
+  }
+
+  .panel-shell .bg-card {
+    background: hsl(var(--card) / 0.94);
+    border-color: hsl(var(--border));
+  }
+
+  .panel-shell table thead {
+    background: hsl(38 85% 93% / 0.8);
+  }
+
+  .panel-shell table tbody tr:hover {
+    background: hsl(38 85% 93% / 0.45);
+  }
+
+  .panel-shell input,
+  .panel-shell select,
+  .panel-shell textarea {
+    background-color: hsl(40 70% 99%);
+  }
+
+  .temple-band {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .temple-band::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, hsl(42 62% 97% / 0.94), hsl(42 62% 97% / 0.8)),
+      url("./assets/images/temple-about.jpg");
+    background-size: cover;
+    background-position: center;
+    pointer-events: none;
+  }
+
+  .temple-band > * {
+    position: relative;
   }
 }
 

@@ -37,7 +37,10 @@ const generateBookingCode = () => {
   return `VVS-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
 };
 
-const getHotelTaxPercent = async () => {
+const getHotelTaxPercent = async (hotel) => {
+  if (!hotel?.taxEnabled) return 0;
+  const hotelPercent = Number(hotel?.taxPercent);
+  if (Number.isFinite(hotelPercent) && hotelPercent >= 0) return Math.min(50, hotelPercent);
   try {
     const s = await Settings.findOne().select('hotelTaxPercent').lean();
     const p = Number(s?.hotelTaxPercent ?? 12);
@@ -241,7 +244,7 @@ router.post('/room-type', protect, async (req, res) => {
     // Server-side total amount calculation (includes admin-controlled hotel tax).
     const nights = Math.max(1, daysToReserve.length);
     const baseAmount = Math.max(0, Number(roomType.pricePerNight || 0)) * nights;
-    const taxPercent = await getHotelTaxPercent();
+    const taxPercent = await getHotelTaxPercent(hotel);
     const taxAmount = Math.round((baseAmount * taxPercent) / 100);
     const totalAmount = Math.round(baseAmount + taxAmount);
 
