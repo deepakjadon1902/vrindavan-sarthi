@@ -44,7 +44,7 @@ const ListingCard = ({
       .map((src) => resolveBackendAssetUrl(src))
       .filter((src): src is string => Boolean(src) && src !== '/placeholder.svg');
     const gallery = Array.from(new Set(all));
-    return gallery.length > 0 ? gallery : [image || '/placeholder.svg'];
+    return gallery.length > 0 ? gallery : ['/placeholder.svg'];
   }, [image, images]);
 
   const [active, setActive] = useState(0);

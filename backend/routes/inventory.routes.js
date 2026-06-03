@@ -37,7 +37,7 @@ router.get('/hotels/:hotelId/room-types', async (req, res) => {
 
     const roomTypes = await RoomType.find({ hotelId: hotel._id, partnerId: req.user._id })
       .sort({ createdAt: -1 })
-      .select('_id hotelId name description amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
+      .select('_id hotelId name description images amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
       .lean();
 
     res.json({ success: true, data: roomTypes });

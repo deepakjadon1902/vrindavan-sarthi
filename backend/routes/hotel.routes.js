@@ -7,23 +7,15 @@ const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
 const { normalizeImageFields } = require('../utils/imageFields');
+const { normalizePublicImageSet, normalizePublicImages, stripLargeInlineImage } = require('../utils/publicImages');
 const router = express.Router();
-
-const stripLargeInlineImage = (value) => {
-  const v = typeof value === 'string' ? value : '';
-  if (!v) return '';
-  // If images were saved as base64 data URLs, they can be huge and slow to transfer.
-  // Return empty so the frontend uses a placeholder in list views.
-  if (v.startsWith('data:') && v.length > 2048) return '';
-  return v;
-};
 
 const normalizePublicHotel = (hotel) => {
   if (!hotel) return hotel;
+  const imageSet = normalizePublicImageSet(hotel, { max: 4 });
   return {
     ...hotel,
-    image: stripLargeInlineImage(hotel.image) || '/placeholder.svg',
-    images: Array.isArray(hotel.images) ? hotel.images.map(stripLargeInlineImage).filter(Boolean).slice(0, 4) : [],
+    ...imageSet,
   };
 };
 
@@ -31,7 +23,7 @@ const normalizePublicRoomType = (roomType) => {
   if (!roomType) return roomType;
   return {
     ...roomType,
-    images: Array.isArray(roomType.images) ? roomType.images.map(stripLargeInlineImage).filter(Boolean).slice(0, 4) : [],
+    images: normalizePublicImages(roomType.images, { max: 4 }),
   };
 };
 
@@ -72,7 +64,7 @@ const publicHotelListProjection = {
       },
     },
   },
-  images: [],
+  images: { $slice: [{ $ifNull: ['$images', []] }, 4] },
 };
 
 // Get all active hotels (public)

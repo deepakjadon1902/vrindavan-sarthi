@@ -37,7 +37,7 @@ router.get('/hotels/:hotelId/room-types', async (req, res) => {
     // Keep list payload small; room type images may be stored as base64 strings.
     const roomTypes = await RoomType.find({ hotelId: hotel._id })
       .sort({ createdAt: -1 })
-      .select('_id hotelId partnerId name description amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
+      .select('_id hotelId partnerId name description images amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
       .lean();
     res.json({ success: true, data: roomTypes });
   } catch (err) {

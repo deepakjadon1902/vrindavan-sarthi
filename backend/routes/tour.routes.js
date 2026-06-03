@@ -2,6 +2,7 @@ const express = require('express');
 const Tour = require('../models/Tour');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
+const { normalizePublicImageSet, stripLargeInlineImage } = require('../utils/publicImages');
 const router = express.Router();
 
 const memCache = new Map();
@@ -18,13 +19,6 @@ const setCache = (key, value, ttlMs) => {
   memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
 };
 
-const stripLargeInlineImage = (value) => {
-  const v = typeof value === 'string' ? value : '';
-  if (!v) return '';
-  if (v.startsWith('data:') && v.length > 2048) return '';
-  return v;
-};
-
 router.get('/', async (req, res) => {
   try {
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
@@ -34,7 +28,7 @@ router.get('/', async (req, res) => {
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
     const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
 
-    const withImages = String(req.query?.withImages || '').toLowerCase() === 'true';
+    const withImages = String(req.query?.withImages || 'true').toLowerCase() !== 'false';
     const cacheKey = JSON.stringify({ limit, skip, withImages });
     const cached = getCache(cacheKey);
     if (cached) return res.json({ success: true, data: cached });
@@ -55,9 +49,7 @@ router.get('/', async (req, res) => {
         t.images = ['/placeholder.svg'];
         continue;
       }
-      t.image = stripLargeInlineImage(t.image) || '/placeholder.svg';
-      if (Array.isArray(t.images)) t.images = t.images.map((img) => stripLargeInlineImage(img)).filter(Boolean);
-      if (!t.images?.length) t.images = [t.image || '/placeholder.svg'];
+      Object.assign(t, normalizePublicImageSet(t, { max: 4 }));
     }
 
     setCache(cacheKey, tours, 30_000);

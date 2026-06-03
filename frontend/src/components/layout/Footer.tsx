@@ -33,10 +33,10 @@ const Footer = () => {
 
       <div className="container mx-auto px-4 lg:px-8 py-12 lg:py-16">
         <div className="mb-10 grid gap-3 rounded-lg border border-brand-gold/25 bg-white/5 p-4 md:grid-cols-3">
-          <a href="tel:+919876543210" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
+          <a href="tel:+91 8218303066" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <Phone size={18} className="text-brand-gold" /> Call for Vrindavan booking
           </a>
-          <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
+          <a href="https://wa.me/8218303066" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <MessageCircle size={18} className="text-brand-gold" /> WhatsApp enquiry
           </a>
           <div className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80">

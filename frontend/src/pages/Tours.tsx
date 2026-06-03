@@ -34,7 +34,7 @@ const Tours = () => {
         // ignore
       }
       try {
-        const res = await api.get('/tours');
+        const res = await api.get('/tours', { params: { withImages: true } });
         const data = Array.isArray(res.data?.data) ? (res.data.data as TourListItem[]) : [];
         setTours(data);
         try {

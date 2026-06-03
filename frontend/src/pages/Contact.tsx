@@ -24,7 +24,7 @@ const Contact = () => {
     }
   };
 
-  const whatsappLink = `https://wa.me/919876543210?text=${encodeURIComponent('Hello Vrindavan Sarthi, I need help with...')}`;
+  const whatsappLink = `https://wa.me/8218303066?text=${encodeURIComponent('Hello Vrindavan Sarthi, I need help with...')}`;
 
   return (
     <div className="pt-20">
@@ -56,7 +56,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="font-body font-semibold text-foreground">Phone</p>
-                    <p className="font-body text-sm text-muted-foreground">+91 98765 43210</p>
+                    <p className="font-body text-sm text-muted-foreground">+91 8218303066</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">

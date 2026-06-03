@@ -162,7 +162,7 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     if (!token) return;
     try {
       set({ isLoading: true });
-      const res = await api.get('/bookings/my', { ...withAuth(token), params: { limit: 200 } });
+      const res = await api.get('/bookings/my', { ...withAuth(token), params: { limit: 200, withImages: true } });
       const bookings = (res.data?.data || []).map(normalizeBooking);
       set({ myBookings: bookings, isLoading: false });
     } catch {
@@ -175,7 +175,7 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     if (!token) return;
     try {
       set({ isLoading: true });
-      const res = await api.get('/bookings/partner', { ...withAuth(token), params: { limit: 200 } });
+      const res = await api.get('/bookings/partner', { ...withAuth(token), params: { limit: 200, withImages: true } });
       const bookings = (res.data?.data || []).map(normalizeBooking);
       set({ partnerBookings: bookings, isLoading: false });
     } catch {
@@ -188,7 +188,7 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     if (!token) return;
     try {
       set({ isLoading: true });
-      const res = await api.get('/bookings/all', { ...withAuth(token), params: { limit: 300 } });
+      const res = await api.get('/bookings/all', { ...withAuth(token), params: { limit: 300, withImages: true } });
       const bookings = (res.data?.data || []).map(normalizeBooking);
       set({ adminBookings: bookings, isLoading: false });
     } catch {

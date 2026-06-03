@@ -69,7 +69,7 @@ const Home = () => {
       const [hotelsRes, cabsRes, toursRes] = await Promise.allSettled([
         api.get('/hotels'),
         api.get('/cabs'),
-        api.get('/tours'),
+        api.get('/tours', { params: { withImages: true } }),
       ]);
 
       if (hotelsRes.status === 'fulfilled') {

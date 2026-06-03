@@ -2,6 +2,7 @@ const express = require('express');
 const Cab = require('../models/Cab');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
+const { normalizePublicImageSet, stripLargeInlineImage } = require('../utils/publicImages');
 const router = express.Router();
 
 const memCache = new Map();
@@ -16,13 +17,6 @@ const getCache = (key) => {
 };
 const setCache = (key, value, ttlMs) => {
   memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
-};
-
-const stripLargeInlineImage = (value) => {
-  const v = typeof value === 'string' ? value : '';
-  if (!v) return '';
-  if (v.startsWith('data:') && v.length > 2048) return '';
-  return v;
 };
 
 router.get('/', async (req, res) => {
@@ -48,8 +42,7 @@ router.get('/', async (req, res) => {
       .lean();
 
     for (const c of cabs) {
-      c.image = c.image || '/placeholder.svg';
-      if (Array.isArray(c.images)) c.images = c.images.filter(Boolean);
+      Object.assign(c, normalizePublicImageSet(c, { max: 4 }));
     }
 
     setCache(cacheKey, cabs, 30_000);

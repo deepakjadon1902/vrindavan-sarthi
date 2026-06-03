@@ -14,8 +14,9 @@ export const BACKEND_ORIGIN = (() => {
 })();
 
 export const resolveBackendAssetUrl = (value?: string | null): string => {
-  const v = String(value || '').trim();
+  const v = String(value || '').trim().replace(/\\/g, '/');
   if (!v) return '';
+  if (v.startsWith('//')) return `${window.location.protocol}${v}`;
   if (isAbsoluteUrl(v) || v.startsWith('data:') || v.startsWith('blob:')) return v;
   // Be forgiving if the backend stored a relative uploads path without a leading slash.
   // e.g. "uploads/hotels/x.jpg" -> "/uploads/hotels/x.jpg"

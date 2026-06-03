@@ -7,15 +7,9 @@ const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
+const { normalizePublicImages, normalizePublicImageSet } = require('../utils/publicImages');
 
 const router = express.Router();
-
-const stripLargeInlineImage = (value) => {
-  const v = typeof value === 'string' ? value : '';
-  if (!v) return '';
-  if (v.startsWith('data:') && v.length > 2048) return '';
-  return v;
-};
 
 const memCache = new Map();
 const getMemCache = (key) => {
@@ -33,6 +27,8 @@ const setMemCache = (key, value, ttlMs) => {
 
 const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
   const totalCount = await RoomUnit.countDocuments({ roomTypeId: roomType._id, status: 'active' });
+  const roomImages = normalizePublicImages(roomType.images, { max: 8 });
+  const hotelImageSet = normalizePublicImageSet(hotel, { max: 4 });
 
   const creator =
     roomType.createdByUserId
@@ -41,6 +37,7 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
 
       const base = {
         ...roomType,
+        images: roomImages.length ? roomImages : hotelImageSet.images,
         totalCount,
         uploader: creator || null,
         hotel: {
@@ -48,8 +45,8 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
       name: hotel.name,
       location: hotel.location,
       rating: hotel.rating,
-      image: hotel.image,
-      images: hotel.images,
+      image: hotelImageSet.image,
+      images: hotelImageSet.images,
       amenities: hotel.amenities,
       petsAllowed: hotel.petsAllowed,
       taxEnabled: hotel.taxEnabled,
@@ -180,11 +177,10 @@ router.get('/', async (req, res) => {
 
       for (const rt of data) {
         if (rt?.hotel) {
-          rt.hotel.image = rt.hotel.image || '/placeholder.svg';
-          if (Array.isArray(rt.hotel.images)) rt.hotel.images = rt.hotel.images.filter(Boolean);
+          Object.assign(rt.hotel, normalizePublicImageSet(rt.hotel, { max: 4 }));
         }
-        if (Array.isArray(rt.images)) rt.images = rt.images.filter(Boolean);
-        if (!rt.images?.length && rt?.hotel?.image) rt.images = [rt.hotel.image];
+        rt.images = normalizePublicImages(rt.images, { max: 4 });
+        if (!rt.images?.length && rt?.hotel?.images?.length) rt.images = rt.hotel.images;
       }
 
       setMemCache(cacheKey, data, 30_000);
@@ -202,10 +198,7 @@ router.get('/', async (req, res) => {
     if (!hotels.length) return res.json({ success: true, data: [] });
 
     for (const h of hotels) {
-      h.image = h.image || '/placeholder.svg';
-      if (Array.isArray(h.images)) {
-        h.images = h.images.filter(Boolean);
-      }
+      Object.assign(h, normalizePublicImageSet(h, { max: 4 }));
     }
 
     const hotelById = new Map(hotels.map((h) => [String(h._id), h]));
@@ -225,9 +218,7 @@ router.get('/', async (req, res) => {
     if (!roomTypes.length) return res.json({ success: true, data: [] });
 
     for (const rt of roomTypes) {
-      if (Array.isArray(rt.images)) {
-        rt.images = rt.images.filter(Boolean);
-      }
+      rt.images = normalizePublicImages(rt.images, { max: 4 });
     }
 
     // Total rooms per type (for displaying "X rooms" even without date filters).
@@ -274,6 +265,8 @@ router.get('/', async (req, res) => {
       .map((rt) => {
         const hotel = hotelById.get(String(rt.hotelId));
         if (!hotel) return null;
+        const hotelImageSet = normalizePublicImageSet(hotel, { max: 4 });
+        const roomImages = normalizePublicImages(rt.images, { max: 4 });
 
         const rtId = String(rt._id);
         const totalCount = totalByRoomType.get(rtId) || 0;
@@ -288,13 +281,14 @@ router.get('/', async (req, res) => {
           totalCount,
           availableCount,
           uploader: rt.createdByUserId ? creatorById.get(String(rt.createdByUserId)) || null : null,
+          images: roomImages.length ? roomImages : hotelImageSet.images,
           hotel: {
             _id: hotel._id,
             name: hotel.name,
             location: hotel.location,
             rating: hotel.rating,
-            image: hotel.image,
-            images: hotel.images,
+            image: hotelImageSet.image,
+            images: hotelImageSet.images,
             amenities: hotel.amenities,
             petsAllowed: hotel.petsAllowed,
             taxEnabled: hotel.taxEnabled,

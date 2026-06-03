@@ -182,7 +182,7 @@ export const useProductStore = create<ProductState>()((set, get) => ({
     if (!token) return;
     try {
       set({ isLoadingProducts: true });
-      const res = await api.get('/products/all', withAuth(token));
+      const res = await api.get('/products/all', { ...withAuth(token), params: { withImages: true } });
       const products = (res.data?.data || []).map(normalizeProduct);
       set({ products, isLoadingProducts: false });
     } catch {
@@ -250,7 +250,7 @@ export const useProductStore = create<ProductState>()((set, get) => ({
     if (!token) return;
     try {
       set({ isLoadingOrders: true });
-      const res = await api.get('/orders/my', withAuth(token));
+      const res = await api.get('/orders/my', { ...withAuth(token), params: { withImages: true } });
       const myOrders = (res.data?.data || []).map(normalizeOrder);
       set({ myOrders, isLoadingOrders: false });
     } catch {
@@ -263,7 +263,7 @@ export const useProductStore = create<ProductState>()((set, get) => ({
     if (!token) return;
     try {
       set({ isLoadingOrders: true });
-      const res = await api.get('/orders/all', withAuth(token));
+      const res = await api.get('/orders/all', { ...withAuth(token), params: { withImages: true } });
       const adminOrders = (res.data?.data || []).map(normalizeOrder);
       set({ adminOrders, isLoadingOrders: false });
     } catch {

@@ -2,6 +2,7 @@ const express = require('express');
 const Product = require('../models/Product');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
+const { normalizePublicImages } = require('../utils/publicImages');
 const router = express.Router();
 
 const memCache = new Map();
@@ -18,14 +19,6 @@ const setCache = (key, value, ttlMs) => {
   memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
 };
 
-const stripLargeInlineImage = (value) => {
-  const v = typeof value === 'string' ? value : '';
-  if (!v) return '';
-  // Base64 data URLs stored in Mongo can be massive and slow down every list page.
-  if (v.startsWith('data:') && v.length > 2048) return '';
-  return v;
-};
-
 router.get('/', async (req, res) => {
   try {
     // Keep this endpoint fast for the Shop page:
@@ -40,9 +33,8 @@ router.get('/', async (req, res) => {
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
     const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
 
-    // Product images are frequently stored as huge base64 strings; sending them in list responses
-    // can make the endpoint take tens of seconds. Default to placeholders for fast loads.
-    const withImages = String(req.query?.withImages || '').toLowerCase() === 'true';
+    // Keep uploaded URLs in list responses while stripping oversized legacy base64 values.
+    const withImages = String(req.query?.withImages || 'true').toLowerCase() !== 'false';
 
     const inStockOnly = String(req.query?.inStock || '').toLowerCase() === 'true';
     const query = inStockOnly ? { $or: [{ inStock: true }, { inStock: { $exists: false } }] } : {};
@@ -69,7 +61,7 @@ router.get('/', async (req, res) => {
         p.images = ['/placeholder.svg'];
         continue;
       }
-      if (Array.isArray(p.images)) p.images = p.images.filter(Boolean);
+      p.images = normalizePublicImages(p.images, { max: 4 });
       if (!p.images?.length) p.images = ['/placeholder.svg'];
     }
 
@@ -104,7 +96,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       }
     } else {
       for (const p of products) {
-        if (Array.isArray(p.images)) p.images = p.images.filter(Boolean);
+        p.images = normalizePublicImages(p.images, { max: 4 });
         if (!p.images?.length) p.images = ['/placeholder.svg'];
       }
     }
