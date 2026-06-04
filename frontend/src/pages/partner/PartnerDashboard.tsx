@@ -112,7 +112,7 @@ const PartnerDashboard = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link to="/partner/hotels" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
           <Hotel size={28} className="mx-auto mb-2 text-brand-gold" />
           <p className="font-heading text-sm font-semibold text-foreground">Add Hotel</p>
@@ -120,14 +120,6 @@ const PartnerDashboard = () => {
         <Link to="/partner/inventory" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
           <BedDouble size={28} className="mx-auto mb-2 text-brand-saffron" />
           <p className="font-heading text-sm font-semibold text-foreground">Manage Inventory</p>
-        </Link>
-        <Link to="/partner/cabs" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
-          <Car size={28} className="mx-auto mb-2 text-brand-green" />
-          <p className="font-heading text-sm font-semibold text-foreground">Add Cab</p>
-        </Link>
-        <Link to="/partner/tours" className="bg-card rounded-xl p-5 border border-border card-hover text-center">
-          <Map size={28} className="mx-auto mb-2 text-brand-crimson" />
-          <p className="font-heading text-sm font-semibold text-foreground">Add Tour</p>
         </Link>
       </div>
 

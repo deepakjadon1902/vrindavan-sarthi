@@ -85,11 +85,11 @@ const Shop = () => {
                 onClick={() => prefetchDetail('products', product.id, product)}
                 className="glass-panel rounded-lg overflow-hidden water-hover group"
               >
-                <div className="h-24 sm:h-32 overflow-hidden relative">
+                <div className="aspect-[4/3] overflow-hidden relative bg-white">
                   <img
                     src={resolveBackendAssetUrl(product.images[0]) || '/placeholder.svg'}
                     alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-500"
                     onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}
                   />
                   <div className="absolute inset-0 glossy-sheen pointer-events-none" />

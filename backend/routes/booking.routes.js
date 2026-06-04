@@ -97,6 +97,18 @@ const sendCustomerInvoice = async (booking) => {
   });
 };
 
+const bookingDetailFields = [
+  'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName',
+  'hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests',
+  'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
+  'assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail',
+  'customerFullName customerMobile customerEmail arrivalMode vehicleNumber arrivalTime',
+  'totalAdults totalChildren hasPet guestDetails',
+  'baseAmount taxPercent taxAmount totalAmount advanceAmount balanceAmount advancePercent',
+  'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo',
+  'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin createdAt',
+].join(' ');
+
 // Create cab booking (authenticated user)
 // Body: { fullName, mobileNumber, pickupLocation, dropLocation, pickupDate, pickupTime, passengers, cabType, tollOption, upiTransactionId }
 router.post('/cab', protect, async (req, res) => {
@@ -309,6 +321,9 @@ router.post('/room-type', protect, async (req, res) => {
         guestDetails,
 
         totalAmount,
+        baseAmount,
+        taxPercent,
+        taxAmount,
         paymentMethod: isOnline ? 'online' : (req.body?.paymentMethod || 'doorstep'),
         bookingStatus: 'pending',
         paymentStatus: isOnline ? 'pending' : (req.body?.paymentStatus || 'pending'),
@@ -381,6 +396,9 @@ router.post('/room-type', protect, async (req, res) => {
         guestDetails,
 
         totalAmount,
+        baseAmount,
+        taxPercent,
+        taxAmount,
         paymentMethod: isOnline ? 'online' : (req.body?.paymentMethod || 'doorstep'),
         bookingStatus: 'pending',
         paymentStatus: isOnline ? 'pending' : (req.body?.paymentStatus || 'pending'),
@@ -444,9 +462,7 @@ router.get('/my', protect, async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select(
-        withImages
-          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption advanceAmount balanceAmount assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
-          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption advanceAmount balanceAmount assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+        withImages ? bookingDetailFields : bookingDetailFields.replace('itemImage ', '')
       )
       .lean();
 
@@ -482,9 +498,7 @@ router.get('/partner', protect, authorize('partner'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select(
-        withImages
-          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
-          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+        withImages ? bookingDetailFields : bookingDetailFields.replace('itemImage ', '')
       )
       .lean();
 
@@ -528,9 +542,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select(
-        withImages
-          ? 'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption advanceAmount balanceAmount totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
-          : 'bookingId bookingType itemId itemName userId userName userEmail userPhone partnerId partnerName hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption advanceAmount balanceAmount totalAmount paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo createdAt'
+        withImages ? bookingDetailFields : bookingDetailFields.replace('itemImage ', '')
       )
       .lean();
 

@@ -77,6 +77,14 @@ const Rooms = () => {
     });
   }, [roomTypes, searchQuery]);
 
+  const getTaxInclusivePrice = (rt: any) => {
+    const base = Number(rt?.pricePerNight || 0);
+    const hotel = rt?.hotel || {};
+    if (!hotel?.taxEnabled) return base;
+    const percent = Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? 12)));
+    return Math.round(base + (base * percent) / 100);
+  };
+
   return (
     <div className="pt-20">
       <section className="section-cream py-10 lg:py-16">
@@ -113,8 +121,8 @@ const Rooms = () => {
                   images={rt?.images?.length ? rt.images : rt?.hotel?.images}
                   name={rt.name}
                   location={`${rt?.hotel?.name || ''}${rt?.hotel?.location ? ` • ${rt.hotel.location}` : ''}`}
-                  price={rt.pricePerNight}
-                  priceLabel="/night"
+                  price={getTaxInclusivePrice(rt)}
+                  priceLabel={rt?.hotel?.taxEnabled ? '/night incl. tax' : '/night'}
                   rating={0}
                   reviewCount={0}
                   amenities={rt?.amenities || rt?.hotel?.amenities || []}

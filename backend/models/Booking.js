@@ -66,6 +66,9 @@ const bookingSchema = new mongoose.Schema({
   guestDetails: [guestDetailSchema],
 
   totalAmount: { type: Number, default: 0 },
+  baseAmount: { type: Number, default: 0 },
+  taxPercent: { type: Number, default: 0 },
+  taxAmount: { type: Number, default: 0 },
   advanceAmount: { type: Number, default: 0 },
   balanceAmount: { type: Number, default: 0 },
   advancePercent: { type: Number, default: 30 },

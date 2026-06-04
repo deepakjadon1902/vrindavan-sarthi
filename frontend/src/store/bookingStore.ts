@@ -20,6 +20,9 @@ export interface Booking {
   checkOut?: string;
   guests?: number;
   totalAmount: number;
+  baseAmount?: number;
+  taxPercent?: number;
+  taxAmount?: number;
   paymentMethod: 'online' | 'doorstep';
   paymentStatus: 'pending' | 'paid' | 'failed';
   bookingStatus: 'confirmed' | 'cancelled' | 'completed' | 'pending';
@@ -36,6 +39,18 @@ export interface Booking {
   roomNumber?: string;
   isWaitlisted?: boolean;
   waitlistAssignedAt?: string;
+
+  // Detailed booking form fields
+  customerFullName?: string;
+  customerMobile?: string;
+  customerEmail?: string;
+  arrivalMode?: 'personal_vehicle' | 'transport';
+  vehicleNumber?: string;
+  arrivalTime?: string;
+  totalAdults?: number;
+  totalChildren?: number;
+  hasPet?: boolean;
+  guestDetails?: Array<{ type: 'adult' | 'child'; name: string; age: number; gender?: 'male' | 'female' | 'other' | null }>;
 
   // Cab booking fields
   pickupLocation?: string;
@@ -63,6 +78,19 @@ export interface Booking {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 const getString = (obj: Record<string, unknown>, key: string) => (typeof obj[key] === 'string' ? obj[key] : '');
 const getNumber = (obj: Record<string, unknown>, key: string) => (typeof obj[key] === 'number' ? obj[key] : Number(obj[key] || 0));
+const getGuestDetails = (obj: Record<string, unknown>) => {
+  const value = obj.guestDetails;
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isRecord)
+    .map((g) => ({
+      type: (getString(g, 'type') === 'child' ? 'child' : 'adult') as 'adult' | 'child',
+      name: getString(g, 'name'),
+      age: getNumber(g, 'age'),
+      gender: (getString(g, 'gender') as 'male' | 'female' | 'other') || null,
+    }))
+    .filter((g) => g.name);
+};
 
 const normalizeBooking = (b: unknown): Booking => {
   const obj = isRecord(b) ? b : {};
@@ -83,6 +111,9 @@ const normalizeBooking = (b: unknown): Booking => {
     checkOut: getString(obj, 'checkOut') || undefined,
     guests: getNumber(obj, 'guests') || undefined,
     totalAmount: getNumber(obj, 'totalAmount'),
+    baseAmount: getNumber(obj, 'baseAmount') || undefined,
+    taxPercent: getNumber(obj, 'taxPercent') || undefined,
+    taxAmount: getNumber(obj, 'taxAmount') || undefined,
     paymentMethod: (getString(obj, 'paymentMethod') as Booking['paymentMethod']) || 'online',
     paymentStatus: (getString(obj, 'paymentStatus') as Booking['paymentStatus']) || 'pending',
     bookingStatus: (getString(obj, 'bookingStatus') as Booking['bookingStatus']) || 'pending',
@@ -98,6 +129,16 @@ const normalizeBooking = (b: unknown): Booking => {
     roomNumber: getString(obj, 'roomNumber') || undefined,
     isWaitlisted: typeof obj.isWaitlisted === 'boolean' ? obj.isWaitlisted : undefined,
     waitlistAssignedAt: getString(obj, 'waitlistAssignedAt') || undefined,
+    customerFullName: getString(obj, 'customerFullName') || undefined,
+    customerMobile: getString(obj, 'customerMobile') || undefined,
+    customerEmail: getString(obj, 'customerEmail') || undefined,
+    arrivalMode: (getString(obj, 'arrivalMode') as Booking['arrivalMode']) || undefined,
+    vehicleNumber: getString(obj, 'vehicleNumber') || undefined,
+    arrivalTime: getString(obj, 'arrivalTime') || undefined,
+    totalAdults: getNumber(obj, 'totalAdults') || undefined,
+    totalChildren: getNumber(obj, 'totalChildren') || undefined,
+    hasPet: typeof obj.hasPet === 'boolean' ? obj.hasPet : undefined,
+    guestDetails: getGuestDetails(obj),
     pickupLocation: getString(obj, 'pickupLocation') || undefined,
     dropLocation: getString(obj, 'dropLocation') || undefined,
     pickupDate: getString(obj, 'pickupDate') || undefined,

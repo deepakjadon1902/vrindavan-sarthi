@@ -3,6 +3,7 @@ import { useBookingStore } from '@/store/bookingStore';
 import { ClipboardList, Calendar, User, Phone, Mail } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import BookingFormDetails from '@/components/BookingFormDetails';
 
 const PartnerBookings = () => {
   const { user } = useAuthStore();
@@ -14,6 +15,7 @@ const PartnerBookings = () => {
     partnerRejectPayment,
   } = useBookingStore();
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'completed'>('all');
+  const [expandedBookingId, setExpandedBookingId] = useState<string>('');
 
   useEffect(() => {
     if (!user) return;
@@ -128,6 +130,15 @@ const PartnerBookings = () => {
                     <span>{new Date(b.createdAt).toLocaleDateString()}</span>
                   </div>
 
+                  <button
+                    onClick={() => setExpandedBookingId((current) => (current === b.id ? '' : b.id))}
+                    className="mt-3 px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted"
+                  >
+                    {expandedBookingId === b.id ? 'Hide Details' : 'View Details'}
+                  </button>
+
+                  {expandedBookingId === b.id && <BookingFormDetails booking={b} viewer="partner" />}
+
                   {needsPartnerVerify(b) && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
@@ -158,4 +169,3 @@ const PartnerBookings = () => {
 };
 
 export default PartnerBookings;
-

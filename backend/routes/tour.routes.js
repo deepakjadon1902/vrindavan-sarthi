@@ -68,7 +68,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
     const tours = await Tour.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select('name duration pricePerPerson groupSize startPoint endPoint image images includes excludes highlights status partnerId partnerName partnerEmail partnerPhone businessName partnerSubmitted approvalStatus adminRemarks createdAt updatedAt')
+      .select('name duration pricePerPerson groupSize startPoint endPoint image images description itinerary includes excludes highlights status partnerId partnerName partnerEmail partnerPhone businessName partnerSubmitted approvalStatus adminRemarks createdAt updatedAt')
       .lean();
 
     for (const t of tours) {
@@ -97,8 +97,11 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
 router.put('/:id', protect, authorize('admin'), async (req, res) => {
   try {
     const body = { ...req.body };
+    if (body.image === '/placeholder.svg') delete body.image;
+    if (Array.isArray(body.images) && body.images.every((img) => img === '/placeholder.svg')) delete body.images;
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/tours', single: ['image'], multi: ['images'], tags: ['tour'] });
     const tour = await Tour.findByIdAndUpdate(req.params.id, body, { new: true });
+    if (!tour) return res.status(404).json({ success: false, message: 'Tour not found' });
     res.json({ success: true, data: tour });
   }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }

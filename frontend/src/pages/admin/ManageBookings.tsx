@@ -1,9 +1,10 @@
 import { useBookingStore } from '@/store/bookingStore';
 import { ClipboardList } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import BookingFormDetails from '@/components/BookingFormDetails';
 
 const ManageBookings = () => {
   const token = useAuthStore((s) => s.token);
@@ -15,11 +16,12 @@ const ManageBookings = () => {
     rejectPayment,
   } = useBookingStore();
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'completed' | 'pending'>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'cab' | 'tour'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'room_type' | 'cab' | 'tour'>('all');
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignBookingId, setAssignBookingId] = useState<string>('');
   const [cabs, setCabs] = useState<any[]>([]);
   const [selectedCabId, setSelectedCabId] = useState<string>('');
+  const [expandedBookingId, setExpandedBookingId] = useState<string>('');
 
   useEffect(() => {
     void fetchAllBookings();
@@ -123,7 +125,7 @@ const ManageBookings = () => {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(['all', 'hotel', 'room', 'cab', 'tour'] as const).map((t) => (
+        {(['all', 'hotel', 'room', 'room_type', 'cab', 'tour'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTypeFilter(t)}
@@ -197,10 +199,11 @@ const ManageBookings = () => {
             </thead>
             <tbody>
               {filtered.map((b) => (
-                <tr key={b.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                <Fragment key={b.id}>
+                <tr className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-xs text-brand-crimson font-medium">{b.bookingId}</td>
                   <td className="px-4 py-3">
-                    <span className="font-body text-xs bg-secondary px-2 py-0.5 rounded capitalize">{b.bookingType}</span>
+                    <span className="font-body text-xs bg-secondary px-2 py-0.5 rounded capitalize">{b.bookingType.replace('_', ' ')}</span>
                   </td>
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground max-w-[240px]">
                     <div className="truncate">{b.itemName}</div>
@@ -211,8 +214,8 @@ const ManageBookings = () => {
                     )}
                   </td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">
-                    <div>{b.userName}</div>
-                    {b.bookingType === 'cab' && <div className="text-[11px]">{b.userPhone}</div>}
+                    <div>{b.customerFullName || b.userName}</div>
+                    <div className="text-[11px]">{b.customerMobile || b.userPhone}</div>
                   </td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground">
                     {b.paymentMethod === 'doorstep' ? 'Doorstep' : `UPI ${b.paymentStatus}`}
@@ -223,6 +226,13 @@ const ManageBookings = () => {
                   </td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">{b.partnerName || 'Admin'}</td>
                   <td className="px-4 py-3 text-right">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      onClick={() => setExpandedBookingId((current) => (current === b.id ? '' : b.id))}
+                      className="px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted"
+                    >
+                      {expandedBookingId === b.id ? 'Hide Details' : 'View Details'}
+                    </button>
                     {canAssignCab(b) ? (
                       <button
                         onClick={() => void openAssign(b.id)}
@@ -254,8 +264,17 @@ const ManageBookings = () => {
                     ) : (
                       <span className="font-body text-[11px] text-muted-foreground">-</span>
                     )}
+                    </div>
                   </td>
                 </tr>
+                {expandedBookingId === b.id && (
+                  <tr key={`${b.id}-details`} className="border-b border-border">
+                    <td colSpan={8} className="px-4 pb-4">
+                      <BookingFormDetails booking={b} viewer="admin" />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

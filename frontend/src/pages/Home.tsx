@@ -311,8 +311,8 @@ const Home = () => {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               {featuredProducts.map((p) => (
                 <Link key={p.id} to={`/shop/${p.id}`} className="glass-panel rounded-2xl overflow-hidden water-hover group">
-                  <div className="h-48 overflow-hidden relative">
-                    <img src={p.images[0] || '/placeholder.svg'} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  <div className="aspect-[4/3] overflow-hidden relative bg-white">
+                    <img src={p.images[0] || '/placeholder.svg'} alt={p.name} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500" />
                     <div className="absolute inset-0 glossy-sheen pointer-events-none" />
                     <span className="absolute top-2 left-2 glass-chip px-2 py-0.5 rounded-full font-body text-[10px] capitalize">{p.category}</span>
                   </div>

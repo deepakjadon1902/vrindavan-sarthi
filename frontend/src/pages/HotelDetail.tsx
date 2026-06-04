@@ -19,6 +19,8 @@ type Hotel = {
   petsAllowed?: boolean;
   checkInTime?: string;
   checkOutTime?: string;
+  taxEnabled?: boolean;
+  taxPercent?: number;
 };
 
 type RoomType = {
@@ -141,6 +143,14 @@ const HotelDetail = () => {
     if (checkOut) qs.set('checkOut', checkOut);
     const query = qs.toString();
     return `/room-types/${roomTypeId}${query ? `?${query}` : ''}`;
+  };
+
+  const getTaxInclusivePrice = (rt: RoomType) => {
+    const base = Number(rt.pricePerNight || 0);
+    const rtHotel = rt.hotel || hotel;
+    if (!rtHotel?.taxEnabled) return base;
+    const percent = Math.min(50, Math.max(0, Number(rtHotel.taxPercent ?? 12)));
+    return Math.round(base + (base * percent) / 100);
   };
 
   if (!isLoading && !hotel) {
@@ -295,8 +305,8 @@ const HotelDetail = () => {
                         images={rt.images?.length ? rt.images : rtHotel?.images}
                         name={rt.name}
                         location={rtHotel?.name || 'Hotel room'}
-                        price={rt.pricePerNight}
-                        priceLabel="/night"
+                        price={getTaxInclusivePrice(rt)}
+                        priceLabel={rtHotel?.taxEnabled ? '/night incl. tax' : '/night'}
                         rating={rtHotel?.rating || 0}
                         reviewCount={0}
                         amenities={rt.amenities || rtHotel?.amenities || []}

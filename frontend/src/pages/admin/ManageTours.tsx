@@ -129,6 +129,11 @@ const ManageTours = () => {
     e.preventDefault();
     if (!token) return;
 
+    if (!form.name.trim() || !form.duration.trim() || !Number.isFinite(Number(form.pricePerPerson)) || Number(form.pricePerPerson) <= 0) {
+      toast.error('Please enter tour name, duration, and a valid price');
+      return;
+    }
+
     const payload = {
       name: form.name,
       duration: form.duration,
@@ -170,8 +175,8 @@ const ManageTours = () => {
       }
       publishAppEvent('listing:changed');
       resetForm();
-    } catch {
-      toast.error(editingId ? 'Update failed' : 'Create failed');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, editingId ? 'Update failed' : 'Create failed'));
     }
   };
 
