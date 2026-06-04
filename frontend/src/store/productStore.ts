@@ -31,6 +31,18 @@ export interface Order {
   userPhone: string;
   shippingAddress: string;
   orderNotes?: string;
+  courierName?: string;
+  awbNumber?: string;
+  trackingUrl?: string;
+  trackingNotes?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  statusHistory?: Array<{
+    status: Order['orderStatus'];
+    note?: string;
+    updatedByName?: string;
+    createdAt?: string;
+  }>;
   paymentStatus: 'pending' | 'paid' | 'failed';
   orderStatus: 'pending' | 'processing' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
   upiTransactionId?: string;
@@ -47,6 +59,29 @@ const getStringArray = (obj: Record<string, unknown>, key: string) => {
   const v = obj[key];
   if (!Array.isArray(v)) return [];
   return v.filter((x): x is string => typeof x === 'string');
+};
+const normalizeStatusHistory = (obj: Record<string, unknown>): Order['statusHistory'] => {
+  const value = obj.statusHistory;
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((item) => {
+    const raw = getString(item, 'status');
+    const status: Order['orderStatus'] =
+      raw === 'pending' ||
+      raw === 'processing' ||
+      raw === 'confirmed' ||
+      raw === 'packed' ||
+      raw === 'shipped' ||
+      raw === 'delivered' ||
+      raw === 'cancelled'
+        ? raw
+        : 'pending';
+    return {
+      status,
+      note: getString(item, 'note') || undefined,
+      updatedByName: getString(item, 'updatedByName') || undefined,
+      createdAt: getString(item, 'createdAt') || undefined,
+    };
+  });
 };
 
 const normalizeProduct = (p: unknown): Product => {
@@ -100,6 +135,13 @@ const normalizeOrder = (o: unknown): Order => {
     userPhone: getString(obj, 'userPhone'),
     shippingAddress: getString(obj, 'shippingAddress'),
     orderNotes: getString(obj, 'orderNotes') || undefined,
+    courierName: getString(obj, 'courierName') || undefined,
+    awbNumber: getString(obj, 'awbNumber') || undefined,
+    trackingUrl: getString(obj, 'trackingUrl') || undefined,
+    trackingNotes: getString(obj, 'trackingNotes') || undefined,
+    shippedAt: getString(obj, 'shippedAt') || undefined,
+    deliveredAt: getString(obj, 'deliveredAt') || undefined,
+    statusHistory: normalizeStatusHistory(obj),
     paymentStatus,
     orderStatus,
     upiTransactionId: getString(obj, 'upiTransactionId') || undefined,
@@ -140,6 +182,7 @@ interface ProductState {
   verifyOrderPayment: (id: string) => Promise<{ success: boolean; error?: string }>;
   rejectOrderPayment: (id: string) => Promise<{ success: boolean; error?: string }>;
   updateOrderStatus: (id: string, status: Order['orderStatus']) => Promise<{ success: boolean; error?: string }>;
+  updateOrderTracking: (id: string, data: Partial<Pick<Order, 'orderStatus' | 'courierName' | 'awbNumber' | 'trackingUrl' | 'trackingNotes'>>) => Promise<{ success: boolean; error?: string }>;
 }
 
 export const useProductStore = create<ProductState>()((set, get) => ({
@@ -322,6 +365,29 @@ export const useProductStore = create<ProductState>()((set, get) => ({
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Update failed') };
+    }
+  },
+
+  updateOrderTracking: async (id, data) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/orders/${id}/tracking`, {
+        status: data.orderStatus,
+        courierName: data.courierName,
+        awbNumber: data.awbNumber,
+        trackingUrl: data.trackingUrl,
+        trackingNotes: data.trackingNotes,
+      }, withAuth(token));
+      const updated = normalizeOrder(res.data?.data);
+      set((state) => ({
+        adminOrders: state.adminOrders.map((o) => (o.id === id ? updated : o)),
+        myOrders: state.myOrders.map((o) => (o.id === id ? updated : o)),
+        trackedOrder: state.trackedOrder?.id === id ? updated : state.trackedOrder,
+      }));
+      return { success: true };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Tracking update failed') };
     }
   },
 }));

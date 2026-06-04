@@ -1,5 +1,5 @@
 import { useProductStore } from '@/store/productStore';
-import { CreditCard, CheckCircle2, XCircle, Clock, IndianRupee, Eye, Package } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, IndianRupee, Eye, Package, Truck, ExternalLink, Link as LinkIcon, StickyNote } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -10,11 +10,20 @@ const AdminOrders = () => {
     verifyOrderPayment,
     rejectOrderPayment,
     updateOrderStatus,
+    updateOrderTracking,
     isLoadingOrders,
   } = useProductStore();
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled'>('all');
   const [selectedUpi, setSelectedUpi] = useState<string | null>(null);
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  const [trackingForm, setTrackingForm] = useState({
+    orderStatus: 'processing' as 'pending' | 'processing' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled',
+    courierName: '',
+    awbNumber: '',
+    trackingUrl: '',
+    trackingNotes: '',
+  });
 
   useEffect(() => {
     fetchAllOrders();
@@ -31,6 +40,7 @@ const AdminOrders = () => {
   );
 
   const totalRevenue = orders.filter((o) => o.paymentStatus === 'paid').reduce((s, o) => s + o.totalAmount, 0);
+  const trackingOrder = orders.find((order) => order.id === trackingOrderId);
 
   const handleVerify = async (id: string) => {
     const res = await verifyOrderPayment(id);
@@ -63,6 +73,32 @@ const AdminOrders = () => {
       ] as const,
     []
   );
+
+  const openTracking = (order: typeof orders[number]) => {
+    setTrackingOrderId(order.id);
+    setTrackingForm({
+      orderStatus: order.orderStatus,
+      courierName: order.courierName || '',
+      awbNumber: order.awbNumber || '',
+      trackingUrl: order.trackingUrl || '',
+      trackingNotes: order.trackingNotes || '',
+    });
+  };
+
+  const saveTracking = async () => {
+    if (!trackingOrderId) return;
+    if ((trackingForm.orderStatus === 'shipped' || trackingForm.orderStatus === 'delivered') && !trackingForm.awbNumber.trim()) {
+      toast.error('AWB number is required after shipment');
+      return;
+    }
+    const res = await updateOrderTracking(trackingOrderId, trackingForm);
+    if (res.success) {
+      toast.success('Tracking details updated');
+      setTrackingOrderId(null);
+    } else {
+      toast.error(res.error || 'Tracking update failed');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -99,6 +135,88 @@ const AdminOrders = () => {
         <div className="bg-brand-cream border border-brand-gold/30 rounded-xl p-4 flex items-center justify-between">
           <div><p className="font-body text-xs text-muted-foreground">UPI Transaction ID</p><p className="font-heading text-lg font-bold text-foreground">{selectedUpi}</p></div>
           <button onClick={() => setSelectedUpi(null)} className="px-3 py-1 rounded-lg text-xs border border-border font-body hover:bg-muted">Close</button>
+        </div>
+      )}
+
+      {trackingOrder && (
+        <div className="bg-card rounded-xl border border-brand-gold/40 p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Truck size={18} className="text-brand-crimson" />
+                <h2 className="font-heading text-lg font-bold text-foreground">Shipment Tracking</h2>
+              </div>
+              <p className="mt-1 font-body text-xs text-muted-foreground">
+                {trackingOrder.orderId} / Track ID {trackingOrder.trackingId || 'not generated'} / {trackingOrder.userName}
+              </p>
+            </div>
+            <button onClick={() => setTrackingOrderId(null)} className="self-start rounded-lg border border-border px-3 py-1.5 font-body text-xs hover:bg-muted">
+              Close
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-5">
+            <div className="lg:col-span-2">
+              <label className="mb-1.5 block font-body text-xs font-semibold text-muted-foreground">Order status</label>
+              <select
+                value={trackingForm.orderStatus}
+                onChange={(e) => setTrackingForm((form) => ({ ...form, orderStatus: e.target.value as typeof statusOptions[number]['value'] }))}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+              >
+                {statusOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="lg:col-span-3">
+              <label className="mb-1.5 block font-body text-xs font-semibold text-muted-foreground">Courier partner</label>
+              <input
+                value={trackingForm.courierName}
+                onChange={(e) => setTrackingForm((form) => ({ ...form, courierName: e.target.value }))}
+                placeholder="Blue Dart, Delhivery, India Post..."
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <label className="mb-1.5 block font-body text-xs font-semibold text-muted-foreground">AWB / docket number</label>
+              <input
+                value={trackingForm.awbNumber}
+                onChange={(e) => setTrackingForm((form) => ({ ...form, awbNumber: e.target.value }))}
+                placeholder="Enter AWB number"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+              />
+            </div>
+            <div className="lg:col-span-3">
+              <label className="mb-1.5 block font-body text-xs font-semibold text-muted-foreground">Tracking link</label>
+              <input
+                value={trackingForm.trackingUrl}
+                onChange={(e) => setTrackingForm((form) => ({ ...form, trackingUrl: e.target.value }))}
+                placeholder="https://courier.example/track/..."
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+              />
+            </div>
+            <div className="lg:col-span-5">
+              <label className="mb-1.5 block font-body text-xs font-semibold text-muted-foreground">Customer note</label>
+              <textarea
+                value={trackingForm.trackingNotes}
+                onChange={(e) => setTrackingForm((form) => ({ ...form, trackingNotes: e.target.value }))}
+                rows={3}
+                placeholder="Short update visible on public tracking page"
+                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button onClick={saveTracking} className="btn-gold rounded-xl px-5 py-2.5 text-sm">
+              Save Tracking
+            </button>
+            {trackingForm.trackingUrl.trim() && (
+              <a href={trackingForm.trackingUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 font-body text-xs hover:bg-muted">
+                <ExternalLink size={13} /> Open link
+              </a>
+            )}
+          </div>
         </div>
       )}
 
@@ -139,6 +257,29 @@ const AdminOrders = () => {
                     )}
                     <span className="font-body text-[10px] text-muted-foreground">Qty: {o.quantity} â€¢ ðŸ“¦ {o.shippingAddress}</span>
                   </div>
+                  <div className="mt-3 grid gap-2 rounded-lg border border-border bg-background/70 p-3 md:grid-cols-3">
+                    <div className="flex items-center gap-2">
+                      <Truck size={14} className="text-brand-crimson" />
+                      <div className="min-w-0">
+                        <p className="font-body text-[10px] text-muted-foreground">Courier</p>
+                        <p className="truncate font-body text-xs text-foreground">{o.courierName || 'Not assigned'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <LinkIcon size={14} className="text-brand-gold" />
+                      <div className="min-w-0">
+                        <p className="font-body text-[10px] text-muted-foreground">AWB</p>
+                        <p className="truncate font-body text-xs text-foreground">{o.awbNumber || 'Pending'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <StickyNote size={14} className="text-brand-saffron" />
+                      <div className="min-w-0">
+                        <p className="font-body text-[10px] text-muted-foreground">Latest note</p>
+                        <p className="truncate font-body text-xs text-foreground">{o.trackingNotes || 'No update added'}</p>
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2 mt-3">
                     {o.paymentStatus === 'pending' && (
                       <>
@@ -165,6 +306,14 @@ const AdminOrders = () => {
                           </option>
                         ))}
                       </select>
+                      <button onClick={() => openTracking(o)} className="flex items-center gap-1 rounded-lg bg-brand-crimson px-3 py-1.5 font-body text-xs text-primary-foreground hover:bg-brand-crimson/90">
+                        <Truck size={13} /> Manage Shipping
+                      </button>
+                      {o.trackingUrl && (
+                        <a href={o.trackingUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Open courier tracking link">
+                          <ExternalLink size={14} />
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
