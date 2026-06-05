@@ -16,6 +16,8 @@ interface PartnerCab {
   driverName: string;
   driverPhone: string;
   driverEmail?: string;
+  googleMapLink?: string;
+  nearestTemple?: string;
   routes?: string[];
   basePrice?: number;
   pricePerKm?: number;
@@ -30,6 +32,7 @@ interface PartnerCab {
 }
 
 const PartnerAddCab = () => {
+  const landmarkOptions = ['Banke Bihari Temple', 'Prem Mandir', 'ISKCON Temple', 'Radha Raman Temple', 'Nidhivan', 'Govardhan'];
   const token = useAuthStore((s) => s.token);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -48,6 +51,8 @@ const PartnerAddCab = () => {
     driverName: '',
     driverPhone: '',
     driverEmail: '',
+    googleMapLink: '',
+    nearestTemple: '',
     routes: '',
     basePrice: '',
     pricePerKm: '',
@@ -90,6 +95,8 @@ const PartnerAddCab = () => {
       driverName: target.driverName || '',
       driverPhone: target.driverPhone || '',
       driverEmail: target.driverEmail || '',
+      googleMapLink: target.googleMapLink || '',
+      nearestTemple: target.nearestTemple || '',
       routes: (target.routes || []).join(', '),
       basePrice: String(target.basePrice ?? ''),
       pricePerKm: String(target.pricePerKm ?? ''),
@@ -114,6 +121,8 @@ const PartnerAddCab = () => {
       driverName: '',
       driverPhone: '',
       driverEmail: '',
+      googleMapLink: '',
+      nearestTemple: '',
       routes: '',
       basePrice: '',
       pricePerKm: '',
@@ -144,7 +153,7 @@ const PartnerAddCab = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    if (!form.vehicleName || !form.driverName || !form.driverPhone) {
+    if (!form.vehicleName || !form.driverName || !form.driverPhone || !form.googleMapLink || !form.nearestTemple) {
       toast.error('Fill required fields');
       return;
     }
@@ -157,6 +166,8 @@ const PartnerAddCab = () => {
       driverName: form.driverName,
       driverPhone: form.driverPhone,
       driverEmail: form.driverEmail,
+      googleMapLink: form.googleMapLink,
+      nearestTemple: form.nearestTemple,
       routes: form.routes
         .split(',')
         .map((r) => r.trim())
@@ -200,6 +211,8 @@ const PartnerAddCab = () => {
       driverName: item.driverName || '',
       driverPhone: item.driverPhone || '',
       driverEmail: item.driverEmail || '',
+      googleMapLink: item.googleMapLink || '',
+      nearestTemple: item.nearestTemple || '',
       routes: (item.routes || []).join(', '),
       basePrice: String(item.basePrice ?? ''),
       pricePerKm: String(item.pricePerKm ?? ''),
@@ -353,6 +366,28 @@ const PartnerAddCab = () => {
                   onChange={(e) => setForm({ ...form, driverEmail: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Google Map Location/Link *</label>
+                <input
+                  type="url"
+                  required
+                  value={form.googleMapLink}
+                  onChange={(e) => setForm({ ...form, googleMapLink: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Nearest Temple / Landmark *</label>
+                <select
+                  required
+                  value={form.nearestTemple}
+                  onChange={(e) => setForm({ ...form, nearestTemple: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                >
+                  <option value="">Select landmark</option>
+                  {landmarkOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+                </select>
               </div>
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Base Price (₹)</label>

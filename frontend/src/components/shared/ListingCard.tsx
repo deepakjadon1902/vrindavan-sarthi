@@ -71,10 +71,10 @@ const ListingCard = ({
   }, [active, safeGallery]);
 
   return (
-    <div className="travel-card overflow-hidden card-hover group min-w-0">
+    <div className="travel-card overflow-hidden card-hover group min-w-0 shadow-sm hover:shadow-xl transition-shadow duration-300">
       <div
-        className={`relative overflow-hidden ${
-          variant === 'hotel' ? 'h-24 sm:h-32' : variant === 'compact' ? 'h-24 sm:h-32' : 'h-28 sm:h-36'
+        className={`relative overflow-hidden bg-muted ${
+          variant === 'hotel' ? 'aspect-[4/3]' : variant === 'compact' ? 'aspect-[4/3]' : 'aspect-[16/10]'
         }`}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
@@ -85,7 +85,7 @@ const ListingCard = ({
           alt={`${name} ${active + 1}`}
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out scale-105 group-hover:scale-110"
+          className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 ease-out scale-100 group-hover:scale-[1.04]"
           onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}
         />
 

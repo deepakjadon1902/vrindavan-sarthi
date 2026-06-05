@@ -16,6 +16,8 @@ interface PartnerHotel {
   images?: string[];
   description?: string;
   amenities?: string[];
+  googleMapLink?: string;
+  nearestTemple?: string;
   petsAllowed?: boolean;
   status: 'active' | 'inactive';
   approvalStatus: 'pending' | 'approved' | 'rejected';
@@ -24,6 +26,7 @@ interface PartnerHotel {
 }
 
 const PartnerAddHotel = () => {
+  const landmarkOptions = ['Banke Bihari Temple', 'Prem Mandir', 'ISKCON Temple', 'Radha Raman Temple', 'Nidhivan', 'Govardhan'];
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -41,6 +44,8 @@ const PartnerAddHotel = () => {
     rating: '',
     description: '',
     amenities: '',
+    googleMapLink: '',
+    nearestTemple: '',
     petsAllowed: false,
     images: [] as string[],
   });
@@ -77,6 +82,8 @@ const PartnerAddHotel = () => {
       rating: String(target.rating ?? ''),
       description: target.description || '',
       amenities: (target.amenities || []).join(', '),
+      googleMapLink: target.googleMapLink || '',
+      nearestTemple: target.nearestTemple || '',
       petsAllowed: Boolean(target.petsAllowed),
       images: [target.image, ...(target.images || [])].filter(Boolean) as string[],
     });
@@ -95,6 +102,8 @@ const PartnerAddHotel = () => {
       rating: '',
       description: '',
       amenities: '',
+      googleMapLink: '',
+      nearestTemple: '',
       petsAllowed: false,
       images: [],
     });
@@ -121,7 +130,7 @@ const PartnerAddHotel = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    if (!form.name || !form.location) {
+    if (!form.name || !form.location || !form.googleMapLink || !form.nearestTemple) {
       toast.error('Fill required fields');
       return;
     }
@@ -131,6 +140,8 @@ const PartnerAddHotel = () => {
       location: form.location,
       rating: Number(form.rating || 0),
       description: form.description,
+      googleMapLink: form.googleMapLink,
+      nearestTemple: form.nearestTemple,
       amenities: form.amenities
         .split(',')
         .map((a) => a.trim())
@@ -166,6 +177,8 @@ const PartnerAddHotel = () => {
       rating: String(item.rating ?? ''),
       description: item.description || '',
       amenities: (item.amenities || []).join(', '),
+      googleMapLink: item.googleMapLink || '',
+      nearestTemple: item.nearestTemple || '',
       petsAllowed: Boolean(item.petsAllowed),
       images: [item.image, ...(item.images || [])].filter(Boolean) as string[],
     });
@@ -279,6 +292,28 @@ const PartnerAddHotel = () => {
                   onChange={(e) => setForm({ ...form, rating: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Google Map Location/Link *</label>
+                <input
+                  type="url"
+                  required
+                  value={form.googleMapLink}
+                  onChange={(e) => setForm({ ...form, googleMapLink: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Nearest Temple / Landmark *</label>
+                <select
+                  required
+                  value={form.nearestTemple}
+                  onChange={(e) => setForm({ ...form, nearestTemple: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                >
+                  <option value="">Select landmark</option>
+                  {landmarkOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+                </select>
               </div>
             </div>
 

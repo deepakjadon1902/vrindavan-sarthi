@@ -10,7 +10,7 @@ const roomUnitBlockSchema = new mongoose.Schema(
 
     kind: {
       type: String,
-      enum: ['closed', 'maintenance', 'offline_booking', 'temp_unavailable'],
+      enum: ['unavailable', 'maintenance', 'closed'],
       required: true,
       index: true,
     },

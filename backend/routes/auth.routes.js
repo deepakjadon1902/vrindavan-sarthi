@@ -296,11 +296,23 @@ router.post('/register', async (req, res) => {
     const exists = await User.findOne({ email: normalizedEmail });
     if (exists) return res.status(400).json({ success: false, message: 'Email already registered' });
 
+    let partnerDocuments = [];
+    if (role === 'partner') {
+      const docsInput = Array.isArray(req.body?.documents) ? req.body.documents : [];
+      if (!docsInput.length) {
+        return res.status(400).json({ success: false, message: 'Government/legal documents are required for partner registration' });
+      }
+      const urls = await maybeUploadImageArray(docsInput, { folder: 'vrindavan-sarthi/partner-documents', tags: ['partner', 'document'], max: 10 });
+      if (!urls.length) return res.status(400).json({ success: false, message: 'No valid partner documents provided' });
+      const now = new Date();
+      partnerDocuments = urls.map((url) => ({ name: 'document', url, uploadedAt: now }));
+    }
+
     const user = await User.create({
       name, email: normalizedEmail, phone, password,
       address: { street, city, state, pin },
       role: role || 'user',
-      ...(role === 'partner' ? { businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription, partnerStatus: 'pending' } : {}),
+      ...(role === 'partner' ? { businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription, partnerDocuments, partnerStatus: 'pending' } : {}),
     });
 
     const token = generateToken(user._id);
@@ -339,7 +351,16 @@ router.get('/me', protect, async (req, res) => {
 // Update profile
 router.put('/me', protect, async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.user._id, req.body, { new: true }).select('-password');
+    const allowed = [
+      'name', 'phone', 'address', 'avatar',
+      'businessName', 'businessAddress', 'businessPhone', 'businessEmail', 'businessDescription',
+      'profileDisplayName', 'profileBio', 'profilePicture',
+    ];
+    const body = {};
+    for (const key of allowed) {
+      if (typeof req.body?.[key] !== 'undefined') body[key] = req.body[key];
+    }
+    const user = await User.findByIdAndUpdate(req.user._id, body, { new: true }).select('-password');
     res.json({ success: true, user });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

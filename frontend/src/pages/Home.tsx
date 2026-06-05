@@ -197,7 +197,7 @@ const Home = () => {
                     name={hotel.name}
                     location={hotel.location}
                     rating={hotel.rating}
-                    reviewCount={0}
+                    reviewCount={hotel.reviewCount || 0}
                     amenities={hotel.amenities || []}
                     onViewDetails={() => {
                       prefetchDetail('hotels', hotel._id, hotel);

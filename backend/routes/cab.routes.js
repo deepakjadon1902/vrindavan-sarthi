@@ -5,6 +5,16 @@ const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImageSet, stripLargeInlineImage } = require('../utils/publicImages');
 const router = express.Router();
 
+const normalizeRequiredLocationFields = (body) => {
+  const googleMapLink = String(body?.googleMapLink || '').trim();
+  const nearestTemple = String(body?.nearestTemple || '').trim();
+  if (!googleMapLink) return 'Google Map Location/Link is required';
+  if (!nearestTemple) return 'Nearest Temple / Landmark is required';
+  body.googleMapLink = googleMapLink;
+  body.nearestTemple = nearestTemple;
+  return '';
+};
+
 const memCache = new Map();
 const getCache = (key) => {
   const hit = memCache.get(key);
@@ -37,7 +47,7 @@ router.get('/', async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not expose driver contact details publicly (shown only after admin confirms booking).
-      .select('vehicleName vehicleType capacity routes image images status createdAt')
+      .select('vehicleName vehicleType capacity routes image images status nearestTemple googleMapLink createdAt')
       .slice('images', 1)
       .lean();
 
@@ -61,7 +71,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
     const cabs = await Cab.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select('vehicleName vehicleType vehicleNumber capacity driverName driverPhone driverEmail routes image images status partnerId partnerName partnerEmail partnerPhone businessName partnerSubmitted approvalStatus adminRemarks createdAt updatedAt')
+      .select('vehicleName vehicleType vehicleNumber capacity driverName driverPhone driverEmail routes image images description googleMapLink nearestTemple status partnerId partnerName partnerEmail partnerPhone businessName partnerSubmitted approvalStatus adminRemarks createdAt updatedAt')
       .lean();
 
     for (const c of cabs) {
@@ -76,9 +86,10 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     // Public detail: hide driver contact details until booking is confirmed.
-    const cab = await Cab.findById(req.params.id)
-      .select('vehicleName vehicleType vehicleNumber capacity routes image images description features status createdAt updatedAt')
+    const cab = await Cab.findOne({ _id: req.params.id, status: 'available', approvalStatus: 'approved' })
+      .select('vehicleName vehicleType vehicleNumber capacity routes image images description features status nearestTemple googleMapLink createdAt updatedAt')
       .lean();
+    if (!cab) return res.status(404).json({ success: false, message: 'Cab not found' });
     res.json({ success: true, data: cab });
   }
   catch (err) { res.status(500).json({ success: false, message: err.message }); }
@@ -87,6 +98,10 @@ router.get('/:id', async (req, res) => {
 router.post('/', protect, authorize('admin'), async (req, res) => {
   try {
     const body = { ...req.body };
+    const locationError = normalizeRequiredLocationFields(body);
+    if (locationError) return res.status(400).json({ success: false, message: locationError });
+    body.approvalStatus = 'approved';
+    body.status = body.status === 'inactive' ? 'inactive' : 'available';
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/cabs', single: ['image'], multi: ['images'], tags: ['cab'] });
     const cab = await Cab.create(body);
     res.status(201).json({ success: true, data: cab });
@@ -97,6 +112,8 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
 router.put('/:id', protect, authorize('admin'), async (req, res) => {
   try {
     const body = { ...req.body };
+    const locationError = normalizeRequiredLocationFields(body);
+    if (locationError) return res.status(400).json({ success: false, message: locationError });
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/cabs', single: ['image'], multi: ['images'], tags: ['cab'] });
     const cab = await Cab.findByIdAndUpdate(req.params.id, body, { new: true });
     res.json({ success: true, data: cab });

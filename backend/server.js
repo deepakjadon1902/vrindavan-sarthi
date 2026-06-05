@@ -28,6 +28,7 @@ const orderRoutes = require('./routes/order.routes');
 const adminAnalyticsRoutes = require('./routes/adminAnalytics.routes');
 const cabFareRoutes = require('./routes/cabFare.routes');
 const contactRoutes = require('./routes/contact.routes');
+const reviewRoutes = require('./routes/review.routes');
 
 connectDB();
 
@@ -140,6 +141,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/cab-fares', cabFareRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminAnalyticsRoutes);
 app.use('/api/admin/inventory', adminInventoryRoutes);
 

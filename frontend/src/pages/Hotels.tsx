@@ -16,6 +16,7 @@ type HotelListItem = {
   image: string;
   images?: string[];
   amenities?: string[];
+  reviewCount?: number;
 };
 
 const Hotels = () => {
@@ -133,7 +134,7 @@ const Hotels = () => {
                     name={hotel.name}
                     location={hotel.location}
                     rating={hotel.rating}
-                    reviewCount={0}
+                    reviewCount={hotel.reviewCount || 0}
                     amenities={hotel.amenities || []}
                     onViewDetails={() => void openHotel(hotel)}
                   />

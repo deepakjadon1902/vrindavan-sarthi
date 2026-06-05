@@ -8,6 +8,7 @@ import { APP_LOGO_URL } from '@/lib/brand';
 
 const Register = () => {
   const [role, setRole] = useState<'user' | 'partner'>('user');
+  const [documents, setDocuments] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', street: '', city: '', state: '', pin: '', password: '', confirmPassword: '',
     businessName: '', gstNumber: '', businessType: '', businessAddress: '', businessPhone: '', businessEmail: '', businessDescription: '',
@@ -27,6 +28,7 @@ const Register = () => {
     if (formData.password !== formData.confirmPassword) { toast.error('Passwords do not match'); return; }
     if (formData.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     if (role === 'partner' && !formData.businessName) { toast.error('Business name is required for partners'); return; }
+    if (role === 'partner' && documents.length === 0) { toast.error('Upload at least one government/legal document'); return; }
 
     const result = await register({
       name: formData.name, email: formData.email, phone: formData.phone,
@@ -37,6 +39,7 @@ const Register = () => {
         businessType: formData.businessType, businessAddress: formData.businessAddress,
         businessPhone: formData.businessPhone, businessEmail: formData.businessEmail,
         businessDescription: formData.businessDescription,
+        documents,
       } : {}),
     });
     if (result.success) {
@@ -48,6 +51,17 @@ const Register = () => {
   };
 
   const update = (field: string, value: string) => setFormData({ ...formData, [field]: value });
+
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => setDocuments((prev) => [...prev, String(reader.result || '')].filter(Boolean));
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -180,6 +194,11 @@ const Register = () => {
                 <div>
                   <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Business Description</label>
                   <textarea rows={3} value={formData.businessDescription} onChange={(e) => update('businessDescription', e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none" placeholder="Tell us about your business..." />
+                </div>
+                <div>
+                  <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Government / Legal Documents *</label>
+                  <input type="file" accept="image/*,application/pdf" multiple onChange={handleDocumentUpload} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm" />
+                  <p className="font-body text-xs text-muted-foreground mt-1">{documents.length} document(s) selected for admin verification.</p>
                 </div>
               </>
             )}

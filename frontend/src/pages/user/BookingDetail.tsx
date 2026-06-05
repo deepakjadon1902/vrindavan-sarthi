@@ -6,14 +6,18 @@ import Footer from '@/components/layout/Footer';
 import { ArrowLeft, Calendar, MapPin, User, Phone, Mail, CreditCard, ClipboardList, XCircle, CheckCircle2, Clock, IndianRupee, Hotel, BedDouble, Car, Map as MapIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
+import { api, withAuth } from '@/lib/api';
 
 const BookingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { token } = useAuthStore();
   const { fetchBookingById, cancelBooking } = useBookingStore();
   const [booking, setBooking] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [isReviewing, setIsReviewing] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -105,6 +109,26 @@ const BookingDetail = () => {
     if (type === 'tour') return booking.itemId ? `/tours/${booking.itemId}` : '/tours';
     return '/';
   })();
+
+  const canReview = (() => {
+    if (!booking?.hotelId || !booking?.checkOut) return false;
+    if (!['confirmed', 'completed'].includes(String(booking.bookingStatus))) return false;
+    return new Date(booking.checkOut).getTime() <= Date.now();
+  })();
+
+  const submitReview = async () => {
+    if (!token || !booking?.id) return;
+    try {
+      setIsReviewing(true);
+      await api.post('/reviews', { bookingId: booking.id, rating: reviewRating, text: reviewText }, withAuth(token));
+      toast.success('Review submitted');
+      setReviewText('');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Review failed');
+    } finally {
+      setIsReviewing(false);
+    }
+  };
 
   return (
     <>
@@ -292,6 +316,35 @@ const BookingDetail = () => {
                 <div className="bg-card rounded-xl border border-border p-6">
                   <h3 className="font-heading text-sm font-semibold text-foreground mb-2">Listed By</h3>
                   <p className="font-body text-sm text-muted-foreground">{booking.partnerName}</p>
+                </div>
+              )}
+
+              {canReview && (
+                <div className="bg-card rounded-xl border border-border p-6">
+                  <h3 className="font-heading text-sm font-semibold text-foreground mb-3">Rate Your Stay</h3>
+                  <select
+                    value={reviewRating}
+                    onChange={(e) => setReviewRating(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm"
+                  >
+                    {[5, 4, 3, 2, 1].map((rating) => (
+                      <option key={rating} value={rating}>{rating} Star{rating > 1 ? 's' : ''}</option>
+                    ))}
+                  </select>
+                  <textarea
+                    rows={4}
+                    value={reviewText}
+                    onChange={(e) => setReviewText(e.target.value)}
+                    placeholder="Share your experience"
+                    className="mt-3 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm resize-none"
+                  />
+                  <button
+                    onClick={submitReview}
+                    disabled={isReviewing}
+                    className="mt-3 w-full py-2.5 rounded-xl bg-brand-gold text-foreground font-body text-sm font-semibold disabled:opacity-60"
+                  >
+                    {isReviewing ? 'Submitting...' : 'Submit Review'}
+                  </button>
                 </div>
               )}
 

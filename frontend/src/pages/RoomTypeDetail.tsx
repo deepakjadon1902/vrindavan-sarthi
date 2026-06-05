@@ -384,14 +384,10 @@ const RoomTypeDetail = () => {
                 <div className="bg-brand-cream border border-brand-gold/20 rounded-xl p-4">
                   <p className="font-body text-xs text-muted-foreground">Uploaded by</p>
                   <p className="font-body text-sm text-foreground font-semibold inline-flex items-center gap-2">
-                    <UserIcon size={14} /> {uploader.name || '—'}
+                    <UserIcon size={14} /> {uploader.displayName || 'Verified partner'}
                   </p>
-                  {(uploader.phone || uploader.email) && (
-                    <p className="font-body text-xs text-muted-foreground mt-1">
-                      {uploader.phone ? `Phone: ${uploader.phone}` : ''}
-                      {uploader.phone && uploader.email ? ' • ' : ''}
-                      {uploader.email ? `Email: ${uploader.email}` : ''}
-                    </p>
+                  {uploader.bio && (
+                    <p className="font-body text-xs text-muted-foreground mt-1">{uploader.bio}</p>
                   )}
                 </div>
               )}
@@ -538,11 +534,11 @@ const RoomTypeDetail = () => {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="font-body text-xs text-muted-foreground">Adults</label>
-                      <input type="number" min={1} max={maxAdults} value={totalAdults} onChange={(e) => setTotalAdults(Number(e.target.value || 1))} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm" />
+                      <input type="number" min={1} max={maxAdults} value={totalAdults} onChange={(e) => setTotalAdults(Math.min(maxAdults, Math.max(1, Number(e.target.value || 1))))} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm" />
                     </div>
                     <div>
                       <label className="font-body text-xs text-muted-foreground">Children</label>
-                      <input type="number" min={0} max={maxChildren} value={totalChildren} onChange={(e) => setTotalChildren(Number(e.target.value || 0))} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm" />
+                      <input type="number" min={0} max={maxChildren} value={totalChildren} onChange={(e) => setTotalChildren(Math.min(maxChildren, Math.max(0, Number(e.target.value || 0))))} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm" />
                     </div>
                   </div>
 

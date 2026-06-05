@@ -15,7 +15,9 @@ type Hotel = {
   images?: string[];
   description?: string;
   amenities?: string[];
-  partnerName?: string;
+  googleMapLink?: string;
+  nearestTemple?: string;
+  reviewCount?: number;
   petsAllowed?: boolean;
   checkInTime?: string;
   checkOutTime?: string;
@@ -217,6 +219,11 @@ const HotelDetail = () => {
                     Pets allowed
                   </span>
                 )}
+                {hotel?.nearestTemple && (
+                  <span className="inline-flex items-center rounded-full border border-brand-gold/30 bg-brand-gold/10 px-3 py-1 text-xs font-body text-foreground/80">
+                    Near {hotel.nearestTemple}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -308,7 +315,7 @@ const HotelDetail = () => {
                         price={getTaxInclusivePrice(rt)}
                         priceLabel={rtHotel?.taxEnabled ? '/night incl. tax' : '/night'}
                         rating={rtHotel?.rating || 0}
-                        reviewCount={0}
+                        reviewCount={rtHotel?.reviewCount || 0}
                         amenities={rt.amenities || rtHotel?.amenities || []}
                         meta={availabilityText}
                         variant="compact"
@@ -335,17 +342,23 @@ const HotelDetail = () => {
                   <p className="font-body text-sm text-foreground text-right">{hotel?.location || 'Vrindavan'}</p>
                 </div>
 
-                {hotel?.partnerName && (
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="font-body text-sm text-muted-foreground">Listed by</p>
-                    <p className="font-body text-sm text-foreground text-right">{hotel.partnerName}</p>
-                  </div>
-                )}
-
                 {typeof hotel?.checkInTime === 'string' && hotel.checkInTime && (
                   <div className="flex items-start justify-between gap-3">
                     <p className="font-body text-sm text-muted-foreground">Check-in</p>
                     <p className="font-body text-sm text-foreground text-right">{hotel.checkInTime}</p>
+                  </div>
+                )}
+                {hotel?.nearestTemple && (
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-body text-sm text-muted-foreground">Nearest landmark</p>
+                    <p className="font-body text-sm text-foreground text-right">Near {hotel.nearestTemple}</p>
+                  </div>
+                )}
+                {hotel?.googleMapLink && (
+                  <div className="pt-3 border-t border-border">
+                    <a href={hotel.googleMapLink} target="_blank" rel="noreferrer" className="font-body text-sm text-brand-crimson hover:underline">
+                      Open Google Map
+                    </a>
                   </div>
                 )}
 

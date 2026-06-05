@@ -32,14 +32,22 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
 
   const creator =
     roomType.createdByUserId
-      ? await User.findById(roomType.createdByUserId).select('_id name email phone role businessName').lean()
+      ? await User.findById(roomType.createdByUserId).select('_id role businessName profileDisplayName profileBio profilePicture').lean()
       : null;
 
       const base = {
         ...roomType,
         images: roomImages.length ? roomImages : hotelImageSet.images,
         totalCount,
-        uploader: creator || null,
+        uploader: creator
+          ? {
+            _id: creator._id,
+            role: creator.role,
+            displayName: creator.profileDisplayName || creator.businessName || 'Verified partner',
+            bio: creator.profileBio || '',
+            profilePicture: creator.profilePicture || '',
+          }
+          : null,
         hotel: {
       _id: hotel._id,
       name: hotel.name,
@@ -54,8 +62,8 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
           checkInTime: hotel.checkInTime,
           checkOutTime: hotel.checkOutTime,
           partnerId: hotel.partnerId,
-          partnerName: hotel.partnerName,
-          // Do not expose partner contact details publicly.
+          nearestTemple: hotel.nearestTemple,
+          googleMapLink: hotel.googleMapLink,
         },
       };
 
@@ -133,8 +141,8 @@ router.get('/', async (req, res) => {
                   checkInTime: 1,
                   checkOutTime: 1,
                   partnerId: 1,
-                  partnerName: 1,
-                  // Do not expose partner contact details publicly.
+                  nearestTemple: 1,
+                  googleMapLink: 1,
                 },
               },
             ],
@@ -166,7 +174,7 @@ router.get('/', async (req, res) => {
             let: { uid: '$createdByUserId' },
             pipeline: [
               { $match: { $expr: { $eq: ['$_id', '$$uid'] } } },
-              { $project: { _id: 1, name: 1, email: 1, phone: 1, role: 1, businessName: 1 } },
+              { $project: { _id: 1, role: 1, businessName: 1, profileDisplayName: 1, profileBio: 1, profilePicture: 1 } },
             ],
             as: 'uploader',
           },
@@ -192,7 +200,7 @@ router.get('/', async (req, res) => {
     // Ensure pagination is enforced (default 200).
 
     const hotels = await Hotel.find({ status: 'active', approvalStatus: 'approved' })
-      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime')
+      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime nearestTemple googleMapLink')
       .slice('images', 1)
       .lean();
     if (!hotels.length) return res.json({ success: true, data: [] });
@@ -232,7 +240,7 @@ router.get('/', async (req, res) => {
     // Uploader (creator) info
     const creatorIds = roomTypes.map((rt) => rt.createdByUserId).filter(Boolean);
     const creators = await User.find({ _id: { $in: creatorIds } })
-      .select('_id name email phone role businessName')
+      .select('_id role businessName profileDisplayName profileBio profilePicture')
       .lean();
     const creatorById = new Map(creators.map((u) => [String(u._id), u]));
 
@@ -280,7 +288,18 @@ router.get('/', async (req, res) => {
           ...rt,
           totalCount,
           availableCount,
-          uploader: rt.createdByUserId ? creatorById.get(String(rt.createdByUserId)) || null : null,
+          uploader: (() => {
+            const creator = rt.createdByUserId ? creatorById.get(String(rt.createdByUserId)) : null;
+            return creator
+              ? {
+                _id: creator._id,
+                role: creator.role,
+                displayName: creator.profileDisplayName || creator.businessName || 'Verified partner',
+                bio: creator.profileBio || '',
+                profilePicture: creator.profilePicture || '',
+              }
+              : null;
+          })(),
           images: roomImages.length ? roomImages : hotelImageSet.images,
           hotel: {
             _id: hotel._id,
@@ -296,8 +315,8 @@ router.get('/', async (req, res) => {
             checkInTime: hotel.checkInTime,
             checkOutTime: hotel.checkOutTime,
             partnerId: hotel.partnerId,
-            partnerName: hotel.partnerName,
-            // Do not expose partner contact details publicly.
+            nearestTemple: hotel.nearestTemple,
+            googleMapLink: hotel.googleMapLink,
           },
         };
       })
@@ -329,7 +348,7 @@ router.get('/:id', async (req, res) => {
     if (!roomType || roomType.status !== 'active') return res.status(404).json({ success: false, message: 'Room type not found' });
 
     const hotel = await Hotel.findOne({ _id: roomType.hotelId, status: 'active', approvalStatus: 'approved' })
-      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime partnerId partnerName')
+      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime nearestTemple googleMapLink')
       .slice('images', 1)
       .lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });

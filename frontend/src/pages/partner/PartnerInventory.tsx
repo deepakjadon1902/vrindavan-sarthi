@@ -32,7 +32,7 @@ type RoomUnit = {
   petsAllowedOverride?: boolean | null;
 };
 
-type BlockKind = 'closed' | 'maintenance' | 'offline_booking' | 'temp_unavailable';
+type BlockKind = 'available' | 'unavailable' | 'maintenance' | 'closed';
 
 const PartnerInventory = () => {
   const token = useAuthStore((s) => s.token);
@@ -66,7 +66,7 @@ const PartnerInventory = () => {
   const [editingRoomUnitId, setEditingRoomUnitId] = useState<string | null>(null);
 
   // Block form
-  const [blockKind, setBlockKind] = useState<BlockKind>('maintenance');
+  const [blockKind, setBlockKind] = useState<BlockKind>('unavailable');
   const [blockStart, setBlockStart] = useState('');
   const [blockEnd, setBlockEnd] = useState('');
   const [blockNote, setBlockNote] = useState('');
@@ -376,6 +376,7 @@ const PartnerInventory = () => {
   const createBlock = async () => {
     if (!token) return;
     if (!selectedRoomUnitId) return toast.error('Select a room first');
+    if (blockKind === 'available') return toast.error('Available means no manual block is needed. Remove an existing block to reopen dates.');
     if (!blockStart || !blockEnd) return toast.error('Start and end dates are required');
     try {
       await api.post(
@@ -633,10 +634,10 @@ const PartnerInventory = () => {
                   <div>
                     <label className="font-body text-xs text-muted-foreground">Type</label>
                     <select value={blockKind} onChange={(e) => setBlockKind(e.target.value as BlockKind)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm">
+                      <option value="available">Available</option>
+                      <option value="unavailable">Unavailable</option>
                       <option value="maintenance">Maintenance</option>
                       <option value="closed">Closed</option>
-                      <option value="offline_booking">Offline Booking Block</option>
-                      <option value="temp_unavailable">Temporary Unavailable</option>
                     </select>
                   </div>
                   <div>

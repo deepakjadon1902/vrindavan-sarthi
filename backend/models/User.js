@@ -24,6 +24,9 @@ const userSchema = new mongoose.Schema({
   businessPhone: String,
   businessEmail: String,
   businessDescription: String,
+  profileDisplayName: String,
+  profileBio: String,
+  profilePicture: String,
   partnerStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   partnerLocation: {
     lat: Number,

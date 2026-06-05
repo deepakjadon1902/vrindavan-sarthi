@@ -54,6 +54,9 @@ const mapUser = (u: unknown): User => {
     businessPhone: getString(obj, 'businessPhone') || undefined,
     businessEmail: getString(obj, 'businessEmail') || undefined,
     businessDescription: getString(obj, 'businessDescription') || undefined,
+    profileDisplayName: getString(obj, 'profileDisplayName') || undefined,
+    profileBio: getString(obj, 'profileBio') || undefined,
+    profilePicture: getString(obj, 'profilePicture') || undefined,
     partnerStatus: normalizedPartnerStatus,
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
   };

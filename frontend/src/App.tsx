@@ -58,10 +58,13 @@ const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const PartnerLayout = lazy(() => import("@/pages/partner/PartnerLayout"));
 const PartnerDashboard = lazy(() => import("@/pages/partner/PartnerDashboard"));
 const PartnerAddHotel = lazy(() => import("@/pages/partner/PartnerAddHotel"));
+const PartnerAddCab = lazy(() => import("@/pages/partner/PartnerAddCab"));
 const PartnerInventory = lazy(() => import("@/pages/partner/PartnerInventory"));
 const PartnerListings = lazy(() => import("@/pages/partner/PartnerListings"));
 const PartnerBookings = lazy(() => import("@/pages/partner/PartnerBookings"));
 const PartnerPayments = lazy(() => import("@/pages/partner/PartnerPayments"));
+const PartnerProfileSettings = lazy(() => import("@/pages/partner/PartnerProfileSettings"));
+const PartnerCommunications = lazy(() => import("@/pages/partner/PartnerCommunications"));
 
 const queryClient = new QueryClient();
 
@@ -155,10 +158,13 @@ const App = () => {
               <Route path="/partner" element={<PartnerRoute><PartnerLayout /></PartnerRoute>}>
                 <Route index element={<PartnerDashboard />} />
                 <Route path="hotels" element={<PartnerAddHotel />} />
+                <Route path="cabs" element={<PartnerAddCab />} />
                 <Route path="inventory" element={<PartnerInventory />} />
                 <Route path="listings" element={<PartnerListings />} />
                 <Route path="bookings" element={<PartnerBookings />} />
                 <Route path="payments" element={<PartnerPayments />} />
+                <Route path="profile-settings" element={<PartnerProfileSettings />} />
+                <Route path="communications" element={<PartnerCommunications />} />
               </Route>
 
               <Route path="/admin/login" element={<AdminLogin />} />

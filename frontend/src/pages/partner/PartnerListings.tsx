@@ -2,16 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
-import { Hotel, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Car, Hotel, Eye, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { publishAppEvent, subscribeAppEvent } from '@/lib/broadcast';
 import { clearSessionCache, getSessionCache, setSessionCache } from '@/lib/panelCache';
 import { getApiErrorMessage } from '@/lib/apiError';
 
-type ItemType = 'hotel';
+type ItemType = 'hotel' | 'cab';
 
 const ADD_ROUTES: Record<ItemType, string> = {
   hotel: '/partner/hotels',
+  cab: '/partner/cabs',
 };
 
 const PartnerListings = () => {
@@ -32,7 +33,8 @@ const PartnerListings = () => {
       const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 500 } });
       const data = res.data?.data || {};
       const hotels = (Array.isArray(data.hotels) ? data.hotels : []).map((i: any) => ({ ...i, id: i._id, itemType: 'hotel' as const }));
-      const all = [...hotels].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const cabs = (Array.isArray(data.cabs) ? data.cabs : []).map((i: any) => ({ ...i, id: i._id, itemType: 'cab' as const }));
+      const all = [...hotels, ...cabs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setAllItems(all);
       setSessionCache('vvs_partner_my_listings_all', all);
     } catch (err: unknown) {
@@ -65,9 +67,9 @@ const PartnerListings = () => {
     return 'bg-brand-saffron/10 text-brand-saffron';
   };
 
-  const typeIcon = (_type: ItemType) => <Hotel size={14} className="text-brand-gold" />;
+  const typeIcon = (type: ItemType) => type === 'cab' ? <Car size={14} className="text-brand-green" /> : <Hotel size={14} className="text-brand-gold" />;
 
-  const getItemName = (item: any) => item.name || 'Unnamed';
+  const getItemName = (item: any) => item.name || item.vehicleName || 'Unnamed';
 
   const handleEdit = (item: any) => {
     navigate(`${ADD_ROUTES[item.itemType]}?edit=${item.id}`);
@@ -75,7 +77,7 @@ const PartnerListings = () => {
 
   const handleDelete = async (item: any) => {
     if (!token) return;
-    const url = `/partner/hotels/${item.id}`;
+    const url = item.itemType === 'cab' ? `/partner/cabs/${item.id}` : `/partner/hotels/${item.id}`;
     try {
       await api.delete(url, withAuth(token));
       setAllItems((prev) => prev.filter((x) => !(x.id === item.id && x.itemType === item.itemType)));
@@ -100,7 +102,7 @@ const PartnerListings = () => {
       <div>
         <h2 className="font-heading text-xl font-bold text-foreground">All My Listings</h2>
         <p className="font-body text-xs text-muted-foreground">
-          Manage the hotels you&apos;ve submitted for admin approval.
+          Manage the hotels and cabs you&apos;ve submitted for admin approval.
         </p>
       </div>
 
@@ -151,7 +153,7 @@ const PartnerListings = () => {
                   </span>
                 </div>
                 <p className="font-body text-xs text-muted-foreground">
-                  {item.location || ''}
+                  {item.location || item.vehicleType || ''}
                 </p>
                 {item.adminRemarks && (
                   <p className="font-body text-xs text-destructive mt-1">Admin: {item.adminRemarks}</p>

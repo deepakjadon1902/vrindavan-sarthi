@@ -15,6 +15,9 @@ const ManagePartnerRequests = () => {
   const [remarkText, setRemarkText] = useState('');
   const [allItems, setAllItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [noticeType, setNoticeType] = useState<'notification' | 'notice'>('notification');
+  const [noticeTitle, setNoticeTitle] = useState('');
+  const [noticeMessage, setNoticeMessage] = useState('');
 
   const getApiErrorMessage = (err: unknown, fallback: string) => {
     if (axios.isAxiosError(err)) {
@@ -100,8 +103,39 @@ const ManagePartnerRequests = () => {
 
   const pendingCount = allItems.filter(i => i.approvalStatus === 'pending').length;
 
+  const sendPartnerMessage = async () => {
+    if (!token) return;
+    if (!noticeTitle.trim() || !noticeMessage.trim()) return toast.error('Title and message are required');
+    try {
+      await api.post('/partner/notifications', {
+        type: noticeType,
+        title: noticeTitle.trim(),
+        message: noticeMessage.trim(),
+      }, withAuth(token));
+      toast.success(noticeType === 'notice' ? 'Notice published' : 'Notification sent');
+      setNoticeTitle('');
+      setNoticeMessage('');
+      publishAppEvent('listing:changed');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Send failed'));
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <div className="bg-card rounded-xl border border-border p-5">
+        <h3 className="font-heading text-base font-semibold text-foreground mb-3">Partner Communication</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <select value={noticeType} onChange={(e) => setNoticeType(e.target.value as any)} className="px-3 py-2 rounded-lg border border-border bg-background font-body text-sm">
+            <option value="notification">Notification</option>
+            <option value="notice">Notice</option>
+          </select>
+          <input value={noticeTitle} onChange={(e) => setNoticeTitle(e.target.value)} placeholder="Title" className="md:col-span-1 px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
+          <input value={noticeMessage} onChange={(e) => setNoticeMessage(e.target.value)} placeholder="Message" className="md:col-span-1 px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
+          <button onClick={sendPartnerMessage} className="btn-crimson px-4 py-2 rounded-lg text-sm">Send to Partners</button>
+        </div>
+      </div>
+
       {pendingCount > 0 && (
         <div className="bg-brand-saffron/10 border border-brand-saffron/30 rounded-xl p-4 flex items-center gap-3">
           <Clock size={20} className="text-brand-saffron" />

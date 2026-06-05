@@ -248,7 +248,8 @@ router.post('/rooms/:roomUnitId/blocks', async (req, res) => {
     const room = await RoomUnit.findOne({ _id: req.params.roomUnitId, partnerId: req.user._id }).lean();
     if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
 
-    const kind = normalizeString(req.body?.kind);
+    const requestedKind = normalizeString(req.body?.kind).toLowerCase();
+    const kind = requestedKind === 'closed' || requestedKind === 'maintenance' ? requestedKind : 'unavailable';
     const startDate = parseDateOnlyToUTC(String(req.body?.startDate || ''));
     const endDate = parseDateOnlyToUTC(String(req.body?.endDate || ''));
     if (!isValidDate(startDate) || !isValidDate(endDate) || startDate >= endDate) {

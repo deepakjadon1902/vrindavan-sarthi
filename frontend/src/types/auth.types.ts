@@ -19,6 +19,9 @@ export interface User {
   businessPhone?: string;
   businessEmail?: string;
   businessDescription?: string;
+  profileDisplayName?: string;
+  profileBio?: string;
+  profilePicture?: string;
   partnerStatus?: 'pending' | 'approved' | 'rejected';
   createdAt: string;
 }
@@ -46,4 +49,5 @@ export interface RegisterData {
   businessPhone?: string;
   businessEmail?: string;
   businessDescription?: string;
+  documents?: string[];
 }

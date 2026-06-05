@@ -4,6 +4,7 @@ const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
 const Booking = require('../models/Booking');
+const Review = require('../models/Review');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
 const { normalizeImageFields } = require('../utils/imageFields');
@@ -46,6 +47,9 @@ const publicHotelListProjection = {
   amenities: 1,
   taxEnabled: 1,
   taxPercent: 1,
+  googleMapLink: 1,
+  nearestTemple: 1,
+  reviewCount: 1,
   createdAt: 1,
   image: {
     $let: {
@@ -65,6 +69,31 @@ const publicHotelListProjection = {
     },
   },
   images: { $slice: [{ $ifNull: ['$images', []] }, 4] },
+};
+
+const normalizeRequiredLocationFields = (body) => {
+  const googleMapLink = String(body?.googleMapLink || '').trim();
+  const nearestTemple = String(body?.nearestTemple || '').trim();
+  if (!googleMapLink) return 'Google Map Location/Link is required';
+  if (!nearestTemple) return 'Nearest Temple / Landmark is required';
+  body.googleMapLink = googleMapLink;
+  body.nearestTemple = nearestTemple;
+  return '';
+};
+
+const attachHotelReviewStats = async (hotels) => {
+  const ids = hotels.map((h) => h._id).filter(Boolean);
+  if (!ids.length) return;
+  const stats = await Review.aggregate([
+    { $match: { hotelId: { $in: ids } } },
+    { $group: { _id: '$hotelId', reviewCount: { $sum: 1 }, rating: { $avg: '$rating' } } },
+  ]);
+  const byHotel = new Map(stats.map((s) => [String(s._id), s]));
+  for (const h of hotels) {
+    const s = byHotel.get(String(h._id));
+    h.reviewCount = Number(s?.reviewCount || 0);
+    if (s?.rating) h.rating = Math.round(Number(s.rating) * 10) / 10;
+  }
 };
 
 // Get all active hotels (public)
@@ -87,6 +116,7 @@ router.get('/', async (req, res) => {
       const normalized = normalizePublicHotel(h);
       Object.assign(h, normalized);
     }
+    await attachHotelReviewStats(hotels);
 
     if (!withAvailability || hotels.length === 0) {
       return res.json({ success: true, data: hotels });
@@ -185,6 +215,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
       .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent createdAt updatedAt')
+      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent description amenities googleMapLink nearestTemple createdAt updatedAt')
       .lean();
 
     for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
@@ -267,10 +298,11 @@ router.get('/:id', async (req, res) => {
         $project: {
           ...publicHotelListProjection,
           description: 1,
-          partnerName: 1,
           petsAllowed: 1,
           taxEnabled: 1,
           taxPercent: 1,
+          googleMapLink: 1,
+          nearestTemple: 1,
           checkInTime: 1,
           checkOutTime: 1,
           updatedAt: 1,
@@ -278,6 +310,7 @@ router.get('/:id', async (req, res) => {
       },
     ]).option({ maxTimeMS: 7000 });
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    await attachHotelReviewStats([hotel]);
     res.json({ success: true, data: normalizePublicHotel(hotel) });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -287,6 +320,10 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
   try {
     const body = { ...req.body };
     normalizeHotelTaxControls(body);
+    const locationError = normalizeRequiredLocationFields(body);
+    if (locationError) return res.status(400).json({ success: false, message: locationError });
+    body.approvalStatus = 'approved';
+    body.status = body.status === 'inactive' ? 'inactive' : 'active';
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
     const hotel = await Hotel.create(body);
     res.status(201).json({ success: true, data: hotel });
@@ -298,6 +335,8 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
   try {
     const body = { ...req.body };
     normalizeHotelTaxControls(body);
+    const locationError = normalizeRequiredLocationFields(body);
+    if (locationError) return res.status(400).json({ success: false, message: locationError });
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
     const hotel = await Hotel.findByIdAndUpdate(req.params.id, body, { new: true });
     res.json({ success: true, data: hotel });

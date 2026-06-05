@@ -21,13 +21,15 @@ const hotelSchema = new mongoose.Schema({
   contactPhone: String,
   contactEmail: String,
   fullAddress: String,
+  googleMapLink: { type: String, required: true },
+  nearestTemple: { type: String, required: true },
   nearbyPlaces: String,
   policies: String,
   taxEnabled: { type: Boolean, default: false },
   taxPercent: { type: Number, default: 12 },
   // Pets allowed at hotel level (room type / room unit can still restrict further)
   petsAllowed: { type: Boolean, default: false },
-  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+  status: { type: String, enum: ['active', 'inactive'], default: 'inactive' },
   // Partner
   partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   partnerName: String,
@@ -35,7 +37,7 @@ const hotelSchema = new mongoose.Schema({
   partnerPhone: String,
   businessName: String,
   partnerSubmitted: { type: Boolean, default: false },
-  approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
+  approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   adminRemarks: String,
 }, { timestamps: true });
 

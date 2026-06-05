@@ -15,6 +15,8 @@ interface Hotel {
   images?: string[];
   description?: string;
   amenities?: string[];
+  googleMapLink?: string;
+  nearestTemple?: string;
   taxEnabled?: boolean;
   taxPercent?: number;
   status: 'active' | 'inactive';
@@ -23,6 +25,7 @@ interface Hotel {
 }
 
 const ManageHotels = () => {
+  const landmarkOptions = ['Banke Bihari Temple', 'Prem Mandir', 'ISKCON Temple', 'Radha Raman Temple', 'Nidhivan', 'Govardhan'];
   const token = useAuthStore((s) => s.token);
   const [items, setItems] = useState<Hotel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +41,8 @@ const ManageHotels = () => {
     rating: '',
     description: '',
     amenities: '',
+    googleMapLink: '',
+    nearestTemple: '',
     status: 'active' as Hotel['status'],
     image: '',
     taxEnabled: false,
@@ -70,6 +75,8 @@ const ManageHotels = () => {
       rating: '',
       description: '',
       amenities: '',
+      googleMapLink: '',
+      nearestTemple: '',
       status: 'active',
       image: '',
       taxEnabled: false,
@@ -99,6 +106,8 @@ const ManageHotels = () => {
       rating: String(hotel.rating ?? ''),
       description: hotel.description || '',
       amenities: (hotel.amenities || []).join(', '),
+      googleMapLink: hotel.googleMapLink || '',
+      nearestTemple: hotel.nearestTemple || '',
       status: hotel.status || 'active',
       image: hotel.image || '',
       taxEnabled: Boolean(hotel.taxEnabled),
@@ -122,6 +131,8 @@ const ManageHotels = () => {
       rating: Number(form.rating || 0),
       image: form.image || '/placeholder.svg',
       description: form.description,
+      googleMapLink: form.googleMapLink,
+      nearestTemple: form.nearestTemple,
       amenities: form.amenities
         .split(',')
         .map((a) => a.trim())
@@ -273,6 +284,29 @@ const ManageHotels = () => {
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                   placeholder="4.5"
                 />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Google Map Location/Link</label>
+                <input
+                  type="url"
+                  required
+                  value={form.googleMapLink}
+                  onChange={(e) => setForm({ ...form, googleMapLink: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="https://maps.google.com/..."
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Nearest Temple / Landmark</label>
+                <select
+                  required
+                  value={form.nearestTemple}
+                  onChange={(e) => setForm({ ...form, nearestTemple: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                >
+                  <option value="">Select landmark</option>
+                  {landmarkOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+                </select>
               </div>
             </div>
 
