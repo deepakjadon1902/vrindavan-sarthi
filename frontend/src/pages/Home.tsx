@@ -44,9 +44,10 @@ const Home = () => {
   const navigate = useNavigate();
   const { products, fetchProducts } = useProductStore();
   const [hotels, setHotels] = useState<any[]>([]);
+  const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [cabs, setCabs] = useState<any[]>([]);
   const [tours, setTours] = useState<any[]>([]);
-  const featuredLimit = 6;
+  const featuredLimit = 4;
 
   const featuredProducts = products.filter(p => p.inStock).slice(0, 4);
 
@@ -58,6 +59,10 @@ const Home = () => {
         if (cachedHotels) setHotels(JSON.parse(cachedHotels).slice(0, featuredLimit));
       } catch {}
       try {
+        const cachedRooms = localStorage.getItem('vvs_room_types');
+        if (cachedRooms) setRoomTypes(JSON.parse(cachedRooms).slice(0, featuredLimit));
+      } catch {}
+      try {
         const cachedCabs = localStorage.getItem('vvs_cabs');
         if (cachedCabs) setCabs(JSON.parse(cachedCabs).slice(0, featuredLimit));
       } catch {}
@@ -66,8 +71,9 @@ const Home = () => {
         if (cachedTours) setTours(JSON.parse(cachedTours).filter((t: any) => t?.status === 'active').slice(0, featuredLimit));
       } catch {}
 
-      const [hotelsRes, cabsRes, toursRes] = await Promise.allSettled([
+      const [hotelsRes, roomsRes, cabsRes, toursRes] = await Promise.allSettled([
         api.get('/hotels'),
+        api.get('/room-types'),
         api.get('/cabs'),
         api.get('/tours', { params: { withImages: true } }),
       ]);
@@ -77,6 +83,12 @@ const Home = () => {
         setHotels(data.slice(0, featuredLimit));
         try { localStorage.setItem('vvs_hotels', JSON.stringify(data)); } catch {}
       } else setHotels([]);
+
+      if (roomsRes.status === 'fulfilled') {
+        const data = Array.isArray(roomsRes.value.data?.data) ? roomsRes.value.data.data : [];
+        setRoomTypes(data.slice(0, featuredLimit));
+        try { localStorage.setItem('vvs_room_types', JSON.stringify(data)); } catch {}
+      } else setRoomTypes([]);
 
       if (cabsRes.status === 'fulfilled') {
         const data = Array.isArray(cabsRes.value.data?.data) ? cabsRes.value.data.data : [];
@@ -109,6 +121,14 @@ const Home = () => {
       window.removeEventListener('focus', onFocus);
     };
   }, [fetchProducts]);
+
+  const getRoomPrice = (roomType: any) => {
+    const base = Number(roomType?.pricePerNight || 0);
+    const hotel = roomType?.hotel || {};
+    if (!hotel?.taxEnabled) return base;
+    const percent = Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? 12)));
+    return Math.round(base + (base * percent) / 100);
+  };
 
   return (
     <div>
@@ -188,7 +208,7 @@ const Home = () => {
           <SectionTitle label="Featured Stays" title="Handpicked Hotels in Vrindavan" subtitle="Comfortable and affordable stays near the most sacred temples" />
           {hotels.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {hotels.map((hotel) => (
                   <ListingCard
                     key={hotel._id}
@@ -219,13 +239,54 @@ const Home = () => {
         </div>
       </section>
 
+      {/* ===== FEATURED ROOMS ===== */}
+      <section className="py-16 lg:py-24 bg-royal-dark">
+        <div className="container mx-auto px-4">
+          <SectionTitle label="Room Options" title="Browse Rooms" subtitle="Choose comfortable room types from verified Vrindavan hotels" />
+          {roomTypes.length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                {roomTypes.map((roomType) => (
+                  <ListingCard
+                    key={roomType._id}
+                    image={roomType?.images?.[0] || roomType?.hotel?.image}
+                    images={roomType?.images?.length ? roomType.images : roomType?.hotel?.images}
+                    name={roomType.name}
+                    location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` - ${roomType.hotel.location}` : ''}`}
+                    price={getRoomPrice(roomType)}
+                    priceLabel={roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    rating={0}
+                    reviewCount={0}
+                    amenities={roomType?.amenities || roomType?.hotel?.amenities || []}
+                    meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
+                    ctaLabel="Book Room"
+                    onViewDetails={() => {
+                      prefetchDetail('roomTypes', roomType._id, roomType);
+                      navigate(`/room-types/${roomType._id}`);
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="text-center mt-10">
+                <Link to="/rooms" className="btn-gold px-8 py-3 rounded-xl inline-flex items-center gap-2">View All Rooms <ArrowRight size={18} /></Link>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <p className="font-body text-muted-foreground mb-4">No rooms listed yet. Check back soon!</p>
+              <Link to="/rooms" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">Browse Rooms <ArrowRight size={16} /></Link>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* ===== FEATURED CABS ===== */}
       <section className="py-16 lg:py-24 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle label="Transportation" title="Available Cabs" subtitle="Reliable cabs listed by verified partners" />
           {cabs.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {cabs.map((cab) => (
                   <ListingCard
                     key={cab._id}
@@ -268,7 +329,7 @@ const Home = () => {
           <SectionTitle label="Spiritual Journeys" title="Popular Tour Packages" subtitle="Experience the divine essence of Vrindavan with our guided tours" />
           {tours.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {tours.map((tour) => (
                   <ListingCard
                     key={tour._id}
@@ -308,9 +369,9 @@ const Home = () => {
           <div className="pointer-events-none absolute -top-10 -left-10 w-72 h-72 rounded-full bg-brand-gold/15 blur-3xl" />
           <div className="container mx-auto px-4 relative">
             <SectionTitle label="Divine Shop" title="Sacred Souvenirs from Vrindavan" subtitle="Take a piece of Vrindavan's blessings home with you" />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {featuredProducts.map((p) => (
-                <Link key={p.id} to={`/shop/${p.id}`} className="glass-panel rounded-2xl overflow-hidden water-hover group">
+                <Link key={p.id} to={`/shop/${p.id}`} className="glass-panel rounded-lg overflow-hidden water-hover group">
                   <div className="aspect-[4/3] overflow-hidden relative bg-white">
                     <img src={p.images[0] || '/placeholder.svg'} alt={p.name} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500" />
                     <div className="absolute inset-0 glossy-sheen pointer-events-none" />

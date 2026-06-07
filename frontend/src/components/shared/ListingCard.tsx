@@ -71,7 +71,7 @@ const ListingCard = ({
   }, [active, safeGallery]);
 
   return (
-    <div className="travel-card overflow-hidden card-hover group min-w-0 h-full flex flex-col shadow-sm hover:shadow-xl transition-shadow duration-300">
+    <div className="glass-panel rounded-lg overflow-hidden water-hover group min-w-0 h-full flex flex-col">
       <div
         className={`relative overflow-hidden bg-muted ${
           variant === 'hotel' ? 'aspect-[4/3]' : variant === 'compact' ? 'aspect-[4/3]' : 'aspect-[16/10]'
@@ -132,19 +132,20 @@ const ListingCard = ({
         )}
       </div>
 
-      <div className="p-3 sm:p-3.5 flex flex-1 flex-col">
+      <div className="p-2 sm:p-2.5 flex flex-1 flex-col">
         <h3
-          className={`font-heading font-semibold text-foreground line-clamp-2 min-h-[2.35em] leading-tight ${
-            variant === 'default' ? 'text-sm sm:text-base' : 'text-[13px] sm:text-[15px]'
+          className={`font-display font-semibold text-foreground line-clamp-2 leading-tight ${
+            variant === 'default' ? 'text-[13px] sm:text-sm' : 'text-[13px] sm:text-sm'
           }`}
         >
           {name}
         </h3>
-        <p className={`font-body text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2 min-h-[2.4em] ${variant === 'default' ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}`}>
+        <p className={`font-body text-muted-foreground mt-1 line-clamp-2 ${variant === 'default' ? 'text-[10px] sm:text-[11px]' : 'text-[10px] sm:text-[11px]'}`}>
           {location}
         </p>
-        {meta && <p className="font-body text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1">{meta}</p>}
+        {meta && <p className="font-body text-[10px] sm:text-[11px] text-muted-foreground mt-1 line-clamp-1">{meta}</p>}
 
+        {(rating > 0 || reviewCount > 0) && (
         <div className="flex items-center gap-1 mt-1 sm:gap-1.5 sm:mt-1.5">
           <div className="flex items-center gap-0.5">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -157,15 +158,14 @@ const ListingCard = ({
           </div>
           <span className="font-body text-[10px] sm:text-xs text-muted-foreground">({reviewCount})</span>
         </div>
+        )}
 
         {amenities && amenities.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2 min-h-[44px] content-start">
-            {amenities.slice(0, 3).map((a, index) => (
+          <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2 min-h-[22px] content-start overflow-hidden">
+            {amenities.slice(0, 2).map((a) => (
               <span
                 key={a}
-                className={`font-body text-[9px] sm:text-[11px] bg-secondary px-1.5 sm:px-2 py-0.5 rounded-md text-secondary-foreground line-clamp-1 ${
-                  index > 1 ? 'hidden sm:inline-flex' : ''
-                }`}
+                className="font-body text-[9px] sm:text-[10px] bg-secondary px-1.5 sm:px-2 py-0.5 rounded text-secondary-foreground truncate max-w-full"
               >
                 {a}
               </span>
@@ -173,16 +173,16 @@ const ListingCard = ({
           </div>
         )}
 
-        <div className="flex flex-col items-stretch gap-1.5 mt-auto pt-2 border-t border-border sm:flex-row sm:items-end sm:justify-between sm:gap-2 sm:pt-2.5">
+        <div className="flex flex-col items-stretch gap-1.5 mt-auto pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:pt-3">
           {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
             <div>
-              <span className="font-heading text-[13px] sm:text-base font-bold text-foreground">Rs. {price.toLocaleString('en-IN')}</span>
-              <span className={`font-body text-muted-foreground ${variant === 'compact' ? 'text-[10px] sm:text-xs' : 'text-xs sm:text-sm'}`}>{priceLabel}</span>
+              <span className="font-display text-[13px] sm:text-sm font-bold text-brand-crimson">Rs. {price.toLocaleString('en-IN')}</span>
+              <span className="font-body text-[10px] sm:text-[11px] text-muted-foreground">{priceLabel}</span>
             </div>
           ) : (
             <div />
           )}
-          <button onClick={onViewDetails} className="btn-gold rounded-md font-body px-3 py-1.5 text-[10px] sm:px-3 sm:text-[11px] whitespace-nowrap">
+          <button onClick={onViewDetails} className="btn-gold rounded-md font-body px-2.5 py-1.5 text-[10px] sm:px-3 sm:text-[11px] whitespace-nowrap">
             {ctaLabel}
           </button>
         </div>

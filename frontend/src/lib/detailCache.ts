@@ -1,7 +1,7 @@
-type ListingType = 'hotels' | 'rooms' | 'cabs' | 'tours' | 'products';
+type ListingType = 'hotels' | 'rooms' | 'roomTypes' | 'cabs' | 'tours' | 'products';
 
 const ssKey = (type: ListingType, id: string) => `vvs_prefetch:${type}:${id}`;
-const lsKey = (type: Exclude<ListingType, 'products'>) => `vvs_${type}`;
+const lsKey = (type: Exclude<ListingType, 'products'>) => (type === 'roomTypes' ? 'vvs_room_types' : `vvs_${type}`);
 
 export const prefetchDetail = (type: ListingType, id: string, data: unknown) => {
   try {
@@ -34,4 +34,3 @@ export const getCachedListingItem = <T = any>(type: Exclude<ListingType, 'produc
     return null;
   }
 };
-
