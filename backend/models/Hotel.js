@@ -27,6 +27,7 @@ const hotelSchema = new mongoose.Schema({
   policies: String,
   taxEnabled: { type: Boolean, default: false },
   taxPercent: { type: Number, default: 12 },
+  platform_commission_percentage: { type: Number, default: 10 },
   // Pets allowed at hotel level (room type / room unit can still restrict further)
   petsAllowed: { type: Boolean, default: false },
   status: { type: String, enum: ['active', 'inactive'], default: 'inactive' },

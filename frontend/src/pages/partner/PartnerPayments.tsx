@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
+import type { Booking } from '@/store/bookingStore';
 import { CreditCard, CheckCircle2, XCircle, Clock, IndianRupee, Eye } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -7,7 +8,7 @@ const PartnerPayments = () => {
   const { user } = useAuthStore();
   const { partnerBookings, fetchPartnerBookings } = useBookingStore();
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid' | 'failed'>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'cab' | 'tour'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'room_type' | 'cab' | 'tour'>('all');
   const [selectedUpi, setSelectedUpi] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,8 +24,11 @@ const PartnerPayments = () => {
     .filter((b) => statusFilter === 'all' || b.paymentStatus === statusFilter)
     .filter((b) => typeFilter === 'all' || b.bookingType === typeFilter);
 
-  const totalEarnings = bookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + b.totalAmount, 0);
-  const pendingAmount = bookings.filter(b => b.paymentStatus === 'pending').reduce((s, b) => s + b.totalAmount, 0);
+  const getPrice = (b: Booking) => Number(b.checkoutSubtotal || b.totalAmount || 0);
+  const getCommissionAmount = (b: Booking) => Number(b.platformCommissionAmount || Math.round((getPrice(b) * Number(b.platformCommissionPercent || 0)) / 100));
+  const getNetPayout = (b: Booking) => Number(b.partnerNetPayout ?? Math.max(0, getPrice(b) - getCommissionAmount(b)));
+  const totalEarnings = bookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + getNetPayout(b), 0);
+  const pendingAmount = bookings.filter(b => b.paymentStatus === 'pending').reduce((s, b) => s + getNetPayout(b), 0);
 
   const paymentIcon = (s: string) => {
     if (s === 'paid') return <CheckCircle2 size={14} className="text-brand-green" />;
@@ -63,9 +67,9 @@ const PartnerPayments = () => {
         ))}
       </div>
       <div className="flex flex-wrap gap-2">
-        {(['all', 'hotel', 'room', 'cab', 'tour'] as const).map((t) => (
+        {(['all', 'hotel', 'room', 'room_type', 'cab', 'tour'] as const).map((t) => (
           <button key={t} onClick={() => setTypeFilter(t)} className={`px-3 py-1.5 rounded-lg font-body text-xs capitalize transition-colors ${typeFilter === t ? 'bg-brand-gold text-foreground' : 'bg-card border border-border hover:bg-muted text-muted-foreground'}`}>
-            {t}
+            {t === 'room_type' ? 'room type' : t}
           </button>
         ))}
       </div>
@@ -102,13 +106,27 @@ const PartnerPayments = () => {
                   )}
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="font-heading text-lg font-bold text-foreground">₹{b.totalAmount.toLocaleString('en-IN')}</p>
+                  <p className="font-heading text-lg font-bold text-foreground">₹{getNetPayout(b).toLocaleString('en-IN')}</p>
                   <span className="flex items-center gap-1 font-body text-xs capitalize justify-end mt-1">
                     {paymentIcon(b.paymentStatus)} {b.paymentStatus}
                   </span>
                   <p className="font-body text-[10px] text-muted-foreground mt-1">
                     {b.paymentMethod === 'doorstep' ? '💰 Doorstep' : '💳 Online'} • {new Date(b.createdAt).toLocaleDateString()}
                   </p>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-3 font-body text-xs">
+                <div>
+                  <span className="block text-muted-foreground">Price</span>
+                  <span className="font-semibold text-foreground">₹{getPrice(b).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <span className="block text-muted-foreground">Vrindavan Sarthi Commission ({Number(b.platformCommissionPercent || 0)}%)</span>
+                  <span className="font-semibold text-destructive">- ₹{getCommissionAmount(b).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <span className="block text-muted-foreground">Net Payout</span>
+                  <span className="font-semibold text-brand-green">₹{getNetPayout(b).toLocaleString('en-IN')}</span>
                 </div>
               </div>
             </div>

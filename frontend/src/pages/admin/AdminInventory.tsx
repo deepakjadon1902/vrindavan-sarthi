@@ -522,7 +522,7 @@ const AdminInventory = () => {
                             ₹{Number(rt.pricePerNight || 0).toLocaleString('en-IN')} • Adults {rt.maxAdults} • Children {rt.maxChildren}
                           </p>
                           <p className="font-body text-[11px] text-muted-foreground truncate">
-                            Customer pays ₹{priceWithTax(rt.pricePerNight).toLocaleString('en-IN')} / night incl. {taxPercent}% tax
+                            Customer pays ₹{priceWithTax(rt.pricePerNight).toLocaleString('en-IN')} / night incl. {taxPercent}% GST
                           </p>
                         </div>
                         <div className="flex items-center gap-1">

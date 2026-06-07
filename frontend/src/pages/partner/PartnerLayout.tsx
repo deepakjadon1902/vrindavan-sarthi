@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, LogOut, Menu, X, ClipboardList, CreditCard, Car,
-  Bell, UserCog,
+  Bell, UserCog, Landmark,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
@@ -17,6 +17,7 @@ const sidebarLinks = [
   { name: 'My Listings', path: '/partner/listings', icon: ClipboardList },
   { name: 'Bookings', path: '/partner/bookings', icon: ClipboardList },
   { name: 'Payments', path: '/partner/payments', icon: CreditCard },
+  { name: 'Bank Details', path: '/partner/bank-details', icon: Landmark },
   { name: 'Profile Settings', path: '/partner/profile-settings', icon: UserCog },
   { name: 'Notices', path: '/partner/communications', icon: Bell },
 ];

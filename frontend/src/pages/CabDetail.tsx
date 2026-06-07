@@ -121,6 +121,7 @@ const CabDetail = () => {
       passengers,
       cabType,
       tollOption,
+      paymentOption: 'advance_30',
       upiTransactionId: transactionId,
     });
 
@@ -135,8 +136,10 @@ const CabDetail = () => {
 
   const allImages = [cab.image, ...(cab.images || [])].filter(Boolean);
   const vehicleLabel = cab?.vehicleName && cab?.capacity ? `${cab.vehicleName} - ${cab.capacity}-Seater` : cabType;
-  const advanceAmount = typeof fare === 'number' ? Math.round(fare * 0.3) : 0;
-  const balanceAmount = typeof fare === 'number' ? Math.max(0, fare - advanceAmount) : 0;
+  const convenienceFee = typeof fare === 'number' ? Math.round(fare * 0.02) : 0;
+  const checkoutTotal = typeof fare === 'number' ? fare + convenienceFee : 0;
+  const advanceAmount = checkoutTotal > 0 ? Math.round(checkoutTotal * 0.3) : 0;
+  const balanceAmount = checkoutTotal > 0 ? Math.max(0, checkoutTotal - advanceAmount) : 0;
 
   return (
     <div className="pt-20 pb-16 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
@@ -220,7 +223,7 @@ const CabDetail = () => {
                       <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Passengers</label><input type="number" min={1} max={cab?.capacity || undefined} value={passengers} onChange={(e) => setPassengers(Math.max(1, Number(e.target.value || 1)))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                       <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Vehicle</label><select value={cabType} onChange={(e) => setCabType(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select vehicle</option><option value={vehicleLabel}>{vehicleLabel}</option></select></div>
                     </div>
-                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Toll Tax</label><select value={tollOption} onChange={(e) => setTollOption(e.target.value as 'included' | 'excluded' | '')} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select toll option</option><option value="included">Tolls Included</option><option value="excluded">Tolls Excluded</option></select></div>
+                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Toll Charges</label><select value={tollOption} onChange={(e) => setTollOption(e.target.value as 'included' | 'excluded' | '')} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select toll option</option><option value="included">Tolls Included</option><option value="excluded">Tolls Excluded</option></select></div>
 
                     <div className="rounded-xl border border-border bg-secondary/40 p-4">
                       <div className="flex items-center justify-between">
@@ -232,7 +235,13 @@ const CabDetail = () => {
                         </div>
                       </div>
                       {fareErr && <p className="mt-2 text-xs font-body text-destructive">{fareErr}</p>}
-                      {!fareErr && typeof fare === 'number' && <p className="mt-2 text-[11px] font-body text-muted-foreground">Advance now: ₹{advanceAmount.toLocaleString('en-IN')} • Balance later: ₹{balanceAmount.toLocaleString('en-IN')}</p>}
+                      {!fareErr && typeof fare === 'number' && (
+                        <div className="mt-2 space-y-1 text-[11px] font-body text-muted-foreground">
+                          <p>Convenience fee (2%): Rs. {convenienceFee.toLocaleString('en-IN')}</p>
+                          <p>Total: Rs. {checkoutTotal.toLocaleString('en-IN')}</p>
+                          <p>Advance now: Rs. {advanceAmount.toLocaleString('en-IN')} | Balance later: Rs. {balanceAmount.toLocaleString('en-IN')}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <button onClick={handleBook} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-6 tracking-wide">Pay 30% Advance</button>

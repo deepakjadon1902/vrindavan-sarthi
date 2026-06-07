@@ -51,12 +51,14 @@ const TourDetail = () => {
     </div>
   );
 
-  const total = tour.pricePerPerson * persons;
+  const subtotal = tour.pricePerPerson * persons;
+  const convenienceFee = Math.round(subtotal * 0.02);
+  const total = subtotal + convenienceFee;
 
   const handleInitiateBooking = () => {
     if (!isAuthenticated) { toast.error('Please login to book'); navigate('/login'); return; }
     if (!travelDate) { toast.error('Please select travel date'); return; }
-    const tempId = `VVS-2025-${String(Math.floor(10000 + Math.random() * 90000))}`;
+    const tempId = `VVS-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
     setBookingId(tempId);
     setShowPayment(true);
   };
@@ -73,6 +75,8 @@ const TourDetail = () => {
       checkIn: travelDate,
       guests: persons,
       totalAmount: total,
+      checkoutSubtotal: subtotal,
+      paymentOption: 'full_100',
       paymentMethod: 'online',
       paymentStatus: 'pending',
       bookingStatus: 'confirmed',
@@ -160,7 +164,8 @@ const TourDetail = () => {
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Number of Persons</label><input type="number" min={1} max={tour.groupSize || 20} value={persons} onChange={(e) => setPersons(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                   </div>
                   <div className="border-t border-brand-gold/20 mt-4 pt-4 space-y-2">
-                    <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{tour.pricePerPerson} × {persons} person(s)</span><span>₹{total.toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{tour.pricePerPerson} × {persons} person(s)</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">Convenience fee (2%)</span><span>₹{convenienceFee.toLocaleString('en-IN')}</span></div>
                     <div className="flex justify-between font-body text-sm font-semibold border-t border-brand-gold/20 pt-2"><span>Total</span><span className="text-brand-crimson font-display text-lg">₹{total.toLocaleString('en-IN')}</span></div>
                   </div>
                   <button onClick={handleInitiateBooking} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-4 tracking-wide">Pay & Book Tour</button>

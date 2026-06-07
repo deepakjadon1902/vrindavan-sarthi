@@ -122,7 +122,7 @@ const Rooms = () => {
                   name={rt.name}
                   location={`${rt?.hotel?.name || ''}${rt?.hotel?.location ? ` • ${rt.hotel.location}` : ''}`}
                   price={getTaxInclusivePrice(rt)}
-                  priceLabel={rt?.hotel?.taxEnabled ? '/night incl. tax' : '/night'}
+                  priceLabel={rt?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                   rating={0}
                   reviewCount={0}
                   amenities={rt?.amenities || rt?.hotel?.amenities || []}

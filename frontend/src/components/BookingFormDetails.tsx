@@ -39,12 +39,26 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         <Field label="Adults" value={booking.totalAdults} />
         <Field label="Children" value={booking.totalChildren} />
         <Field label="Base amount" value={booking.baseAmount ? formatMoney(booking.baseAmount) : undefined} />
-        <Field label={`Tax${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={booking.taxAmount ? formatMoney(booking.taxAmount) : undefined} />
+        <Field label={`GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={booking.taxAmount ? formatMoney(booking.taxAmount) : undefined} />
+        <Field label="Subtotal" value={booking.checkoutSubtotal ? formatMoney(booking.checkoutSubtotal) : undefined} />
+        <Field label="Convenience fee (2%)" value={booking.convenienceFeeAmount ? formatMoney(booking.convenienceFeeAmount) : undefined} />
         <Field label="Total" value={formatMoney(booking.totalAmount)} />
         <Field label="Advance" value={booking.advanceAmount ? formatMoney(booking.advanceAmount) : undefined} />
         <Field label="Balance" value={booking.balanceAmount ? formatMoney(booking.balanceAmount) : undefined} />
+        <Field label="Payment option" value={booking.paymentOption === 'full_100' ? '100% full online' : '30% advance online'} />
         <Field label="UPI transaction" value={booking.upiTransactionId} />
       </div>
+
+      {viewer === 'partner' && (
+        <div className="mt-4 rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-4">
+          <p className="font-body text-xs font-semibold text-foreground mb-3">Partner payout breakdown</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Field label="Price" value={formatMoney(booking.checkoutSubtotal || booking.totalAmount)} />
+            <Field label={`Vrindavan Sarthi Commission (${booking.platformCommissionPercent || 0}%)`} value={`- ${formatMoney(booking.platformCommissionAmount || 0)}`} />
+            <Field label="Net Payout" value={formatMoney(booking.partnerNetPayout ?? Math.max(0, (booking.checkoutSubtotal || booking.totalAmount) - (booking.platformCommissionAmount || 0)))} />
+          </div>
+        </div>
+      )}
 
       {booking.bookingType === 'cab' && (
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-border pt-4">

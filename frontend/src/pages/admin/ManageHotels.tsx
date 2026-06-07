@@ -19,6 +19,7 @@ interface Hotel {
   nearestTemple?: string;
   taxEnabled?: boolean;
   taxPercent?: number;
+  platform_commission_percentage?: number;
   status: 'active' | 'inactive';
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   partnerName?: string;
@@ -47,6 +48,7 @@ const ManageHotels = () => {
     image: '',
     taxEnabled: false,
     taxPercent: '12',
+    platform_commission_percentage: '10',
   });
 
   const load = async () => {
@@ -81,6 +83,7 @@ const ManageHotels = () => {
       image: '',
       taxEnabled: false,
       taxPercent: '12',
+      platform_commission_percentage: '10',
     });
     setImagePreview('');
     setEditingId(null);
@@ -112,6 +115,7 @@ const ManageHotels = () => {
       image: hotel.image || '',
       taxEnabled: Boolean(hotel.taxEnabled),
       taxPercent: String(hotel.taxPercent ?? 12),
+      platform_commission_percentage: String(hotel.platform_commission_percentage ?? 10),
     });
     setImagePreview(hotel.image || '');
     setEditingId(hotel._id);
@@ -142,6 +146,7 @@ const ManageHotels = () => {
       partnerSubmitted: false,
       taxEnabled: form.taxEnabled,
       taxPercent: Number(form.taxPercent || 12),
+      platform_commission_percentage: Number(form.platform_commission_percentage || 0),
     };
     if (editingId && payload.image === '/placeholder.svg') delete payload.image;
 
@@ -286,6 +291,21 @@ const ManageHotels = () => {
                 />
               </div>
               <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Platform Commission (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  required
+                  value={form.platform_commission_percentage}
+                  onChange={(e) => setForm({ ...form, platform_commission_percentage: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="10"
+                />
+                <p className="font-body text-xs text-muted-foreground mt-1">Use 0 for Dharamshalas or no-commission properties.</p>
+              </div>
+              <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Google Map Location/Link</label>
                 <input
                   type="url"
@@ -331,9 +351,9 @@ const ManageHotels = () => {
                   className="mt-1"
                 />
                 <span>
-                  Apply 12% hotel tax to this hotel
+                  Apply GST to this hotel
                   <span className="block text-xs text-muted-foreground mt-1">
-                    Leave unchecked to keep this hotel tax-free. Only admin controls this setting.
+                    Leave unchecked to keep this hotel GST-free. Only admin controls this setting.
                   </span>
                 </span>
               </label>
@@ -409,7 +429,8 @@ const ManageHotels = () => {
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">Location</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Rating</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Status</th>
-                  <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Tax</th>
+                  <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">GST</th>
+                  <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Commission</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Listed By</th>
                   <th className="text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
                 </tr>
@@ -442,6 +463,9 @@ const ManageHotels = () => {
                     </td>
                     <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">
                       {hotel.taxEnabled ? `${hotel.taxPercent ?? 12}%` : 'Free'}
+                    </td>
+                    <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">
+                      {hotel.platform_commission_percentage ?? 0}%
                     </td>
                     <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">
                       {hotel.partnerName || 'Admin'}

@@ -238,7 +238,7 @@ const Home = () => {
                     rating={0}
                     reviewCount={0}
                     amenities={[cab.vehicleType, `${cab.capacity} Seater`]}
-                    badge="Pay at Doorstep"
+                    badge="30% Advance"
                     badgeColor="green"
                     onViewDetails={() => {
                       prefetchDetail('cabs', cab._id, cab);

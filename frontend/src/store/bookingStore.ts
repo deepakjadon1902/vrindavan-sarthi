@@ -23,6 +23,13 @@ export interface Booking {
   baseAmount?: number;
   taxPercent?: number;
   taxAmount?: number;
+  checkoutSubtotal?: number;
+  convenienceFeePercent?: number;
+  convenienceFeeAmount?: number;
+  paymentOption?: 'advance_30' | 'full_100';
+  platformCommissionPercent?: number;
+  platformCommissionAmount?: number;
+  partnerNetPayout?: number;
   paymentMethod: 'online' | 'doorstep';
   paymentStatus: 'pending' | 'paid' | 'failed';
   bookingStatus: 'confirmed' | 'cancelled' | 'completed' | 'pending';
@@ -76,7 +83,16 @@ export interface Booking {
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
-const getString = (obj: Record<string, unknown>, key: string) => (typeof obj[key] === 'string' ? obj[key] : '');
+const getString = (obj: Record<string, unknown>, key: string) => {
+  const value = obj[key];
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value && typeof value === 'object' && typeof (value as { toString?: unknown }).toString === 'function') {
+    const str = String(value);
+    return str === '[object Object]' ? '' : str;
+  }
+  return '';
+};
 const getNumber = (obj: Record<string, unknown>, key: string) => (typeof obj[key] === 'number' ? obj[key] : Number(obj[key] || 0));
 const getGuestDetails = (obj: Record<string, unknown>) => {
   const value = obj.guestDetails;
@@ -114,6 +130,13 @@ const normalizeBooking = (b: unknown): Booking => {
     baseAmount: getNumber(obj, 'baseAmount') || undefined,
     taxPercent: getNumber(obj, 'taxPercent') || undefined,
     taxAmount: getNumber(obj, 'taxAmount') || undefined,
+    checkoutSubtotal: getNumber(obj, 'checkoutSubtotal') || undefined,
+    convenienceFeePercent: getNumber(obj, 'convenienceFeePercent') || undefined,
+    convenienceFeeAmount: getNumber(obj, 'convenienceFeeAmount') || undefined,
+    paymentOption: (getString(obj, 'paymentOption') as Booking['paymentOption']) || undefined,
+    platformCommissionPercent: getNumber(obj, 'platformCommissionPercent') || undefined,
+    platformCommissionAmount: getNumber(obj, 'platformCommissionAmount') || undefined,
+    partnerNetPayout: getNumber(obj, 'partnerNetPayout') || undefined,
     paymentMethod: (getString(obj, 'paymentMethod') as Booking['paymentMethod']) || 'online',
     paymentStatus: (getString(obj, 'paymentStatus') as Booking['paymentStatus']) || 'pending',
     bookingStatus: (getString(obj, 'bookingStatus') as Booking['bookingStatus']) || 'pending',

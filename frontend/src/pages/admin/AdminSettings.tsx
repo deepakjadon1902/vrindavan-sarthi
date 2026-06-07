@@ -104,8 +104,8 @@ const AdminSettings = () => {
           <div className="space-y-6">
             <h3 className="font-heading text-lg font-semibold text-foreground border-b border-border pb-3">UPI Payment Settings</h3>
             <div className="bg-brand-cream border border-brand-gold/20 rounded-xl p-4 mb-4">
-              <p className="font-body text-sm text-foreground">Configure your UPI ID here. When users book hotels, rooms, or tours, a UPI QR code will be generated with this ID for payment.</p>
-              <p className="font-body text-xs text-muted-foreground mt-1">Cab bookings use "Pay at Doorstep" method — no UPI payment required.</p>
+              <p className="font-body text-sm text-foreground">Configure your UPI ID here. When users book hotels, rooms, cabs, or tours, a UPI QR code will be generated with this ID for payment.</p>
+              <p className="font-body text-xs text-muted-foreground mt-1">Cab bookings collect a 30% advance online and the remaining 70% offline with the driver.</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -121,7 +121,7 @@ const AdminSettings = () => {
                   placeholder="VrindavanSarthi" />
               </div>
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Hotel Room Tax (%)</label>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Default GST (%)</label>
                 <input
                   type="number"
                   min={0}
@@ -132,7 +132,7 @@ const AdminSettings = () => {
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                   placeholder="12"
                 />
-                <p className="font-body text-xs text-muted-foreground mt-1">Applied to room type bookings at checkout.</p>
+                <p className="font-body text-xs text-muted-foreground mt-1">Fallback GST rate for room bookings when a property does not define its own percentage.</p>
               </div>
             </div>
             {form.upiId && (

@@ -37,6 +37,10 @@ const normalizeHotelTaxControls = (body) => {
     const p = Number(body.taxPercent);
     body.taxPercent = Number.isFinite(p) && p >= 0 ? Math.min(50, p) : 12;
   }
+  if (typeof body.platform_commission_percentage !== 'undefined') {
+    const p = Number(body.platform_commission_percentage);
+    body.platform_commission_percentage = Number.isFinite(p) && p >= 0 ? Math.min(100, p) : 10;
+  }
   return body;
 };
 
@@ -47,6 +51,7 @@ const publicHotelListProjection = {
   amenities: 1,
   taxEnabled: 1,
   taxPercent: 1,
+  platform_commission_percentage: 1,
   googleMapLink: 1,
   nearestTemple: 1,
   reviewCount: 1,
@@ -214,8 +219,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
-      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent createdAt updatedAt')
-      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent description amenities googleMapLink nearestTemple createdAt updatedAt')
+      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent platform_commission_percentage description amenities googleMapLink nearestTemple createdAt updatedAt')
       .lean();
 
     for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';

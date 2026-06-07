@@ -42,6 +42,7 @@ const RoomTypeDetail = () => {
   const [adultDetails, setAdultDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([{ name: '', age: '', gender: '' }]);
   const [childDetails, setChildDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([]);
   const [showPayment, setShowPayment] = useState(false);
+  const [paymentOption, setPaymentOption] = useState<'advance_30' | 'full_100' | ''>('');
   const [bookingId, setBookingId] = useState('');
   const [assignedRoomNumber, setAssignedRoomNumber] = useState('');
   const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
@@ -196,7 +197,11 @@ const RoomTypeDetail = () => {
   const taxEnabled = Boolean(hotel?.taxEnabled);
   const taxPercent = taxEnabled ? Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? defaultHotelTaxPercent ?? 12))) : 0;
   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
-  const total = baseTotal + taxTotal;
+  const subtotal = baseTotal + taxTotal;
+  const convenienceFee = Math.round(subtotal * 0.02);
+  const total = subtotal + convenienceFee;
+  const payableNow = paymentOption === 'full_100' ? total : paymentOption === 'advance_30' ? Math.round(total * 0.3) : 0;
+  const balanceLater = Math.max(0, total - payableNow);
   const availableCount = typeof roomType.availableCount === 'number' ? roomType.availableCount : null;
   const totalCount = typeof roomType.totalCount === 'number' ? roomType.totalCount : null;
   const isFullyBookedSelectedDates = Boolean(checkIn && checkOut && availableCount !== null && availableCount <= 0);
@@ -235,6 +240,10 @@ const RoomTypeDetail = () => {
     }
     if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) {
       toast.error('Please fill your name, mobile and email');
+      return false;
+    }
+    if (!paymentOption) {
+      toast.error('Please select a payment option');
       return false;
     }
     const invalidAdult = adultDetails.some((a) => !a.name.trim() || !Number(a.age || 0));
@@ -297,6 +306,7 @@ const RoomTypeDetail = () => {
       guestDetails,
       totalAmount: total,
       paymentMethod: 'online',
+      paymentOption,
       upiTransactionId: transactionId,
       additionalInfo: `UPI Txn: ${transactionId}`,
     });
@@ -408,7 +418,7 @@ const RoomTypeDetail = () => {
               </div>
             ) : showPayment ? (
               <UpiPayment
-                amount={total}
+                amount={payableNow}
                 bookingId={bookingId}
                 itemName={`${hotel.name} • ${roomType.name}`}
                 onPaymentConfirm={handlePaymentConfirm}
@@ -585,14 +595,49 @@ const RoomTypeDetail = () => {
                     </div>
                     {taxEnabled && (
                       <div className="flex justify-between font-body text-sm">
-                        <span className="text-muted-foreground">Hotel tax ({taxPercent}%)</span>
+                        <span className="text-muted-foreground">GST ({taxPercent}%)</span>
                         <span className="text-foreground">₹{taxTotal.toLocaleString('en-IN')}</span>
                       </div>
                     )}
+                    <div className="flex justify-between font-body text-sm">
+                      <span className="text-muted-foreground">Convenience fee (2%)</span>
+                      <span className="text-foreground">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
+                    </div>
                     <div className="flex justify-between font-body text-sm font-semibold border-t border-brand-gold/20 pt-2">
                       <span>Total</span>
                       <span className="text-brand-crimson font-display text-lg">₹{total.toLocaleString('en-IN')}</span>
                     </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-background/70 p-3 space-y-2">
+                    <p className="font-body text-sm font-semibold text-foreground">Payment Option *</p>
+                    <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/40">
+                      <input type="radio" name="roomPaymentOption" checked={paymentOption === 'advance_30'} onChange={() => setPaymentOption('advance_30')} className="mt-1" />
+                      <span className="font-body text-sm">
+                        <span className="block text-foreground font-medium">Pay 30% Advance Online</span>
+                        <span className="block text-xs text-muted-foreground">Pay Rs. {Math.round(total * 0.3).toLocaleString('en-IN')} now. Balance Rs. {Math.max(0, total - Math.round(total * 0.3)).toLocaleString('en-IN')} at property.</span>
+                        <span className="block mt-2 rounded-md bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive">This 30% Advance Payment is Strictly Non-Refundable</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/40">
+                      <input type="radio" name="roomPaymentOption" checked={paymentOption === 'full_100'} onChange={() => setPaymentOption('full_100')} className="mt-1" />
+                      <span className="font-body text-sm">
+                        <span className="block text-foreground font-medium">Pay 100% Full Payment Online</span>
+                        <span className="block text-xs text-muted-foreground">Pay Rs. {total.toLocaleString('en-IN')} now with no property balance.</span>
+                      </span>
+                    </label>
+                    {paymentOption && (
+                      <div className="flex justify-between border-t border-border pt-2 font-body text-sm">
+                        <span className="text-muted-foreground">Payable now</span>
+                        <span className="font-semibold text-brand-crimson">Rs. {payableNow.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    {paymentOption === 'advance_30' && (
+                      <div className="flex justify-between font-body text-xs">
+                        <span className="text-muted-foreground">Balance at property</span>
+                        <span className="text-foreground">Rs. {balanceLater.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
                   </div>
 
                   {!isFullyBookedSelectedDates ? (

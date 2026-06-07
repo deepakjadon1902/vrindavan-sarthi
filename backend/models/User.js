@@ -33,6 +33,14 @@ const userSchema = new mongoose.Schema({
     lng: Number,
     address: String,
   },
+  bankDetails: {
+    account_holder_name: String,
+    bank_name: String,
+    account_number: String,
+    ifsc_code: String,
+    verified: { type: Boolean, default: true },
+    updatedAt: Date,
+  },
   partnerDocuments: [
     {
       name: String,

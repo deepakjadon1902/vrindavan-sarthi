@@ -71,7 +71,7 @@ const ListingCard = ({
   }, [active, safeGallery]);
 
   return (
-    <div className="travel-card overflow-hidden card-hover group min-w-0 shadow-sm hover:shadow-xl transition-shadow duration-300">
+    <div className="travel-card overflow-hidden card-hover group min-w-0 h-full flex flex-col shadow-sm hover:shadow-xl transition-shadow duration-300">
       <div
         className={`relative overflow-hidden bg-muted ${
           variant === 'hotel' ? 'aspect-[4/3]' : variant === 'compact' ? 'aspect-[4/3]' : 'aspect-[16/10]'
@@ -132,15 +132,15 @@ const ListingCard = ({
         )}
       </div>
 
-      <div className="p-3 sm:p-3.5">
+      <div className="p-3 sm:p-3.5 flex flex-1 flex-col">
         <h3
-          className={`font-heading font-semibold text-foreground line-clamp-1 ${
+          className={`font-heading font-semibold text-foreground line-clamp-2 min-h-[2.35em] leading-tight ${
             variant === 'default' ? 'text-sm sm:text-base' : 'text-[13px] sm:text-[15px]'
           }`}
         >
           {name}
         </h3>
-        <p className={`font-body text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1 ${variant === 'default' ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}`}>
+        <p className={`font-body text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2 min-h-[2.4em] ${variant === 'default' ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}`}>
           {location}
         </p>
         {meta && <p className="font-body text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1">{meta}</p>}
@@ -159,7 +159,7 @@ const ListingCard = ({
         </div>
 
         {amenities && amenities.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2 min-h-5">
+          <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2 min-h-[44px] content-start">
             {amenities.slice(0, 3).map((a, index) => (
               <span
                 key={a}
@@ -173,7 +173,7 @@ const ListingCard = ({
           </div>
         )}
 
-        <div className="flex flex-col items-stretch gap-1.5 mt-2 pt-2 border-t border-border sm:flex-row sm:items-end sm:justify-between sm:gap-2 sm:mt-2.5 sm:pt-2.5">
+        <div className="flex flex-col items-stretch gap-1.5 mt-auto pt-2 border-t border-border sm:flex-row sm:items-end sm:justify-between sm:gap-2 sm:pt-2.5">
           {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
             <div>
               <span className="font-heading text-[13px] sm:text-base font-bold text-foreground">Rs. {price.toLocaleString('en-IN')}</span>
