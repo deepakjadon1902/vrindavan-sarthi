@@ -10,6 +10,7 @@ const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils
 const { normalizePublicImages, normalizePublicImageSet } = require('../utils/publicImages');
 
 const router = express.Router();
+const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 
 const memCache = new Map();
 const getMemCache = (key) => {
@@ -26,7 +27,7 @@ const setMemCache = (key, value, ttlMs) => {
 };
 
 const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
-  const totalCount = await RoomUnit.countDocuments({ roomTypeId: roomType._id, status: 'active' });
+  const totalCount = await RoomUnit.countDocuments({ roomTypeId: roomType._id, status: { $in: BOOKABLE_ROOM_STATUSES } });
   const roomImages = normalizePublicImages(roomType.images, { max: 8 });
   const hotelImageSet = normalizePublicImageSet(hotel, { max: 4 });
 
@@ -155,7 +156,7 @@ router.get('/', async (req, res) => {
             from: 'roomunits',
             let: { rtId: '$_id' },
             pipeline: [
-              { $match: { $expr: { $eq: ['$roomTypeId', '$$rtId'] }, status: 'active' } },
+              { $match: { $expr: { $eq: ['$roomTypeId', '$$rtId'] }, status: { $in: BOOKABLE_ROOM_STATUSES } } },
               { $group: { _id: null, total: { $sum: 1 } } },
             ],
             as: 'totals',
@@ -232,7 +233,7 @@ router.get('/', async (req, res) => {
     // Total rooms per type (for displaying "X rooms" even without date filters).
     const roomTypeIds = roomTypes.map((rt) => rt._id);
     const totalsAgg = await RoomUnit.aggregate([
-      { $match: { roomTypeId: { $in: roomTypeIds }, status: 'active' } },
+      { $match: { roomTypeId: { $in: roomTypeIds }, status: { $in: BOOKABLE_ROOM_STATUSES } } },
       { $group: { _id: '$roomTypeId', total: { $sum: 1 } } },
     ]);
     const totalByRoomType = new Map(totalsAgg.map((r) => [String(r._id), Number(r.total || 0)]));
@@ -396,7 +397,7 @@ router.get('/:id/calendar', async (req, res) => {
     const days = enumerateDatesUTC(from, boundedTo);
     if (!days.length) return res.status(400).json({ success: false, message: 'Invalid date range' });
 
-    const units = await RoomUnit.find({ roomTypeId: roomType._id, status: 'active' })
+    const units = await RoomUnit.find({ roomTypeId: roomType._id, status: { $in: BOOKABLE_ROOM_STATUSES } })
       .sort({ number: 1 })
       .select('_id number')
       .lean();

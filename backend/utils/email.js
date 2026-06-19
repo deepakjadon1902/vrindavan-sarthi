@@ -49,7 +49,7 @@ const normalizeAttachments = (attachments) =>
     }))
     .filter((a) => a.content.length > 0);
 
-const resendSendEmail = async ({ apiKey, from, to, subject, text, attachments, replyTo }) => {
+const resendSendEmail = async ({ apiKey, from, to, subject, text, html, attachments, replyTo }) => {
   const files = normalizeAttachments(attachments).map((a) => ({
     filename: a.filename,
     content: a.content.toString('base64'),
@@ -57,7 +57,7 @@ const resendSendEmail = async ({ apiKey, from, to, subject, text, attachments, r
   }));
   const resp = await postJson('https://api.resend.com/emails', {
     headers: { Authorization: `Bearer ${apiKey}` },
-    body: { from, to: [to], subject, text, ...(replyTo ? { reply_to: replyTo } : {}), ...(files.length ? { attachments: files } : {}) },
+    body: { from, to: [to], subject, text, ...(html ? { html } : {}), ...(replyTo ? { reply_to: replyTo } : {}), ...(files.length ? { attachments: files } : {}) },
   });
   if (resp.status >= 200 && resp.status < 300) return;
   const err = new Error(`Resend send failed: HTTP ${resp.status}`);
@@ -82,7 +82,7 @@ const buildMailer = () => {
   });
 };
 
-const sendEmail = async ({ to, subject, text, attachments, replyTo }) => {
+const sendEmail = async ({ to, subject, text, html, attachments, replyTo }) => {
   const toAddr = String(to || '').trim();
   const replyToAddr = String(replyTo || '').trim();
   if (!toAddr) return;
@@ -92,14 +92,18 @@ const sendEmail = async ({ to, subject, text, attachments, replyTo }) => {
     const apiKey = String(process.env.RESEND_API_KEY || '').trim();
     const from = String(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
     if (!from) throw new Error('Missing RESEND_FROM (or SMTP_FROM/SMTP_USER)');
-    await resendSendEmail({ apiKey, from, to: toAddr, subject, text, attachments: files, replyTo: replyToAddr });
+    await resendSendEmail({ apiKey, from, to: toAddr, subject, text, html, attachments: files, replyTo: replyToAddr });
     return;
   }
 
-  if (!canSendSmtp()) return;
+  if (!canSendSmtp()) {
+    const err = new Error('Email provider not configured. Set RESEND_API_KEY or SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS.');
+    err.code = 'EMAIL_PROVIDER_NOT_CONFIGURED';
+    throw err;
+  }
   const transport = buildMailer();
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  await transport.sendMail({ from, to: toAddr, subject, text, replyTo: replyToAddr || undefined, attachments: files });
+  await transport.sendMail({ from, to: toAddr, subject, text, html, replyTo: replyToAddr || undefined, attachments: files });
 };
 
 module.exports = { sendEmail };

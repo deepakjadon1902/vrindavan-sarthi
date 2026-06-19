@@ -15,6 +15,13 @@ router.use(protect, authorize('admin'));
 
 const normalizeString = (v) => String(v || '').trim();
 const normalizeStringArray = (v) => (Array.isArray(v) ? v.map((x) => normalizeString(x)).filter(Boolean) : []);
+const normalizeRoomUnitStatus = (value) => {
+  const status = normalizeString(value).toLowerCase();
+  if (['available', 'unavailable', 'maintenance', 'closed'].includes(status)) return status;
+  if (status === 'active') return 'available';
+  if (status === 'inactive') return 'unavailable';
+  return 'available';
+};
 
 router.get('/hotels', async (req, res) => {
   try {
@@ -157,7 +164,7 @@ router.post('/room-types/:roomTypeId/rooms', async (req, res) => {
       number,
       floor: normalizeString(req.body?.floor),
       petsAllowedOverride: typeof req.body?.petsAllowedOverride === 'boolean' ? Boolean(req.body?.petsAllowedOverride) : null,
-      status: normalizeString(req.body?.status) === 'inactive' ? 'inactive' : 'active',
+      status: normalizeRoomUnitStatus(req.body?.status),
     });
 
     try {
@@ -185,7 +192,7 @@ router.put('/rooms/:roomUnitId', async (req, res) => {
     if (typeof req.body?.petsAllowedOverride !== 'undefined') {
       room.petsAllowedOverride = typeof req.body?.petsAllowedOverride === 'boolean' ? Boolean(req.body?.petsAllowedOverride) : null;
     }
-    if (typeof req.body?.status !== 'undefined') room.status = normalizeString(req.body?.status) === 'inactive' ? 'inactive' : 'active';
+    if (typeof req.body?.status !== 'undefined') room.status = normalizeRoomUnitStatus(req.body?.status);
 
     room.createdByUserId = req.user._id;
     room.createdByRole = 'admin';

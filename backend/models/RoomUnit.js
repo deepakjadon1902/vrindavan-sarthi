@@ -10,7 +10,12 @@ const roomUnitSchema = new mongoose.Schema(
     // Optional per-room override for pets
     petsAllowedOverride: { type: Boolean, default: null },
 
-    status: { type: String, enum: ['active', 'inactive'], default: 'active', index: true },
+    status: {
+      type: String,
+      enum: ['active', 'inactive', 'available', 'unavailable', 'maintenance', 'closed'],
+      default: 'available',
+      index: true,
+    },
 
     partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
 

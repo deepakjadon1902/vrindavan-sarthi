@@ -2,6 +2,7 @@ const express = require('express');
 const Hotel = require('../models/Hotel');
 const Cab = require('../models/Cab');
 const User = require('../models/User');
+const Booking = require('../models/Booking');
 const PartnerNotification = require('../models/PartnerNotification');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
@@ -248,9 +249,71 @@ router.get('/payouts', protect, authorize('admin'), async (req, res) => {
       'bankDetails.verified': true,
     })
       .sort({ updatedAt: -1 })
-      .select('name email phone businessName bankDetails updatedAt')
+      .select('name email phone businessName bankDetails payoutSettlement updatedAt')
       .lean();
-    res.json({ success: true, data: partners });
+
+    const partnerIds = partners.map((p) => p._id);
+    const ledgerAgg = partnerIds.length
+      ? await Booking.aggregate([
+        {
+          $match: {
+            partnerId: { $in: partnerIds },
+            paymentStatus: 'paid',
+            bookingStatus: { $in: ['confirmed', 'completed'] },
+          },
+        },
+        {
+          $group: {
+            _id: '$partnerId',
+            totalIngestedVolume: { $sum: '$totalAmount' },
+            deductedGstGatewayCosts: { $sum: { $add: ['$taxAmount', '$convenienceFeeAmount'] } },
+            deductedPlatformCommission: { $sum: '$platformCommissionAmount' },
+            netPayableRemittanceBalance: { $sum: '$partnerNetPayout' },
+            bookingCount: { $sum: 1 },
+          },
+        },
+      ])
+      : [];
+
+    const ledgerByPartner = new Map(ledgerAgg.map((row) => [String(row._id), row]));
+    const data = partners.map((partner) => {
+      const ledger = ledgerByPartner.get(String(partner._id)) || {};
+      return {
+        ...partner,
+        ledger: {
+          totalIngestedVolume: Math.round(Number(ledger.totalIngestedVolume || 0)),
+          deductedGstGatewayCosts: Math.round(Number(ledger.deductedGstGatewayCosts || 0)),
+          deductedPlatformCommission: Math.round(Number(ledger.deductedPlatformCommission || 0)),
+          netPayableRemittanceBalance: Math.round(Number(ledger.netPayableRemittanceBalance || 0)),
+          bookingCount: Number(ledger.bookingCount || 0),
+          isPaid: Boolean(partner.payoutSettlement?.isPaid),
+          paidAt: partner.payoutSettlement?.paidAt || null,
+          note: partner.payoutSettlement?.note || '',
+        },
+      };
+    });
+    res.json({ success: true, data });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+router.put('/payouts/:partnerId/settled', protect, authorize('admin'), async (req, res) => {
+  try {
+    const isPaid = Boolean(req.body?.isPaid);
+    const note = String(req.body?.note || '').trim();
+    const partner = await User.findOneAndUpdate(
+      { _id: req.params.partnerId, role: 'partner' },
+      {
+        payoutSettlement: {
+          isPaid,
+          paidAt: isPaid ? new Date() : null,
+          paidByUserId: isPaid ? req.user._id : null,
+          note,
+        },
+      },
+      { new: true }
+    ).select('name email phone businessName bankDetails payoutSettlement updatedAt');
+    if (!partner) return res.status(404).json({ success: false, message: 'Partner not found' });
+    res.json({ success: true, data: partner });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

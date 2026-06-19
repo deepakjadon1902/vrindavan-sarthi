@@ -8,13 +8,17 @@ const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const Settings = require('../models/Settings');
 const Cab = require('../models/Cab');
 const CabFare = require('../models/CabFare');
+const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const { processRoomTypeWaitlist } = require('../utils/waitlist');
 const { sendEmail } = require('../utils/email');
 const { sendSms } = require('../utils/sms');
 const { buildPdf } = require('../utils/invoicePdf');
+const { enqueueJob } = require('../utils/jobQueue');
 const router = express.Router();
+
+const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 
 const stripLargeInlineImage = (value) => {
   const v = typeof value === 'string' ? value : '';
@@ -141,6 +145,65 @@ const sendCustomerInvoice = async (booking) => {
       },
     ],
   });
+};
+
+const buildPartnerBookingHtml = (booking) => {
+  const rows = [
+    ['Booking ID', booking.bookingId],
+    ['Service', booking.itemName],
+    ['Customer', booking.customerFullName || booking.userName],
+    ['Mobile', booking.customerMobile || booking.userPhone],
+    ['Check-in', booking.checkIn ? new Date(booking.checkIn).toLocaleDateString('en-IN') : ''],
+    ['Check-out', booking.checkOut ? new Date(booking.checkOut).toLocaleDateString('en-IN') : ''],
+    ['Room', booking.roomNumber],
+    ['Guests', booking.guests],
+    ['Base Amount', `INR ${Number(booking.baseAmount || 0).toLocaleString('en-IN')}`],
+    ['GST', `INR ${Number(booking.taxAmount || 0).toLocaleString('en-IN')}`],
+    ['Convenience Fee', `INR ${Number(booking.convenienceFeeAmount || 0).toLocaleString('en-IN')}`],
+    ['Grand Total', `INR ${Number(booking.totalAmount || 0).toLocaleString('en-IN')}`],
+    ['Advance Online', `INR ${Number(booking.advanceAmount || 0).toLocaleString('en-IN')}`],
+    ['Balance Cash', `INR ${Number(booking.balanceAmount || 0).toLocaleString('en-IN')}`],
+  ].filter(([, value]) => typeof value !== 'undefined' && value !== null && value !== '');
+
+  return `
+    <div style="font-family:Arial,sans-serif;color:#222">
+      <h2>New booking received</h2>
+      <table cellpadding="8" cellspacing="0" style="border-collapse:collapse;border:1px solid #ddd">
+        ${rows.map(([label, value]) => `
+          <tr>
+            <td style="border:1px solid #ddd;background:#f7f7f7;font-weight:600">${label}</td>
+            <td style="border:1px solid #ddd">${value}</td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+  `;
+};
+
+const sendPartnerBookingAlert = async (booking) => {
+  if (!booking?.partnerId) return;
+  const partner = await User.findById(booking.partnerId).select('email businessEmail name businessName').lean();
+  const to = normalize(partner?.businessEmail || partner?.email);
+  if (!to) return;
+  const lines = buildInvoiceLines(booking);
+  await sendEmail({
+    to,
+    subject: `New Vrindavan Sarthi Booking ${booking.bookingId}`,
+    text: ['New booking received', ...lines].join('\n'),
+    html: buildPartnerBookingHtml(booking),
+  });
+};
+
+const enqueueBookingNotifications = (booking, { invoice = false, partnerAlert = true } = {}) => {
+  if (invoice) {
+    enqueueJob(`invoice:${booking.bookingId}`, async () => {
+      await sendCustomerInvoice(booking);
+      await Booking.updateOne({ _id: booking._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
+    });
+  }
+  if (partnerAlert) {
+    enqueueJob(`partner-alert:${booking.bookingId}`, () => sendPartnerBookingAlert(booking));
+  }
 };
 
 const bookingDetailFields = [
@@ -314,7 +377,7 @@ router.post('/room-type', protect, async (req, res) => {
       commissionPercent: hotel.platform_commission_percentage,
     });
 
-    const units = await RoomUnit.find({ roomTypeId: roomType._id, status: 'active' }).sort({ number: 1 }).lean();
+    const units = await RoomUnit.find({ roomTypeId: roomType._id, status: { $in: BOOKABLE_ROOM_STATUSES } }).sort({ number: 1 }).lean();
     if (!units.length) return res.status(409).json({ success: false, message: 'No rooms available for selected dates' });
 
     const blockedByBlocks = await RoomUnitBlock.distinct('roomUnitId', {
@@ -462,6 +525,7 @@ router.post('/room-type', protect, async (req, res) => {
         isWaitlisted: true,
       });
 
+      enqueueBookingNotifications(waitlistedBooking, { partnerAlert: true });
       return res.status(201).json({
         success: true,
         data: waitlistedBooking,
@@ -469,6 +533,7 @@ router.post('/room-type', protect, async (req, res) => {
       });
     }
 
+    enqueueBookingNotifications(createdBooking, { partnerAlert: true });
     res.status(201).json({ success: true, data: createdBooking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -507,6 +572,7 @@ router.post('/', protect, async (req, res) => {
     };
 
     const booking = await Booking.create(payload);
+    enqueueBookingNotifications(booking, { partnerAlert: true });
     res.status(201).json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -809,13 +875,7 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
       adminPaymentVerifiedAt: new Date(),
     }, { new: true });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
-    try {
-      await sendCustomerInvoice(booking);
-      booking.invoiceSentAt = new Date();
-      await booking.save();
-    } catch {
-      // Email is best-effort; verification should not fail if mail is down.
-    }
+    enqueueBookingNotifications(booking, { invoice: true, partnerAlert: false });
     res.json({ success: true, data: booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

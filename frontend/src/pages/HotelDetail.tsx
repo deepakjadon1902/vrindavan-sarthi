@@ -40,6 +40,28 @@ type RoomType = {
   hotel?: Hotel;
 };
 
+const getGoogleMapEmbedSrc = (value?: string) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.includes('/maps/embed')) return raw;
+
+  const coordinateMatch = raw.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (coordinateMatch) {
+    return `https://www.google.com/maps?q=${coordinateMatch[1]},${coordinateMatch[2]}&output=embed`;
+  }
+
+  try {
+    const url = new URL(raw);
+    if (url.hostname.includes('google') || url.hostname.includes('goo.gl')) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(raw)}&output=embed`;
+    }
+  } catch {
+    return `https://www.google.com/maps?q=${encodeURIComponent(raw)}&output=embed`;
+  }
+
+  return '';
+};
+
 const sameId = (a?: string | null, b?: string | null) => String(a || '') === String(b || '');
 
 const HotelDetail = () => {
@@ -154,6 +176,8 @@ const HotelDetail = () => {
     const percent = Math.min(50, Math.max(0, Number(rtHotel.taxPercent ?? 12)));
     return Math.round(base + (base * percent) / 100);
   };
+
+  const mapEmbedSrc = getGoogleMapEmbedSrc(hotel?.googleMapLink);
 
   if (!isLoading && !hotel) {
     return (
@@ -354,11 +378,15 @@ const HotelDetail = () => {
                     <p className="font-body text-sm text-foreground text-right">Near {hotel.nearestTemple}</p>
                   </div>
                 )}
-                {hotel?.googleMapLink && (
+                {mapEmbedSrc && (
                   <div className="pt-3 border-t border-border">
-                    <a href={hotel.googleMapLink} target="_blank" rel="noreferrer" className="font-body text-sm text-brand-crimson hover:underline">
-                      Open Google Map
-                    </a>
+                    <iframe
+                      title={`${hotel?.name || 'Hotel'} map`}
+                      src={mapEmbedSrc}
+                      className="h-44 w-full rounded-lg border border-border"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
                   </div>
                 )}
 

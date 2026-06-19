@@ -28,7 +28,7 @@ type RoomUnit = {
   roomTypeId: string;
   number: string;
   floor?: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'available' | 'unavailable' | 'maintenance' | 'closed';
   petsAllowedOverride?: boolean | null;
 };
 
@@ -63,6 +63,7 @@ const AdminInventory = () => {
   // Room unit form
   const [roomNumber, setRoomNumber] = useState('');
   const [roomFloor, setRoomFloor] = useState('');
+  const [roomStatus, setRoomStatus] = useState<RoomUnit['status']>('available');
   const [roomPetsOverride, setRoomPetsOverride] = useState<'inherit' | 'allow' | 'disallow'>('inherit');
   const [editingRoomUnitId, setEditingRoomUnitId] = useState<string | null>(null);
 
@@ -198,6 +199,7 @@ const AdminInventory = () => {
   const resetRoomUnitForm = () => {
     setRoomNumber('');
     setRoomFloor('');
+    setRoomStatus('available');
     setRoomPetsOverride('inherit');
     setEditingRoomUnitId(null);
   };
@@ -299,7 +301,7 @@ const AdminInventory = () => {
     const payload: any = {
       number: roomNumber.trim(),
       floor: roomFloor.trim(),
-      status: 'active',
+      status: roomStatus,
     };
     if (roomPetsOverride === 'allow') payload.petsAllowedOverride = true;
     if (roomPetsOverride === 'disallow') payload.petsAllowedOverride = false;
@@ -328,6 +330,7 @@ const AdminInventory = () => {
   const onEditRoomUnit = (r: RoomUnit) => {
     setRoomNumber(r.number || '');
     setRoomFloor(r.floor || '');
+    setRoomStatus(r.status || 'available');
     if (r.petsAllowedOverride === true) setRoomPetsOverride('allow');
     else if (r.petsAllowedOverride === false) setRoomPetsOverride('disallow');
     else setRoomPetsOverride('inherit');
@@ -589,6 +592,18 @@ const AdminInventory = () => {
             </div>
 
             <select
+              value={roomStatus}
+              onChange={(e) => setRoomStatus(e.target.value as RoomUnit['status'])}
+              className="px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm"
+              disabled={!selectedRoomTypeId}
+            >
+              <option value="available">Available</option>
+              <option value="unavailable">Unavailable</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="closed">Closed</option>
+            </select>
+
+            <select
               value={roomPetsOverride}
               onChange={(e) => setRoomPetsOverride(e.target.value as any)}
               className="px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm"
@@ -624,6 +639,7 @@ const AdminInventory = () => {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="font-body text-sm font-semibold text-foreground">Room {r.number}</p>
+                        <p className="font-body text-[11px] text-muted-foreground capitalize">{String(r.status || 'available').replace('_', ' ')}</p>
                         <p className="font-body text-xs text-muted-foreground">{r.floor ? `Floor: ${r.floor}` : '—'}</p>
                       </div>
                       <div className="flex items-center gap-1">

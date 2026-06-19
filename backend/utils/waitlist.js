@@ -5,6 +5,7 @@ const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
 const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const { enumerateDatesUTC, isValidDate } = require('./date');
+const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 
 const tryAssignRoomUnitToBooking = async ({ booking }) => {
   if (!booking) return { assigned: false };
@@ -21,7 +22,7 @@ const tryAssignRoomUnitToBooking = async ({ booking }) => {
   const daysToReserve = enumerateDatesUTC(booking.checkIn, booking.checkOut);
   if (!daysToReserve.length) return { assigned: false };
 
-  const units = await RoomUnit.find({ roomTypeId: roomType._id, status: 'active' }).sort({ number: 1 }).lean();
+  const units = await RoomUnit.find({ roomTypeId: roomType._id, status: { $in: BOOKABLE_ROOM_STATUSES } }).sort({ number: 1 }).lean();
   if (!units.length) return { assigned: false };
 
   const blockedByBlocks = await RoomUnitBlock.distinct('roomUnitId', {
@@ -94,4 +95,3 @@ module.exports = {
   processRoomTypeWaitlist,
   tryAssignRoomUnitToBooking,
 };
-

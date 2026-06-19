@@ -13,6 +13,15 @@ This backend supports storing images as Cloudinary URLs (recommended):
 - Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (and optionally `CLOUDINARY_FOLDER`) in `backend/.env`
 - When enabled, the backend automatically uploads any incoming `data:image/*` strings to Cloudinary and saves only the URL in MongoDB.
 
+## Transactional Email
+
+Booking alerts and invoice PDFs run through the background job queue and require one of these providers:
+
+- Resend: set `RESEND_API_KEY` and `RESEND_FROM`
+- SMTP: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optionally `SMTP_FROM` and `SMTP_SECURE=true`
+
+If neither provider is configured, booking requests still complete, but the background job logs `EMAIL_PROVIDER_NOT_CONFIGURED` and invoices are not marked as sent.
+
 ## API Endpoints
 
 ### Auth

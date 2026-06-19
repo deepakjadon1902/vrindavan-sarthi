@@ -191,6 +191,7 @@ const ManageBookings = () => {
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Type</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Item</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">User</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Total Amount</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Payment</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Status</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Partner</th>
@@ -216,6 +217,9 @@ const ManageBookings = () => {
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">
                     <div>{b.customerFullName || b.userName}</div>
                     <div className="text-[11px]">{b.customerMobile || b.userPhone}</div>
+                  </td>
+                  <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">
+                    Rs. {Number(b.totalAmount || 0).toLocaleString('en-IN')}
                   </td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground">
                     {b.paymentMethod === 'doorstep' ? 'Doorstep' : `UPI ${b.paymentStatus}`}
@@ -269,7 +273,7 @@ const ManageBookings = () => {
                 </tr>
                 {expandedBookingId === b.id && (
                   <tr key={`${b.id}-details`} className="border-b border-border">
-                    <td colSpan={8} className="px-4 pb-4">
+                    <td colSpan={9} className="px-4 pb-4">
                       <BookingFormDetails booking={b} viewer="admin" />
                     </td>
                   </tr>

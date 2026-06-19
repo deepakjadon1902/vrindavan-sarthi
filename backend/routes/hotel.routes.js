@@ -10,6 +10,7 @@ const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
 const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImageSet, normalizePublicImages, stripLargeInlineImage } = require('../utils/publicImages');
 const router = express.Router();
+const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 
 const normalizePublicHotel = (hotel) => {
   if (!hotel) return hotel;
@@ -86,6 +87,57 @@ const normalizeRequiredLocationFields = (body) => {
   return '';
 };
 
+const validateHotelPayload = (body, { partial = false } = {}) => {
+  const errors = {};
+  const required = ['name', 'location', 'googleMapLink', 'nearestTemple'];
+  for (const field of required) {
+    if (!partial || typeof body?.[field] !== 'undefined') {
+      if (!String(body?.[field] || '').trim()) errors[field] = `${field} is required`;
+      else body[field] = String(body[field]).trim();
+    }
+  }
+
+  if (typeof body.rating !== 'undefined') {
+    const rating = Number(body.rating || 0);
+    if (!Number.isFinite(rating) || rating < 0 || rating > 5) errors.rating = 'rating must be between 0 and 5';
+    else body.rating = rating;
+  }
+
+  if (typeof body.amenities !== 'undefined') {
+    body.amenities = Array.isArray(body.amenities)
+      ? body.amenities.map((a) => String(a || '').trim()).filter(Boolean)
+      : String(body.amenities || '').split(',').map((a) => a.trim()).filter(Boolean);
+  }
+
+  if (Object.keys(errors).length) {
+    const err = new Error('Hotel validation failed');
+    err.statusCode = 400;
+    err.details = errors;
+    throw err;
+  }
+};
+
+const sendRouteError = (res, err, context) => {
+  const status = Number(err?.statusCode || err?.status || 0) || (err?.name === 'ValidationError' ? 400 : 500);
+  const details = err?.details || (err?.errors
+    ? Object.fromEntries(Object.entries(err.errors).map(([key, value]) => [key, value?.message || String(value)]))
+    : undefined);
+  console.error(`[${context}]`, {
+    message: err?.message,
+    status,
+    details,
+    code: err?.code,
+  });
+  if (String(err?.code) === '11000') {
+    return res.status(409).json({ success: false, message: 'A hotel with the same unique value already exists', details: err.keyValue || {} });
+  }
+  return res.status(status).json({
+    success: false,
+    message: status === 500 ? 'Hotel save failed. Check server logs for details.' : err.message,
+    ...(details ? { details } : {}),
+  });
+};
+
 const attachHotelReviewStats = async (hotels) => {
   const ids = hotels.map((h) => h._id).filter(Boolean);
   if (!ids.length) return;
@@ -139,7 +191,7 @@ router.get('/', async (req, res) => {
     }
 
     const totalsAgg = await RoomUnit.aggregate([
-      { $match: { roomTypeId: { $in: roomTypeIds }, status: 'active' } },
+      { $match: { roomTypeId: { $in: roomTypeIds }, status: { $in: BOOKABLE_ROOM_STATUSES } } },
       { $group: { _id: '$roomTypeId', total: { $sum: 1 } } },
     ]);
     const totalByRoomType = new Map(totalsAgg.map((r) => [String(r._id), Number(r.total || 0)]));
@@ -243,7 +295,7 @@ router.get('/:id/room-types', async (req, res) => {
     const roomTypeIds = roomTypes.map((rt) => rt._id);
     const totalsAgg = roomTypeIds.length
       ? await RoomUnit.aggregate([
-        { $match: { roomTypeId: { $in: roomTypeIds }, status: 'active' } },
+        { $match: { roomTypeId: { $in: roomTypeIds }, status: { $in: BOOKABLE_ROOM_STATUSES } } },
         { $group: { _id: '$roomTypeId', total: { $sum: 1 } } },
       ])
       : [];
@@ -324,6 +376,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
   try {
     const body = { ...req.body };
     normalizeHotelTaxControls(body);
+    validateHotelPayload(body);
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     body.approvalStatus = 'approved';
@@ -331,7 +384,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
     const hotel = await Hotel.create(body);
     res.status(201).json({ success: true, data: hotel });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+  } catch (err) { sendRouteError(res, err, 'admin.hotel.create'); }
 });
 
 // Update (admin)
@@ -339,12 +392,14 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
   try {
     const body = { ...req.body };
     normalizeHotelTaxControls(body);
+    validateHotelPayload(body);
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
-    const hotel = await Hotel.findByIdAndUpdate(req.params.id, body, { new: true });
+    const hotel = await Hotel.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true });
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
     res.json({ success: true, data: hotel });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+  } catch (err) { sendRouteError(res, err, 'admin.hotel.update'); }
 });
 
 // Delete (admin)

@@ -19,9 +19,20 @@ type PayoutPartner = {
     verified?: boolean;
     updatedAt?: string;
   };
+  ledger?: {
+    totalIngestedVolume: number;
+    deductedGstGatewayCosts: number;
+    deductedPlatformCommission: number;
+    netPayableRemittanceBalance: number;
+    bookingCount: number;
+    isPaid: boolean;
+    paidAt?: string | null;
+    note?: string;
+  };
 };
 
 const csvEscape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const money = (value: unknown) => `Rs. ${Number(value || 0).toLocaleString('en-IN')}`;
 
 const AdminPartnerPayouts = () => {
   const token = useAuthStore((s) => s.token);
@@ -59,7 +70,7 @@ const AdminPartnerPayouts = () => {
 
   const exportCsv = () => {
     const rows = [
-      ['Partner Name', 'Business Name', 'Email', 'Phone', 'Account Holder', 'Bank Name', 'Account Number', 'IFSC Code', 'Verified', 'Updated At'],
+      ['Partner Name', 'Business Name', 'Email', 'Phone', 'Account Holder', 'Bank Name', 'Account Number', 'IFSC Code', 'Bookings', 'Total Ingested Volume', 'Deducted GST & Gateway Costs', 'Deducted Platform Commission', 'Net Payable Remittance Balance', 'Settlement Status', 'Paid At', 'Updated At'],
       ...filtered.map((p) => [
         p.name,
         p.businessName || '',
@@ -69,7 +80,13 @@ const AdminPartnerPayouts = () => {
         p.bankDetails?.bank_name || '',
         p.bankDetails?.account_number || '',
         p.bankDetails?.ifsc_code || '',
-        p.bankDetails?.verified ? 'Yes' : 'No',
+        p.ledger?.bookingCount || 0,
+        p.ledger?.totalIngestedVolume || 0,
+        p.ledger?.deductedGstGatewayCosts || 0,
+        p.ledger?.deductedPlatformCommission || 0,
+        p.ledger?.netPayableRemittanceBalance || 0,
+        p.ledger?.isPaid ? 'Settled' : 'Pending',
+        p.ledger?.paidAt ? new Date(p.ledger.paidAt).toLocaleString('en-IN') : '',
         p.bankDetails?.updatedAt ? new Date(p.bankDetails.updatedAt).toLocaleString('en-IN') : '',
       ]),
     ];
@@ -81,6 +98,18 @@ const AdminPartnerPayouts = () => {
     link.download = `partner-payouts-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const toggleSettled = async (partner: PayoutPartner) => {
+    if (!token) return;
+    const nextPaid = !partner.ledger?.isPaid;
+    try {
+      await api.put(`/partner/payouts/${partner._id}/settled`, { isPaid: nextPaid }, withAuth(token));
+      toast.success(nextPaid ? 'Marked as settled' : 'Marked as pending');
+      await load();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Settlement update failed'));
+    }
   };
 
   return (
@@ -118,7 +147,7 @@ const AdminPartnerPayouts = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  {['Partner', 'Business', 'Bank', 'Account Holder', 'Account Number', 'IFSC', 'Updated'].map((h) => (
+                  {['Partner', 'Business', 'Bank', 'Volume', 'GST + Gateway', 'Commission', 'Net Payable', 'Status', 'Action'].map((h) => (
                     <th key={h} className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">{h}</th>
                   ))}
                 </tr>
@@ -131,12 +160,29 @@ const AdminPartnerPayouts = () => {
                       <p className="text-xs text-muted-foreground">{p.email}</p>
                     </td>
                     <td className="px-4 py-3 font-body text-sm text-muted-foreground">{p.businessName || '-'}</td>
-                    <td className="px-4 py-3 font-body text-sm text-foreground">{p.bankDetails?.bank_name || '-'}</td>
-                    <td className="px-4 py-3 font-body text-sm text-foreground">{p.bankDetails?.account_holder_name || '-'}</td>
-                    <td className="px-4 py-3 font-body text-sm text-foreground">{p.bankDetails?.account_number || '-'}</td>
-                    <td className="px-4 py-3 font-body text-sm text-foreground">{p.bankDetails?.ifsc_code || '-'}</td>
-                    <td className="px-4 py-3 font-body text-xs text-muted-foreground">
-                      {p.bankDetails?.updatedAt ? new Date(p.bankDetails.updatedAt).toLocaleDateString('en-IN') : '-'}
+                    <td className="px-4 py-3 font-body text-xs text-foreground">
+                      <p>{p.bankDetails?.bank_name || '-'}</p>
+                      <p className="text-muted-foreground">{p.bankDetails?.account_holder_name || '-'}</p>
+                      <p className="text-muted-foreground">{p.bankDetails?.account_number || '-'}</p>
+                      <p className="text-muted-foreground">{p.bankDetails?.ifsc_code || '-'}</p>
+                    </td>
+                    <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">{money(p.ledger?.totalIngestedVolume)}</td>
+                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.deductedGstGatewayCosts)}</td>
+                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.deductedPlatformCommission)}</td>
+                    <td className="px-4 py-3 font-body text-sm font-semibold text-brand-green">{money(p.ledger?.netPayableRemittanceBalance)}</td>
+                    <td className="px-4 py-3 font-body text-xs">
+                      <span className={`px-2 py-1 rounded-full ${p.ledger?.isPaid ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-saffron/10 text-brand-saffron'}`}>
+                        {p.ledger?.isPaid ? 'Settled' : 'Pending'}
+                      </span>
+                      {p.ledger?.bookingCount ? <p className="mt-1 text-muted-foreground">{p.ledger.bookingCount} bookings</p> : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => void toggleSettled(p)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted"
+                      >
+                        {p.ledger?.isPaid ? 'Mark Pending' : 'Mark as Paid'}
+                      </button>
                     </td>
                   </tr>
                 ))}

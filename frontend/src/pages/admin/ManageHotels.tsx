@@ -164,8 +164,8 @@ const ManageHotels = () => {
       }
       publishAppEvent('listing:changed');
       resetForm();
-    } catch {
-      toast.error(editingId ? 'Update failed' : 'Create failed');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, editingId ? 'Update failed' : 'Create failed'));
     }
   };
 

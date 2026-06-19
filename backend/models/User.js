@@ -41,9 +41,20 @@ const userSchema = new mongoose.Schema({
     verified: { type: Boolean, default: true },
     updatedAt: Date,
   },
+  payoutSettlement: {
+    isPaid: { type: Boolean, default: false },
+    paidAt: Date,
+    paidByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    note: String,
+  },
   partnerDocuments: [
     {
       name: String,
+      type: {
+        type: String,
+        enum: ['aadhar_card', 'gstin_registration', 'property_registry_document', 'other'],
+        default: 'other',
+      },
       url: String,
       uploadedAt: Date,
     },
