@@ -56,6 +56,7 @@ const userSchema = new mongoose.Schema({
         default: 'other',
       },
       url: String,
+      mimeType: String,
       uploadedAt: Date,
     },
   ],

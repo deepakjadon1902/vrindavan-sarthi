@@ -6,9 +6,15 @@ import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
 import { APP_LOGO_URL } from '@/lib/brand';
 
+type LegalDocumentUpload = {
+  data: string;
+  name: string;
+  type: string;
+};
+
 const Register = () => {
   const [role, setRole] = useState<'user' | 'partner'>('user');
-  const [documents, setDocuments] = useState<string[]>([]);
+  const [documents, setDocuments] = useState<LegalDocumentUpload[]>([]);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', street: '', city: '', state: '', pin: '', password: '', confirmPassword: '',
     businessName: '', gstNumber: '', businessType: '', businessAddress: '', businessPhone: '', businessEmail: '', businessDescription: '',
@@ -57,10 +63,18 @@ const Register = () => {
     if (!files) return;
     Array.from(files).forEach((file) => {
       const reader = new FileReader();
-      reader.onloadend = () => setDocuments((prev) => [...prev, String(reader.result || '')].filter(Boolean));
+      reader.onloadend = () => {
+        const data = String(reader.result || '');
+        if (!data) return;
+        setDocuments((prev) => [...prev, { data, name: file.name, type: file.type || 'application/octet-stream' }]);
+      };
       reader.readAsDataURL(file);
     });
     e.target.value = '';
+  };
+
+  const removeDocument = (index: number) => {
+    setDocuments((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -197,8 +211,23 @@ const Register = () => {
                 </div>
                 <div>
                   <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Government / Legal Documents *</label>
-                  <input type="file" accept="image/*,application/pdf" multiple onChange={handleDocumentUpload} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm" />
+                  <input type="file" accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={handleDocumentUpload} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm" />
                   <p className="font-body text-xs text-muted-foreground mt-1">{documents.length} document(s) selected for admin verification.</p>
+                  {documents.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {documents.map((doc, index) => (
+                        <div key={`${doc.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="font-body text-sm text-foreground truncate">{doc.name}</p>
+                            <p className="font-body text-xs text-muted-foreground">{doc.type}</p>
+                          </div>
+                          <button type="button" onClick={() => removeDocument(index)} className="text-xs font-body text-destructive hover:underline">
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </>
             )}

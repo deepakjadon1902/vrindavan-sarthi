@@ -49,5 +49,5 @@ export interface RegisterData {
   businessPhone?: string;
   businessEmail?: string;
   businessDescription?: string;
-  documents?: string[];
+  documents?: Array<{ data: string; name: string; type: string }>;
 }

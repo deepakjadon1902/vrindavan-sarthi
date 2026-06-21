@@ -215,6 +215,7 @@ const PartnerAddHotel = () => {
       ),
     [items, search]
   );
+  const isApproved = user?.partnerStatus === 'approved';
 
   return (
     <div className="space-y-6">
@@ -228,6 +229,15 @@ const PartnerAddHotel = () => {
         )}
       </div>
 
+      {!isApproved && (
+        <div className="bg-brand-saffron/10 border border-brand-saffron/30 rounded-xl p-4">
+          <p className="font-body text-sm font-medium text-foreground">Admin verification required</p>
+          <p className="font-body text-xs text-muted-foreground mt-1">
+            Your partner account is {user?.partnerStatus || 'pending'}. You can submit hotels after admin verifies your legal documents.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -240,11 +250,12 @@ const PartnerAddHotel = () => {
           />
         </div>
         <button
+          disabled={!isApproved}
           onClick={() => {
             resetForm();
             setShowForm(true);
           }}
-          className="btn-gold px-5 py-2.5 rounded-lg text-sm flex items-center gap-2"
+          className="btn-gold px-5 py-2.5 rounded-lg text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={16} /> Submit Hotel
         </button>

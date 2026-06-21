@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, Car, Map, ClipboardList,
   Users, LogOut, Menu, X, Handshake, Settings, CreditCard,
-  Landmark,
+  Landmark, UserCheck,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -18,7 +18,8 @@ const sidebarLinks = [
   { name: 'Cabs', path: '/admin/cabs', icon: Car },
   { name: 'Cab Fares', path: '/admin/cab-fares', icon: ClipboardList },
   { name: 'Tours', path: '/admin/tours', icon: Map },
-  { name: 'Partner Requests', path: '/admin/partner-requests', icon: Handshake },
+  { name: 'Partners', path: '/admin/partners', icon: UserCheck },
+  { name: 'Listing Requests', path: '/admin/partner-requests', icon: Handshake },
   { name: 'Bookings', path: '/admin/bookings', icon: ClipboardList },
   { name: 'Payments', path: '/admin/payments', icon: CreditCard },
   { name: 'Partner Payouts', path: '/admin/partner-payouts', icon: Landmark },

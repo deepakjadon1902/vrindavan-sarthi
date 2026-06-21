@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, LogOut, Menu, X, ClipboardList, CreditCard, Car,
-  Bell, UserCog, Landmark,
+  Bell, UserCog, Landmark, ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
@@ -23,7 +23,7 @@ const sidebarLinks = [
 ];
 
 const PartnerLayout = () => {
-  const { user, logout } = useAuthStore();
+  const { user, token, logout, refreshMe } = useAuthStore();
   const { partnerBookings, fetchPartnerBookings } = useBookingStore();
   const settings = useSettingsStore((s) => s.settings);
   const location = useLocation();
@@ -31,11 +31,19 @@ const PartnerLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!token) return;
+    void refreshMe();
+  }, [refreshMe, token]);
+
+  useEffect(() => {
+    if (!token || user?.partnerStatus !== 'approved') return;
     void fetchPartnerBookings();
-  }, [fetchPartnerBookings, user]);
+  }, [fetchPartnerBookings, token, user?.partnerStatus]);
 
   const bookingCount = partnerBookings.length;
+  const isApproved = user?.partnerStatus === 'approved';
+  const isStatusPage = location.pathname === '/partner' || location.pathname === '/partner/profile-settings';
+  const showApprovalGate = user?.role === 'partner' && !isApproved && !isStatusPage;
 
   const handleLogout = () => {
     logout();
@@ -117,7 +125,26 @@ const PartnerLayout = () => {
           <div />
         </header>
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          <Outlet />
+          {showApprovalGate ? (
+            <div className="max-w-3xl bg-card border border-border rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-brand-saffron/10 flex items-center justify-center shrink-0">
+                  <ShieldCheck size={22} className="text-brand-saffron" />
+                </div>
+                <div>
+                  <h2 className="font-heading text-xl font-semibold text-foreground">Admin verification required</h2>
+                  <p className="font-body text-sm text-muted-foreground mt-2">
+                    Your partner account is currently {user?.partnerStatus || 'pending'}. Admin must verify your business details and legal documents before you can list hotels, inventory, cabs, or other properties.
+                  </p>
+                  <button onClick={() => navigate('/partner')} className="mt-4 btn-gold px-5 py-2.5 rounded-lg text-sm">
+                    Back to Dashboard
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>

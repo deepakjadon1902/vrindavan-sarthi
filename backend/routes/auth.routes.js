@@ -12,6 +12,49 @@ const router = express.Router();
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
+const getDocumentPayload = (item) => {
+  if (typeof item === 'string') {
+    return { data: item, name: 'document', type: '' };
+  }
+  if (!item || typeof item !== 'object') {
+    return { data: '', name: 'document', type: '' };
+  }
+  return {
+    data: String(item.data || item.url || '').trim(),
+    name: String(item.name || 'document').trim() || 'document',
+    type: String(item.documentType || item.category || 'other').trim(),
+    mimeType: String(item.mimeType || item.type || '').trim(),
+  };
+};
+
+const normalizePartnerDocuments = async (docsInput, { max = 10 } = {}) => {
+  const docs = (Array.isArray(docsInput) ? docsInput : [])
+    .map(getDocumentPayload)
+    .filter((doc) => doc.data);
+  const limited = docs.slice(0, Math.max(0, Number(max) || 0) || 10);
+  if (!limited.length) return [];
+
+  const urls = await maybeUploadImageArray(
+    limited.map((doc) => doc.data),
+    { folder: 'vrindavan-sarthi/partner-documents', tags: ['partner', 'document'], max }
+  );
+  const now = new Date();
+  return urls.map((url, index) => {
+    const source = limited[index] || {};
+    const mimeFromDataUri = String(source.data || '').match(/^data:([^;]+);/i)?.[1] || '';
+    const category = ['aadhar_card', 'gstin_registration', 'property_registry_document', 'other'].includes(source.type)
+      ? source.type
+      : 'other';
+    return {
+      name: source.name || `document-${index + 1}`,
+      type: category,
+      mimeType: source.mimeType || mimeFromDataUri || 'application/octet-stream',
+      url,
+      uploadedAt: now,
+    };
+  });
+};
+
 const requireEnv = (key) => {
   const value = process.env[key];
   if (!value) {
@@ -302,10 +345,8 @@ router.post('/register', async (req, res) => {
       if (!docsInput.length) {
         return res.status(400).json({ success: false, message: 'Government/legal documents are required for partner registration' });
       }
-      const urls = await maybeUploadImageArray(docsInput, { folder: 'vrindavan-sarthi/partner-documents', tags: ['partner', 'document'], max: 10 });
-      if (!urls.length) return res.status(400).json({ success: false, message: 'No valid partner documents provided' });
-      const now = new Date();
-      partnerDocuments = urls.map((url) => ({ name: 'document', url, uploadedAt: now }));
+      partnerDocuments = await normalizePartnerDocuments(docsInput, { max: 10 });
+      if (!partnerDocuments.length) return res.status(400).json({ success: false, message: 'No valid partner documents provided' });
     }
 
     const user = await User.create({
@@ -367,8 +408,8 @@ router.put('/me', protect, async (req, res) => {
   }
 });
 
-// Partner: upload verification documents (base64 data:image/* strings).
-// Body: { documents: string[] , location?: { lat, lng, address } }
+// Partner: upload verification documents.
+// Body: { documents: Array<string|{ data, name, type }> , location?: { lat, lng, address } }
 router.post('/me/partner-verification', protect, async (req, res) => {
   try {
     if (req.user.role !== 'partner') return res.status(403).json({ success: false, message: 'Not a partner account' });
@@ -376,17 +417,16 @@ router.post('/me/partner-verification', protect, async (req, res) => {
     const docsInput = Array.isArray(req.body?.documents) ? req.body.documents : [];
     if (!docsInput.length) return res.status(400).json({ success: false, message: 'documents[] is required' });
 
-    const urls = await maybeUploadImageArray(docsInput, { folder: 'vrindavan-sarthi/partner-documents', tags: ['partner', 'document'], max: 10 });
-    if (!urls.length) return res.status(400).json({ success: false, message: 'No valid documents provided' });
+    const newDocuments = await normalizePartnerDocuments(docsInput, { max: 10 });
+    if (!newDocuments.length) return res.status(400).json({ success: false, message: 'No valid documents provided' });
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    const now = new Date();
     const existing = Array.isArray(user.partnerDocuments) ? user.partnerDocuments : [];
     user.partnerDocuments = [
       ...existing,
-      ...urls.map((url) => ({ name: 'document', url, uploadedAt: now })),
+      ...newDocuments,
     ];
 
     const loc = req.body?.location;

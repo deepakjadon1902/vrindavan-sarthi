@@ -1,4 +1,4 @@
-import { Hotel, BedDouble, Car, Map, ClipboardList, Clock, XCircle } from 'lucide-react';
+import { Hotel, BedDouble, Car, Map, ClipboardList, Clock, ShieldCheck, XCircle } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { Link } from 'react-router-dom';
@@ -10,6 +10,7 @@ import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 const PartnerDashboard = () => {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
+  const isApproved = user?.partnerStatus === 'approved';
   const { partnerBookings, fetchPartnerBookings } = useBookingStore();
   const [isLoading, setIsLoading] = useState(false);
   const [listings, setListings] = useState<{ hotels: any[]; cabs: any[]; tours: any[] }>({
@@ -19,12 +20,14 @@ const PartnerDashboard = () => {
   });
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !isApproved) return;
     const run = async () => {
       try {
         const cached = getSessionCache<{ hotels: any[]; cabs: any[]; tours: any[] }>('vvs_partner_my_listings_raw', 30_000);
-        if (cached && !listings.hotels.length && !listings.cabs.length && !listings.tours.length) {
-          setListings(cached);
+        if (cached) {
+          setListings((prev) => (
+            !prev.hotels.length && !prev.cabs.length && !prev.tours.length ? cached : prev
+          ));
         }
         setIsLoading(true);
         const res = await api.get('/partner/my-listings', { ...withAuth(token), params: { limit: 300 } });
@@ -44,12 +47,12 @@ const PartnerDashboard = () => {
 
     const unsub = subscribeAppEvent('listing:changed', () => void run());
     return unsub;
-  }, [token]);
+  }, [isApproved, token]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isApproved) return;
     void fetchPartnerBookings();
-  }, [fetchPartnerBookings, user]);
+  }, [fetchPartnerBookings, isApproved, user]);
 
   const allItems = useMemo(
     () => [...listings.hotels, ...listings.cabs, ...listings.tours],
@@ -67,6 +70,18 @@ const PartnerDashboard = () => {
           {user?.businessName ? `Business: ${user.businessName}` : 'Manage your listings from here'}
         </p>
       </div>
+
+      {!isApproved && (
+        <div className="bg-brand-saffron/10 border border-brand-saffron/30 rounded-xl p-4 flex items-start gap-3">
+          <ShieldCheck size={20} className="text-brand-saffron mt-0.5" />
+          <div>
+            <p className="font-body text-sm font-medium text-foreground">Partner verification is {user?.partnerStatus || 'pending'}</p>
+            <p className="font-body text-xs text-muted-foreground mt-1">
+              Admin must verify your business details and legal documents before listing hotels, inventory, or other properties.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-card rounded-xl p-5 border border-border">
