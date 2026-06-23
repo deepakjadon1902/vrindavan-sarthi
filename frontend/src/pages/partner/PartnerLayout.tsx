@@ -12,7 +12,6 @@ import { APP_LOGO_URL } from '@/lib/brand';
 const sidebarLinks = [
   { name: 'Dashboard', path: '/partner', icon: LayoutDashboard },
   { name: 'My Hotels', path: '/partner/hotels', icon: Hotel },
-  { name: 'My Cabs', path: '/partner/cabs', icon: Car },
   { name: 'Inventory', path: '/partner/inventory', icon: BedDouble },
   { name: 'My Listings', path: '/partner/listings', icon: ClipboardList },
   { name: 'Bookings', path: '/partner/bookings', icon: ClipboardList },
