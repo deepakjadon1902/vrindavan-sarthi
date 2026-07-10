@@ -1,7 +1,7 @@
 export const SITE_ORIGIN = 'https://vrindavansarthi.in';
 export const SITE_NAME = 'Vrindavan Sarthi';
 export const DEFAULT_DESCRIPTION =
-  'Book verified hotels, rooms, cabs, tours, and sacred products for a smooth Vrindavan pilgrimage.';
+  'Discover the best Vrindavan tour packages, temple darshan, taxi services, Mathura sightseeing, Govardhan Parikrama, Barsana tours, and customized Braj pilgrimage experiences with Vrindavan Sarthi.';
 export const DEFAULT_OG_IMAGE = '/vrindasarthi%20logo.jpeg';
 export const BRAND_PHONE = '+91 9876543210';
 export const BRAND_EMAIL = 'vrindavansarthi108@gmail.com';
@@ -39,7 +39,7 @@ export const stripHtml = (value?: string | null) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-export const truncate = (value: string, max = 155) => {
+export const truncate = (value: string, max = 220) => {
   const clean = stripHtml(value);
   if (clean.length <= max) return clean;
   const clipped = clean.slice(0, max - 1);
@@ -126,7 +126,7 @@ export const buildFaqJsonLd = (items: Array<{ question: string; answer: string }
 
 export const publicRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
   '/': {
-    title: 'Vrindavan Hotels, Rooms, Cabs, Tours and Sacred Shop',
+    title: 'Vrindavan Sarthi | Vrindavan Tour Packages, Taxi Service & Braj Darshan',
     description: DEFAULT_DESCRIPTION,
     image: '/backgrounds/hero-vrindavan.jpg',
   },
@@ -139,12 +139,12 @@ export const publicRouteMeta: Record<string, { title: string; description: strin
     description: 'Browse room types from verified Vrindavan hotels with transparent pricing, amenities, and booking options.',
   },
   '/cabs': {
-    title: 'Vrindavan Cab Booking',
-    description: 'Book reliable local and outstation cabs for Vrindavan, Mathura, Govardhan, Barsana, and nearby pilgrimage routes.',
+    title: 'Taxi Service in Vrindavan | Local, Outstation & Airport Transfers',
+    description: 'Book clean and reliable taxi services in Vrindavan for local sightseeing, airport transfers, temple visits, Mathura tours, and complete Braj travel.',
   },
   '/tours': {
-    title: 'Vrindavan Tour Packages',
-    description: 'Explore guided spiritual tour packages for Vrindavan temples, parikrama routes, Mathura, Gokul, Barsana, and Govardhan.',
+    title: 'Vrindavan Tour Packages | Spiritual & Braj Yatra Packages',
+    description: 'Explore affordable Vrindavan tour packages including Mathura, Govardhan, Barsana, Gokul, Nandgaon, temple darshan, and personalized Braj Yatra experiences.',
   },
   '/shop': {
     title: 'Sacred Vrindavan Shop',
@@ -155,22 +155,88 @@ export const publicRouteMeta: Record<string, { title: string; description: strin
     description: 'Track Vrindavan Sarthi shop orders using your tracking ID.',
   },
   '/about': {
-    title: 'About Vrindavan Sarthi',
-    description: 'Learn about Vrindavan Sarthi, your trusted companion for hotels, rooms, cabs, tours, and devotional shopping in Vrindavan.',
+    title: 'About Vrindavan Sarthi | Trusted Travel & Tourism Company',
+    description: 'Learn about Vrindavan Sarthi, your trusted travel partner for Vrindavan, Mathura, Govardhan, Barsana, Gokul, and Braj pilgrimage tours with reliable transportation and personalized service.',
   },
   '/contact': {
-    title: 'Contact Vrindavan Sarthi',
-    description: 'Contact Vrindavan Sarthi for pilgrimage support, bookings, partner listings, and customer service.',
+    title: 'Contact Vrindavan Sarthi | Book Tours & Taxi Services',
+    description: 'Contact Vrindavan Sarthi for tour bookings, taxi reservations, customized itineraries, temple darshan assistance, and travel support across the Braj region.',
   },
   '/terms': {
-    title: 'Terms of Service',
-    description: 'Read the Vrindavan Sarthi terms for bookings, payments, cancellations, partner listings, and platform use.',
+    title: 'Terms & Conditions | Vrindavan Sarthi',
+    description: 'Review the booking terms, cancellation policy, payment terms, and conditions of using Vrindavan Sarthi services.',
   },
   '/privacy': {
-    title: 'Privacy Policy',
-    description: 'Read how Vrindavan Sarthi collects, uses, protects, and shares personal information.',
+    title: 'Privacy Policy | Vrindavan Sarthi',
+    description: 'Read how Vrindavan Sarthi collects, stores, and protects your personal information.',
+  },
+  '/one-day-tour': {
+    title: 'One Day Vrindavan Tour Package | Same Day Braj Darshan',
+    description: 'Experience the best one-day Vrindavan and Mathura sightseeing tour with temples, local attractions, and comfortable transportation.',
+  },
+  '/mathura-tour': {
+    title: 'Mathura Tour Package | Shri Krishna Janmabhoomi & Sightseeing',
+    description: 'Visit Shri Krishna Janmabhoomi, Dwarkadhish Temple, Vishram Ghat, and other sacred destinations with guided Mathura tour packages.',
+  },
+  '/vrindavan-tour': {
+    title: 'Vrindavan Sightseeing Tour | Banke Bihari, ISKCON & Prem Mandir',
+    description: 'Discover the famous temples of Vrindavan including Banke Bihari Temple, Prem Mandir, ISKCON Temple, Radha Raman Temple, and more.',
+  },
+  '/govardhan-tour': {
+    title: 'Govardhan Parikrama Tour Package | Giriraj Darshan',
+    description: 'Plan your Govardhan Parikrama with comfortable transportation, temple visits, and customized pilgrimage services.',
+  },
+  '/barsana-tour': {
+    title: 'Barsana Tour Package | Radha Rani Temple Darshan',
+    description: 'Visit Radha Rani Temple, Kirti Mandir, and the sacred town of Barsana with professional travel services from Vrindavan Sarthi.',
+  },
+  '/gokul-tour': {
+    title: 'Gokul Tour Package | Krishna Childhood Places',
+    description: "Explore Gokul, Raman Reti, Chintaharan Temple, and other sacred destinations associated with Lord Krishna's childhood.",
+  },
+  '/nandgaon-tour': {
+    title: 'Nandgaon Tour Package | Nand Bhawan & Braj Darshan',
+    description: 'Experience the spiritual heritage of Nandgaon with guided tours and comfortable transportation.',
+  },
+  '/blogs': {
+    title: 'Vrindavan Travel Blog | Pilgrimage Tips & Travel Guides',
+    description: 'Read travel guides, temple information, Braj pilgrimage tips, local attractions, festivals, and travel recommendations.',
+  },
+  '/faq': {
+    title: 'Frequently Asked Questions | Vrindavan Sarthi',
+    description: 'Find answers to common questions about bookings, taxi services, tour packages, cancellations, and travel planning.',
+  },
+  '/refund-policy': {
+    title: 'Refund Policy | Vrindavan Sarthi',
+    description: 'Learn about refunds, cancellations, booking modifications, and applicable refund timelines.',
+  },
+  '/careers': {
+    title: 'Careers at Vrindavan Sarthi | Join Our Team',
+    description: 'Explore career opportunities with Vrindavan Sarthi in tourism, customer service, operations, and travel management.',
+  },
+  '/gallery': {
+    title: 'Vrindavan Travel Gallery | Tour Photos & Braj Attractions',
+    description: 'Explore beautiful photos of temples, pilgrimage sites, tour experiences, and attractions across Vrindavan and Braj.',
+  },
+  '/testimonials': {
+    title: 'Customer Reviews | Vrindavan Sarthi',
+    description: 'Read genuine customer reviews and experiences from travelers who explored Braj with Vrindavan Sarthi.',
   },
 };
+
+export const indexablePublicPaths = new Set([
+  '/',
+  '/hotels',
+  '/rooms',
+  '/cabs',
+  '/tours',
+  '/shop',
+  '/track-order',
+  '/about',
+  '/contact',
+  '/terms',
+  '/privacy',
+]);
 
 export const noIndexRoutePrefixes = [
   '/admin',
@@ -208,5 +274,8 @@ export const getRouteMeta = (pathname: string) => {
   if (path.startsWith('/shop/')) {
     return { title: 'Vrindavan Product Details', description: 'View product details, price, availability, and ordering options from the Vrindavan Sarthi shop.' };
   }
-  return { title: 'Page Not Found', description: 'The requested Vrindavan Sarthi page could not be found.' };
+  return {
+    title: 'Page Not Found | Vrindavan Sarthi',
+    description: "The page you're looking for doesn't exist. Explore our tour packages, taxi services, and travel guides instead.",
+  };
 };

@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
 import SEO from '@/components/SEO';
-import { buildFaqJsonLd, getRouteMeta, isNoIndexPath, normalizePathname, publicRouteMeta } from '@/lib/seo';
+import { buildFaqJsonLd, getRouteMeta, indexablePublicPaths, isNoIndexPath, normalizePathname } from '@/lib/seo';
 
 const faqJsonLd = buildFaqJsonLd([
   {
@@ -17,7 +17,7 @@ const RouteSEO = () => {
   const location = useLocation();
   const path = normalizePathname(location.pathname);
   const meta = getRouteMeta(path);
-  const noindex = isNoIndexPath(path) || !publicRouteMeta[path] && !/^\/(hotels|room-types|cabs|tours|shop)\/[^/]+$/.test(path);
+  const noindex = isNoIndexPath(path) || !indexablePublicPaths.has(path) && !/^\/(hotels|room-types|cabs|tours|shop)\/[^/]+$/.test(path);
 
   return (
     <SEO
