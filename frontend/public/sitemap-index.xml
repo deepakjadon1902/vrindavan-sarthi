@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
-    <loc>https://vrindavansarthi.in/api/seo/sitemap-pages.xml</loc>
+    <loc>https://vrindavansarthi.in/sitemap-pages.xml</loc>
   </sitemap>
   <sitemap>
-    <loc>https://vrindavansarthi.in/api/seo/sitemap-products.xml</loc>
+    <loc>https://vrindavansarthi.in/sitemap-products.xml</loc>
   </sitemap>
   <sitemap>
-    <loc>https://vrindavansarthi.in/api/seo/sitemap-tours.xml</loc>
+    <loc>https://vrindavansarthi.in/sitemap-tours.xml</loc>
   </sitemap>
   <sitemap>
-    <loc>https://vrindavansarthi.in/api/seo/sitemap-images.xml</loc>
+    <loc>https://vrindavansarthi.in/sitemap-images.xml</loc>
   </sitemap>
 </sitemapindex>
