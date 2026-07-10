@@ -18,4 +18,4 @@ Disallow: /*?adminView=
 Disallow: /*?token=
 Disallow: /*?redirect=
 
-Sitemap: https://vrindavansarthi.in/sitemap-index.xml
+Sitemap: https://vrindavansarthi.in/sitemap.xml
