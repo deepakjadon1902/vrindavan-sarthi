@@ -424,6 +424,8 @@ import ImageCarousel from '@/components/shared/ImageCarousel';
 import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail, prefetchDetail } from '@/lib/detailCache';
+import SEO from '@/components/SEO';
+import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 
 type Hotel = {
   _id: string;
@@ -594,6 +596,38 @@ const HotelDetail = () => {
   };
 
   const mapEmbedSrc = getGoogleMapEmbedSrc(hotel?.googleMapLink);
+  const hotelDescription = truncate(hotel?.description || `${hotel?.name || 'Verified hotel'} in ${hotel?.location || 'Vrindavan'} with room booking support from Vrindavan Sarthi.`);
+  const hotelJsonLd = hotel ? {
+    '@context': 'https://schema.org',
+    '@type': 'LodgingBusiness',
+    '@id': `${absoluteUrl(`/hotels/${hotel._id}`)}#hotel`,
+    name: hotel.name,
+    description: hotelDescription,
+    url: absoluteUrl(`/hotels/${hotel._id}`),
+    image: allImages.map(absoluteAssetUrl).filter(Boolean),
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: hotel.location || hotel.nearestTemple || 'Vrindavan',
+      addressLocality: 'Vrindavan',
+      addressRegion: 'Uttar Pradesh',
+      addressCountry: 'IN',
+    },
+    amenityFeature: (hotel.amenities || []).map((amenity) => ({
+      '@type': 'LocationFeatureSpecification',
+      name: amenity,
+      value: true,
+    })),
+    checkinTime: hotel.checkInTime || '12:00',
+    checkoutTime: hotel.checkOutTime || '11:00',
+    petsAllowed: Boolean(hotel.petsAllowed),
+    aggregateRating: hotel.rating
+      ? {
+        '@type': 'AggregateRating',
+        ratingValue: Number(hotel.rating),
+        reviewCount: Math.max(1, Number(hotel.reviewCount || 1)),
+      }
+      : undefined,
+  } : undefined;
 
   if (!isLoading && !hotel) {
     return (
@@ -608,6 +642,15 @@ const HotelDetail = () => {
 
   return (
     <div className="pt-20 pb-16 min-h-screen bg-background">
+      {hotel && (
+        <SEO
+          title={`${hotel.name} Hotel in ${hotel.location || 'Vrindavan'}`}
+          description={hotelDescription}
+          image={allImages[0]}
+          canonicalPath={`/hotels/${hotel._id}`}
+          jsonLd={hotelJsonLd}
+        />
+      )}
       <div className="container mx-auto px-4 max-w-6xl">
 
         {/* ── Back Button ── */}

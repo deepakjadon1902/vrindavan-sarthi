@@ -8,6 +8,8 @@ import UpiPayment from '@/components/UpiPayment';
 import ImageCarousel from '@/components/shared/ImageCarousel';
 import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
+import SEO from '@/components/SEO';
+import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 
 const TourDetail = () => {
   const { id } = useParams();
@@ -94,9 +96,45 @@ const TourDetail = () => {
   };
 
   const allImages = [tour.image, ...(tour.images || [])].filter(Boolean);
+  const tourDescription = truncate(tour.description || `${tour.name} guided Vrindavan tour package with booking support from Vrindavan Sarthi.`);
+  const tourJsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Service',
+      '@id': `${absoluteUrl(`/tours/${tour._id}`)}#service`,
+      name: tour.name,
+      description: tourDescription,
+      image: allImages.map(absoluteAssetUrl).filter(Boolean),
+      provider: { '@type': 'Organization', name: 'Vrindavan Sarthi', url: absoluteUrl('/') },
+      areaServed: ['Vrindavan', 'Mathura', 'Uttar Pradesh'],
+      serviceType: 'Guided spiritual tour package',
+      offers: {
+        '@type': 'Offer',
+        url: absoluteUrl(`/tours/${tour._id}`),
+        priceCurrency: 'INR',
+        price: Number(tour.pricePerPerson || 0),
+        availability: 'https://schema.org/InStock',
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'TouristTrip',
+      name: tour.name,
+      description: tourDescription,
+      itinerary: tour.itinerary || tour.highlights?.join(', ') || undefined,
+      touristType: 'Pilgrims and devotional travelers',
+    },
+  ];
 
   return (
     <div className="pt-20 pb-16 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
+      <SEO
+        title={`${tour.name} Tour Package`}
+        description={tourDescription}
+        image={allImages[0]}
+        canonicalPath={`/tours/${tour._id}`}
+        jsonLd={tourJsonLd}
+      />
       <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-saffron/20 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 -left-24 w-80 h-80 rounded-full bg-brand-crimson/15 blur-3xl" />
 

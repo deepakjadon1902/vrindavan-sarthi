@@ -8,6 +8,8 @@ import ImageCarousel from '@/components/shared/ImageCarousel';
 import UpiPayment from '@/components/UpiPayment';
 import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
+import SEO from '@/components/SEO';
+import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 
 const CabDetail = () => {
   const { id } = useParams();
@@ -140,9 +142,34 @@ const CabDetail = () => {
   const checkoutTotal = typeof fare === 'number' ? fare + convenienceFee : 0;
   const advanceAmount = checkoutTotal > 0 ? Math.round(checkoutTotal * 0.3) : 0;
   const balanceAmount = checkoutTotal > 0 ? Math.max(0, checkoutTotal - advanceAmount) : 0;
+  const cabDescription = truncate(cab.description || `${cab.vehicleName} ${cab.vehicleType} cab booking for Vrindavan and nearby pilgrimage routes.`);
+  const cabJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    '@id': `${absoluteUrl(`/cabs/${cab._id}`)}#service`,
+    name: `${cab.vehicleName} Cab Booking`,
+    description: cabDescription,
+    image: allImages.map(absoluteAssetUrl).filter(Boolean),
+    provider: { '@type': 'Organization', name: 'Vrindavan Sarthi', url: absoluteUrl('/') },
+    areaServed: cab.routes?.length ? cab.routes : ['Vrindavan', 'Mathura'],
+    serviceType: 'Cab booking',
+    offers: {
+      '@type': 'Offer',
+      url: absoluteUrl(`/cabs/${cab._id}`),
+      priceCurrency: 'INR',
+      availability: 'https://schema.org/InStock',
+    },
+  };
 
   return (
     <div className="pt-20 pb-16 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
+      <SEO
+        title={`${cab.vehicleName} Cab Booking in Vrindavan`}
+        description={cabDescription}
+        image={allImages[0]}
+        canonicalPath={`/cabs/${cab._id}`}
+        jsonLd={cabJsonLd}
+      />
       <div className="pointer-events-none absolute -top-20 -left-20 w-72 h-72 rounded-full bg-brand-gold/20 blur-3xl" />
       <div className="pointer-events-none absolute bottom-1/4 -right-24 w-80 h-80 rounded-full bg-brand-green/15 blur-3xl" />
 

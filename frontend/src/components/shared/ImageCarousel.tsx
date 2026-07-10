@@ -71,6 +71,10 @@ const ImageCarousel = ({
             key={i}
             src={src}
             alt={`${alt} ${i + 1}`}
+            width={1200}
+            height={800}
+            loading={i === 0 ? 'eager' : 'lazy'}
+            decoding="async"
             className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out ${
               i === active ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
             }`}
@@ -148,7 +152,7 @@ const ImageCarousel = ({
                 i === active ? 'ring-2 ring-brand-gold scale-105' : 'opacity-70 hover:opacity-100'
               }`}
             >
-              <img src={src} alt="" className="w-full h-full object-cover" />
+              <img src={src} alt="" width={160} height={128} loading="lazy" decoding="async" className="w-full h-full object-cover" />
             </button>
           ))}
         </div>

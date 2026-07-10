@@ -1,4 +1,21 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /partner
+Disallow: /partner/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /auth/
+Disallow: /profile
+Disallow: /bookings
+Disallow: /my-orders
+Disallow: /api/
+Disallow: /uploads/
+Disallow: /*?adminView=
+Disallow: /*?token=
+Disallow: /*?redirect=
 
-Sitemap: https://vrindavansarthi.in/sitemap.xml
+Sitemap: https://vrindavansarthi.in/sitemap-index.xml

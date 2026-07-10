@@ -689,6 +689,8 @@ import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import { useSettingsStore } from '@/store/settingsStore';
+import SEO from '@/components/SEO';
+import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 
 const RoomTypeDetail = () => {
   const { id } = useParams();
@@ -951,12 +953,58 @@ const RoomTypeDetail = () => {
   };
 
   const images = Array.isArray(roomType.images) && roomType.images.length ? roomType.images : [hotel.image, ...(hotel.images || [])].filter(Boolean);
+  const roomDescription = truncate(roomType.description || `${roomType.name} at ${hotel.name}, ${hotel.location || 'Vrindavan'}, with verified booking on Vrindavan Sarthi.`);
+  const roomJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'HotelRoom',
+    '@id': `${absoluteUrl(`/room-types/${roomType._id}`)}#room`,
+    name: roomType.name,
+    description: roomDescription,
+    url: absoluteUrl(`/room-types/${roomType._id}`),
+    image: images.map(absoluteAssetUrl).filter(Boolean),
+    containedInPlace: {
+      '@type': 'LodgingBusiness',
+      name: hotel.name,
+      url: absoluteUrl(`/hotels/${hotel._id}`),
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: hotel.location || hotel.nearestTemple || 'Vrindavan',
+        addressLocality: 'Vrindavan',
+        addressRegion: 'Uttar Pradesh',
+        addressCountry: 'IN',
+      },
+    },
+    occupancy: {
+      '@type': 'QuantitativeValue',
+      maxValue: maxAdults + maxChildren,
+    },
+    amenityFeature: (roomType.amenities || []).map((amenity: string) => ({
+      '@type': 'LocationFeatureSpecification',
+      name: amenity,
+      value: true,
+    })),
+    petsAllowed: Boolean(canPet),
+    offers: {
+      '@type': 'Offer',
+      url: absoluteUrl(`/room-types/${roomType._id}`),
+      priceCurrency: 'INR',
+      price: Number(roomType.pricePerNight || 0),
+      availability: isFullyBookedSelectedDates ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+    },
+  };
 
   // ── Shared input style ──────────────────────────────────────────────────────
   const inputCls = "w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-400";
 
   return (
     <div className="min-h-screen pt-20 pb-16" style={{ background: '#f5f0e6' }}>
+      <SEO
+        title={`${roomType.name} at ${hotel.name}`}
+        description={roomDescription}
+        image={images[0]}
+        canonicalPath={`/room-types/${roomType._id}`}
+        jsonLd={roomJsonLd}
+      />
       <div className="container mx-auto px-4 max-w-6xl">
 
         {/* Back button */}

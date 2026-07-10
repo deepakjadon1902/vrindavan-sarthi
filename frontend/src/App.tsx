@@ -11,6 +11,8 @@ import PartnerRoute from "@/router/PartnerRoute";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useAuthStore } from "@/store/authStore";
 import ScrollToTop from "@/components/ScrollToTop";
+import RouteSEO from "@/components/RouteSEO";
+import SEOBreadcrumbs from "@/components/SEOBreadcrumbs";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Hotels = lazy(() => import("@/pages/Hotels"));
@@ -107,6 +109,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="braj-page">
       <Navbar />
+      <SEOBreadcrumbs />
       <main>{children}</main>
       <Footer />
     </div>
@@ -125,6 +128,7 @@ const App = () => {
       <TooltipProvider>
         <Sonner />
         <BrowserRouter>
+          <RouteSEO />
           <ScrollToTop />
           <Suspense fallback={<div className="pt-24 pb-16 text-center font-body text-muted-foreground">Loading…</div>}>
             <Routes>

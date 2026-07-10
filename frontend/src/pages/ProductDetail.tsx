@@ -8,6 +8,8 @@ import UpiPayment from '@/components/UpiPayment';
 import AddressForm, { type AddressFormValue } from '@/components/AddressForm';
 import { getPrefetchedDetail } from '@/lib/detailCache';
 import { resolveBackendAssetUrl } from '@/lib/api';
+import SEO from '@/components/SEO';
+import { absoluteUrl, truncate } from '@/lib/seo';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -86,6 +88,24 @@ const ProductDetail = () => {
   const productImages = product.images.map((img) => resolveBackendAssetUrl(img)).filter(Boolean);
   const selectedProductImage = productImages[selectedImage] || '/placeholder.svg';
   const total = product.price * quantity;
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    '@id': `${absoluteUrl(`/shop/${product.id}`)}#product`,
+    name: product.name,
+    description: truncate(product.description || `${product.name} from Vrindavan Sarthi shop.`),
+    image: productImages.length ? productImages : [absoluteUrl('/placeholder.svg')],
+    category: product.category,
+    brand: { '@type': 'Brand', name: 'Vrindavan Sarthi' },
+    offers: {
+      '@type': 'Offer',
+      url: absoluteUrl(`/shop/${product.id}`),
+      priceCurrency: 'INR',
+      price: product.price,
+      availability: product.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
+    },
+  };
 
   const formatShippingAddress = (a: AddressFormValue) => {
     const city = a.city === 'Other' ? (a.cityOther || '').trim() : a.city.trim();
@@ -174,6 +194,14 @@ const ProductDetail = () => {
 
   return (
     <div className="pt-20 pb-16 min-h-screen bg-background">
+      <SEO
+        title={`${product.name} - ${product.category}`}
+        description={truncate(product.description || `Buy ${product.name} from the Vrindavan Sarthi sacred shop.`)}
+        image={productImages[0]}
+        canonicalPath={`/shop/${product.id}`}
+        type="product"
+        jsonLd={productJsonLd}
+      />
       <div className="container mx-auto px-4 max-w-6xl">
         <button
           onClick={() => navigate(-1)}
