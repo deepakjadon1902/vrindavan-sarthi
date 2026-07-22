@@ -34,6 +34,10 @@ const orderSchema = new mongoose.Schema({
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
   orderStatus: { type: String, enum: ['pending', 'processing', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
   upiTransactionId: String,
+  invoiceSentAt: Date,
+  cancellationReason: String,
+  cancelledByRole: { type: String, enum: ['user', 'admin'], default: null },
+  cancelledAt: Date,
 }, { timestamps: true });
 
 const generate5DigitTrackingId = () => String(Math.floor(10000 + Math.random() * 90000));

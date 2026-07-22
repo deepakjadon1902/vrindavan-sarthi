@@ -330,7 +330,23 @@ router.get('/notices', protect, authorize('partner'), async (req, res) => {
 
 router.get('/notifications', protect, authorize('partner'), async (req, res) => {
   try {
-    const notifications = await PartnerNotification.find({ type: 'notification', audience: 'all_partners' })
+    const notifications = await PartnerNotification.find({
+      type: 'notification',
+      $or: [
+        { audience: 'all_partners' },
+        { audience: 'partner', partnerId: req.user._id },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json({ success: true, data: notifications });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+router.get('/admin-notifications', protect, authorize('admin'), async (req, res) => {
+  try {
+    const notifications = await PartnerNotification.find({ type: 'notification', audience: 'admin' })
       .sort({ createdAt: -1 })
       .limit(100)
       .lean();

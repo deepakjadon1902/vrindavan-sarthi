@@ -8,6 +8,7 @@ const compression = require('compression');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const { seedAdminOnce } = require('./config/seedAdmin');
+const { seedToursOnce } = require('./config/seedTours');
 const { ensureIndexesOnce } = require('./config/ensureIndexes');
 const { requestTiming } = require('./middleware/requestTiming');
 
@@ -40,6 +41,7 @@ const trySeedAdmin = async () => {
   adminSeedTriggered = true;
   try {
     await seedAdminOnce();
+    await seedToursOnce();
   } catch (err) {
     console.error('Admin seed failed:', err?.message || err);
   }

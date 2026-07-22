@@ -14,6 +14,7 @@ const ManageBookings = () => {
     isLoading,
     verifyPayment,
     rejectPayment,
+    adminCancelBooking,
   } = useBookingStore();
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'completed' | 'pending'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'room_type' | 'cab' | 'tour'>('all');
@@ -22,6 +23,8 @@ const ManageBookings = () => {
   const [cabs, setCabs] = useState<any[]>([]);
   const [selectedCabId, setSelectedCabId] = useState<string>('');
   const [expandedBookingId, setExpandedBookingId] = useState<string>('');
+  const [cancelBookingId, setCancelBookingId] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     void fetchAllBookings();
@@ -84,6 +87,18 @@ const ManageBookings = () => {
     const res = await rejectPayment(id);
     if (res.success) toast.success('Payment rejected');
     else toast.error(res.error || 'Reject failed');
+  };
+
+  const handleAdminCancel = async () => {
+    if (!cancelBookingId || !cancelReason.trim()) return toast.error('Cancellation reason is required');
+    const res = await adminCancelBooking(cancelBookingId, cancelReason.trim());
+    if (res.success) {
+      toast.success('Booking cancelled and user notified');
+      setCancelBookingId('');
+      setCancelReason('');
+    } else {
+      toast.error(res.error || 'Cancel failed');
+    }
   };
 
   const openAssign = async (bookingId: string) => {
@@ -184,6 +199,25 @@ const ManageBookings = () => {
               </div>
             </div>
           )}
+          {cancelBookingId && (
+            <div className="p-4 border-b border-border bg-destructive/5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                <div className="font-body text-sm font-medium text-foreground">Cancel booking with reason</div>
+                <input
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Enter reason sent to customer"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 font-body text-sm"
+                />
+                <button onClick={handleAdminCancel} className="rounded-lg bg-destructive px-3 py-2 font-body text-xs text-primary-foreground">
+                  Confirm Cancel
+                </button>
+                <button onClick={() => { setCancelBookingId(''); setCancelReason(''); }} className="rounded-lg border border-border px-3 py-2 font-body text-xs">
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/50">
@@ -267,6 +301,17 @@ const ManageBookings = () => {
                       )
                     ) : (
                       <span className="font-body text-[11px] text-muted-foreground">-</span>
+                    )}
+                    {b.bookingStatus !== 'cancelled' && (
+                      <button
+                        onClick={() => {
+                          setCancelBookingId(b.id);
+                          setCancelReason('');
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-body bg-destructive/10 text-destructive hover:bg-destructive/15"
+                      >
+                        Cancel
+                      </button>
                     )}
                     </div>
                   </td>

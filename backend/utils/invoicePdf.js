@@ -4,13 +4,21 @@ const escapePdfText = (value) =>
     .replace(/\(/g, '\\(')
     .replace(/\)/g, '\\)');
 
-const buildPdf = ({ title = 'Vrindavan Sarthi Invoice', lines = [] } = {}) => {
-  const safeLines = [title, '', ...lines].map(escapePdfText);
+const buildPdf = ({ title = 'Vrindavan Sarthi Invoice', lines = [], sections = [] } = {}) => {
+  const sectionLines = (Array.isArray(sections) ? sections : []).flatMap((section) => {
+    const rows = Array.isArray(section?.rows) ? section.rows : [];
+    return [
+      '',
+      String(section?.title || ''),
+      ...rows.map(([label, value]) => `${label}: ${value}`),
+    ].filter(Boolean);
+  });
+  const safeLines = [title, 'Vrindavan Sarthi', 'Thank you for choosing us.', '', ...lines, ...sectionLines].map(escapePdfText);
   const content = [
     'BT',
-    '/F1 14 Tf',
+    '/F1 12 Tf',
     '50 780 Td',
-    ...safeLines.map((line, index) => `${index === 0 ? '' : '0 -22 Td'}(${line}) Tj`),
+    ...safeLines.slice(0, 34).map((line, index) => `${index === 0 ? '' : '0 -20 Td'}(${line}) Tj`),
     'ET',
   ].join('\n');
 

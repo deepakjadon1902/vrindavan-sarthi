@@ -1,6 +1,12 @@
 const express = require('express');
 const Order = require('../models/Order');
 const { protect, authorize } = require('../middleware/auth');
+const { enqueueJob } = require('../utils/jobQueue');
+const {
+  notifyOrderCreated,
+  sendOrderInvoice,
+  sendOrderCancellationEmail,
+} = require('../utils/customerMessages');
 const router = express.Router();
 
 const allowedStatuses = ['pending', 'processing', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
@@ -147,6 +153,10 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
               'paymentStatus',
               'orderStatus',
               'upiTransactionId',
+              'invoiceSentAt',
+              'cancellationReason',
+              'cancelledByRole',
+              'cancelledAt',
               'createdAt',
               'updatedAt',
             ]
@@ -168,7 +178,14 @@ router.post('/', protect, async (req, res) => {
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
         // eslint-disable-next-line no-await-in-loop
-        const order = await Order.create({ ...req.body, userId: req.user._id });
+        const order = await Order.create({
+          ...req.body,
+          userId: req.user._id,
+          userName: clean(req.body?.userName) || req.user.name,
+          userEmail: clean(req.body?.userEmail) || req.user.email,
+          userPhone: clean(req.body?.userPhone) || req.user.phone,
+        });
+        notifyOrderCreated(order);
         return res.status(201).json({ success: true, data: order });
       } catch (err) {
         const isDup = err && err.code === 11000 && err.keyPattern && err.keyPattern.trackingId;
@@ -195,6 +212,10 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
       createdAt: new Date(),
     });
     await order.save();
+    enqueueJob(`order-invoice:${order.orderId}`, async () => {
+      await sendOrderInvoice(order);
+      await Order.updateOne({ _id: order._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
+    });
     res.json({ success: true, data: order });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -205,14 +226,40 @@ router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
     if (!order) return res.status(404).json({ success: false, message: 'Not found' });
     order.paymentStatus = 'failed';
     order.orderStatus = 'cancelled';
+    order.cancellationReason = clean(req.body?.reason || req.body?.note) || 'Payment rejected and order cancelled';
+    order.cancelledByRole = 'admin';
+    order.cancelledAt = new Date();
     order.statusHistory.push({
       status: 'cancelled',
-      note: clean(req.body?.note) || 'Payment rejected and order cancelled',
+      note: order.cancellationReason,
       updatedByName: req.user?.name || 'Admin',
       createdAt: new Date(),
     });
     await order.save();
+    enqueueJob(`order-cancel-email:${order.orderId}:${Date.now()}`, () => sendOrderCancellationEmail(order, order.cancellationReason));
     res.json({ success: true, data: order });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+router.put('/:id/cancel', protect, authorize('admin'), async (req, res) => {
+  try {
+    const reason = clean(req.body?.reason || req.body?.cancellationReason);
+    if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'Not found' });
+    order.orderStatus = 'cancelled';
+    order.cancellationReason = reason;
+    order.cancelledByRole = 'admin';
+    order.cancelledAt = new Date();
+    order.statusHistory.push({
+      status: 'cancelled',
+      note: reason,
+      updatedByName: req.user?.name || 'Admin',
+      createdAt: new Date(),
+    });
+    await order.save();
+    enqueueJob(`order-cancel-email:${order.orderId}:${Date.now()}`, () => sendOrderCancellationEmail(order, reason));
+    res.json({ success: true, data: order, message: 'Order cancelled and customer notified.' });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

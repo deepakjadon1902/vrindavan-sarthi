@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Users, CheckCircle, Sparkles, MapPin } from 'lucide-react';
+import { ArrowLeft, Car, Clock, Users, CheckCircle, Sparkles, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
@@ -154,9 +154,20 @@ const TourDetail = () => {
               <div className="flex flex-wrap items-center gap-4 mt-3">
                 <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><Clock size={15} className="text-brand-crimson" /> {tour.duration}</span>
                 <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><Users size={15} className="text-brand-gold" /> Max {tour.groupSize}</span>
+                {tour.cabType && <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><Car size={15} className="text-brand-saffron" /> {tour.cabType}</span>}
                 {tour.startPoint && <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><MapPin size={15} className="text-brand-green" /> {tour.startPoint}</span>}
               </div>
             </div>
+            {tour.placesCovered?.length > 0 && (
+              <div className="glass-panel rounded-2xl p-6">
+                <h3 className="font-display text-xl font-semibold text-foreground mb-3">Places Covered</h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {tour.placesCovered.map((place: string) => (
+                    <span key={place} className="rounded-lg border border-brand-gold/20 bg-background/70 px-3 py-2 font-body text-sm text-foreground">{place}</span>
+                  ))}
+                </div>
+              </div>
+            )}
             {tour.description && (
               <div className="glass-panel rounded-2xl p-6">
                 <h3 className="font-display text-xl font-semibold text-foreground mb-3">About this Tour</h3>

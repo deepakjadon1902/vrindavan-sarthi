@@ -46,6 +46,10 @@ export interface Order {
   paymentStatus: 'pending' | 'paid' | 'failed';
   orderStatus: 'pending' | 'processing' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
   upiTransactionId?: string;
+  invoiceSentAt?: string;
+  cancellationReason?: string;
+  cancelledByRole?: 'user' | 'admin';
+  cancelledAt?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -145,6 +149,10 @@ const normalizeOrder = (o: unknown): Order => {
     paymentStatus,
     orderStatus,
     upiTransactionId: getString(obj, 'upiTransactionId') || undefined,
+    invoiceSentAt: getString(obj, 'invoiceSentAt') || undefined,
+    cancellationReason: getString(obj, 'cancellationReason') || undefined,
+    cancelledByRole: (getString(obj, 'cancelledByRole') as Order['cancelledByRole']) || undefined,
+    cancelledAt: getString(obj, 'cancelledAt') || undefined,
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
     updatedAt: getString(obj, 'updatedAt') || undefined,
   };
@@ -181,6 +189,7 @@ interface ProductState {
   trackOrderById: (trackingId: string) => Promise<{ success: boolean; data?: Order; error?: string }>;
   verifyOrderPayment: (id: string) => Promise<{ success: boolean; error?: string }>;
   rejectOrderPayment: (id: string) => Promise<{ success: boolean; error?: string }>;
+  cancelOrder: (id: string, reason: string) => Promise<{ success: boolean; error?: string }>;
   updateOrderStatus: (id: string, status: Order['orderStatus']) => Promise<{ success: boolean; error?: string }>;
   updateOrderTracking: (id: string, data: Partial<Pick<Order, 'orderStatus' | 'courierName' | 'awbNumber' | 'trackingUrl' | 'trackingNotes'>>) => Promise<{ success: boolean; error?: string }>;
 }
@@ -352,6 +361,23 @@ export const useProductStore = create<ProductState>()((set, get) => ({
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Reject failed') };
+    }
+  },
+
+  cancelOrder: async (id, reason) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/orders/${id}/cancel`, { reason }, withAuth(token));
+      const updated = normalizeOrder(res.data?.data);
+      set((state) => ({
+        adminOrders: state.adminOrders.map((o) => (o.id === id ? updated : o)),
+        myOrders: state.myOrders.map((o) => (o.id === id ? updated : o)),
+        trackedOrder: state.trackedOrder?.id === id ? updated : state.trackedOrder,
+      }));
+      return { success: true };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Cancel failed') };
     }
   },
 

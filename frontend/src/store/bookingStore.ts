@@ -208,6 +208,7 @@ interface BookingState {
   createRoomTypeBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   createCabBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   cancelBooking: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  adminCancelBooking: (id: string, reason: string) => Promise<{ success: boolean; error?: string }>;
   submitPayment: (id: string, upiTransactionId: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   verifyPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   rejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
@@ -331,6 +332,23 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
         myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
         partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
         adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Cancel failed') };
+    }
+  },
+
+  adminCancelBooking: async (id, reason) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/cancel`, { reason }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
       }));
       return { success: true };
     } catch (err: unknown) {

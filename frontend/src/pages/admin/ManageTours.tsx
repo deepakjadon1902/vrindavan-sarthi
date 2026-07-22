@@ -21,6 +21,10 @@ interface Tour {
   includes?: string[];
   excludes?: string[];
   highlights?: string[];
+  placesCovered?: string[];
+  destination?: string;
+  cabType?: string;
+  durationDays?: number;
   status: 'active' | 'inactive';
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   partnerName?: string;
@@ -43,6 +47,10 @@ const ManageTours = () => {
     groupSize: '10',
     startPoint: '',
     endPoint: '',
+    destination: '',
+    cabType: '',
+    durationDays: '1',
+    placesCovered: '',
     status: 'active' as Tour['status'],
     description: '',
     itinerary: '',
@@ -79,6 +87,10 @@ const ManageTours = () => {
       groupSize: '10',
       startPoint: '',
       endPoint: '',
+      destination: '',
+      cabType: '',
+      durationDays: '1',
+      placesCovered: '',
       status: 'active',
       description: '',
       itinerary: '',
@@ -112,6 +124,10 @@ const ManageTours = () => {
       groupSize: String(item.groupSize ?? 10),
       startPoint: item.startPoint || '',
       endPoint: item.endPoint || '',
+      destination: item.destination || '',
+      cabType: item.cabType || '',
+      durationDays: String(item.durationDays ?? 1),
+      placesCovered: (item.placesCovered || []).join('\n'),
       status: item.status || 'active',
       description: item.description || '',
       itinerary: item.itinerary || '',
@@ -141,6 +157,9 @@ const ManageTours = () => {
       groupSize: Number(form.groupSize || 10),
       startPoint: form.startPoint,
       endPoint: form.endPoint,
+      destination: form.destination,
+      cabType: form.cabType,
+      durationDays: Number(form.durationDays || 1),
       image: form.image || '/placeholder.svg',
       description: form.description,
       itinerary: form.itinerary,
@@ -154,6 +173,10 @@ const ManageTours = () => {
         .filter(Boolean),
       highlights: form.highlights
         .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean),
+      placesCovered: form.placesCovered
+        .split('\n')
         .map((x) => x.trim())
         .filter(Boolean),
       status: form.status,
@@ -321,6 +344,37 @@ const ManageTours = () => {
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 />
               </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Destination</label>
+                <input
+                  type="text"
+                  value={form.destination}
+                  onChange={(e) => setForm({ ...form, destination: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="Govardhan, Mathura, Braj Mandal"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Cab Type</label>
+                <input
+                  type="text"
+                  value={form.cabType}
+                  onChange={(e) => setForm({ ...form, cabType: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="Sedan / SUV"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Duration Days</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="3"
+                  value={form.durationDays}
+                  onChange={(e) => setForm({ ...form, durationDays: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -364,6 +418,17 @@ const ManageTours = () => {
                 value={form.excludes}
                 onChange={(e) => setForm({ ...form, excludes: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+              />
+            </div>
+
+            <div>
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Places Covered (one per line)</label>
+              <textarea
+                rows={5}
+                value={form.placesCovered}
+                onChange={(e) => setForm({ ...form, placesCovered: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none"
+                placeholder={'दानघाटी मंदिर\nश्रीनाथ जी\nमानसी गंगा'}
               />
             </div>
 
@@ -419,7 +484,8 @@ const ManageTours = () => {
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Image</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Name</th>
-                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">Duration</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">Destination</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Duration</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">₹/Person</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Status</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Listed By</th>
@@ -441,7 +507,8 @@ const ManageTours = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{item.name}</td>
-                  <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{item.duration}</td>
+                  <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{item.destination || '-'}</td>
+                  <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden md:table-cell">{item.duration}</td>
                   <td className="px-4 py-3 font-body text-sm text-foreground">₹{item.pricePerPerson}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     <span

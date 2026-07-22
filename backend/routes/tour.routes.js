@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select(withImages ? 'name duration pricePerPerson image images includes status createdAt' : 'name duration pricePerPerson includes status createdAt');
+      .select(withImages ? 'name duration durationDays destination cabType pricePerPerson image images includes placesCovered status createdAt' : 'name duration durationDays destination cabType pricePerPerson includes placesCovered status createdAt');
 
     if (withImages) q.slice('images', 1);
 
@@ -68,7 +68,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
     const tours = await Tour.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select('name duration pricePerPerson groupSize startPoint endPoint image images description itinerary includes excludes highlights status partnerId partnerName partnerEmail partnerPhone businessName partnerSubmitted approvalStatus adminRemarks createdAt updatedAt')
+      .select('name duration durationDays destination cabType placesCovered pricePerPerson groupSize startPoint endPoint image images description itinerary includes excludes highlights status partnerId partnerName partnerEmail partnerPhone businessName partnerSubmitted approvalStatus adminRemarks createdAt updatedAt')
       .lean();
 
     for (const t of tours) {

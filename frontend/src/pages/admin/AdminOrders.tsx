@@ -13,6 +13,7 @@ const AdminOrders = () => {
     fetchAllOrders,
     verifyOrderPayment,
     rejectOrderPayment,
+    cancelOrder,
     updateOrderStatus,
     updateOrderTracking,
     isLoadingOrders,
@@ -23,6 +24,8 @@ const AdminOrders = () => {
   >('all');
   const [selectedUpi, setSelectedUpi] = useState<string | null>(null);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  const [cancelOrderId, setCancelOrderId] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
   const [trackingForm, setTrackingForm] = useState({
     orderStatus: 'processing' as
       | 'pending' | 'processing' | 'confirmed' | 'packed'
@@ -61,6 +64,18 @@ const AdminOrders = () => {
     const res = await rejectOrderPayment(id);
     if (res.success) toast.error('Payment rejected, order cancelled');
     else toast.error(res.error || 'Reject failed');
+  };
+
+  const handleCancel = async () => {
+    if (!cancelOrderId || !cancelReason.trim()) return toast.error('Cancellation reason is required');
+    const res = await cancelOrder(cancelOrderId, cancelReason.trim());
+    if (res.success) {
+      toast.success('Order cancelled and customer notified');
+      setCancelOrderId('');
+      setCancelReason('');
+    } else {
+      toast.error(res.error || 'Cancel failed');
+    }
   };
 
   const saveTracking = async () => {
@@ -265,6 +280,26 @@ const AdminOrders = () => {
         </div>
       )}
 
+      {cancelOrderId && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="font-body text-sm font-medium text-foreground">Cancel order with reason</div>
+            <input
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Enter reason sent to customer"
+              className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 font-body text-sm"
+            />
+            <button onClick={handleCancel} className="rounded-lg bg-destructive px-3 py-2 font-body text-xs text-primary-foreground">
+              Confirm Cancel
+            </button>
+            <button onClick={() => { setCancelOrderId(''); setCancelReason(''); }} className="rounded-lg border border-border px-3 py-2 font-body text-xs">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Tracking panel ── */}
       {trackingOrder && (
         <div className="bg-card rounded-xl border border-brand-gold/40 p-5 shadow-sm">
@@ -454,6 +489,18 @@ const AdminOrders = () => {
                   >
                     <Truck size={13} /> Manage shipping
                   </button>
+
+                  {o.orderStatus !== 'cancelled' && (
+                    <button
+                      onClick={() => {
+                        setCancelOrderId(o.id);
+                        setCancelReason('');
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 font-body text-xs font-semibold text-red-700 hover:bg-red-100"
+                    >
+                      <XCircle size={13} /> Cancel
+                    </button>
+                  )}
 
                   {o.trackingUrl && (
                     <a

@@ -14,8 +14,13 @@ const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils
 const { processRoomTypeWaitlist } = require('../utils/waitlist');
 const { sendEmail } = require('../utils/email');
 const { sendSms } = require('../utils/sms');
-const { buildPdf } = require('../utils/invoicePdf');
 const { enqueueJob } = require('../utils/jobQueue');
+const {
+  bookingRows,
+  sendBookingInvoice,
+  sendBookingCancellationEmail,
+  notifyBookingCreated,
+} = require('../utils/customerMessages');
 const router = express.Router();
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
@@ -102,51 +107,6 @@ const calcCabFare = ({ baseFare }) => {
   return { base, included: 0, extraCharge: 0, pax: 0, extraPersons: 0, extra: 0, total: Math.max(0, base) };
 };
 
-const buildInvoiceLines = (booking) => {
-  const total = Number(booking.totalAmount || 0);
-  const subtotal = Number(booking.checkoutSubtotal || Math.max(0, total - Number(booking.convenienceFeeAmount || 0)));
-  const tax = Number(booking.taxAmount || 0);
-  const fee = Number(booking.convenienceFeeAmount || 0);
-  const advance = Number(booking.advanceAmount || 0);
-  const balance = Number(booking.balanceAmount || Math.max(0, total - advance));
-  return [
-    `Invoice/Booking ID: ${booking.bookingId}`,
-    `Customer: ${booking.customerFullName || booking.userName}`,
-    `Mobile: ${booking.customerMobile || booking.userPhone}`,
-    `Service: ${booking.itemName}`,
-    booking.bookingType === 'cab' ? `Route: ${booking.pickupLocation} to ${booking.dropLocation}` : '',
-    booking.bookingType === 'cab' ? `Pickup: ${booking.pickupDate} ${booking.pickupTime}` : '',
-    booking.bookingType === 'cab' ? `Passengers: ${booking.guests || 1}` : '',
-    booking.bookingType === 'cab' ? `Tolls: ${booking.tollOption === 'included' ? 'Included' : 'Excluded'}` : '',
-    booking.baseAmount ? `Base amount: INR ${Number(booking.baseAmount || 0).toLocaleString('en-IN')}` : '',
-    tax ? `GST (${Number(booking.taxPercent || 0)}%): INR ${tax.toLocaleString('en-IN')}` : '',
-    `Subtotal: INR ${subtotal.toLocaleString('en-IN')}`,
-    `Convenience fee (2%): INR ${fee.toLocaleString('en-IN')}`,
-    `Total amount: INR ${total.toLocaleString('en-IN')}`,
-    `Advance paid online: INR ${advance.toLocaleString('en-IN')}`,
-    `Balance payable later: INR ${balance.toLocaleString('en-IN')}`,
-    `Payment status: ${booking.paymentStatus}`,
-  ].filter(Boolean);
-};
-
-const sendCustomerInvoice = async (booking) => {
-  const to = normalize(booking.customerEmail || booking.userEmail);
-  if (!to || booking.invoiceSentAt) return;
-  const lines = buildInvoiceLines(booking);
-  await sendEmail({
-    to,
-    subject: `Vrindavan Sarthi Invoice ${booking.bookingId}`,
-    text: ['Vrindavan Sarthi Invoice', ...lines].join('\n'),
-    attachments: [
-      {
-        filename: `invoice-${booking.bookingId}.pdf`,
-        content: buildPdf({ lines }),
-        contentType: 'application/pdf',
-      },
-    ],
-  });
-};
-
 const buildPartnerBookingHtml = (booking) => {
   const rows = [
     ['Booking ID', booking.bookingId],
@@ -185,11 +145,11 @@ const sendPartnerBookingAlert = async (booking) => {
   const partner = await User.findById(booking.partnerId).select('email businessEmail name businessName').lean();
   const to = normalize(partner?.businessEmail || partner?.email);
   if (!to) return;
-  const lines = buildInvoiceLines(booking);
+  const rows = bookingRows(booking);
   await sendEmail({
     to,
     subject: `New Vrindavan Sarthi Booking ${booking.bookingId}`,
-    text: ['New booking received', ...lines].join('\n'),
+    text: ['New booking received', ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'),
     html: buildPartnerBookingHtml(booking),
   });
 };
@@ -197,13 +157,14 @@ const sendPartnerBookingAlert = async (booking) => {
 const enqueueBookingNotifications = (booking, { invoice = false, partnerAlert = true } = {}) => {
   if (invoice) {
     enqueueJob(`invoice:${booking.bookingId}`, async () => {
-      await sendCustomerInvoice(booking);
+      await sendBookingInvoice(booking);
       await Booking.updateOne({ _id: booking._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
     });
   }
   if (partnerAlert) {
     enqueueJob(`partner-alert:${booking.bookingId}`, () => sendPartnerBookingAlert(booking));
   }
+  if (partnerAlert) notifyBookingCreated(booking);
 };
 
 const bookingDetailFields = [
@@ -706,13 +667,42 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
+const releaseBookingInventory = async (booking) => {
+  if (booking.roomUnitId) await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
+  if (booking.roomTypeId) {
+    try {
+      await processRoomTypeWaitlist({ roomTypeId: booking.roomTypeId, max: 50 });
+    } catch {
+      // ignore waitlist processing errors
+    }
+  }
+};
+
+const cancelBookingNow = async (booking, reason, reviewedByAdmin = false) => {
+  booking.bookingStatus = 'cancelled';
+  booking.cancellationRequested = true;
+  booking.cancellationReason = reason;
+  booking.cancellationRequestedAt = booking.cancellationRequestedAt || new Date();
+  booking.cancellationReviewedByAdmin = reviewedByAdmin;
+  booking.cancellationReviewedAt = reviewedByAdmin ? new Date() : booking.cancellationReviewedAt;
+  await booking.save();
+  await releaseBookingInventory(booking);
+  enqueueJob(`booking-cancel-email:${booking.bookingId}:${Date.now()}`, () => sendBookingCancellationEmail(booking, reason));
+};
+
 // Cancel booking
 router.put('/:id/cancel', protect, async (req, res) => {
   try {
-    const booking = await Booking.findOne({ _id: req.params.id, userId: req.user._id });
+    const query = req.user.role === 'admin' ? { _id: req.params.id } : { _id: req.params.id, userId: req.user._id };
+    const booking = await Booking.findOne(query);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
     const reason = normalize(req.body?.reason || req.body?.cancellationReason);
+    if (req.user.role === 'admin') {
+      if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
+      await cancelBookingNow(booking, reason, true);
+      return res.json({ success: true, data: booking, message: 'Booking cancelled and customer notified.' });
+    }
 
     // If already confirmed, require a reason and route through admin review.
     if (booking.bookingStatus === 'confirmed') {
@@ -725,25 +715,7 @@ router.put('/:id/cancel', protect, async (req, res) => {
     }
 
     // Pending bookings can be cancelled immediately.
-    booking.bookingStatus = 'cancelled';
-    booking.cancellationRequested = true;
-    booking.cancellationReason = reason || 'user_cancelled';
-    booking.cancellationRequestedAt = new Date();
-    booking.cancellationReviewedByAdmin = true;
-    booking.cancellationReviewedAt = new Date();
-    await booking.save();
-
-    if (booking.roomUnitId) {
-      await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
-    }
-
-    if (booking.roomTypeId) {
-      try {
-        await processRoomTypeWaitlist({ roomTypeId: booking.roomTypeId, max: 50 });
-      } catch {
-        // ignore waitlist processing errors
-      }
-    }
+    await cancelBookingNow(booking, reason || 'Cancelled by customer', true);
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -759,19 +731,7 @@ router.put('/:id/cancel-review', protect, authorize('admin'), async (req, res) =
     booking.cancellationReviewedAt = new Date();
 
     if (approve) {
-      booking.bookingStatus = 'cancelled';
-      await booking.save();
-
-      if (booking.roomUnitId) {
-        await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
-      }
-      if (booking.roomTypeId) {
-        try {
-          await processRoomTypeWaitlist({ roomTypeId: booking.roomTypeId, max: 50 });
-        } catch {
-          // ignore waitlist processing errors
-        }
-      }
+      await cancelBookingNow(booking, booking.cancellationReason || 'Cancellation approved by admin', true);
       return res.json({ success: true, data: booking });
     }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { CalendarDays, Car, IndianRupee, MapPin, Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
@@ -12,6 +12,13 @@ type TourListItem = {
   name: string;
   image: string;
   images?: string[];
+  duration?: string;
+  durationDays?: number;
+  destination?: string;
+  cabType?: string;
+  pricePerPerson?: number;
+  includes?: string[];
+  placesCovered?: string[];
   rating?: number;
   location?: string;
 };
@@ -19,6 +26,10 @@ type TourListItem = {
 const Tours = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [destination, setDestination] = useState('all');
+  const [budget, setBudget] = useState('all');
+  const [cabType, setCabType] = useState('all');
+  const [duration, setDuration] = useState('all');
   const [tours, setTours] = useState<TourListItem[]>([]);
 
   useEffect(() => {
@@ -57,18 +68,67 @@ const Tours = () => {
     };
   }, []);
 
-  const filtered = tours.filter(t =>
-    t.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const destinations = Array.from(new Set(tours.map((t) => t.destination).filter(Boolean))) as string[];
+  const cabTypes = Array.from(new Set(tours.map((t) => t.cabType).filter(Boolean))) as string[];
+  const filtered = tours
+    .filter((t) => t.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter((t) => destination === 'all' || t.destination === destination)
+    .filter((t) => cabType === 'all' || t.cabType === cabType)
+    .filter((t) => {
+      if (duration === 'all') return true;
+      const days = Number(t.durationDays || 1);
+      return duration === '1' ? days === 1 : duration === '2' ? days === 2 : days >= 3;
+    })
+    .filter((t) => {
+      const price = Number(t.pricePerPerson || 0);
+      if (budget === 'all') return true;
+      if (budget === '1500') return price <= 1500;
+      if (budget === '2500') return price <= 2500;
+      return price > 2500;
+    });
 
   return (
     <div className="pt-20">
       <section className="section-cream py-10 lg:py-16">
         <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle label="Spiritual Journeys" title="Explore Tour Packages" subtitle="Guided tours to experience the divine essence of Vrindavan" />
-          <div className="max-w-xl mx-auto relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-            <input type="text" placeholder="Search tours..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold" />
+          <div className="mx-auto grid max-w-5xl gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="relative sm:col-span-2 lg:col-span-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
+              <input type="text" placeholder="Search tours" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-10 pr-3 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+            </div>
+            <label className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <select value={destination} onChange={(e) => setDestination(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-body text-sm">
+                <option value="all">Destination</option>
+                {destinations.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </label>
+            <label className="relative">
+              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <select value={budget} onChange={(e) => setBudget(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-body text-sm">
+                <option value="all">Budget</option>
+                <option value="1500">Up to Rs. 1,500</option>
+                <option value="2500">Up to Rs. 2,500</option>
+                <option value="2501">Above Rs. 2,500</option>
+              </select>
+            </label>
+            <label className="relative">
+              <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <select value={cabType} onChange={(e) => setCabType(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-body text-sm">
+                <option value="all">Cab Type</option>
+                {cabTypes.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label className="relative">
+              <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <select value={duration} onChange={(e) => setDuration(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-body text-sm">
+                <option value="all">Duration</option>
+                <option value="1">1 Day</option>
+                <option value="2">2 Days</option>
+                <option value="3">3 Days</option>
+              </select>
+            </label>
           </div>
         </div>
       </section>
@@ -80,26 +140,32 @@ const Tours = () => {
               <p className="font-body text-sm text-muted-foreground">Tour packages will appear here once the admin adds them.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {filtered.map((tour) => (
-                <ListingCard
-                  key={tour._id}
-                  image={tour.image}
-                  images={tour.images}
-                  name={tour.name}
-                  location={tour.duration}
-                  price={tour.pricePerPerson}
-                  priceLabel="/person"
-                  rating={0}
-                  reviewCount={0}
-                  badge={tour.duration}
-                  amenities={tour.includes || []}
-                  variant="compact"
-                  onViewDetails={() => {
-                    prefetchDetail('tours', tour._id, tour);
-                    navigate(`/tours/${tour._id}`);
-                  }}
-                />
+                <div key={tour._id} className="overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:shadow-md">
+                  <ListingCard
+                    image={tour.image}
+                    images={tour.images}
+                    name={tour.name}
+                    location={tour.destination || tour.duration}
+                    price={tour.pricePerPerson}
+                    priceLabel="starting"
+                    rating={0}
+                    reviewCount={0}
+                    badge={tour.duration}
+                    amenities={(tour.placesCovered || tour.includes || []).slice(0, 4)}
+                    variant="compact"
+                    onViewDetails={() => {
+                      prefetchDetail('tours', tour._id, tour);
+                      navigate(`/tours/${tour._id}`);
+                    }}
+                  />
+                  <div className="border-t border-border px-3 py-2">
+                    <button onClick={() => navigate(`/tours/${tour._id}`)} className="w-full rounded-md bg-brand-gold py-2 font-body text-xs font-semibold text-foreground hover:bg-brand-gold/90">
+                      Book Now
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
