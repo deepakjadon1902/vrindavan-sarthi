@@ -36,7 +36,7 @@ const BookingDetail = () => {
         <Navbar />
         <div className="min-h-screen bg-background pt-24 pb-16 px-4 flex items-center justify-center">
           <div className="text-center">
-            <p className="font-body text-sm text-muted-foreground">Loading bookingâ€¦</p>
+            <p className="font-body text-sm text-muted-foreground">Loading booking...</p>
           </div>
         </div>
         <Footer />

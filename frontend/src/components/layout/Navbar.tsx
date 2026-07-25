@@ -47,22 +47,22 @@ const Navbar = () => {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navBg} ${scrolled ? 'border-brand-gold/40' : ''}`}>
         <div className="container mx-auto px-4 lg:px-8">
           <div className="flex items-center justify-between h-16 lg:h-[4.75rem]">
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/" className="group flex items-center gap-2">
               <img
                 src={APP_LOGO_URL}
                 alt={settings.siteName}
-                className="h-9 w-9 rounded-full object-cover border border-brand-gold/30"
+                className="h-9 w-9 rounded-full border border-brand-gold/40 object-cover shadow-[0_10px_22px_hsl(39_92%_56%_/_0.22)] transition-transform duration-300 group-hover:scale-105"
               />
-              <span className="font-brand text-base lg:text-xl text-brand-gold tracking-wider">{settings.siteName}</span>
+              <span className="font-brand text-base tracking-wider text-brand-gold lg:text-xl">{settings.siteName}</span>
             </Link>
 
-            <div className="hidden lg:flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1">
+            <div className="hidden items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2 py-1 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.12),0_14px_35px_hsl(222_42%_10%_/_0.18)] backdrop-blur-xl lg:flex">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`relative rounded-full px-3 py-2 font-body text-[13px] font-semibold tracking-wide transition-colors duration-300 ${
-                    location.pathname === link.path ? 'bg-brand-gold text-brand-black' : 'text-white hover:bg-white/10 hover:text-brand-gold'
+                  className={`relative rounded-full px-3.5 py-2 font-body text-[13px] font-semibold tracking-wide transition-all duration-300 ${
+                    location.pathname === link.path ? 'bg-brand-gold text-brand-black shadow-[0_8px_20px_hsl(39_92%_56%_/_0.25)]' : 'text-white/90 hover:bg-white/10 hover:text-brand-gold'
                   }`}
                 >
                   {link.name}
@@ -73,12 +73,12 @@ const Navbar = () => {
             <div className="hidden lg:flex items-center gap-4">
               {isAuthenticated && user ? (
                 <>
-                  <Link to="/bookings" className="font-body text-sm text-white hover:text-brand-gold transition-colors">My Bookings</Link>
-                  <Link to="/my-orders" className="font-body text-sm text-white hover:text-brand-gold transition-colors">My Orders</Link>
+                  <Link to="/bookings" className="font-body text-sm font-semibold text-white/90 transition-colors hover:text-brand-gold">My Bookings</Link>
+                  <Link to="/my-orders" className="font-body text-sm font-semibold text-white/90 transition-colors hover:text-brand-gold">My Orders</Link>
                   <div className="relative">
                     <button
                       onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className="flex items-center gap-2 font-body text-sm text-white hover:text-brand-gold transition-colors"
+                      className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1 font-body text-sm text-white transition-colors hover:border-brand-gold/35 hover:text-brand-gold"
                     >
                       <div className="w-7 h-7 rounded-full bg-brand-gold/20 flex items-center justify-center">
                         <span className="text-brand-gold text-xs font-bold">{user.name.charAt(0)}</span>
@@ -117,8 +117,8 @@ const Navbar = () => {
                 </>
               ) : (
                 <>
-                  <Link to="/bookings" className="font-body text-sm text-white hover:text-brand-gold transition-colors">My Bookings</Link>
-                  <Link to="/login" className="font-body text-sm text-white hover:text-brand-gold transition-colors">Login</Link>
+                  <Link to="/bookings" className="font-body text-sm font-semibold text-white/90 transition-colors hover:text-brand-gold">My Bookings</Link>
+                  <Link to="/login" className="font-body text-sm font-semibold text-white/90 transition-colors hover:text-brand-gold">Login</Link>
                   <Link to="/contact" className="btn-gold px-5 py-2 rounded-lg text-sm inline-flex items-center gap-1.5">
                     <MessageCircle size={15} /> Enquire
                   </Link>

@@ -42,7 +42,7 @@ const normalizePartnerDocuments = async (docsInput, { max = 10 } = {}) => {
   return urls.map((url, index) => {
     const source = limited[index] || {};
     const mimeFromDataUri = String(source.data || '').match(/^data:([^;]+);/i)?.[1] || '';
-    const category = ['aadhar_card', 'gstin_registration', 'property_registry_document', 'other'].includes(source.type)
+    const category = ['aadhar_card', 'gstin_registration', 'property_registry_document', 'business_license', 'pan_card', 'other'].includes(source.type)
       ? source.type
       : 'other';
     return {
@@ -394,12 +394,18 @@ router.put('/me', protect, async (req, res) => {
   try {
     const allowed = [
       'name', 'phone', 'address', 'avatar',
-      'businessName', 'businessAddress', 'businessPhone', 'businessEmail', 'businessDescription',
+      'businessName', 'gstNumber', 'businessType', 'businessAddress', 'businessPhone', 'businessEmail', 'businessDescription',
       'profileDisplayName', 'profileBio', 'profilePicture',
     ];
     const body = {};
     for (const key of allowed) {
       if (typeof req.body?.[key] !== 'undefined') body[key] = req.body[key];
+    }
+    const partnerVerificationFields = [
+      'businessName', 'gstNumber', 'businessType', 'businessAddress', 'businessPhone', 'businessEmail', 'businessDescription',
+    ];
+    if (req.user.role === 'partner' && partnerVerificationFields.some((key) => typeof body[key] !== 'undefined')) {
+      body.partnerStatus = 'pending';
     }
     const user = await User.findByIdAndUpdate(req.user._id, body, { new: true }).select('-password');
     res.json({ success: true, user });

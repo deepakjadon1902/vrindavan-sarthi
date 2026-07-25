@@ -106,15 +106,22 @@ app.use('/api', (req, res, next) => {
   });
 });
 
-const allowedOrigins = new Set(
-  [
-    process.env.FRONTEND_BASE_URL,
-    'http://localhost:8080',
-    'http://localhost:3000',
-  ]
-    .map((v) => String(v || '').trim())
-    .filter(Boolean)
-);
+const splitOrigins = (value) =>
+  String(value || '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+const allowedOrigins = new Set([
+  ...splitOrigins(process.env.FRONTEND_BASE_URL),
+  ...splitOrigins(process.env.CORS_ORIGINS),
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'http://localhost:8081',
+  'http://127.0.0.1:8081',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+]);
 
 app.use(
   cors({

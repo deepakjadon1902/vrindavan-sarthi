@@ -52,7 +52,7 @@ const userSchema = new mongoose.Schema({
       name: String,
       type: {
         type: String,
-        enum: ['aadhar_card', 'gstin_registration', 'property_registry_document', 'other'],
+        enum: ['aadhar_card', 'gstin_registration', 'property_registry_document', 'business_license', 'pan_card', 'other'],
         default: 'other',
       },
       url: String,

@@ -23,7 +23,23 @@ export interface User {
   profileBio?: string;
   profilePicture?: string;
   partnerStatus?: 'pending' | 'approved' | 'rejected';
+  partnerDocuments?: PartnerDocument[];
   createdAt: string;
+}
+
+export interface PartnerDocument {
+  name?: string;
+  type?: 'aadhar_card' | 'gstin_registration' | 'property_registry_document' | 'business_license' | 'pan_card' | 'other';
+  mimeType?: string;
+  url?: string;
+  uploadedAt?: string;
+}
+
+export interface PartnerDocumentUpload {
+  data: string;
+  name: string;
+  type: NonNullable<PartnerDocument['type']>;
+  mimeType: string;
 }
 
 export interface LoginCredentials {
@@ -49,5 +65,5 @@ export interface RegisterData {
   businessPhone?: string;
   businessEmail?: string;
   businessDescription?: string;
-  documents?: Array<{ data: string; name: string; type: string }>;
+  documents?: PartnerDocumentUpload[];
 }

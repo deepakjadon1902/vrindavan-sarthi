@@ -93,7 +93,7 @@ const MyOrders = () => {
                       </span>
                       <span className="font-body text-[10px] text-muted-foreground">{new Date(order.createdAt).toLocaleDateString()}</span>
                     </div>
-                    <p className="font-body text-[10px] text-muted-foreground mt-1">ðŸ“¦ {order.shippingAddress}</p>
+                    <p className="font-body text-[10px] text-muted-foreground mt-1">Shipping: {order.shippingAddress}</p>
                   </div>
                 </div>
               </div>

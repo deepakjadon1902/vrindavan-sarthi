@@ -133,7 +133,7 @@ const MyBookings = () => {
 
           {isLoading ? (
             <div className="glass-panel rounded-3xl p-16 text-center metallic-border">
-              <p className="font-body text-muted-foreground">Loading bookingsâ€¦</p>
+              <p className="font-body text-muted-foreground">Loading bookings...</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="glass-panel rounded-3xl p-16 text-center metallic-border">
@@ -192,7 +192,7 @@ const MyBookings = () => {
                         </div>
                         {b.isWaitlisted && !b.roomNumber && (
                           <p className="mt-1 font-body text-[11px] text-brand-saffron">
-                            Waitlisted â€¢ waiting for room assignment
+                            Waitlisted - waiting for room assignment
                           </p>
                         )}
                         <h3 className="font-display text-base font-semibold text-foreground truncate mt-0.5">{b.itemName}</h3>

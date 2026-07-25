@@ -224,6 +224,158 @@ export const publicRouteMeta: Record<string, { title: string; description: strin
   },
 };
 
+export const privateRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
+  '/login': {
+    title: 'Login | Secure Travel Account',
+    description: 'Sign in to your Vrindavan Sarthi account to manage bookings, orders, partner listings, and travel plans.',
+  },
+  '/register': {
+    title: 'Create Account | Traveller & Partner Registration',
+    description: 'Create a Vrindavan Sarthi account as a traveller or verified partner for hotels, rooms, cabs, tours, and booking management.',
+  },
+  '/forgot-password': {
+    title: 'Forgot Password | Account Recovery',
+    description: 'Recover your Vrindavan Sarthi account securely with email verification.',
+  },
+  '/reset-password': {
+    title: 'Reset Password | Secure Account Access',
+    description: 'Set a new password for your Vrindavan Sarthi account and regain secure access.',
+  },
+  '/auth/google/callback': {
+    title: 'Completing Google Sign In',
+    description: 'Completing secure Google sign in for your Vrindavan Sarthi account.',
+  },
+  '/profile': {
+    title: 'My Profile | Personal & Partner Details',
+    description: 'View and update your personal profile, address, partner business details, and verification documents.',
+  },
+  '/bookings': {
+    title: 'My Bookings | Hotels, Rooms, Cabs & Tours',
+    description: 'Manage your Vrindavan Sarthi bookings, payment status, trip details, and travel history.',
+  },
+  '/my-orders': {
+    title: 'My Orders | Sacred Shop Purchases',
+    description: 'Track and manage your devotional product orders from the Vrindavan Sarthi shop.',
+  },
+};
+
+export const adminRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
+  '/admin/login': {
+    title: 'Admin Login | Vrindavan Sarthi Control Desk',
+    description: 'Secure admin access for managing Vrindavan Sarthi bookings, listings, partners, inventory, payments, and settings.',
+  },
+  '/admin': {
+    title: 'Admin Dashboard | Travel Operations Overview',
+    description: 'Monitor revenue, bookings, users, properties, partner activity, and travel operations from the admin dashboard.',
+  },
+  '/admin/hotels': {
+    title: 'Manage Hotels & Dharamshalas | Admin',
+    description: 'Create, update, verify, and manage hotels and dharamshalas listed on Vrindavan Sarthi.',
+  },
+  '/admin/inventory': {
+    title: 'Room Inventory | Admin',
+    description: 'Manage hotel room types, room units, availability calendars, blocked dates, and inventory controls.',
+  },
+  '/admin/cabs': {
+    title: 'Taxi Booking Fleet | Admin',
+    description: 'Manage cab listings, vehicle details, routes, drivers, and taxi booking inventory.',
+  },
+  '/admin/cab-fares': {
+    title: 'Taxi Rates | Admin',
+    description: 'Configure taxi fares, route pricing, local transfers, airport transfers, and travel rate cards.',
+  },
+  '/admin/tours': {
+    title: 'Tour Packages | Admin',
+    description: 'Create and manage Vrindavan, Mathura, Govardhan, Barsana, Gokul, and Braj tour packages.',
+  },
+  '/admin/partners': {
+    title: 'Partner Verification | Admin',
+    description: 'Review partner profiles, business information, legal documents, and verification status.',
+  },
+  '/admin/partner-requests': {
+    title: 'Partner Listing Requests | Admin',
+    description: 'Approve or reject partner-submitted hotels, rooms, cabs, and tour listing requests.',
+  },
+  '/admin/bookings': {
+    title: 'Bookings Management | Admin',
+    description: 'Review hotel, room, cab, and tour bookings with customer details, payment status, and cancellation controls.',
+  },
+  '/admin/payments': {
+    title: 'Payment Verification | Admin',
+    description: 'Verify booking and order payments, approve UPI transactions, and manage payment rejections.',
+  },
+  '/admin/partner-payouts': {
+    title: 'Partner Payouts | Admin',
+    description: 'Track partner earnings, bank details, payout settlement status, and payment notes.',
+  },
+  '/admin/products': {
+    title: 'Product Catalog | Admin',
+    description: 'Manage devotional shop products, images, pricing, categories, stock, and product visibility.',
+  },
+  '/admin/orders': {
+    title: 'Shop Orders | Admin',
+    description: 'Manage customer product orders, payment verification, dispatch status, tracking, and cancellations.',
+  },
+  '/admin/users': {
+    title: 'User Management | Admin',
+    description: 'View and manage traveller, partner, and admin user accounts on Vrindavan Sarthi.',
+  },
+  '/admin/settings': {
+    title: 'Application Settings | Admin',
+    description: 'Manage site branding, contact details, UPI payment settings, policies, and admin credentials.',
+  },
+};
+
+export const partnerRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
+  '/partner': {
+    title: 'Partner Dashboard | Business Travel Desk',
+    description: 'Partner overview for verification status, listings, bookings, payments, and Vrindavan Sarthi business operations.',
+  },
+  '/partner/hotels': {
+    title: 'My Hotels | Partner',
+    description: 'Submit and manage partner hotel or dharamshala listings for admin verification.',
+  },
+  '/partner/cabs': {
+    title: 'My Cabs | Partner',
+    description: 'Submit and manage partner cab listings, routes, vehicle details, and driver information.',
+  },
+  '/partner/inventory': {
+    title: 'Partner Inventory | Rooms & Availability',
+    description: 'Manage partner room types, room units, blocked dates, and live availability after admin verification.',
+  },
+  '/partner/listings': {
+    title: 'My Listings | Partner',
+    description: 'Review partner-submitted hotels, rooms, cabs, and tours with approval status and admin remarks.',
+  },
+  '/partner/bookings': {
+    title: 'Partner Bookings | Guest Reservations',
+    description: 'View and verify partner bookings, guest details, payment status, and reservation updates.',
+  },
+  '/partner/payments': {
+    title: 'Partner Payments | Earnings Overview',
+    description: 'Track partner booking payments, settlements, commissions, and payout status.',
+  },
+  '/partner/bank-details': {
+    title: 'Bank Details | Partner Payout Setup',
+    description: 'Add or update partner bank account details used for payout settlements.',
+  },
+  '/partner/profile-settings': {
+    title: 'Partner Profile Settings | Public Host Profile',
+    description: 'Customize the public partner host profile shown with approved room and property listings.',
+  },
+  '/partner/communications': {
+    title: 'Partner Notices | Admin Communications',
+    description: 'Read admin notices, verification updates, booking alerts, and partner communications.',
+  },
+};
+
+export const routeMeta = {
+  ...publicRouteMeta,
+  ...privateRouteMeta,
+  ...adminRouteMeta,
+  ...partnerRouteMeta,
+};
+
 export const indexablePublicPaths = new Set([
   '/',
   '/hotels',
@@ -258,7 +410,7 @@ export const isNoIndexPath = (pathname: string) => {
 
 export const getRouteMeta = (pathname: string) => {
   const path = normalizePathname(pathname);
-  if (publicRouteMeta[path]) return publicRouteMeta[path];
+  if (routeMeta[path]) return routeMeta[path];
   if (path.startsWith('/hotels/')) {
     return { title: 'Vrindavan Hotel Details', description: 'View verified hotel details, room options, amenities, location, and booking information in Vrindavan.' };
   }
@@ -273,6 +425,9 @@ export const getRouteMeta = (pathname: string) => {
   }
   if (path.startsWith('/shop/')) {
     return { title: 'Vrindavan Product Details', description: 'View product details, price, availability, and ordering options from the Vrindavan Sarthi shop.' };
+  }
+  if (path.startsWith('/bookings/')) {
+    return { title: 'Booking Details | Reservation & Payment Status', description: 'View your booking summary, customer details, payment status, cancellation status, and travel reservation information.' };
   }
   return {
     title: 'Page Not Found | Vrindavan Sarthi',

@@ -44,7 +44,7 @@ const AdminLayout = () => {
     const run = async () => {
       try {
         const cached = getSessionCache<number>('vvs_admin_partner_pending_count', 30_000);
-        if (typeof cached === 'number' && pendingCount === 0) setPendingCount(cached);
+        if (typeof cached === 'number') setPendingCount((current) => (current === 0 ? cached : current));
         const res = await api.get('/partner/requests', { ...withAuth(token), params: { limit: 600 } });
         const data = res.data?.data || {};
         const hotels = Array.isArray(data.hotels) ? data.hotels : [];

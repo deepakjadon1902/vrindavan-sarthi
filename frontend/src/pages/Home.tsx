@@ -446,7 +446,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, CarTaxiFront, MapPinned, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag, MessageCircle } from 'lucide-react';
+import { Building2, CarTaxiFront, MapPinned, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag, MessageCircle, Search, CalendarDays, BedDouble, BadgeCheck } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import TestimonialCard from '@/components/shared/TestimonialCard';
@@ -458,12 +458,45 @@ import { prefetchDetail } from '@/lib/detailCache';
 import heroImg from '@/assets/images/hero-vrindavan.jpg';
 
 const services = [
-  { icon: Building2, title: 'Hotels', desc: 'Verified hotels near sacred temples', link: '/hotels' },
-  { icon: Building2, title: 'Rooms', desc: 'Browse room types across hotels', link: '/rooms' },
-  { icon: CarTaxiFront, title: 'Cabs', desc: 'Reliable local & outstation cabs', link: '/cabs' },
-  { icon: MapPinned, title: 'Tours', desc: 'Guided spiritual tour packages', link: '/tours' },
-  { icon: ShoppingBag, title: 'Shop', desc: 'Sacred items & souvenirs', link: '/shop' },
+  {
+    icon: Building2,
+    title: 'Stay Near The Temples',
+    desc: 'Verified hotels, dharamshalas, and rooms close to Banke Bihari, ISKCON, and Prem Mandir.',
+    link: '/hotels',
+    cta: 'Explore stays',
+  },
+  {
+    icon: CarTaxiFront,
+    title: 'Private Cab Support',
+    desc: 'Fixed route-wise cab booking for Mathura, Govardhan, Barsana, Gokul, airport transfers, and local darshan.',
+    link: '/cabs',
+    cta: 'View cabs',
+  },
+  {
+    icon: MapPinned,
+    title: 'Curated Braj Yatra',
+    desc: 'Plan guided spiritual itineraries with destinations, duration, budget, and local travel support in one flow.',
+    link: '/tours',
+    cta: 'See packages',
+  },
+  {
+    icon: ShoppingBag,
+    title: 'Sacred Vrindavan Shop',
+    desc: 'Order devotional products, souvenirs, and pooja essentials with tracking and admin-verified payments.',
+    link: '/shop',
+    cta: 'Visit shop',
+  },
 ];
+
+const plannerServices = [
+  { key: 'hotels', label: 'Hotels', path: '/hotels', icon: Building2, hint: 'Verified stays near temples' },
+  { key: 'rooms', label: 'Rooms', path: '/rooms', icon: BedDouble, hint: 'Live room options' },
+  { key: 'cabs', label: 'Cabs', path: '/cabs', icon: CarTaxiFront, hint: 'Local and outstation rides' },
+  { key: 'tours', label: 'Tours', path: '/tours', icon: MapPinned, hint: 'Guided Braj experiences' },
+  { key: 'shop', label: 'Shop', path: '/shop', icon: ShoppingBag, hint: 'Sacred products' },
+] as const;
+
+type PlannerServiceKey = (typeof plannerServices)[number]['key'];
 
 const stats = [
   { label: 'Happy Pilgrims', value: '500+' },
@@ -488,6 +521,8 @@ const whyUs = [
 const Home = () => {
   const navigate = useNavigate();
   const { products, fetchProducts } = useProductStore();
+  const [plannerService, setPlannerService] = useState<PlannerServiceKey>('hotels');
+  const [plannerQuery, setPlannerQuery] = useState('');
   const [hotels, setHotels] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [cabs, setCabs] = useState<any[]>([]);
@@ -495,6 +530,18 @@ const Home = () => {
   const featuredLimit = 4;
 
   const featuredProducts = products.filter(p => p.inStock).slice(0, 4);
+  const activePlanner = plannerServices.find((item) => item.key === plannerService) || plannerServices[0];
+
+  const runPlannerSearch = () => {
+    const query = plannerQuery.trim();
+    navigate(query && plannerService !== 'shop' ? `${activePlanner.path}?q=${encodeURIComponent(query)}` : activePlanner.path);
+  };
+
+  const navigatePlanner = (key: PlannerServiceKey) => {
+    const item = plannerServices.find((service) => service.key === key) || plannerServices[0];
+    setPlannerService(key);
+    navigate(item.path);
+  };
 
   useEffect(() => {
     const loadListings = async () => {
@@ -502,19 +549,27 @@ const Home = () => {
       try {
         const cachedHotels = localStorage.getItem('vvs_hotels');
         if (cachedHotels) setHotels(JSON.parse(cachedHotels).slice(0, featuredLimit));
-      } catch {}
+      } catch {
+        // Ignore stale cache and revalidate from the API below.
+      }
       try {
         const cachedRooms = localStorage.getItem('vvs_room_types');
         if (cachedRooms) setRoomTypes(JSON.parse(cachedRooms).slice(0, featuredLimit));
-      } catch {}
+      } catch {
+        // Ignore stale cache and revalidate from the API below.
+      }
       try {
         const cachedCabs = localStorage.getItem('vvs_cabs');
         if (cachedCabs) setCabs(JSON.parse(cachedCabs).slice(0, featuredLimit));
-      } catch {}
+      } catch {
+        // Ignore stale cache and revalidate from the API below.
+      }
       try {
         const cachedTours = localStorage.getItem('vvs_tours');
         if (cachedTours) setTours(JSON.parse(cachedTours).filter((t: any) => t?.status === 'active').slice(0, featuredLimit));
-      } catch {}
+      } catch {
+        // Ignore stale cache and revalidate from the API below.
+      }
 
       const [hotelsRes, roomsRes, cabsRes, toursRes] = await Promise.allSettled([
         api.get('/hotels'),
@@ -526,26 +581,34 @@ const Home = () => {
       if (hotelsRes.status === 'fulfilled') {
         const data = Array.isArray(hotelsRes.value.data?.data) ? hotelsRes.value.data.data : [];
         setHotels(data.slice(0, featuredLimit));
-        try { localStorage.setItem('vvs_hotels', JSON.stringify(data)); } catch {}
+        try { localStorage.setItem('vvs_hotels', JSON.stringify(data)); } catch {
+          // Local storage can fail in private mode or quota pressure.
+        }
       } else setHotels([]);
 
       if (roomsRes.status === 'fulfilled') {
         const data = Array.isArray(roomsRes.value.data?.data) ? roomsRes.value.data.data : [];
         setRoomTypes(data.slice(0, featuredLimit));
-        try { localStorage.setItem('vvs_room_types', JSON.stringify(data)); } catch {}
+        try { localStorage.setItem('vvs_room_types', JSON.stringify(data)); } catch {
+          // Local storage can fail in private mode or quota pressure.
+        }
       } else setRoomTypes([]);
 
       if (cabsRes.status === 'fulfilled') {
         const data = Array.isArray(cabsRes.value.data?.data) ? cabsRes.value.data.data : [];
         setCabs(data.slice(0, featuredLimit));
-        try { localStorage.setItem('vvs_cabs', JSON.stringify(data)); } catch {}
+        try { localStorage.setItem('vvs_cabs', JSON.stringify(data)); } catch {
+          // Local storage can fail in private mode or quota pressure.
+        }
       } else setCabs([]);
 
       if (toursRes.status === 'fulfilled') {
         const data = Array.isArray(toursRes.value.data?.data) ? toursRes.value.data.data : [];
         const active = data.filter((t: any) => t?.status === 'active').slice(0, featuredLimit);
         setTours(active);
-        try { localStorage.setItem('vvs_tours', JSON.stringify(data)); } catch {}
+        try { localStorage.setItem('vvs_tours', JSON.stringify(data)); } catch {
+          // Local storage can fail in private mode or quota pressure.
+        }
       } else setTours([]);
     };
 
@@ -623,6 +686,83 @@ const Home = () => {
               <MessageCircle size={18} /> WhatsApp Now
             </a>
           </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.15 }}
+            className="travel-search-panel mx-auto mt-8 max-w-5xl rounded-2xl border border-white/18 bg-white/95 p-3 text-left shadow-2xl backdrop-blur-xl"
+          >
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {plannerServices.map((item) => {
+                const Icon = item.icon;
+                const active = item.key === plannerService;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => navigatePlanner(item.key)}
+                    className={`rounded-xl border px-3 py-3 text-left transition-all ${
+                      active
+                        ? 'border-brand-gold bg-brand-gold/14 text-foreground shadow-sm'
+                        : 'border-border bg-white hover:border-brand-gold/50 hover:bg-secondary/60'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 font-body text-sm font-bold">
+                      <Icon size={16} className={active ? 'text-brand-saffron' : 'text-muted-foreground'} /> {item.label}
+                    </span>
+                    <span className="mt-1 block font-body text-[11px] leading-tight text-muted-foreground">{item.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 grid gap-3 lg:grid-cols-[1.3fr_0.8fr_auto]">
+              <label className="relative block">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-saffron" size={18} />
+                <input
+                  value={plannerQuery}
+                  onChange={(e) => setPlannerQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') runPlannerSearch();
+                  }}
+                  placeholder="Search temple area, hotel, cab route, or tour..."
+                  className="h-14 w-full rounded-xl border border-border bg-white pl-12 pr-4 font-body text-sm text-foreground outline-none transition focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/35"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-border bg-secondary/45 px-4 py-2">
+                  <span className="flex items-center gap-2 font-body text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    <CalendarDays size={14} /> Flexible
+                  </span>
+                  <p className="font-body text-sm font-semibold text-foreground">Today or later</p>
+                </div>
+                <div className="rounded-xl border border-border bg-secondary/45 px-4 py-2">
+                  <span className="flex items-center gap-2 font-body text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    <BadgeCheck size={14} /> Verified
+                  </span>
+                  <p className="font-body text-sm font-semibold text-foreground">Admin checked</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={runPlannerSearch}
+                className="btn-gold h-14 rounded-xl px-6 font-body text-sm font-bold inline-flex items-center justify-center gap-2"
+              >
+                <Search size={17} /> Search
+              </button>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
+              {['Clear pricing', 'Verified partners', 'Local travel support', 'Secure UPI flow'].map((item) => (
+                <span key={item} className="trust-pill">
+                  <Shield size={13} /> {item}
+                </span>
+              ))}
+              <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-body text-xs font-bold text-brand-green hover:bg-brand-green/10">
+                <MessageCircle size={14} /> WhatsApp support
+              </a>
+            </div>
+          </motion.div>
         </div>
         <motion.div
           animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }}
@@ -646,34 +786,36 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ===== SERVICES ===== */}
+      {/* ===== JOURNEY CARDS ===== */}
       <section className="py-16 lg:py-24 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle
-            label="Our Services"
-            title="Everything You Need in Vrindavan"
-            subtitle="From comfortable stays to guided temple tours, we've got your sacred journey covered"
+            label="Travel Desk"
+            title="Plan The Complete Vrindavan Journey"
+            subtitle="Useful booking paths, verified information, and local support arranged around how travellers actually decide."
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {services.map((service, i) => {
-              const isLast = i === services.length - 1;
-              const lastPos = isLast
-                ? 'sm:col-span-2 sm:justify-self-center sm:max-w-md lg:col-span-2 lg:col-start-2 lg:justify-self-center lg:max-w-md'
-                : '';
-              return (
-                <Link
-                  key={service.title}
-                  to={service.link}
-                  className={`travel-card p-7 text-center card-hover group rounded-2xl border border-border/60 hover:border-brand-saffron/40 hover:shadow-lg transition-all duration-200 ${lastPos}`}
-                >
-                  <div className="w-14 h-14 rounded-2xl bg-brand-saffron/12 flex items-center justify-center mx-auto mb-5 group-hover:bg-brand-saffron/22 group-hover:scale-105 transition-all duration-200">
-                    <service.icon className="text-brand-saffron" size={24} />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-4">
+            {services.map((service) => (
+              <Link
+                key={service.title}
+                to={service.link}
+                className="travel-card group flex min-h-[230px] flex-col rounded-2xl border border-border/70 p-6 text-left hover:border-brand-gold/50"
+              >
+                <div className="mb-5 flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-saffron/12 group-hover:bg-brand-saffron/20 transition-colors">
+                    <service.icon className="text-brand-saffron" size={22} />
                   </div>
-                  <h3 className="font-heading text-[17px] font-bold text-foreground mb-2">{service.title}</h3>
-                  <p className="font-body text-[13px] text-muted-foreground leading-relaxed">{service.desc}</p>
-                </Link>
-              );
-            })}
+                  <span className="rounded-full bg-secondary px-3 py-1 font-body text-[11px] font-bold text-muted-foreground">
+                    Verified flow
+                  </span>
+                </div>
+                <h3 className="font-heading text-xl font-bold leading-tight text-foreground">{service.title}</h3>
+                <p className="mt-3 flex-1 font-body text-sm leading-relaxed text-muted-foreground">{service.desc}</p>
+                <span className="mt-5 inline-flex items-center gap-2 font-body text-sm font-bold text-brand-crimson">
+                  {service.cta} <ArrowRight size={15} />
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
@@ -876,7 +1018,6 @@ const Home = () => {
       {/* ===== FEATURED PRODUCTS (Shop) ===== */}
       {featuredProducts.length > 0 && (
         <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
-          <div className="pointer-events-none absolute -top-10 -left-10 w-72 h-72 rounded-full bg-brand-gold/15 blur-3xl" />
           <div className="container mx-auto px-4 relative">
             <SectionTitle
               label="Divine Shop"
@@ -967,10 +1108,6 @@ const Home = () => {
       {/* ===== CTA BANNER ===== */}
       <section className="relative py-20 lg:py-28 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-brand-saffron to-primary" />
-        {/* Subtle radial glow */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-white/10 blur-3xl" />
-        </div>
         <div className="relative z-10 container mx-auto px-4 text-center">
           <p className="font-body text-[11px] font-bold uppercase tracking-[0.22em] text-primary-foreground/60 mb-3">
             Start Your Journey

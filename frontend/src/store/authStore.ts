@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User, LoginCredentials, RegisterData } from '@/types/auth.types';
+import type { User, LoginCredentials, RegisterData, PartnerDocument } from '@/types/auth.types';
 import { api, withAuth } from '@/lib/api';
 import axios from 'axios';
 
@@ -20,6 +20,28 @@ interface AuthState {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
 const getString = (obj: Record<string, unknown>, key: string) => (typeof obj[key] === 'string' ? obj[key] : '');
+
+const mapPartnerDocuments = (value: unknown): PartnerDocument[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((doc) => {
+    const type = getString(doc, 'type');
+    return {
+      name: getString(doc, 'name') || 'Document',
+      type:
+        type === 'aadhar_card' ||
+        type === 'gstin_registration' ||
+        type === 'property_registry_document' ||
+        type === 'business_license' ||
+        type === 'pan_card' ||
+        type === 'other'
+          ? type
+          : 'other',
+      mimeType: getString(doc, 'mimeType') || undefined,
+      url: getString(doc, 'url') || undefined,
+      uploadedAt: getString(doc, 'uploadedAt') || undefined,
+    };
+  });
+};
 
 const mapUser = (u: unknown): User => {
   const obj = isRecord(u) ? u : {};
@@ -58,6 +80,7 @@ const mapUser = (u: unknown): User => {
     profileBio: getString(obj, 'profileBio') || undefined,
     profilePicture: getString(obj, 'profilePicture') || undefined,
     partnerStatus: normalizedPartnerStatus,
+    partnerDocuments: mapPartnerDocuments(obj.partnerDocuments),
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
   };
 };

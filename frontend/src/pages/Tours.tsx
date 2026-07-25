@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarDays, Car, IndianRupee, MapPin, Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
@@ -25,12 +25,17 @@ type TourListItem = {
 
 const Tours = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [destination, setDestination] = useState('all');
   const [budget, setBudget] = useState('all');
   const [cabType, setCabType] = useState('all');
   const [duration, setDuration] = useState('all');
   const [tours, setTours] = useState<TourListItem[]>([]);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get('q') || '');
+  }, [searchParams]);
 
   useEffect(() => {
     const load = async () => {
@@ -71,7 +76,13 @@ const Tours = () => {
   const destinations = Array.from(new Set(tours.map((t) => t.destination).filter(Boolean))) as string[];
   const cabTypes = Array.from(new Set(tours.map((t) => t.cabType).filter(Boolean))) as string[];
   const filtered = tours
-    .filter((t) => t.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter((t) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return t.name.toLowerCase().includes(q)
+        || String(t.destination || '').toLowerCase().includes(q)
+        || (t.placesCovered || []).some((place) => place.toLowerCase().includes(q));
+    })
     .filter((t) => destination === 'all' || t.destination === destination)
     .filter((t) => cabType === 'all' || t.cabType === cabType)
     .filter((t) => {
@@ -92,21 +103,21 @@ const Tours = () => {
       <section className="section-cream py-10 lg:py-16">
         <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle label="Spiritual Journeys" title="Explore Tour Packages" subtitle="Guided tours to experience the divine essence of Vrindavan" />
-          <div className="mx-auto grid max-w-5xl gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="premium-toolbar mx-auto grid max-w-5xl gap-3 p-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="relative sm:col-span-2 lg:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
-              <input type="text" placeholder="Search tours" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-10 pr-3 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+              <input type="text" placeholder="Search tours" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="premium-field h-11 w-full pl-10 pr-3" />
             </div>
             <label className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <select value={destination} onChange={(e) => setDestination(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-body text-sm">
+              <select value={destination} onChange={(e) => setDestination(e.target.value)} className="premium-field h-11 w-full pl-9 pr-3">
                 <option value="all">Destination</option>
                 {destinations.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </label>
             <label className="relative">
               <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <select value={budget} onChange={(e) => setBudget(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-body text-sm">
+              <select value={budget} onChange={(e) => setBudget(e.target.value)} className="premium-field h-11 w-full pl-9 pr-3">
                 <option value="all">Budget</option>
                 <option value="1500">Up to Rs. 1,500</option>
                 <option value="2500">Up to Rs. 2,500</option>
@@ -115,14 +126,14 @@ const Tours = () => {
             </label>
             <label className="relative">
               <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <select value={cabType} onChange={(e) => setCabType(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-body text-sm">
+              <select value={cabType} onChange={(e) => setCabType(e.target.value)} className="premium-field h-11 w-full pl-9 pr-3">
                 <option value="all">Cab Type</option>
                 {cabTypes.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
             <label className="relative">
               <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <select value={duration} onChange={(e) => setDuration(e.target.value)} className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-body text-sm">
+              <select value={duration} onChange={(e) => setDuration(e.target.value)} className="premium-field h-11 w-full pl-9 pr-3">
                 <option value="all">Duration</option>
                 <option value="1">1 Day</option>
                 <option value="2">2 Days</option>
@@ -167,6 +178,25 @@ const Tours = () => {
                   </div>
                 </div>
               ))}
+              {filtered.length === 0 && (
+                <div className="premium-focus-card col-span-full mx-auto max-w-md p-6 text-center">
+                  <p className="font-heading text-xl font-bold text-foreground">No tours found</p>
+                  <p className="mt-2 font-body text-sm text-muted-foreground">Reset filters or search for another destination.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchParams({});
+                      setDestination('all');
+                      setBudget('all');
+                      setCabType('all');
+                      setDuration('all');
+                    }}
+                    className="btn-gold mt-5 rounded-lg px-5 py-2 text-sm"
+                  >
+                    Show All Tours
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { toast } from 'sonner';
 import SectionTitle from '@/components/shared/SectionTitle';
@@ -10,8 +10,13 @@ import { prefetchDetail } from '@/lib/detailCache';
 
 const Rooms = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get('q') || '');
+  }, [searchParams]);
 
   useEffect(() => {
     const load = async () => {
@@ -90,7 +95,7 @@ const Rooms = () => {
       <section className="section-cream py-10 lg:py-16">
         <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle label="Room Options" title="Browse Rooms" subtitle="Choose a room type, then book from the hotel page" />
-          <div className="max-w-4xl mx-auto grid grid-cols-1 gap-3">
+          <div className="premium-toolbar mx-auto grid max-w-4xl grid-cols-1 gap-3 p-3">
             <div className="relative md:col-span-3">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
               <input
@@ -98,7 +103,7 @@ const Rooms = () => {
                 placeholder="Search by room type, hotel, or location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold"
+                className="premium-field w-full pl-12 pr-4"
               />
             </div>
           </div>
@@ -135,6 +140,19 @@ const Rooms = () => {
                   }}
                 />
               ))}
+              {filtered.length === 0 && (
+                <div className="premium-focus-card col-span-full mx-auto max-w-md p-6 text-center">
+                  <p className="font-heading text-xl font-bold text-foreground">No rooms found</p>
+                  <p className="mt-2 font-body text-sm text-muted-foreground">Try another hotel name, room type, or area.</p>
+                  <button
+                    type="button"
+                    onClick={() => setSearchParams({})}
+                    className="btn-gold mt-5 rounded-lg px-5 py-2 text-sm"
+                  >
+                    Show All Rooms
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -42,6 +42,17 @@ type DocumentViewer = {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 const getString = (obj: Record<string, unknown>, key: string) => (typeof obj[key] === 'string' ? obj[key] : '');
 
+const DOCUMENT_LABELS: Record<string, string> = {
+  aadhar_card: 'Aadhaar Card',
+  pan_card: 'PAN Card',
+  gstin_registration: 'GST Registration Certificate',
+  property_registry_document: 'Property Registry / Lease Document',
+  business_license: 'Business License',
+  other: 'Other Government / Legal Document',
+};
+
+const getDocumentLabel = (value?: string) => DOCUMENT_LABELS[String(value || '')] || DOCUMENT_LABELS.other;
+
 const normalizePartner = (value: unknown): PartnerUser => {
   const obj = isRecord(value) ? value : {};
   const status = getString(obj, 'partnerStatus');
@@ -319,7 +330,7 @@ const ManagePartners = () => {
                         )}
                         <div className="p-3">
                           <p className="font-body text-sm font-medium text-foreground">{doc.name || `Document ${index + 1}`}</p>
-                          <p className="font-body text-xs text-muted-foreground">{doc.mimeType || doc.type || 'other'}</p>
+                          <p className="font-body text-xs text-muted-foreground">{getDocumentLabel(doc.type)} - {doc.mimeType || 'file'}</p>
                           <div className="flex flex-wrap gap-2 mt-3">
                             <button type="button" onClick={() => openViewer(doc, index)} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 font-body text-xs hover:bg-muted">
                               <Eye size={12} /> View
@@ -366,7 +377,7 @@ const ManagePartners = () => {
                   {viewer.doc.name || `Document ${viewer.index + 1}`}
                 </h3>
                 <p className="font-body text-xs text-muted-foreground truncate">
-                  {viewer.doc.mimeType || viewer.doc.type || 'Legal document'}
+                  {getDocumentLabel(viewer.doc.type)} - {viewer.doc.mimeType || 'Legal document'}
                 </p>
               </div>
               <div className="flex items-center gap-2">

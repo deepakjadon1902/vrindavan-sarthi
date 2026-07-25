@@ -4,60 +4,60 @@
 
 @layer base {
   :root {
-    --background: 42 62% 97%;
-    --foreground: 22 31% 14%;
+    --background: 42 56% 97%;
+    --foreground: 222 34% 12%;
 
-    --card: 40 70% 99%;
-    --card-foreground: 22 31% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 34% 12%;
 
-    --popover: 40 70% 99%;
-    --popover-foreground: 22 31% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 34% 12%;
 
-    --primary: 13 71% 42%;
-    --primary-foreground: 42 62% 97%;
+    --primary: 215 57% 18%;
+    --primary-foreground: 42 56% 97%;
 
-    --secondary: 38 85% 93%;
-    --secondary-foreground: 22 31% 14%;
+    --secondary: 207 44% 94%;
+    --secondary-foreground: 222 34% 12%;
 
-    --muted: 36 55% 90%;
-    --muted-foreground: 24 16% 39%;
+    --muted: 216 26% 93%;
+    --muted-foreground: 222 14% 40%;
 
-    --accent: 43 88% 54%;
-    --accent-foreground: 22 31% 14%;
+    --accent: 39 92% 56%;
+    --accent-foreground: 222 34% 12%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 34 39% 80%;
-    --input: 34 39% 80%;
-    --ring: 43 88% 54%;
+    --border: 219 24% 84%;
+    --input: 219 24% 84%;
+    --ring: 39 92% 56%;
 
     --radius: 0.5rem;
 
-    --brand-gold: 43 88% 54%;
-    --brand-crimson: 350 60% 36%;
-    --brand-black: 22 31% 10%;
-    --brand-saffron: 29 91% 49%;
-    --brand-green: 145 38% 26%;
-    --brand-cream: 42 62% 97%;
+    --brand-gold: 39 92% 56%;
+    --brand-crimson: 350 63% 42%;
+    --brand-black: 222 34% 10%;
+    --brand-saffron: 24 88% 54%;
+    --brand-green: 168 48% 31%;
+    --brand-cream: 42 56% 97%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(43 88% 54%), hsl(31 93% 55%));
-    --gradient-crimson: linear-gradient(135deg, hsl(350 60% 36%), hsl(13 71% 42%));
-    --gradient-saffron: linear-gradient(135deg, hsl(29 91% 49%), hsl(43 88% 54%), hsl(145 38% 26%));
+    --gradient-gold: linear-gradient(135deg, hsl(44 96% 68%), hsl(35 92% 51%));
+    --gradient-crimson: linear-gradient(135deg, hsl(350 63% 42%), hsl(24 88% 54%));
+    --gradient-saffron: linear-gradient(135deg, hsl(215 57% 18%), hsl(168 48% 31%), hsl(39 92% 56%));
 
-    --shadow-gold: none;
-    --shadow-card: none;
-    --shadow-card-hover: none;
-    --shadow-crimson: none;
+    --shadow-gold: 0 16px 38px hsl(39 92% 56% / 0.20);
+    --shadow-card: 0 16px 42px hsl(222 34% 12% / 0.08);
+    --shadow-card-hover: 0 22px 58px hsl(222 34% 12% / 0.13);
+    --shadow-crimson: 0 16px 42px hsl(350 63% 42% / 0.20);
 
-    --sidebar-background: 21 36% 11%;
+    --sidebar-background: 222 42% 10%;
     --sidebar-foreground: 42 62% 97%;
-    --sidebar-primary: 43 88% 54%;
-    --sidebar-primary-foreground: 22 31% 10%;
-    --sidebar-accent: 29 51% 18%;
+    --sidebar-primary: 39 92% 56%;
+    --sidebar-primary-foreground: 222 34% 10%;
+    --sidebar-accent: 214 40% 17%;
     --sidebar-accent-foreground: 42 62% 97%;
-    --sidebar-border: 37 45% 24%;
-    --sidebar-ring: 43 88% 54%;
+    --sidebar-border: 216 32% 23%;
+    --sidebar-ring: 39 92% 56%;
   }
 
   .dark {
@@ -106,13 +106,30 @@
   }
   html {
     font-size: 17px;
+    scroll-behavior: smooth;
   }
   body {
     @apply bg-background text-foreground font-body antialiased;
     font-size: 1rem;
     line-height: 1.6;
     text-rendering: geometricPrecision;
-    background: linear-gradient(180deg, hsl(var(--background)), hsl(39 68% 94%));
+    background:
+      linear-gradient(135deg, hsl(39 92% 56% / 0.08), transparent 34%),
+      linear-gradient(225deg, hsl(168 48% 31% / 0.08), transparent 36%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(213 42% 96%));
+  }
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  select,
+  textarea {
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
   }
   :focus-visible {
     outline: 2px solid hsl(var(--brand-gold));
@@ -131,14 +148,14 @@
   /* Reusable premium section backgrounds (no shadows). */
   .bg-royal-dark {
     background:
-      linear-gradient(180deg, hsl(42 62% 97%), hsl(38 83% 94%)),
+      linear-gradient(180deg, hsl(42 56% 98%), hsl(213 42% 96%)),
       url("./assets/backgrounds/royal-pattern-light.svg");
     background-size: auto, 520px 520px;
     background-repeat: repeat;
   }
   .bg-royal-light {
     background:
-      linear-gradient(180deg, hsl(40 74% 98%), hsl(37 71% 95%)),
+      linear-gradient(180deg, hsl(0 0% 100%), hsl(213 42% 97%)),
       url("./assets/backgrounds/royal-pattern-light.svg");
     background-size: auto, 520px 520px;
     background-repeat: repeat;
@@ -167,9 +184,11 @@
     color: hsl(22 31% 12%);
     transition: all 0.3s ease;
     border: 1px solid hsl(37 80% 38% / 0.3);
+    box-shadow: var(--shadow-gold);
   }
   .btn-gold:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
+    filter: saturate(1.04);
   }
 
   .btn-crimson {
@@ -177,9 +196,11 @@
     background: var(--gradient-crimson);
     color: hsl(40 33% 98%);
     transition: all 0.3s ease;
+    box-shadow: var(--shadow-crimson);
   }
   .btn-crimson:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
+    filter: saturate(1.04);
   }
 
   .card-hover {
@@ -208,14 +229,15 @@
 
   .nav-dark {
     background:
-      linear-gradient(90deg, hsl(21 36% 11% / 0.98), hsl(350 60% 22% / 0.96), hsl(21 36% 11% / 0.98));
-    border-bottom: 1px solid hsl(var(--brand-gold) / 0.28);
-    backdrop-filter: blur(14px);
+      linear-gradient(90deg, hsl(222 42% 10% / 0.96), hsl(215 57% 18% / 0.94), hsl(168 48% 18% / 0.92));
+    border-bottom: 1px solid hsl(var(--brand-gold) / 0.22);
+    box-shadow: 0 14px 44px hsl(222 42% 10% / 0.28);
+    backdrop-filter: blur(18px);
   }
 
   .section-cream {
     background:
-      linear-gradient(180deg, hsl(40 74% 98% / 0.96), hsl(38 85% 93% / 0.96)),
+      linear-gradient(180deg, hsl(0 0% 100% / 0.96), hsl(213 42% 97% / 0.96)),
       url("./assets/backgrounds/royal-pattern-light.svg");
     background-size: auto, 520px 520px;
   }
@@ -229,16 +251,18 @@
 
   /* === Glass / glossy / metallic surfaces === */
   .glass-card {
-    background: hsl(var(--card) / 0.93);
+    background: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(213 42% 98% / 0.94));
     backdrop-filter: blur(14px) saturate(140%);
     -webkit-backdrop-filter: blur(14px) saturate(140%);
     border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-card);
   }
   .glass-panel {
-    background: hsl(var(--card) / 0.96);
+    background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(213 42% 98% / 0.94));
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-card);
   }
   .glass-chip {
     background: hsl(42 62% 97% / 0.88);
@@ -352,55 +376,168 @@
   .braj-page {
     min-height: 100vh;
     background:
-      linear-gradient(180deg, hsl(42 62% 97%), hsl(38 78% 94%)),
+      linear-gradient(135deg, hsl(39 92% 56% / 0.08), transparent 34%),
+      linear-gradient(225deg, hsl(168 48% 31% / 0.08), transparent 36%),
+      linear-gradient(180deg, hsl(42 56% 97%), hsl(213 42% 96%)),
       url("./assets/backgrounds/royal-pattern-light.svg");
     background-size: auto, 560px 560px;
   }
 
   .panel-shell {
     background:
-      linear-gradient(180deg, hsl(42 62% 97%), hsl(36 70% 93%)),
+      linear-gradient(135deg, hsl(39 92% 56% / 0.08), transparent 34%),
+      linear-gradient(225deg, hsl(168 48% 31% / 0.08), transparent 36%),
+      linear-gradient(180deg, hsl(42 56% 97%), hsl(213 42% 96%)),
       url("./assets/backgrounds/royal-pattern-light.svg");
     background-size: auto, 560px 560px;
   }
 
   .panel-sidebar {
     background:
-      linear-gradient(180deg, hsl(21 36% 11%), hsl(350 50% 18%));
+      linear-gradient(180deg, hsl(222 42% 10%), hsl(215 57% 15%) 54%, hsl(168 48% 16%));
     color: hsl(var(--brand-cream));
   }
 
   .panel-hero {
     background:
-      linear-gradient(135deg, hsl(350 60% 27% / 0.94), hsl(29 91% 35% / 0.88)),
+      linear-gradient(135deg, hsl(222 42% 10% / 0.92), hsl(215 57% 20% / 0.82), hsl(24 88% 38% / 0.74)),
       url("./assets/images/temple-about.jpg");
     background-size: cover;
     background-position: center;
   }
 
   .travel-card {
-    background: hsl(var(--card) / 0.94);
+    background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(213 42% 98% / 0.94));
     border: 1px solid hsl(var(--border));
     border-radius: 0.5rem;
+    box-shadow: var(--shadow-card);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+
+  .travel-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .travel-search-panel {
+    box-shadow:
+      0 24px 70px hsl(222 42% 10% / 0.28),
+      inset 0 1px 0 hsl(0 0% 100% / 0.74);
+  }
+
+  .trust-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(0 0% 100% / 0.78);
+    color: hsl(var(--muted-foreground));
+    padding: 0.35rem 0.65rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .premium-section {
+    position: relative;
+    overflow: hidden;
+    border-top: 1px solid hsl(var(--border) / 0.58);
+    border-bottom: 1px solid hsl(var(--border) / 0.42);
+    background:
+      linear-gradient(180deg, hsl(0 0% 100% / 0.90), hsl(213 42% 97% / 0.90)),
+      url("./assets/backgrounds/royal-pattern-light.svg");
+    background-size: auto, 560px 560px;
+  }
+
+  .premium-banner {
+    background:
+      linear-gradient(135deg, hsl(222 42% 10% / 0.95), hsl(215 57% 18% / 0.90), hsl(168 48% 20% / 0.86)),
+      url("./assets/images/temple-about.jpg");
+    background-size: cover;
+    background-position: center;
+    color: hsl(var(--primary-foreground));
+    border: 1px solid hsl(var(--brand-gold) / 0.22);
+    box-shadow: 0 24px 70px hsl(222 42% 10% / 0.18);
+  }
+
+  .premium-kicker {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: hsl(var(--brand-saffron));
+  }
+
+  .premium-copy {
+    font-family: 'DM Sans', sans-serif;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.72;
+  }
+
+  .premium-toolbar {
+    background: hsl(0 0% 100% / 0.84);
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(16px);
+  }
+
+  .premium-field {
+    min-height: 2.85rem;
+    border-radius: 0.75rem;
+    border: 1px solid hsl(var(--border));
+    background: hsl(0 0% 100%);
+  }
+
+  .premium-field:focus,
+  .premium-field:focus-visible {
+    border-color: hsl(var(--brand-gold));
+    box-shadow: 0 0 0 3px hsl(var(--brand-gold) / 0.22);
+    outline: none;
+  }
+
+  .premium-metric {
+    border-radius: 1rem;
+    border: 1px solid hsl(var(--border));
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.94), hsl(213 42% 98% / 0.88));
+    box-shadow: var(--shadow-card);
+  }
+
+  .premium-focus-card {
+    border-radius: 1rem;
+    border: 1px solid hsl(var(--border));
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.96), hsl(213 42% 98% / 0.92));
+    box-shadow: var(--shadow-card);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  }
+
+  .premium-focus-card:hover {
+    transform: translateY(-2px);
+    border-color: hsl(var(--brand-gold) / 0.48);
+    box-shadow: var(--shadow-card-hover);
   }
 
   .panel-shell .bg-card {
-    background: hsl(var(--card) / 0.94);
+    background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(213 42% 98% / 0.94));
     border-color: hsl(var(--border));
+    box-shadow: var(--shadow-card);
   }
 
   .panel-shell table thead {
-    background: hsl(38 85% 93% / 0.8);
+    background: hsl(214 38% 94% / 0.92);
   }
 
   .panel-shell table tbody tr:hover {
-    background: hsl(38 85% 93% / 0.45);
+    background: hsl(207 44% 94% / 0.62);
   }
 
   .panel-shell input,
   .panel-shell select,
   .panel-shell textarea {
-    background-color: hsl(40 70% 99%);
+    background-color: hsl(0 0% 100%);
+    border-color: hsl(var(--border));
   }
 
   .temple-band {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Star } from 'lucide-react';
+import { ChevronRight, MapPin, ShieldCheck, Star } from 'lucide-react';
 import { resolveBackendAssetUrl } from '@/lib/api';
 
 interface ListingCardProps {
@@ -71,7 +71,7 @@ const ListingCard = ({
   }, [active, safeGallery]);
 
   return (
-    <div className="glass-panel rounded-lg overflow-hidden water-hover group min-w-0 h-full flex flex-col">
+    <div className="glass-panel rounded-lg overflow-hidden water-hover group min-w-0 h-full flex flex-col border border-border/70 transition-all duration-300 hover:border-brand-gold/45">
       <div
         className={`relative overflow-hidden bg-muted ${
           variant === 'hotel' ? 'aspect-[4/3]' : variant === 'compact' ? 'aspect-[4/3]' : 'aspect-[16/10]'
@@ -132,7 +132,7 @@ const ListingCard = ({
         )}
       </div>
 
-      <div className="p-2 sm:p-2.5 flex flex-1 flex-col">
+      <div className="p-3 sm:p-3.5 flex flex-1 flex-col">
         <h3
           className={`font-display font-semibold text-foreground line-clamp-2 leading-tight ${
             variant === 'default' ? 'text-[13px] sm:text-sm' : 'text-[13px] sm:text-sm'
@@ -140,8 +140,8 @@ const ListingCard = ({
         >
           {name}
         </h3>
-        <p className={`font-body text-muted-foreground mt-1 line-clamp-2 ${variant === 'default' ? 'text-[10px] sm:text-[11px]' : 'text-[10px] sm:text-[11px]'}`}>
-          {location}
+        <p className={`font-body text-muted-foreground mt-1 line-clamp-2 inline-flex items-start gap-1.5 ${variant === 'default' ? 'text-[10px] sm:text-[11px]' : 'text-[10px] sm:text-[11px]'}`}>
+          <MapPin size={12} className="mt-0.5 shrink-0 text-brand-saffron" /> <span>{location || 'Vrindavan'}</span>
         </p>
         {meta && <p className="font-body text-[10px] sm:text-[11px] text-muted-foreground mt-1 line-clamp-1">{meta}</p>}
 
@@ -173,6 +173,10 @@ const ListingCard = ({
           </div>
         )}
 
+        <div className="mt-2 flex items-center gap-1.5 rounded-md bg-brand-green/8 px-2 py-1 font-body text-[10px] font-semibold text-brand-green">
+          <ShieldCheck size={12} /> Verified details before booking
+        </div>
+
         <div className="flex flex-col items-stretch gap-1.5 mt-auto pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:pt-3">
           {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
             <div>
@@ -182,8 +186,8 @@ const ListingCard = ({
           ) : (
             <div />
           )}
-          <button onClick={onViewDetails} className="btn-gold rounded-md font-body px-2.5 py-1.5 text-[10px] sm:px-3 sm:text-[11px] whitespace-nowrap">
-            {ctaLabel}
+          <button onClick={onViewDetails} className="btn-gold rounded-md font-body px-2.5 py-1.5 text-[10px] sm:px-3 sm:text-[11px] whitespace-nowrap inline-flex items-center justify-center gap-1">
+            {ctaLabel} <ChevronRight size={13} />
           </button>
         </div>
       </div>

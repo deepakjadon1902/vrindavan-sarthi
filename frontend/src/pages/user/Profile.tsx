@@ -1,23 +1,65 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
-import { User, Camera, Save, X, Mail, Phone, MapPin, Calendar, Shield, CreditCard, ClipboardList, Edit3 } from 'lucide-react';
+import { User, Camera, Save, X, Mail, Phone, MapPin, Calendar, Shield, CreditCard, ClipboardList, Edit3, Building2, FileText, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Link } from 'react-router-dom';
+import { api, resolveBackendAssetUrl, withAuth } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/apiError';
+import type { PartnerDocumentUpload, User as AuthUser } from '@/types/auth.types';
+
+const DOCUMENT_TYPES = [
+  { value: 'aadhar_card', label: 'Aadhaar Card' },
+  { value: 'pan_card', label: 'PAN Card' },
+  { value: 'gstin_registration', label: 'GST Registration Certificate' },
+  { value: 'property_registry_document', label: 'Property Registry / Lease Document' },
+  { value: 'business_license', label: 'Business License' },
+  { value: 'other', label: 'Other Government / Legal Document' },
+] as const;
+
+type DocumentType = (typeof DOCUMENT_TYPES)[number]['value'];
+
+const getDocumentLabel = (value?: string) =>
+  DOCUMENT_TYPES.find((item) => item.value === value)?.label || 'Other Government / Legal Document';
+
+const getProfileForm = (user: AuthUser) => ({
+  name: user.name || '',
+  phone: user.phone || '',
+  street: user.address?.street || '',
+  city: user.address?.city || '',
+  state: user.address?.state || '',
+  pin: user.address?.pin || '',
+  businessName: user.businessName || '',
+  gstNumber: user.gstNumber || '',
+  businessType: user.businessType || '',
+  businessAddress: user.businessAddress || '',
+  businessPhone: user.businessPhone || '',
+  businessEmail: user.businessEmail || '',
+  businessDescription: user.businessDescription || '',
+});
 
 const Profile = () => {
-  const { user, updateProfile } = useAuthStore();
+  const { user, updateProfile, token, refreshMe } = useAuthStore();
   const { myBookings, fetchMyBookings } = useBookingStore();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    name: user?.name || '',
-    phone: user?.phone || '',
-    street: user?.address?.street || '',
-    city: user?.address?.city || '',
-    state: user?.address?.state || '',
-    pin: user?.address?.pin || '',
+  const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('aadhar_card');
+  const [newDocuments, setNewDocuments] = useState<PartnerDocumentUpload[]>([]);
+  const [form, setForm] = useState(() => user ? getProfileForm(user) : {
+    name: '',
+    phone: '',
+    street: '',
+    city: '',
+    state: '',
+    pin: '',
+    businessName: '',
+    gstNumber: '',
+    businessType: '',
+    businessAddress: '',
+    businessPhone: '',
+    businessEmail: '',
+    businessDescription: '',
   });
 
   useEffect(() => {
@@ -25,22 +67,87 @@ const Profile = () => {
     void fetchMyBookings();
   }, [fetchMyBookings, user]);
 
+  useEffect(() => {
+    if (!user) return;
+    setForm(getProfileForm(user));
+  }, [user]);
+
   const bookings = myBookings;
   const totalBookings = bookings.length;
   const activeBookings = bookings.filter(b => b.bookingStatus === 'confirmed').length;
   const totalSpent = bookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + b.totalAmount, 0);
 
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const data = String(reader.result || '');
+        if (!data) return;
+        setNewDocuments((prev) => [
+          ...prev,
+          {
+            data,
+            name: file.name,
+            type: selectedDocumentType,
+            mimeType: file.type || 'application/octet-stream',
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeNewDocument = (index: number) => {
+    setNewDocuments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSave = async () => {
+    if (user?.role === 'partner' && !form.businessName.trim()) {
+      toast.error('Business name is required');
+      return;
+    }
+
     const result = await updateProfile({
       name: form.name,
       phone: form.phone,
       address: { street: form.street, city: form.city, state: form.state, pin: form.pin },
+      ...(user?.role === 'partner' ? {
+        businessName: form.businessName,
+        gstNumber: form.gstNumber,
+        businessType: form.businessType,
+        businessAddress: form.businessAddress,
+        businessPhone: form.businessPhone,
+        businessEmail: form.businessEmail,
+        businessDescription: form.businessDescription,
+      } : {}),
     });
+
+    if (!result.success) {
+      toast.error(result.error || 'Update failed');
+      return;
+    }
+
+    if (user?.role === 'partner' && newDocuments.length > 0) {
+      if (!token) {
+        toast.error('Login expired. Please login again.');
+        return;
+      }
+      try {
+        await api.post('/auth/me/partner-verification', { documents: newDocuments }, withAuth(token));
+        await refreshMe();
+        setNewDocuments([]);
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, 'Document upload failed'));
+        return;
+      }
+    }
+
     if (result.success) {
       setEditing(false);
-      toast.success('Profile updated successfully');
-    } else {
-      toast.error(result.error || 'Update failed');
+      toast.success(user?.role === 'partner' ? 'Profile updated and sent for verification' : 'Profile updated successfully');
     }
   };
 
@@ -85,7 +192,7 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
               ) : (
                 <>
                   <button onClick={handleSave} className="btn-crimson px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 font-medium"><Save size={14} /> Save</button>
-                  <button onClick={() => setEditing(false)} className="px-5 py-2.5 rounded-xl text-sm border border-border font-body hover:bg-muted transition-colors flex items-center gap-2"><X size={14} /> Cancel</button>
+                  <button onClick={() => { setEditing(false); setNewDocuments([]); setForm(getProfileForm(user)); }} className="px-5 py-2.5 rounded-xl text-sm border border-border font-body hover:bg-muted transition-colors flex items-center gap-2"><X size={14} /> Cancel</button>
                 </>
               )}
             </div>
@@ -183,6 +290,140 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
                   ))}
                 </div>
               </div>
+
+              {user.role === 'partner' && (
+                <>
+                  <div className="mt-8 pt-6 border-t border-border">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                      <h4 className="font-heading text-base font-semibold text-foreground flex items-center gap-2">
+                        <Building2 size={16} className="text-brand-gold" /> Business Details
+                      </h4>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-saffron/10 text-brand-saffron font-body text-xs font-medium capitalize">
+                        <Shield size={12} /> {user.partnerStatus || 'pending'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div>
+                        <label className="font-body text-xs text-muted-foreground block mb-1.5">Business Name</label>
+                        {editing ? (
+                          <input value={form.businessName} onChange={(e) => setForm({ ...form, businessName: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all" placeholder="Business name" />
+                        ) : (
+                          <p className="font-body text-sm text-foreground font-medium">{user.businessName || '-'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="font-body text-xs text-muted-foreground block mb-1.5">Business Type</label>
+                        {editing ? (
+                          <select value={form.businessType} onChange={(e) => setForm({ ...form, businessType: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all">
+                            <option value="">Select type</option>
+                            <option>Hotel</option>
+                            <option>Guest House</option>
+                            <option>Dharamshala</option>
+                            <option>Resort</option>
+                            <option>Hostel</option>
+                            <option>Homestay</option>
+                            <option>Tour Operator</option>
+                            <option>Cab Service</option>
+                            <option>Other</option>
+                          </select>
+                        ) : (
+                          <p className="font-body text-sm text-foreground font-medium">{user.businessType || '-'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="font-body text-xs text-muted-foreground block mb-1.5">GST Number</label>
+                        {editing ? (
+                          <input value={form.gstNumber} onChange={(e) => setForm({ ...form, gstNumber: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all" placeholder="GST number" />
+                        ) : (
+                          <p className="font-body text-sm text-foreground font-medium">{user.gstNumber || '-'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="font-body text-xs text-muted-foreground block mb-1.5">Business Phone</label>
+                        {editing ? (
+                          <input value={form.businessPhone} onChange={(e) => setForm({ ...form, businessPhone: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all" placeholder="Business phone" />
+                        ) : (
+                          <p className="font-body text-sm text-foreground font-medium">{user.businessPhone || '-'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="font-body text-xs text-muted-foreground block mb-1.5">Business Email</label>
+                        {editing ? (
+                          <input type="email" value={form.businessEmail} onChange={(e) => setForm({ ...form, businessEmail: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all" placeholder="business@email.com" />
+                        ) : (
+                          <p className="font-body text-sm text-foreground font-medium">{user.businessEmail || '-'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="font-body text-xs text-muted-foreground block mb-1.5">Business Address</label>
+                        {editing ? (
+                          <input value={form.businessAddress} onChange={(e) => setForm({ ...form, businessAddress: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all" placeholder="Business location" />
+                        ) : (
+                          <p className="font-body text-sm text-foreground font-medium">{user.businessAddress || '-'}</p>
+                        )}
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="font-body text-xs text-muted-foreground block mb-1.5">Business Description</label>
+                        {editing ? (
+                          <textarea rows={3} value={form.businessDescription} onChange={(e) => setForm({ ...form, businessDescription: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all resize-none" placeholder="Tell admin about your business" />
+                        ) : (
+                          <p className="font-body text-sm text-foreground font-medium whitespace-pre-wrap">{user.businessDescription || '-'}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t border-border">
+                    <h4 className="font-heading text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+                      <FileText size={16} className="text-brand-crimson" /> Legal Documents
+                    </h4>
+
+                    {editing && (
+                      <div className="rounded-xl border border-border bg-background p-4 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+                          <select value={selectedDocumentType} onChange={(e) => setSelectedDocumentType(e.target.value as DocumentType)} className="w-full px-4 py-2.5 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50">
+                            {DOCUMENT_TYPES.map((docType) => (
+                              <option key={docType.value} value={docType.value}>{docType.label}</option>
+                            ))}
+                          </select>
+                          <label className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card font-body text-sm hover:bg-muted cursor-pointer">
+                            <Upload size={15} /> Add Documents
+                            <input type="file" accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={handleDocumentUpload} className="sr-only" />
+                          </label>
+                        </div>
+                        <p className="font-body text-xs text-muted-foreground mt-2">New documents are sent to admin verification when you save.</p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      {(user.partnerDocuments || []).map((doc, index) => (
+                        <a key={`${doc.url}-${index}`} href={resolveBackendAssetUrl(doc.url)} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2 hover:bg-muted/40">
+                          <span className="min-w-0">
+                            <span className="block font-body text-sm text-foreground truncate">{doc.name || `Document ${index + 1}`}</span>
+                            <span className="block font-body text-xs text-muted-foreground">{getDocumentLabel(doc.type)} - {doc.mimeType || 'file'}</span>
+                          </span>
+                          <FileText size={16} className="text-muted-foreground flex-shrink-0" />
+                        </a>
+                      ))}
+
+                      {newDocuments.map((doc, index) => (
+                        <div key={`${doc.name}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-3 py-2">
+                          <span className="min-w-0">
+                            <span className="block font-body text-sm text-foreground truncate">{doc.name}</span>
+                            <span className="block font-body text-xs text-muted-foreground">{getDocumentLabel(doc.type)} - pending save</span>
+                          </span>
+                          <button type="button" onClick={() => removeNewDocument(index)} className="font-body text-xs text-destructive hover:underline">Remove</button>
+                        </div>
+                      ))}
+
+                      {(user.partnerDocuments || []).length === 0 && newDocuments.length === 0 && (
+                        <p className="font-body text-sm text-muted-foreground rounded-xl border border-border bg-background p-4">No legal documents uploaded yet.</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Quick Links Sidebar */}

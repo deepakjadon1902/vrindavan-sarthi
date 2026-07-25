@@ -764,8 +764,9 @@ const RoomTypeDetail = () => {
         toast.error(e?.response?.data?.message || 'Failed to load room type');
         setData(cached || null);
       } finally {
-        if (reqSeq.current !== seq) return;
-        setLoading(false);
+        if (reqSeq.current === seq) {
+          setLoading(false);
+        }
       }
     };
     void run();
@@ -823,7 +824,6 @@ const RoomTypeDetail = () => {
       }
     };
     void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, checkIn]);
 
   const availabilityByDate = useMemo(() => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
@@ -21,8 +21,13 @@ type CabListItem = {
 
 const Cabs = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [cabs, setCabs] = useState<CabListItem[]>([]);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get('q') || '');
+  }, [searchParams]);
 
   useEffect(() => {
     const load = async () => {
@@ -60,10 +65,12 @@ const Cabs = () => {
     };
   }, []);
 
-  const filtered = cabs.filter(
-    (c) =>
-      c.vehicleName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = cabs.filter((c) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return c.vehicleName.toLowerCase().includes(q)
+      || (c.routes || []).some((route) => route.toLowerCase().includes(q));
+  });
 
   return (
     <div className="pt-20">
@@ -74,15 +81,17 @@ const Cabs = () => {
             title="Book a Cab in Vrindavan"
             subtitle="Reliable local and outstation cab services"
           />
-          <div className="max-w-xl mx-auto relative">
+          <div className="premium-toolbar mx-auto max-w-xl p-3">
+            <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
             <input
               type="text"
               placeholder="Search cabs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 focus:border-brand-gold"
+              className="premium-field w-full pl-12 pr-4"
             />
+            </div>
           </div>
         </div>
       </section>
@@ -131,6 +140,19 @@ const Cabs = () => {
                   }}
                 />
               ))}
+              {filtered.length === 0 && (
+                <div className="premium-focus-card col-span-full mx-auto max-w-md p-6 text-center">
+                  <p className="font-heading text-xl font-bold text-foreground">No cabs found</p>
+                  <p className="mt-2 font-body text-sm text-muted-foreground">Try a vehicle name or route such as Mathura, Barsana, or Agra.</p>
+                  <button
+                    type="button"
+                    onClick={() => setSearchParams({})}
+                    className="btn-gold mt-5 rounded-lg px-5 py-2 text-sm"
+                  >
+                    Show All Cabs
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

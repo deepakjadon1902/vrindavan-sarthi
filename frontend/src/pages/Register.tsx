@@ -5,16 +5,27 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
 import { APP_LOGO_URL } from '@/lib/brand';
+import { Building2, FileText, UserRound } from 'lucide-react';
+import type { PartnerDocumentUpload } from '@/types/auth.types';
 
-type LegalDocumentUpload = {
-  data: string;
-  name: string;
-  type: string;
-};
+const DOCUMENT_TYPES = [
+  { value: 'aadhar_card', label: 'Aadhaar Card' },
+  { value: 'pan_card', label: 'PAN Card' },
+  { value: 'gstin_registration', label: 'GST Registration Certificate' },
+  { value: 'property_registry_document', label: 'Property Registry / Lease Document' },
+  { value: 'business_license', label: 'Business License' },
+  { value: 'other', label: 'Other Government / Legal Document' },
+] as const;
+
+type DocumentType = (typeof DOCUMENT_TYPES)[number]['value'];
+
+const getDocumentLabel = (value?: string) =>
+  DOCUMENT_TYPES.find((item) => item.value === value)?.label || 'Other Government / Legal Document';
 
 const Register = () => {
   const [role, setRole] = useState<'user' | 'partner'>('user');
-  const [documents, setDocuments] = useState<LegalDocumentUpload[]>([]);
+  const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('aadhar_card');
+  const [documents, setDocuments] = useState<PartnerDocumentUpload[]>([]);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', street: '', city: '', state: '', pin: '', password: '', confirmPassword: '',
     businessName: '', gstNumber: '', businessType: '', businessAddress: '', businessPhone: '', businessEmail: '', businessDescription: '',
@@ -66,7 +77,15 @@ const Register = () => {
       reader.onloadend = () => {
         const data = String(reader.result || '');
         if (!data) return;
-        setDocuments((prev) => [...prev, { data, name: file.name, type: file.type || 'application/octet-stream' }]);
+        setDocuments((prev) => [
+          ...prev,
+          {
+            data,
+            name: file.name,
+            type: selectedDocumentType,
+            mimeType: file.type || 'application/octet-stream',
+          },
+        ]);
       };
       reader.readAsDataURL(file);
     });
@@ -129,6 +148,11 @@ const Register = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="border-t border-border pt-4">
+              <h3 className="font-heading text-lg font-semibold text-foreground flex items-center gap-2">
+                <UserRound size={18} className="text-brand-crimson" /> Personal Details
+              </h3>
+            </div>
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Full Name *</label>
               <input type="text" required value={formData.name} onChange={(e) => update('name', e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="Your full name" />
@@ -166,7 +190,9 @@ const Register = () => {
             {role === 'partner' && (
               <>
                 <div className="border-t border-border pt-4 mt-2">
-                  <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Business Details</h3>
+                  <h3 className="font-heading text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <Building2 size={18} className="text-brand-gold" /> Business Details
+                  </h3>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -211,7 +237,17 @@ const Register = () => {
                 </div>
                 <div>
                   <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Government / Legal Documents *</label>
-                  <input type="file" accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={handleDocumentUpload} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm" />
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+                    <select value={selectedDocumentType} onChange={(e) => setSelectedDocumentType(e.target.value as DocumentType)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50">
+                      {DOCUMENT_TYPES.map((docType) => (
+                        <option key={docType.value} value={docType.value}>{docType.label}</option>
+                      ))}
+                    </select>
+                    <label className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-border bg-card font-body text-sm hover:bg-muted cursor-pointer">
+                      <FileText size={16} /> Upload
+                      <input type="file" accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={handleDocumentUpload} className="sr-only" />
+                    </label>
+                  </div>
                   <p className="font-body text-xs text-muted-foreground mt-1">{documents.length} document(s) selected for admin verification.</p>
                   {documents.length > 0 && (
                     <div className="mt-3 space-y-2">
@@ -219,7 +255,7 @@ const Register = () => {
                         <div key={`${doc.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
                           <div className="min-w-0">
                             <p className="font-body text-sm text-foreground truncate">{doc.name}</p>
-                            <p className="font-body text-xs text-muted-foreground">{doc.type}</p>
+                            <p className="font-body text-xs text-muted-foreground">{getDocumentLabel(doc.type)} - {doc.mimeType}</p>
                           </div>
                           <button type="button" onClick={() => removeDocument(index)} className="text-xs font-body text-destructive hover:underline">
                             Remove

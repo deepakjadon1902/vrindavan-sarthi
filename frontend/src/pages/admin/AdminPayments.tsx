@@ -200,7 +200,7 @@ const AdminPayments = () => {
                       <button onClick={() => setSelectedUpi(p.upiTxnId!)} className="flex items-center gap-1 font-body text-xs text-brand-gold hover:underline">
                         <Eye size={12} /> {p.upiTxnId.slice(0, 8)}...
                       </button>
-                    ) : <span className="font-body text-xs text-muted-foreground">â€”</span>}
+                    ) : <span className="font-body text-xs text-muted-foreground">-</span>}
                   </td>
                   <td className="px-4 py-3"><span className="flex items-center gap-1 font-body text-xs capitalize">{paymentIcon(p.paymentStatus)} {p.paymentStatus}</span></td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">{p.partnerName || 'Admin'}</td>

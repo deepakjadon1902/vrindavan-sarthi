@@ -157,7 +157,7 @@
 // export default Hotels;
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, Hotel } from 'lucide-react';
 import { toast } from 'sonner';
 import SectionTitle from '@/components/shared/SectionTitle';
@@ -179,8 +179,13 @@ type HotelListItem = {
 
 const Hotels = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [hotels, setHotels] = useState<HotelListItem[]>([]);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get('q') || '');
+  }, [searchParams]);
 
   useEffect(() => {
     const load = async () => {
@@ -218,10 +223,11 @@ const Hotels = () => {
     };
   }, []);
 
-  const filtered = hotels.filter(h =>
-    h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    h.location.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = hotels.filter((h) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return h.name.toLowerCase().includes(q) || h.location.toLowerCase().includes(q);
+  });
 
   const removeHotelFromCache = (hotelId: string) => {
     setHotels((prev) => {
@@ -258,11 +264,6 @@ const Hotels = () => {
       {/* ── Hero / Search Banner ── */}
       <section className="section-cream py-12 lg:py-20 relative overflow-hidden">
         {/* Subtle decorative background blur */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full bg-brand-gold/8 blur-3xl" />
-          <div className="absolute -bottom-10 -left-10 w-56 h-56 rounded-full bg-brand-crimson/6 blur-3xl" />
-        </div>
-
         <div className="container mx-auto px-4 sm:px-6 relative">
           <SectionTitle
             label="Stays in Vrindavan"
@@ -271,7 +272,7 @@ const Hotels = () => {
           />
 
           {/* Search bar */}
-          <div className="max-w-2xl mx-auto mt-8">
+          <div className="premium-toolbar mx-auto mt-8 max-w-2xl p-3">
             <div className="relative">
               <Search
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/60"
@@ -282,7 +283,7 @@ const Hotels = () => {
                 placeholder="Search by hotel name or location…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-5 py-4 rounded-2xl border border-border bg-card font-body text-[14px] shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/40 focus:border-brand-gold transition-all placeholder:text-muted-foreground/50"
+                className="premium-field w-full pl-12 pr-5"
               />
             </div>
           </div>
@@ -315,6 +316,18 @@ const Hotels = () => {
                   <p className="font-body text-[13px] text-muted-foreground font-medium">
                     {filtered.length === 1 ? 'hotel found' : 'hotels found'}
                   </p>
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchParams({});
+                      }}
+                      className="rounded-full border border-border px-3 py-1 font-body text-[11px] font-semibold text-muted-foreground hover:bg-muted"
+                    >
+                      Clear search
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -354,6 +367,16 @@ const Hotels = () => {
                   <p className="font-body text-[13px] text-muted-foreground mt-1.5">
                     Try searching with a different name or location
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchParams({});
+                    }}
+                    className="mt-4 btn-gold rounded-xl px-5 py-2 font-body text-xs"
+                  >
+                    Show all hotels
+                  </button>
                 </div>
               )}
             </>
