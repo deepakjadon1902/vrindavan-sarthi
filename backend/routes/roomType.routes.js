@@ -4,7 +4,6 @@ const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
 const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
-const Booking = require('../models/Booking');
 const User = require('../models/User');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const { normalizePublicImages, normalizePublicImageSet } = require('../utils/publicImages');
@@ -24,6 +23,40 @@ const getMemCache = (key) => {
 };
 const setMemCache = (key, value, ttlMs) => {
   memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+};
+
+const getAvailabilityStatus = ({ totalCount, availableCount, manualKinds = [], hasOnlineBookings = false }) => {
+  if (availableCount > 0) return { status: 'available', label: `${availableCount} rooms available` };
+  if (totalCount <= 0) return { status: 'closed', label: 'Booking closed' };
+
+  const kinds = new Set(manualKinds.map((kind) => String(kind || '').trim()).filter(Boolean));
+  if (kinds.size === 1 && kinds.has('offline_booking') && !hasOnlineBookings) {
+    return { status: 'offline_booking', label: 'Offline booked' };
+  }
+  if (kinds.size === 1 && kinds.has('closed') && !hasOnlineBookings) {
+    return { status: 'closed', label: 'Booking closed' };
+  }
+  return { status: 'unavailable', label: 'Unavailable at this time' };
+};
+
+const getRoomUnitAvailability = ({ unit, block, isBooked }) => {
+  const unitStatus = String(unit?.status || '').trim().toLowerCase();
+  if (!BOOKABLE_ROOM_STATUSES.includes(unitStatus)) {
+    return unitStatus === 'closed'
+      ? { status: 'closed', label: 'Booking closed' }
+      : { status: 'unavailable', label: 'Unavailable at this time' };
+  }
+
+  if (isBooked) return { status: 'unavailable', label: 'Unavailable at this time' };
+
+  if (block) {
+    const reason = String(block.reason || block.kind || '').trim();
+    if (reason === 'offline_booking') return { status: 'offline_booking', label: 'Offline booked' };
+    if (reason === 'closed') return { status: 'closed', label: 'Booking closed' };
+    return { status: 'unavailable', label: 'Unavailable at this time' };
+  }
+
+  return { status: 'available', label: 'Available' };
 };
 
 const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
@@ -71,22 +104,56 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
   const withAvailability = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
   if (!withAvailability) return base;
 
-  const blockedByBlocks = await RoomUnitBlock.distinct('roomUnitId', {
+  const roomUnits = await RoomUnit.find({ roomTypeId: roomType._id })
+    .select('_id number floor status petsAllowedOverride')
+    .sort({ number: 1, createdAt: 1 })
+    .lean();
+
+  const blockDocs = await RoomUnitBlock.find({
     roomTypeId: roomType._id,
     startDate: { $lt: checkOut },
     endDate: { $gt: checkIn },
-  });
+  })
+    .select('roomUnitId kind reason')
+    .lean();
+  const blockedByBlocks = blockDocs.map((block) => block.roomUnitId);
+  const blockByUnit = new Map(blockDocs.map((block) => [String(block.roomUnitId), block]));
 
-  const blockedByBookings = await Booking.distinct('roomUnitId', {
+  const blockedByBookings = await RoomUnitBookingDay.distinct('roomUnitId', {
     roomTypeId: roomType._id,
-    bookingStatus: { $ne: 'cancelled' },
-    checkIn: { $lt: checkOut },
-    checkOut: { $gt: checkIn },
+    date: { $gte: checkIn, $lt: checkOut },
   });
+  const bookedSet = new Set(blockedByBookings.map(String));
 
-  const blockedSet = new Set([...blockedByBlocks.map(String), ...blockedByBookings.map(String)]);
-  const availableCount = Math.max(0, totalCount - blockedSet.size);
-  return { ...base, availableCount };
+  const roomAvailability = roomUnits.map((unit) => {
+    const unitId = String(unit._id);
+    const availability = getRoomUnitAvailability({
+      unit,
+      block: blockByUnit.get(unitId),
+      isBooked: bookedSet.has(unitId),
+    });
+    return {
+      roomUnitId: unitId,
+      number: unit.number,
+      floor: unit.floor || '',
+      status: availability.status,
+      label: availability.label,
+    };
+  });
+  const availableCount = roomAvailability.filter((room) => room.status === 'available').length;
+  const availabilityStatus = getAvailabilityStatus({
+    totalCount,
+    availableCount,
+    manualKinds: blockDocs.map((block) => block.reason || block.kind),
+    hasOnlineBookings: blockedByBookings.length > 0,
+  });
+  return {
+    ...base,
+    availableCount,
+    availabilityStatus: availabilityStatus.status,
+    availabilityStatusLabel: availabilityStatus.label,
+    roomAvailability,
+  };
 };
 
 // Public: list all room types under approved active hotels
@@ -253,17 +320,15 @@ router.get('/', async (req, res) => {
           endDate: { $gt: checkIn },
         },
       },
-      { $group: { _id: '$roomTypeId', roomUnitIds: { $addToSet: '$roomUnitId' } } },
+      { $group: { _id: '$roomTypeId', roomUnitIds: { $addToSet: '$roomUnitId' }, kinds: { $addToSet: { $ifNull: ['$reason', '$kind'] } } } },
     ]);
-    const blockedByBlocks = new Map(blocksAgg.map((r) => [String(r._id), (r.roomUnitIds || []).map(String)]));
+    const blockedByBlocks = new Map(blocksAgg.map((r) => [String(r._id), { roomUnitIds: (r.roomUnitIds || []).map(String), kinds: r.kinds || [] }]));
 
-    const bookingsAgg = await Booking.aggregate([
+    const bookingsAgg = await RoomUnitBookingDay.aggregate([
       {
         $match: {
           roomTypeId: { $in: roomTypeIds },
-          bookingStatus: { $ne: 'cancelled' },
-          checkIn: { $lt: checkOut },
-          checkOut: { $gt: checkIn },
+          date: { $gte: checkIn, $lt: checkOut },
         },
       },
       { $group: { _id: '$roomTypeId', roomUnitIds: { $addToSet: '$roomUnitId' } } },
@@ -279,16 +344,26 @@ router.get('/', async (req, res) => {
 
         const rtId = String(rt._id);
         const totalCount = totalByRoomType.get(rtId) || 0;
+        const blockInfo = blockedByBlocks.get(rtId) || { roomUnitIds: [], kinds: [] };
+        const bookedIds = blockedByBookings.get(rtId) || [];
         const blockedSet = new Set([
-          ...(blockedByBlocks.get(rtId) || []),
-          ...(blockedByBookings.get(rtId) || []),
-        ]);
+          ...blockInfo.roomUnitIds,
+          ...bookedIds,
+        ].filter(Boolean));
         const availableCount = Math.max(0, totalCount - blockedSet.size);
+        const availabilityStatus = getAvailabilityStatus({
+          totalCount,
+          availableCount,
+          manualKinds: blockInfo.kinds,
+          hasOnlineBookings: bookedIds.length > 0,
+        });
 
         return {
           ...rt,
           totalCount,
           availableCount,
+          availabilityStatus: availabilityStatus.status,
+          availabilityStatusLabel: availabilityStatus.label,
           uploader: (() => {
             const creator = rt.createdByUserId ? creatorById.get(String(rt.createdByUserId)) : null;
             return creator
@@ -366,6 +441,87 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Public: room-number availability for a selected stay duration
+// Query: ?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD
+router.get('/:id/room-availability', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+
+    const roomType = await RoomType.findById(req.params.id)
+      .select('_id hotelId status')
+      .lean();
+    if (!roomType || roomType.status !== 'active') return res.status(404).json({ success: false, message: 'Room type not found' });
+
+    const hotel = await Hotel.findOne({ _id: roomType.hotelId, status: 'active', approvalStatus: 'approved' })
+      .select('_id')
+      .lean();
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+
+    const checkIn = parseDateOnlyToUTC(String(req.query?.checkIn || ''));
+    const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));
+    if (!isValidDate(checkIn) || !isValidDate(checkOut) || checkIn >= checkOut) {
+      return res.status(400).json({ success: false, message: 'Valid checkIn and checkOut are required' });
+    }
+
+    const roomUnits = await RoomUnit.find({ roomTypeId: roomType._id })
+      .select('_id number floor status petsAllowedOverride')
+      .sort({ number: 1, createdAt: 1 })
+      .lean();
+    const totalCount = roomUnits.filter((unit) => BOOKABLE_ROOM_STATUSES.includes(String(unit?.status || '').trim().toLowerCase())).length;
+
+    const blockDocs = await RoomUnitBlock.find({
+      roomTypeId: roomType._id,
+      startDate: { $lt: checkOut },
+      endDate: { $gt: checkIn },
+    })
+      .select('roomUnitId kind reason')
+      .lean();
+    const blockByUnit = new Map(blockDocs.map((block) => [String(block.roomUnitId), block]));
+
+    const bookedIds = await RoomUnitBookingDay.distinct('roomUnitId', {
+      roomTypeId: roomType._id,
+      date: { $gte: checkIn, $lt: checkOut },
+    });
+    const bookedSet = new Set(bookedIds.map(String));
+
+    const roomAvailability = roomUnits.map((unit) => {
+      const unitId = String(unit._id);
+      const availability = getRoomUnitAvailability({
+        unit,
+        block: blockByUnit.get(unitId),
+        isBooked: bookedSet.has(unitId),
+      });
+      return {
+        roomUnitId: unitId,
+        number: unit.number,
+        floor: unit.floor || '',
+        status: availability.status,
+        label: availability.label,
+      };
+    });
+    const availableCount = roomAvailability.filter((room) => room.status === 'available').length;
+    const availabilityStatus = getAvailabilityStatus({
+      totalCount,
+      availableCount,
+      manualKinds: blockDocs.map((block) => block.reason || block.kind),
+      hasOnlineBookings: bookedIds.length > 0,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        totalCount,
+        availableCount,
+        availabilityStatus: availabilityStatus.status,
+        availabilityStatusLabel: availabilityStatus.label,
+        roomAvailability,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Public: calendar-style availability for a room type (per-day counts + room numbers)
 // Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (max 90 days)
 router.get('/:id/calendar', async (req, res) => {
@@ -406,7 +562,7 @@ router.get('/:id/calendar', async (req, res) => {
     const numberByUnitId = new Map(units.map((u) => [String(u._id), String(u.number)]));
 
     const dateKey = (d) => d.toISOString().slice(0, 10);
-    const blockedByDate = new Map(days.map((d) => [dateKey(d), new Set()]));
+    const blockedByDate = new Map(days.map((d) => [dateKey(d), { unitIds: new Set(), manualKinds: new Set(), hasOnlineBookings: false }]));
 
     // Blocks
     const blocks = await RoomUnitBlock.find({
@@ -414,7 +570,7 @@ router.get('/:id/calendar', async (req, res) => {
       startDate: { $lt: boundedTo },
       endDate: { $gt: from },
     })
-      .select('roomUnitId startDate endDate')
+      .select('roomUnitId startDate endDate kind reason')
       .lean();
 
     for (const b of blocks) {
@@ -424,8 +580,11 @@ router.get('/:id/calendar', async (req, res) => {
       const overlapEnd = end > boundedTo ? boundedTo : end;
       for (const d of enumerateDatesUTC(overlapStart, overlapEnd)) {
         const key = dateKey(d);
-        const set = blockedByDate.get(key);
-        if (set) set.add(String(b.roomUnitId));
+        const item = blockedByDate.get(key);
+        if (item) {
+          item.unitIds.add(String(b.roomUnitId));
+          item.manualKinds.add(String(b.reason || b.kind || 'unavailable'));
+        }
       }
     }
 
@@ -439,22 +598,33 @@ router.get('/:id/calendar', async (req, res) => {
 
     for (const bd of bookingDays) {
       const key = dateKey(bd.date);
-      const set = blockedByDate.get(key);
-      if (set) set.add(String(bd.roomUnitId));
+      const item = blockedByDate.get(key);
+      if (item) {
+        item.unitIds.add(String(bd.roomUnitId));
+        item.hasOnlineBookings = true;
+      }
     }
 
     const calendar = days.map((d) => {
       const key = dateKey(d);
-      const blockedSet = blockedByDate.get(key) || new Set();
-      const unavailableRooms = Array.from(blockedSet)
+      const blockedInfo = blockedByDate.get(key) || { unitIds: new Set(), manualKinds: new Set(), hasOnlineBookings: false };
+      const unavailableRooms = Array.from(blockedInfo.unitIds)
         .map((id) => numberByUnitId.get(String(id)))
         .filter(Boolean);
-      const unavailableCount = blockedSet.size;
+      const unavailableCount = blockedInfo.unitIds.size;
       const availableCount = Math.max(0, totalCount - unavailableCount);
+      const availabilityStatus = getAvailabilityStatus({
+        totalCount,
+        availableCount,
+        manualKinds: Array.from(blockedInfo.manualKinds),
+        hasOnlineBookings: blockedInfo.hasOnlineBookings,
+      });
       return {
         date: key,
         totalCount,
         availableCount,
+        availabilityStatus: availabilityStatus.status,
+        availabilityStatusLabel: availabilityStatus.label,
         unavailableRooms,
       };
     });

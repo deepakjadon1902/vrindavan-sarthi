@@ -28,11 +28,12 @@ type RoomUnit = {
   roomTypeId: string;
   number: string;
   floor?: string;
-  status: 'active' | 'inactive' | 'available' | 'unavailable' | 'maintenance' | 'closed';
+  status: 'active' | 'inactive' | 'available' | 'unavailable' | 'closed';
   petsAllowedOverride?: boolean | null;
 };
 
-type BlockKind = 'closed' | 'maintenance' | 'offline_booking' | 'temp_unavailable';
+type BlockKind = 'available' | 'offline_booking' | 'unavailable' | 'closed';
+type BlockScope = 'room' | 'room_type';
 
 const AdminInventory = () => {
   const token = useAuthStore((s) => s.token);
@@ -68,10 +69,10 @@ const AdminInventory = () => {
   const [editingRoomUnitId, setEditingRoomUnitId] = useState<string | null>(null);
 
   // Block form
-  const [blockKind, setBlockKind] = useState<BlockKind>('maintenance');
+  const [blockKind, setBlockKind] = useState<BlockKind>('offline_booking');
+  const [blockScope, setBlockScope] = useState<BlockScope>('room');
   const [blockStart, setBlockStart] = useState('');
   const [blockEnd, setBlockEnd] = useState('');
-  const [blockNote, setBlockNote] = useState('');
 
   const selectedHotel = useMemo(() => hotels.find((h) => h._id === selectedHotelId) || null, [hotels, selectedHotelId]);
   const selectedRoomType = useMemo(() => roomTypes.find((rt) => rt._id === selectedRoomTypeId) || null, [roomTypes, selectedRoomTypeId]);
@@ -355,20 +356,25 @@ const AdminInventory = () => {
 
   const onAddBlock = async () => {
     if (!token) return;
-    if (!selectedRoomUnitId) return toast.error('Select a room first');
+    if (blockScope === 'room' && !selectedRoomUnitId) return toast.error('Select a room first');
+    if (blockScope === 'room_type' && !selectedRoomTypeId) return toast.error('Select a room type first');
     if (!blockStart || !blockEnd) return toast.error('Start and end dates are required');
+    const payloadKind = blockKind === 'available' ? 'available' : blockKind === 'closed' ? 'closed' : 'unavailable';
 
     try {
-      await api.post(
-        `/admin/inventory/rooms/${selectedRoomUnitId}/blocks`,
-        { kind: blockKind, startDate: blockStart, endDate: blockEnd, note: blockNote },
+      const endpoint =
+        blockScope === 'room_type'
+          ? `/admin/inventory/room-types/${selectedRoomTypeId}/blocks`
+          : `/admin/inventory/rooms/${selectedRoomUnitId}/blocks`;
+      const res = await api.post(
+        endpoint,
+        { kind: payloadKind, reason: blockKind, startDate: blockStart, endDate: blockEnd },
         withAuth(token)
       );
-      toast.success('Block added');
+      toast.success(res.data?.message || (blockKind === 'available' ? 'Marked available' : 'Block added'));
       publishAppEvent('listing:changed');
       setBlockStart('');
       setBlockEnd('');
-      setBlockNote('');
       await loadCalendar(selectedRoomUnitId);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to add block');
@@ -599,7 +605,6 @@ const AdminInventory = () => {
             >
               <option value="available">Available</option>
               <option value="unavailable">Unavailable</option>
-              <option value="maintenance">Maintenance</option>
               <option value="closed">Closed</option>
             </select>
 
@@ -704,19 +709,28 @@ const AdminInventory = () => {
 
           <div className="border border-border rounded-xl p-4 space-y-3">
             <p className="font-body text-sm font-semibold text-foreground">Manual Block</p>
+            <select value={blockScope} onChange={(e) => setBlockScope(e.target.value as BlockScope)} className="w-full px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm">
+              <option value="room">Selected room number only</option>
+              <option value="room_type">Entire selected room type</option>
+            </select>
             <select value={blockKind} onChange={(e) => setBlockKind(e.target.value as BlockKind)} className="w-full px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm">
+              <option value="available">Available</option>
+              <option value="offline_booking">Offline booking</option>
+              <option value="unavailable">Unavailable</option>
               <option value="closed">Closed</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="offline_booking">Offline booking block</option>
-              <option value="temp_unavailable">Temporary unavailable</option>
             </select>
             <div className="grid grid-cols-2 gap-2">
               <input value={blockStart} onChange={(e) => setBlockStart(e.target.value)} type="date" className="px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm" />
               <input value={blockEnd} onChange={(e) => setBlockEnd(e.target.value)} type="date" className="px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm" />
             </div>
-            <input value={blockNote} onChange={(e) => setBlockNote(e.target.value)} placeholder="Note (optional)" className="px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm" />
-            <button onClick={onAddBlock} disabled={!selectedRoomUnitId} className="btn-crimson w-full py-2.5 rounded-xl text-sm disabled:opacity-50">
-              Add Block
+            <button
+              onClick={onAddBlock}
+              disabled={blockScope === 'room' ? !selectedRoomUnitId : !selectedRoomTypeId}
+              className={`${blockKind === 'available' ? 'bg-green-600 hover:bg-green-700 text-white' : 'btn-crimson'} w-full py-2.5 rounded-xl text-sm disabled:opacity-50`}
+            >
+              {blockKind === 'available'
+                ? (blockScope === 'room_type' ? 'Set Room Type Available' : 'Set Room Available')
+                : (blockScope === 'room_type' ? 'Block Room Type' : 'Add Room Block')}
             </button>
           </div>
 
@@ -737,7 +751,6 @@ const AdminInventory = () => {
                             <p className="font-body text-xs font-semibold text-foreground capitalize">{String(b.kind || '').replaceAll('_', ' ')}</p>
                             <p className="font-body text-[11px] text-muted-foreground">
                               {String(b.startDate || '').slice(0, 10)} → {String(b.endDate || '').slice(0, 10)}
-                              {b.note ? ` • ${b.note}` : ''}
                             </p>
                           </div>
                           <button onClick={() => onDeleteBlock(b._id)} className="p-1.5 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">

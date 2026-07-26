@@ -3,6 +3,7 @@ const Hotel = require('../models/Hotel');
 const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
+const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const { processRoomTypeWaitlist } = require('../utils/waitlist');
 const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
@@ -28,6 +29,39 @@ const ensurePartnerHotel = async (hotelId, partnerId) => {
 
 const normalizeString = (v) => String(v || '').trim();
 const normalizeStringArray = (v) => (Array.isArray(v) ? v.map((x) => normalizeString(x)).filter(Boolean) : []);
+const normalizeRoomUnitStatus = (value) => {
+  const status = normalizeString(value).toLowerCase();
+  if (['available', 'unavailable', 'maintenance', 'closed'].includes(status)) return status;
+  if (status === 'active') return 'available';
+  if (status === 'inactive') return 'unavailable';
+  return 'available';
+};
+const normalizeBlockKind = (value) => {
+  const kind = normalizeString(value).toLowerCase();
+  if (kind === 'closed') return 'closed';
+  if (['offline_booking', 'unavailable'].includes(kind)) return 'unavailable';
+  if (kind === 'temp_unavailable' || kind === 'maintenance') return 'unavailable';
+  return 'unavailable';
+};
+const normalizeBlockReason = (value) => {
+  const reason = normalizeString(value).toLowerCase();
+  if (['offline_booking', 'unavailable', 'closed'].includes(reason)) return reason;
+  return normalizeBlockKind(value) === 'closed' ? 'closed' : 'unavailable';
+};
+
+const getOverlappingBlockQuery = (unitIds, startDate, endDate) => ({
+  roomUnitId: { $in: unitIds },
+  startDate: { $lt: endDate },
+  endDate: { $gt: startDate },
+});
+
+const getConflictingBookedUnitIds = async (unitIds, startDate, endDate) => {
+  const dates = await RoomUnitBookingDay.distinct('roomUnitId', {
+    roomUnitId: { $in: unitIds },
+    date: { $gte: startDate, $lt: endDate },
+  });
+  return new Set(dates.map(String));
+};
 
 // Room Types (CRUD) under a partner hotel
 router.get('/hotels/:hotelId/room-types', async (req, res) => {
@@ -158,7 +192,7 @@ router.post('/room-types/:roomTypeId/rooms', async (req, res) => {
       number,
       floor: normalizeString(req.body?.floor),
       petsAllowedOverride: typeof req.body?.petsAllowedOverride === 'boolean' ? Boolean(req.body?.petsAllowedOverride) : null,
-      status: normalizeString(req.body?.status) === 'inactive' ? 'inactive' : 'active',
+      status: normalizeRoomUnitStatus(req.body?.status),
     });
 
     try {
@@ -186,11 +220,19 @@ router.put('/rooms/:roomUnitId', async (req, res) => {
     if (typeof req.body?.petsAllowedOverride !== 'undefined') {
       room.petsAllowedOverride = typeof req.body?.petsAllowedOverride === 'boolean' ? Boolean(req.body?.petsAllowedOverride) : null;
     }
-    if (typeof req.body?.status !== 'undefined') room.status = normalizeString(req.body?.status) === 'inactive' ? 'inactive' : 'active';
+    if (typeof req.body?.status !== 'undefined') room.status = normalizeRoomUnitStatus(req.body?.status);
 
     room.createdByUserId = req.user._id;
     room.createdByRole = 'partner';
     await room.save();
+
+    if (['active', 'available'].includes(String(room.status))) {
+      try {
+        await processRoomTypeWaitlist({ roomTypeId: room.roomTypeId, max: 50 });
+      } catch {
+        // ignore waitlist processing errors
+      }
+    }
 
     res.json({ success: true, data: room });
   } catch (err) {
@@ -248,22 +290,39 @@ router.post('/rooms/:roomUnitId/blocks', async (req, res) => {
     const room = await RoomUnit.findOne({ _id: req.params.roomUnitId, partnerId: req.user._id }).lean();
     if (!room) return res.status(404).json({ success: false, message: 'Room not found' });
 
-    const requestedKind = normalizeString(req.body?.kind).toLowerCase();
-    const kind = requestedKind === 'closed' || requestedKind === 'maintenance' ? requestedKind : 'unavailable';
+    if (normalizeString(req.body?.kind).toLowerCase() === 'available') {
+      const startDate = parseDateOnlyToUTC(String(req.body?.startDate || ''));
+      const endDate = parseDateOnlyToUTC(String(req.body?.endDate || ''));
+      if (!isValidDate(startDate) || !isValidDate(endDate) || startDate >= endDate) {
+        return res.status(400).json({ success: false, message: 'Valid startDate and endDate are required' });
+      }
+
+      const result = await RoomUnitBlock.deleteMany(getOverlappingBlockQuery([room._id], startDate, endDate));
+      await RoomUnit.updateOne({ _id: room._id, partnerId: req.user._id }, { $set: { status: 'available' } });
+      try {
+        await processRoomTypeWaitlist({ roomTypeId: room.roomTypeId, max: 50 });
+      } catch {
+        // ignore waitlist processing errors
+      }
+      return res.json({ success: true, message: `Room marked available. Removed ${result.deletedCount || 0} manual block(s).` });
+    }
+
+    const kind = normalizeBlockKind(req.body?.kind);
+    const reason = normalizeBlockReason(req.body?.reason || req.body?.kind);
     const startDate = parseDateOnlyToUTC(String(req.body?.startDate || ''));
     const endDate = parseDateOnlyToUTC(String(req.body?.endDate || ''));
     if (!isValidDate(startDate) || !isValidDate(endDate) || startDate >= endDate) {
       return res.status(400).json({ success: false, message: 'Valid startDate and endDate are required' });
     }
 
-    const conflictingBooking = await Booking.findOne({
-      roomUnitId: room._id,
-      bookingStatus: { $ne: 'cancelled' },
-      checkIn: { $lt: endDate },
-      checkOut: { $gt: startDate },
-    }).lean();
-    if (conflictingBooking) {
+    const conflictingBookedUnitIds = await getConflictingBookedUnitIds([room._id], startDate, endDate);
+    if (conflictingBookedUnitIds.has(String(room._id))) {
       return res.status(409).json({ success: false, message: 'Room has a booking in this date range' });
+    }
+
+    const conflictingBlock = await RoomUnitBlock.findOne(getOverlappingBlockQuery([room._id], startDate, endDate)).lean();
+    if (conflictingBlock) {
+      return res.status(409).json({ success: false, message: 'Room already has a manual block in this date range' });
     }
 
     const block = await RoomUnitBlock.create({
@@ -271,6 +330,7 @@ router.post('/rooms/:roomUnitId/blocks', async (req, res) => {
       roomTypeId: room.roomTypeId,
       roomUnitId: room._id,
       kind,
+      reason,
       startDate,
       endDate,
       note: normalizeString(req.body?.note),
@@ -278,6 +338,76 @@ router.post('/rooms/:roomUnitId/blocks', async (req, res) => {
     });
 
     res.status(201).json({ success: true, data: block });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/room-types/:roomTypeId/blocks', async (req, res) => {
+  try {
+    const roomType = await RoomType.findOne({ _id: req.params.roomTypeId, partnerId: req.user._id }).lean();
+    if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
+
+    if (normalizeString(req.body?.kind).toLowerCase() === 'available') {
+      const startDate = parseDateOnlyToUTC(String(req.body?.startDate || ''));
+      const endDate = parseDateOnlyToUTC(String(req.body?.endDate || ''));
+      if (!isValidDate(startDate) || !isValidDate(endDate) || startDate >= endDate) {
+        return res.status(400).json({ success: false, message: 'Valid startDate and endDate are required' });
+      }
+
+      const rooms = await RoomUnit.find({ roomTypeId: roomType._id, partnerId: req.user._id }).select('_id').lean();
+      if (!rooms.length) return res.status(409).json({ success: false, message: 'No room numbers exist under this room type' });
+      const unitIds = rooms.map((room) => room._id);
+      const result = await RoomUnitBlock.deleteMany(getOverlappingBlockQuery(unitIds, startDate, endDate));
+      await RoomUnit.updateMany({ roomTypeId: roomType._id, partnerId: req.user._id }, { $set: { status: 'available' } });
+      try {
+        await processRoomTypeWaitlist({ roomTypeId: roomType._id, max: 50 });
+      } catch {
+        // ignore waitlist processing errors
+      }
+      return res.json({ success: true, message: `Room type marked available. Removed ${result.deletedCount || 0} manual block(s).` });
+    }
+
+    const kind = normalizeBlockKind(req.body?.kind);
+    const reason = normalizeBlockReason(req.body?.reason || req.body?.kind);
+    const startDate = parseDateOnlyToUTC(String(req.body?.startDate || ''));
+    const endDate = parseDateOnlyToUTC(String(req.body?.endDate || ''));
+    if (!isValidDate(startDate) || !isValidDate(endDate) || startDate >= endDate) {
+      return res.status(400).json({ success: false, message: 'Valid startDate and endDate are required' });
+    }
+
+    const rooms = await RoomUnit.find({ roomTypeId: roomType._id, partnerId: req.user._id }).select('_id hotelId roomTypeId number').lean();
+    if (!rooms.length) return res.status(409).json({ success: false, message: 'No room numbers exist under this room type' });
+
+    const unitIds = rooms.map((room) => room._id);
+    const bookedSet = await getConflictingBookedUnitIds(unitIds, startDate, endDate);
+    const existingBlocks = await RoomUnitBlock.distinct('roomUnitId', getOverlappingBlockQuery(unitIds, startDate, endDate));
+    const blockedSet = new Set(existingBlocks.map(String));
+
+    const roomsToBlock = rooms.filter((room) => !bookedSet.has(String(room._id)) && !blockedSet.has(String(room._id)));
+    if (!roomsToBlock.length) {
+      return res.status(409).json({ success: false, message: 'Every room in this room type is already booked or blocked for this date range' });
+    }
+
+    const blocks = await RoomUnitBlock.insertMany(
+      roomsToBlock.map((room) => ({
+        hotelId: room.hotelId,
+        roomTypeId: room.roomTypeId,
+        roomUnitId: room._id,
+        kind,
+        reason,
+        startDate,
+        endDate,
+        note: normalizeString(req.body?.note),
+        createdByUserId: req.user._id,
+      }))
+    );
+
+    res.status(201).json({
+      success: true,
+      data: blocks,
+      message: `Blocked ${blocks.length} room(s). ${bookedSet.size} booked and ${blockedSet.size} already-blocked room(s) were skipped.`,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -291,7 +421,13 @@ router.delete('/blocks/:blockId', async (req, res) => {
     const room = await RoomUnit.findOne({ _id: block.roomUnitId, partnerId: req.user._id }).lean();
     if (!room) return res.status(403).json({ success: false, message: 'Not authorized' });
 
+    const roomTypeId = block.roomTypeId;
     await block.deleteOne();
+    try {
+      await processRoomTypeWaitlist({ roomTypeId, max: 50 });
+    } catch {
+      // ignore waitlist processing errors
+    }
     res.json({ success: true, message: 'Deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

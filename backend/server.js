@@ -115,6 +115,8 @@ const splitOrigins = (value) =>
 const allowedOrigins = new Set([
   ...splitOrigins(process.env.FRONTEND_BASE_URL),
   ...splitOrigins(process.env.CORS_ORIGINS),
+  'https://www.vrindavansarthi.in',
+  'https://vrindavansarthi.in',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
   'http://localhost:8081',

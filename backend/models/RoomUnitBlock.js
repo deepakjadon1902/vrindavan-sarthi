@@ -10,8 +10,14 @@ const roomUnitBlockSchema = new mongoose.Schema(
 
     kind: {
       type: String,
-      enum: ['unavailable', 'maintenance', 'closed'],
+      enum: ['unavailable', 'closed'],
       required: true,
+      index: true,
+    },
+    reason: {
+      type: String,
+      enum: ['offline_booking', 'unavailable', 'closed'],
+      default: 'unavailable',
       index: true,
     },
     startDate: { type: Date, required: true, index: true },

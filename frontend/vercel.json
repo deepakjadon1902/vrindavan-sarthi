@@ -26,6 +26,8 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/:path*", "destination": "https://vrindavan-sarthi-gla3.onrender.com/api/:path*" },
+    { "source": "/uploads/:path*", "destination": "https://vrindavan-sarthi-gla3.onrender.com/uploads/:path*" },
     { "source": "/robots.txt", "destination": "/robots.txt" },
     { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
     { "source": "/sitemap-index.xml", "destination": "/sitemap-index.xml" },

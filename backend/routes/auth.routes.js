@@ -192,8 +192,13 @@ const sendOtpEmail = async ({ to, otp }) => {
   await transport.sendMail({ from, to, subject, text });
 };
 
+const getFrontendBase = () =>
+  process.env.FRONTEND_BASE_URL ||
+  process.env.PUBLIC_SITE_URL ||
+  (process.env.NODE_ENV === 'production' ? 'https://www.vrindavansarthi.in' : 'http://localhost:8080');
+
 const redirectToLoginWithError = (res, error) => {
-  const frontendBase = process.env.FRONTEND_BASE_URL || 'http://localhost:8080';
+  const frontendBase = getFrontendBase();
   const url = new URL('/login', frontendBase);
   url.searchParams.set('error', error);
   return res.redirect(url.toString());
@@ -231,7 +236,7 @@ router.get('/google/callback', async (req, res, next) => {
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
     if (!clientId || !clientSecret || !redirectUri) return redirectToLoginWithError(res, 'google_oauth_not_configured');
-    const frontendBase = process.env.FRONTEND_BASE_URL || 'http://localhost:8080';
+    const frontendBase = getFrontendBase();
 
     const { code, error, state } = req.query;
     if (error) {

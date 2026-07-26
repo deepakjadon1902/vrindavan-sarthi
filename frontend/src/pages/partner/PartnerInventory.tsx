@@ -28,11 +28,12 @@ type RoomUnit = {
   roomTypeId: string;
   number: string;
   floor?: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'available' | 'unavailable' | 'closed';
   petsAllowedOverride?: boolean | null;
 };
 
-type BlockKind = 'available' | 'unavailable' | 'maintenance' | 'closed';
+type BlockKind = 'available' | 'offline_booking' | 'unavailable' | 'closed';
+type BlockScope = 'room' | 'room_type';
 
 const PartnerInventory = () => {
   const token = useAuthStore((s) => s.token);
@@ -66,10 +67,10 @@ const PartnerInventory = () => {
   const [editingRoomUnitId, setEditingRoomUnitId] = useState<string | null>(null);
 
   // Block form
-  const [blockKind, setBlockKind] = useState<BlockKind>('unavailable');
+  const [blockKind, setBlockKind] = useState<BlockKind>('offline_booking');
+  const [blockScope, setBlockScope] = useState<BlockScope>('room');
   const [blockStart, setBlockStart] = useState('');
   const [blockEnd, setBlockEnd] = useState('');
-  const [blockNote, setBlockNote] = useState('');
 
   const selectedHotel = useMemo(() => hotels.find((h) => h._id === selectedHotelId) || null, [hotels, selectedHotelId]);
   const selectedRoomType = useMemo(() => roomTypes.find((rt) => rt._id === selectedRoomTypeId) || null, [roomTypes, selectedRoomTypeId]);
@@ -375,18 +376,22 @@ const PartnerInventory = () => {
 
   const createBlock = async () => {
     if (!token) return;
-    if (!selectedRoomUnitId) return toast.error('Select a room first');
-    if (blockKind === 'available') return toast.error('Available means no manual block is needed. Remove an existing block to reopen dates.');
+    if (blockScope === 'room' && !selectedRoomUnitId) return toast.error('Select a room first');
+    if (blockScope === 'room_type' && !selectedRoomTypeId) return toast.error('Select a room type first');
     if (!blockStart || !blockEnd) return toast.error('Start and end dates are required');
+    const payloadKind = blockKind === 'available' ? 'available' : blockKind === 'closed' ? 'closed' : 'unavailable';
     try {
-      await api.post(
-        `/partner/inventory/rooms/${selectedRoomUnitId}/blocks`,
-        { kind: blockKind, startDate: blockStart, endDate: blockEnd, note: blockNote },
+      const endpoint =
+        blockScope === 'room_type'
+          ? `/partner/inventory/room-types/${selectedRoomTypeId}/blocks`
+          : `/partner/inventory/rooms/${selectedRoomUnitId}/blocks`;
+      const res = await api.post(
+        endpoint,
+        { kind: payloadKind, reason: blockKind, startDate: blockStart, endDate: blockEnd },
         withAuth(token)
       );
-      toast.success('Blocked');
+      toast.success(res.data?.message || (blockKind === 'available' ? 'Marked available' : 'Blocked'));
       publishAppEvent('listing:changed');
-      setBlockNote('');
       void loadCalendar(selectedRoomUnitId);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Block failed');
@@ -632,17 +637,20 @@ const PartnerInventory = () => {
                 <h4 className="font-body text-sm font-semibold mb-2">Add Block</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="font-body text-xs text-muted-foreground">Type</label>
-                    <select value={blockKind} onChange={(e) => setBlockKind(e.target.value as BlockKind)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm">
-                      <option value="available">Available</option>
-                      <option value="unavailable">Unavailable</option>
-                      <option value="maintenance">Maintenance</option>
-                      <option value="closed">Closed</option>
+                    <label className="font-body text-xs text-muted-foreground">Scope</label>
+                    <select value={blockScope} onChange={(e) => setBlockScope(e.target.value as BlockScope)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm">
+                      <option value="room">Selected room number only</option>
+                      <option value="room_type">Entire selected room type</option>
                     </select>
                   </div>
                   <div>
-                    <label className="font-body text-xs text-muted-foreground">Note</label>
-                    <input value={blockNote} onChange={(e) => setBlockNote(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
+                    <label className="font-body text-xs text-muted-foreground">Type</label>
+                    <select value={blockKind} onChange={(e) => setBlockKind(e.target.value as BlockKind)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm">
+                      <option value="available">Available</option>
+                      <option value="offline_booking">Offline booking</option>
+                      <option value="unavailable">Unavailable</option>
+                      <option value="closed">Closed</option>
+                    </select>
                   </div>
                   <div>
                     <label className="font-body text-xs text-muted-foreground">Start</label>
@@ -653,8 +661,14 @@ const PartnerInventory = () => {
                     <input type="date" value={blockEnd} onChange={(e) => setBlockEnd(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
                   </div>
                 </div>
-                <button onClick={createBlock} className="mt-3 w-full py-2 rounded-lg bg-destructive text-destructive-foreground font-body text-sm font-semibold">
-                  Block Dates
+                <button
+                  onClick={createBlock}
+                  disabled={blockScope === 'room' ? !selectedRoomUnitId : !selectedRoomTypeId}
+                  className={`mt-3 w-full py-2 rounded-lg font-body text-sm font-semibold disabled:opacity-50 ${blockKind === 'available' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-destructive text-destructive-foreground'}`}
+                >
+                  {blockKind === 'available'
+                    ? (blockScope === 'room_type' ? 'Set Room Type Available' : 'Set Room Available')
+                    : (blockScope === 'room_type' ? 'Block Room Type' : 'Block Room Dates')}
                 </button>
               </div>
             </div>
@@ -671,7 +685,7 @@ const PartnerInventory = () => {
                         <div className="min-w-0">
                           <div className="font-body text-sm font-semibold text-foreground capitalize">{String(b.kind || '').replaceAll('_', ' ')}</div>
                           <div className="font-body text-xs text-muted-foreground">
-                            {String(b.startDate).slice(0, 10)} → {String(b.endDate).slice(0, 10)} {b.note ? `• ${b.note}` : ''}
+                            {String(b.startDate).slice(0, 10)} → {String(b.endDate).slice(0, 10)}
                           </div>
                         </div>
                         <button onClick={() => deleteBlock(b._id)} className="p-2 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive" title="Remove block">

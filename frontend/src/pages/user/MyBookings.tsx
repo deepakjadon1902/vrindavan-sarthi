@@ -39,6 +39,30 @@ const MyBookings = () => {
     return () => window.clearInterval(id);
   }, [fetchMyBookings, myBookings, user]);
 
+  useEffect(() => {
+    if (!user) return;
+    const assigned = myBookings.filter((b) => Boolean(b.waitlistAssignedAt) && b.roomNumber && b.bookingStatus !== 'cancelled');
+    if (!assigned.length) return;
+
+    const storageKey = `vvs_waitlist_notified_${user.id || user.email || 'user'}`;
+    const seen = new Set(
+      String(window.localStorage.getItem(storageKey) || '')
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean)
+    );
+
+    let changed = false;
+    for (const booking of assigned) {
+      if (!booking.id || seen.has(booking.id)) continue;
+      toast.success(`Room ${booking.roomNumber} is now assigned for ${booking.bookingId}. You can check in on your booked date.`);
+      seen.add(booking.id);
+      changed = true;
+    }
+
+    if (changed) window.localStorage.setItem(storageKey, Array.from(seen).join(','));
+  }, [myBookings, user]);
+
   const bookings = [...myBookings].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );

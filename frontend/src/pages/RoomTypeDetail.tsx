@@ -705,8 +705,10 @@ const RoomTypeDetail = () => {
   const [checkOut, setCheckOut] = useState(() => qs.get('checkOut') || '');
 
   const [data, setData] = useState<any | null>(() => getPrefetchedDetail('roomTypes', id) || getCachedListingItem('roomTypes', id) || null);
+  const [selectedRoomAvailability, setSelectedRoomAvailability] = useState<any[]>([]);
   const [loading, setLoading] = useState(() => !(getPrefetchedDetail('roomTypes', id) || getCachedListingItem('roomTypes', id)));
   const reqSeq = useRef(0);
+  const roomAvailabilityReqSeq = useRef(0);
 
   const [customerFullName, setCustomerFullName] = useState('');
   const [customerMobile, setCustomerMobile] = useState('');
@@ -780,6 +782,25 @@ const RoomTypeDetail = () => {
     else setSelectedRange(undefined);
   }, [checkIn, checkOut]);
 
+  useEffect(() => {
+    if (!id || !checkIn || !checkOut) {
+      setSelectedRoomAvailability([]);
+      return;
+    }
+    const seq = (roomAvailabilityReqSeq.current += 1);
+    const run = async () => {
+      try {
+        const res = await api.get(`/room-types/${id}/room-availability`, { params: { checkIn, checkOut } });
+        if (roomAvailabilityReqSeq.current !== seq) return;
+        setSelectedRoomAvailability(res.data?.data?.roomAvailability || []);
+        setData((prev: any) => prev ? { ...prev, ...res.data?.data } : prev);
+      } catch {
+        if (roomAvailabilityReqSeq.current === seq) setSelectedRoomAvailability([]);
+      }
+    };
+    void run();
+  }, [id, checkIn, checkOut]);
+
   const roomType = data || null;
   const hotel = roomType?.hotel || null;
   const uploader = roomType?.uploader || null;
@@ -827,11 +848,15 @@ const RoomTypeDetail = () => {
   }, [id, checkIn]);
 
   const availabilityByDate = useMemo(() => {
-    const map = new Map<string, { totalCount: number; availableCount: number }>();
+    const map = new Map<string, { totalCount: number; availableCount: number; availabilityStatusLabel?: string }>();
     for (const d of availabilityCalendar || []) {
       const key = String(d?.date || '');
       if (!key) continue;
-      map.set(key, { totalCount: Number(d?.totalCount || 0), availableCount: Number(d?.availableCount || 0) });
+      map.set(key, {
+        totalCount: Number(d?.totalCount || 0),
+        availableCount: Number(d?.availableCount || 0),
+        availabilityStatusLabel: typeof d?.availabilityStatusLabel === 'string' ? d.availabilityStatusLabel : undefined,
+      });
     }
     return map;
   }, [availabilityCalendar]);
@@ -872,7 +897,19 @@ const RoomTypeDetail = () => {
   const balanceLater = Math.max(0, total - payableNow);
   const availableCount = typeof roomType.availableCount === 'number' ? roomType.availableCount : null;
   const totalCount = typeof roomType.totalCount === 'number' ? roomType.totalCount : null;
+  const roomAvailability = selectedRoomAvailability.length
+    ? selectedRoomAvailability
+    : Array.isArray(roomType.roomAvailability)
+      ? roomType.roomAvailability
+      : [];
+  const availableRoomCount = roomAvailability.filter((room: any) => room?.status === 'available').length;
   const isFullyBookedSelectedDates = Boolean(checkIn && checkOut && availableCount !== null && availableCount <= 0);
+  const selectedAvailabilityLabel =
+    typeof roomType.availabilityStatusLabel === 'string' && roomType.availabilityStatusLabel
+      ? roomType.availabilityStatusLabel
+      : availableCount !== null && availableCount > 0
+        ? `${availableCount} rooms available`
+        : 'Unavailable at this time';
 
   const loadAvailabilityCalendar = async (opts?: { from?: string; to?: string }) => {
     if (!id) return;
@@ -1178,8 +1215,13 @@ const RoomTypeDetail = () => {
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
                   <p className="text-xs text-gray-500">
                     {checkIn && checkOut
+                      ? (availableCount !== null ? selectedAvailabilityLabel : 'Checking availability...')
+                      : 'Select dates to check availability.'}
+                  </p>
+                  <p className="hidden">
+                    {checkIn && checkOut
                       ? (availableCount !== null
-                          ? (availableCount > 0 ? `${availableCount} rooms available` : '⛔ Fully booked for selected dates')
+                          ? selectedAvailabilityLabel
                           : 'Checking availability…')
                       : 'Select dates to check availability.'}
                   </p>
@@ -1192,6 +1234,47 @@ const RoomTypeDetail = () => {
                   >
                     {availabilityLoading ? 'Loading calendar…' : 'Refresh availability calendar'}
                   </button>
+
+                  {checkIn && checkOut && roomAvailability.length > 0 && (
+                    <div className="mt-3 rounded-xl border border-gray-100 bg-white p-3">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold text-gray-900">Room numbers</p>
+                          <p className="text-[11px] text-gray-400">Live status for selected dates</p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-medium text-green-700">
+                          {availableRoomCount}/{roomAvailability.length} available
+                        </span>
+                      </div>
+                      <div className="grid max-h-52 gap-2 overflow-y-auto pr-1">
+                        {roomAvailability.map((room: any) => {
+                          const status = String(room?.status || 'unavailable');
+                          const tone =
+                            status === 'available'
+                              ? 'border-green-100 bg-green-50 text-green-700'
+                              : status === 'offline_booking'
+                                ? 'border-amber-100 bg-amber-50 text-amber-700'
+                                : status === 'closed'
+                                  ? 'border-gray-200 bg-gray-100 text-gray-700'
+                                  : 'border-red-100 bg-red-50 text-red-700';
+                          return (
+                            <div
+                              key={room?.roomUnitId || room?.number}
+                              className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-gray-900">Room {room?.number || '-'}</p>
+                                <p className="truncate text-[11px] text-gray-500">{room?.floor || 'Floor not set'}</p>
+                              </div>
+                              <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium ${tone}`}>
+                                {room?.label || 'Unavailable at this time'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {showAvailability && (
                     <div className="mt-3 rounded-lg border border-gray-200 bg-white overflow-hidden">
