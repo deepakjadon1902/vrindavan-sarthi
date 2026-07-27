@@ -148,7 +148,7 @@ const sendPartnerBookingAlert = async (booking) => {
   const rows = bookingRows(booking);
   await sendEmail({
     to,
-    subject: `New Vrindavan Sarthi Booking ${booking.bookingId}`,
+    subject: `New Vrindavan Sarthi Enterprises Booking ${booking.bookingId}`,
     text: ['New booking received', ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'),
     html: buildPartnerBookingHtml(booking),
   });
@@ -921,3 +921,4 @@ router.put('/:id/partner-reject', protect, authorize('partner'), async (req, res
 });
 
 module.exports = router;
+

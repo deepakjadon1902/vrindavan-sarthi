@@ -46,8 +46,6 @@ const PartnerInventory = () => {
   const [selectedRoomUnitId, setSelectedRoomUnitId] = useState<string>('');
 
   const [calendar, setCalendar] = useState<any | null>(null);
-  const [calFrom, setCalFrom] = useState<string>('');
-  const [calTo, setCalTo] = useState<string>('');
 
   // Room type form
   const [rtName, setRtName] = useState('');
@@ -126,10 +124,7 @@ const PartnerInventory = () => {
 
   const loadCalendar = async (roomUnitId: string) => {
     if (!token || !roomUnitId) return;
-    const qs = new URLSearchParams();
-    if (calFrom) qs.set('from', calFrom);
-    if (calTo) qs.set('to', calTo);
-    const res = await api.get(`/partner/inventory/rooms/${roomUnitId}/calendar?${qs.toString()}`, withAuth(token));
+    const res = await api.get(`/partner/inventory/rooms/${roomUnitId}/calendar`, withAuth(token));
     setCalendar(res.data?.data || null);
   };
 
@@ -619,16 +614,6 @@ const PartnerInventory = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-body text-xs text-muted-foreground">From</label>
-                  <input type="date" value={calFrom} onChange={(e) => setCalFrom(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
-                </div>
-                <div>
-                  <label className="font-body text-xs text-muted-foreground">To</label>
-                  <input type="date" value={calTo} onChange={(e) => setCalTo(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
-                </div>
-              </div>
               <button onClick={() => loadCalendar(selectedRoomUnitId)} className="w-full py-2 rounded-lg border border-border font-body text-sm hover:bg-muted">
                 Refresh Calendar
               </button>

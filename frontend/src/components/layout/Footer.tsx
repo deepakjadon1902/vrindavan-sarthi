@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { MapPin, MessageCircle, Phone } from 'lucide-react';
 import { useSettingsStore } from '@/store/settingsStore';
-import { APP_LOGO_URL } from '@/lib/brand';
+import { APP_LOGO_URL, COMPANY_ADDRESS_LINE, COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand';
 
 const Footer = () => {
   const { settings } = useSettingsStore();
@@ -33,14 +33,14 @@ const Footer = () => {
 
       <div className="container mx-auto px-4 lg:px-8 py-12 lg:py-16">
         <div className="mb-10 grid gap-3 rounded-lg border border-brand-gold/25 bg-white/5 p-4 md:grid-cols-3">
-          <a href="tel:+91 8218303066" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
+          <a href={`tel:${COMPANY_PHONE}`} className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <Phone size={18} className="text-brand-gold" /> Call for Vrindavan booking
           </a>
-          <a href="https://wa.me/8218303066" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
+          <a href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <MessageCircle size={18} className="text-brand-gold" /> WhatsApp enquiry
           </a>
           <div className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80">
-            <MapPin size={18} className="text-brand-gold" /> Vrindavan, Mathura, Uttar Pradesh
+            <MapPin size={18} className="text-brand-gold" /> {COMPANY_ADDRESS_LINE}
           </div>
         </div>
 

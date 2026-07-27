@@ -291,7 +291,7 @@ const BookingDetail = () => {
                   </div>
                   <div className="flex justify-between font-body text-sm">
                     <span className="text-muted-foreground">Method</span>
-                    <span className="text-foreground">{booking.paymentMethod === 'doorstep' ? '💰 Pay at Doorstep' : '💳 Online'}</span>
+                    <span className="text-foreground">{booking.paymentMethod === 'doorstep' ? 'Pay at Doorstep' : 'Online'}</span>
                   </div>
                   <div className="flex justify-between font-body text-sm">
                     <span className="text-muted-foreground">Payment Status</span>

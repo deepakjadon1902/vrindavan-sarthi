@@ -161,9 +161,10 @@ router.get('/sitemap-images.xml', async (req, res) => {
   }
 
   sendXml(res, urlset([
-    urlEntry({ loc: '/', images: [{ loc: absoluteAssetUrl('/vrindasarthi%20logo.jpeg'), title: 'Vrindavan Sarthi logo' }] }),
+    urlEntry({ loc: '/', images: [{ loc: absoluteAssetUrl('/vrindasarthi%20logo.jpeg'), title: 'Vrindavan Sarthi Enterprises logo' }] }),
     ...listingImages,
   ], { images: true }));
 });
 
 module.exports = router;
+

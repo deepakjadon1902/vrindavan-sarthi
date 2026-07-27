@@ -96,7 +96,7 @@ const TourDetail = () => {
   };
 
   const allImages = [tour.image, ...(tour.images || [])].filter(Boolean);
-  const tourDescription = truncate(tour.description || `${tour.name} guided Vrindavan tour package with booking support from Vrindavan Sarthi.`);
+  const tourDescription = truncate(tour.description || `${tour.name} guided Vrindavan tour package with booking support from Vrindavan Sarthi Enterprises.`);
   const tourJsonLd = [
     {
       '@context': 'https://schema.org',
@@ -105,7 +105,7 @@ const TourDetail = () => {
       name: tour.name,
       description: tourDescription,
       image: allImages.map(absoluteAssetUrl).filter(Boolean),
-      provider: { '@type': 'Organization', name: 'Vrindavan Sarthi', url: absoluteUrl('/') },
+      provider: { '@type': 'Organization', name: 'Vrindavan Sarthi Enterprises', url: absoluteUrl('/') },
       areaServed: ['Vrindavan', 'Mathura', 'Uttar Pradesh'],
       serviceType: 'Guided spiritual tour package',
       offers: {
@@ -218,7 +218,7 @@ const TourDetail = () => {
                     <div className="flex justify-between font-body text-sm font-semibold border-t border-brand-gold/20 pt-2"><span>Total</span><span className="text-brand-crimson font-display text-lg">₹{total.toLocaleString('en-IN')}</span></div>
                   </div>
                   <button onClick={handleInitiateBooking} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-4 tracking-wide">Pay & Book Tour</button>
-                  <p className="font-body text-[11px] text-muted-foreground text-center mt-3">🔒 Secure UPI · Confirmed after admin verification</p>
+                  <p className="font-body text-[11px] text-muted-foreground text-center mt-3">Secure UPI - confirmed after admin verification</p>
                 </>
               )}
             </div>
@@ -230,3 +230,4 @@ const TourDetail = () => {
 };
 
 export default TourDetail;
+

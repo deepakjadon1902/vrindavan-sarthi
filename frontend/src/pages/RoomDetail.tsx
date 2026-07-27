@@ -171,7 +171,7 @@ const RoomDetail = () => {
                     <div className="flex justify-between font-body text-sm font-semibold border-t border-brand-gold/20 pt-2"><span>Total</span><span className="text-brand-crimson font-display text-lg">₹{total.toLocaleString('en-IN')}</span></div>
                   </div>
                   <button onClick={handleInitiateBooking} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-4 tracking-wide">Pay & Book Now</button>
-                  <p className="font-body text-[11px] text-muted-foreground text-center mt-3">🔒 Secure UPI · Instant confirmation after verification</p>
+                  <p className="font-body text-[11px] text-muted-foreground text-center mt-3">Secure UPI - instant confirmation after verification</p>
                 </>
               )}
             </div>

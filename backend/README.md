@@ -1,4 +1,4 @@
-# VrindavanSarthi Backend
+# Vrindavan Sarthi Enterprises Backend
 
 ## Setup
 
@@ -74,3 +74,4 @@ If neither provider is configured, booking requests still complete, but the back
 ### Users
 - `GET /api/users` - Get all users (admin)
 - `DELETE /api/users/:id` - Delete user (admin)
+

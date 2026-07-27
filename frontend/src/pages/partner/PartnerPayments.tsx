@@ -111,7 +111,7 @@ const PartnerPayments = () => {
                     {paymentIcon(b.paymentStatus)} {b.paymentStatus}
                   </span>
                   <p className="font-body text-[10px] text-muted-foreground mt-1">
-                    {b.paymentMethod === 'doorstep' ? '💰 Doorstep' : '💳 Online'} • {new Date(b.createdAt).toLocaleDateString()}
+                    {b.paymentMethod === 'doorstep' ? 'Doorstep' : 'Online'} - {new Date(b.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -121,7 +121,7 @@ const PartnerPayments = () => {
                   <span className="font-semibold text-foreground">₹{getPrice(b).toLocaleString('en-IN')}</span>
                 </div>
                 <div>
-                  <span className="block text-muted-foreground">Vrindavan Sarthi Commission ({Number(b.platformCommissionPercent || 0)}%)</span>
+                  <span className="block text-muted-foreground">Vrindavan Sarthi Enterprises Commission ({Number(b.platformCommissionPercent || 0)}%)</span>
                   <span className="font-semibold text-destructive">- ₹{getCommissionAmount(b).toLocaleString('en-IN')}</span>
                 </div>
                 <div>
@@ -138,3 +138,4 @@ const PartnerPayments = () => {
 };
 
 export default PartnerPayments;
+

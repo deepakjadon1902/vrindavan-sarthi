@@ -93,10 +93,10 @@ const ProductDetail = () => {
     '@type': 'Product',
     '@id': `${absoluteUrl(`/shop/${product.id}`)}#product`,
     name: product.name,
-    description: truncate(product.description || `${product.name} from Vrindavan Sarthi shop.`),
+    description: truncate(product.description || `${product.name} from Vrindavan Sarthi Enterprises shop.`),
     image: productImages.length ? productImages : [absoluteUrl('/placeholder.svg')],
     category: product.category,
-    brand: { '@type': 'Brand', name: 'Vrindavan Sarthi' },
+    brand: { '@type': 'Brand', name: 'Vrindavan Sarthi Enterprises' },
     offers: {
       '@type': 'Offer',
       url: absoluteUrl(`/shop/${product.id}`),
@@ -196,7 +196,7 @@ const ProductDetail = () => {
     <div className="pt-20 pb-16 min-h-screen bg-background">
       <SEO
         title={`${product.name} - ${product.category}`}
-        description={truncate(product.description || `Buy ${product.name} from the Vrindavan Sarthi sacred shop.`)}
+        description={truncate(product.description || `Buy ${product.name} from the Vrindavan Sarthi Enterprises sacred shop.`)}
         image={productImages[0]}
         canonicalPath={`/shop/${product.id}`}
         type="product"
@@ -210,13 +210,13 @@ const ProductDetail = () => {
           <ArrowLeft size={16} /> Back
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
           <div className="space-y-4">
-            <div className="rounded-2xl overflow-hidden h-80 md:h-[28rem] bg-muted">
+            <div className="rounded-xl overflow-hidden aspect-[4/3] max-h-[340px] bg-white border border-border">
               <img
                 src={selectedProductImage}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-4"
                 onError={(e) => ((e.currentTarget as HTMLImageElement).src = '/placeholder.svg')}
               />
             </div>
@@ -226,11 +226,11 @@ const ProductDetail = () => {
                   <button
                     key={i}
                     onClick={() => setSelectedImage(i)}
-                    className={`w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-colors ${
+                    className={`h-14 w-14 rounded-md overflow-hidden flex-shrink-0 border-2 transition-colors ${
                       selectedImage === i ? 'border-brand-gold' : 'border-border'
                     }`}
                   >
-                    <img src={img} alt="" className="w-full h-full object-cover" onError={(e) => ((e.currentTarget as HTMLImageElement).src = '/placeholder.svg')} />
+                    <img src={img} alt="" className="w-full h-full object-contain bg-white p-1" onError={(e) => ((e.currentTarget as HTMLImageElement).src = '/placeholder.svg')} />
                   </button>
                 ))}
               </div>
@@ -328,3 +328,4 @@ const ProductDetail = () => {
 };
 
 export default ProductDetail;
+

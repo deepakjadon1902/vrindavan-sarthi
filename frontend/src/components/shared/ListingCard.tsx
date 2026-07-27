@@ -74,7 +74,7 @@ const ListingCard = ({
     <div className="glass-panel rounded-lg overflow-hidden water-hover group min-w-0 h-full flex flex-col border border-border/70 transition-all duration-300 hover:border-brand-gold/45">
       <div
         className={`relative overflow-hidden bg-muted ${
-          variant === 'hotel' ? 'aspect-[4/3]' : variant === 'compact' ? 'aspect-[4/3]' : 'aspect-[16/10]'
+          variant === 'hotel' ? 'aspect-[16/9]' : variant === 'compact' ? 'aspect-[16/9]' : 'aspect-[16/10]'
         }`}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
@@ -132,7 +132,7 @@ const ListingCard = ({
         )}
       </div>
 
-      <div className="p-3 sm:p-3.5 flex flex-1 flex-col">
+      <div className="p-2.5 sm:p-3 flex flex-1 flex-col">
         <h3
           className={`font-display font-semibold text-foreground line-clamp-2 leading-tight ${
             variant === 'default' ? 'text-[13px] sm:text-sm' : 'text-[13px] sm:text-sm'
@@ -161,7 +161,7 @@ const ListingCard = ({
         )}
 
         {amenities && amenities.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2 min-h-[22px] content-start overflow-hidden">
+          <div className="flex flex-wrap gap-1 mt-1.5 min-h-[20px] content-start overflow-hidden">
             {amenities.slice(0, 2).map((a) => (
               <span
                 key={a}
@@ -173,7 +173,7 @@ const ListingCard = ({
           </div>
         )}
 
-        <div className="mt-2 flex items-center gap-1.5 rounded-md bg-brand-green/8 px-2 py-1 font-body text-[10px] font-semibold text-brand-green">
+        <div className="mt-2 flex items-center gap-1.5 rounded-md bg-brand-green/8 px-2 py-0.5 font-body text-[10px] font-semibold text-brand-green">
           <ShieldCheck size={12} /> Verified details before booking
         </div>
 

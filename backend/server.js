@@ -161,7 +161,7 @@ app.use('/api/admin/inventory', adminInventoryRoutes);
 app.get('/api/health', (req, res) =>
   res.json({
     status: 'ok',
-    message: 'VrindavanSarthi API running',
+    message: 'Vrindavan Sarthi Enterprises API running',
     dbReadyState: mongoose.connection.readyState,
   })
 );
@@ -173,3 +173,4 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+

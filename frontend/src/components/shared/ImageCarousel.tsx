@@ -24,7 +24,7 @@ const ImageCarousel = ({
   images,
   alt,
   intervalMs = 3500,
-  heightClass = 'h-72 md:h-[28rem]',
+  heightClass = 'aspect-[4/3] h-auto min-h-[220px] max-h-[330px] sm:aspect-[16/10] sm:min-h-[260px] md:max-h-[360px] lg:aspect-[16/9]',
   showThumbnails = true,
 }: ImageCarouselProps) => {
   const safe = (images && images.length > 0 ? images : ['/placeholder.svg']).map((img) => resolveBackendAssetUrl(img) || '/placeholder.svg');
@@ -148,7 +148,7 @@ const ImageCarousel = ({
               key={i}
               type="button"
               onClick={() => setActive(i)}
-              className={`relative w-20 h-16 rounded-lg overflow-hidden flex-shrink-0 transition-all ${
+              className={`relative h-14 w-[4.5rem] rounded-md overflow-hidden flex-shrink-0 transition-all ${
                 i === active ? 'ring-2 ring-brand-gold scale-105' : 'opacity-70 hover:opacity-100'
               }`}
             >

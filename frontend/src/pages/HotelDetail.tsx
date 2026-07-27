@@ -596,7 +596,7 @@ const HotelDetail = () => {
   };
 
   const mapEmbedSrc = getGoogleMapEmbedSrc(hotel?.googleMapLink);
-  const hotelDescription = truncate(hotel?.description || `${hotel?.name || 'Verified hotel'} in ${hotel?.location || 'Vrindavan'} with room booking support from Vrindavan Sarthi.`);
+  const hotelDescription = truncate(hotel?.description || `${hotel?.name || 'Verified hotel'} in ${hotel?.location || 'Vrindavan'} with room booking support from Vrindavan Sarthi Enterprises.`);
   const hotelJsonLd = hotel ? {
     '@context': 'https://schema.org',
     '@type': 'LodgingBusiness',
@@ -944,3 +944,4 @@ const HotelDetail = () => {
 };
 
 export default HotelDetail;
+

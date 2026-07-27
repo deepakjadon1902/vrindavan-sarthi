@@ -38,7 +38,7 @@ router.post('/', async (req, res) => {
     }
 
     const lines = [
-      'New Vrindavan Sarthi contact message',
+      'New Vrindavan Sarthi Enterprises contact message',
       '',
       `Name: ${name}`,
       `Email: ${email}`,
@@ -63,3 +63,4 @@ router.post('/', async (req, res) => {
 });
 
 module.exports = router;
+

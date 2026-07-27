@@ -175,7 +175,7 @@ const resendSendEmail = async ({ apiKey, from, to, subject, text }) => {
 };
 
 const sendOtpEmail = async ({ to, otp }) => {
-  const subject = 'VrindavanSarthi Password Reset OTP';
+  const subject = 'Vrindavan Sarthi Enterprises Password Reset OTP';
   const text = `Your OTP for password reset is: ${otp}\n\nThis OTP expires in 10 minutes.`;
 
   // Prefer HTTPS email provider for deployments where SMTP ports are blocked.
@@ -610,3 +610,4 @@ router.post('/reset-password', async (req, res) => {
 });
 
 module.exports = router;
+

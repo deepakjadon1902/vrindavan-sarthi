@@ -47,8 +47,6 @@ const AdminInventory = () => {
   const [selectedRoomUnitId, setSelectedRoomUnitId] = useState<string>('');
 
   const [calendar, setCalendar] = useState<any | null>(null);
-  const [calFrom, setCalFrom] = useState<string>('');
-  const [calTo, setCalTo] = useState<string>('');
 
   // Room type form
   const [rtName, setRtName] = useState('');
@@ -131,10 +129,7 @@ const AdminInventory = () => {
 
   const loadCalendar = async (roomUnitId: string) => {
     if (!token || !roomUnitId) return;
-    const qs = new URLSearchParams();
-    if (calFrom) qs.set('from', calFrom);
-    if (calTo) qs.set('to', calTo);
-    const res = await api.get(`/admin/inventory/rooms/${roomUnitId}/calendar?${qs.toString()}`, withAuth(token));
+    const res = await api.get(`/admin/inventory/rooms/${roomUnitId}/calendar`, withAuth(token));
     setCalendar(res.data?.data || null);
   };
 
@@ -694,17 +689,6 @@ const AdminInventory = () => {
             >
               <CalendarDays size={14} /> Refresh
             </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="font-body text-xs text-muted-foreground">From</label>
-              <input value={calFrom} onChange={(e) => setCalFrom(e.target.value)} type="date" className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm" />
-            </div>
-            <div>
-              <label className="font-body text-xs text-muted-foreground">To</label>
-              <input value={calTo} onChange={(e) => setCalTo(e.target.value)} type="date" className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background/70 font-body text-sm" />
-            </div>
           </div>
 
           <div className="border border-border rounded-xl p-4 space-y-3">

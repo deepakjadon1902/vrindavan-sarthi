@@ -1,5 +1,6 @@
 const express = require('express');
 const Order = require('../models/Order');
+const Product = require('../models/Product');
 const { protect, authorize } = require('../middleware/auth');
 const { enqueueJob } = require('../utils/jobQueue');
 const {
@@ -11,6 +12,13 @@ const router = express.Router();
 
 const allowedStatuses = ['pending', 'processing', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
 const clean = (value) => String(value || '').trim();
+
+const stripLargeInlineImage = (value) => {
+  const image = clean(value);
+  if (!image) return '';
+  if (image.startsWith('data:') && image.length > 2048) return '';
+  return image;
+};
 
 const normalizeTrackingUrl = (value) => {
   const input = clean(value);
@@ -174,16 +182,44 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 
 router.post('/', protect, async (req, res) => {
   try {
+    const productId = clean(req.body?.productId);
+    const quantity = Math.max(1, Math.min(99, Math.floor(Number(req.body?.quantity || 1))));
+    const shippingAddress = clean(req.body?.shippingAddress);
+    const orderNotes = clean(req.body?.orderNotes);
+    const upiTransactionId = clean(req.body?.upiTransactionId);
+
+    if (!productId) return res.status(400).json({ success: false, message: 'Product is required' });
+    if (!Number.isFinite(quantity) || quantity < 1) return res.status(400).json({ success: false, message: 'Valid quantity is required' });
+    if (!shippingAddress) return res.status(400).json({ success: false, message: 'Shipping address is required' });
+    if (!upiTransactionId) return res.status(400).json({ success: false, message: 'UPI transaction ID is required' });
+
+    const product = await Product.findById(productId).lean();
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    if (!product.inStock) return res.status(400).json({ success: false, message: 'This product is currently out of stock' });
+
+    const productPrice = Math.max(0, Math.round(Number(product.price || 0)));
+    if (!productPrice) return res.status(400).json({ success: false, message: 'Product price is not available' });
+
     // In the very rare case of a trackingId collision, retry a few times.
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
         // eslint-disable-next-line no-await-in-loop
         const order = await Order.create({
-          ...req.body,
+          productId: product._id,
+          productName: product.name,
+          productImage: stripLargeInlineImage(product.images?.[0] || req.body?.productImage),
+          productPrice,
+          quantity,
+          totalAmount: productPrice * quantity,
           userId: req.user._id,
           userName: clean(req.body?.userName) || req.user.name,
           userEmail: clean(req.body?.userEmail) || req.user.email,
           userPhone: clean(req.body?.userPhone) || req.user.phone,
+          shippingAddress,
+          orderNotes,
+          paymentStatus: 'pending',
+          orderStatus: 'pending',
+          upiTransactionId,
         });
         notifyOrderCreated(order);
         return res.status(201).json({ success: true, data: order });

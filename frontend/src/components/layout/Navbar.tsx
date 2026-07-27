@@ -3,8 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, User, LogOut, ChevronDown, Hotel, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
-import { useSettingsStore } from '@/store/settingsStore';
-import { APP_LOGO_URL } from '@/lib/brand';
+import { APP_LOGO_URL, COMPANY_NAME, COMPANY_PHONE_DIGITS } from '@/lib/brand';
 
 const navLinks = [
   { name: 'Hotels', path: '/hotels' },
@@ -22,7 +21,6 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
-  const { settings } = useSettingsStore();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -45,23 +43,25 @@ const Navbar = () => {
   return (
     <>
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navBg} ${scrolled ? 'border-brand-gold/40' : ''}`}>
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="flex items-center justify-between h-16 lg:h-[4.75rem]">
-            <Link to="/" className="group flex items-center gap-2">
+        <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-5 xl:px-7">
+          <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-3 xl:h-[4.75rem] xl:grid-cols-[minmax(250px,0.9fr)_auto_minmax(300px,0.9fr)] xl:gap-4">
+            <Link to="/" className="group flex min-w-0 items-center gap-2.5 xl:max-w-[320px]">
               <img
                 src={APP_LOGO_URL}
-                alt={settings.siteName}
-                className="h-9 w-9 rounded-full border border-brand-gold/40 object-cover shadow-[0_10px_22px_hsl(39_92%_56%_/_0.22)] transition-transform duration-300 group-hover:scale-105"
+                alt={COMPANY_NAME}
+                className="h-9 w-9 shrink-0 rounded-full border border-brand-gold/40 object-cover shadow-[0_10px_22px_hsl(39_92%_56%_/_0.22)] transition-transform duration-300 group-hover:scale-105 xl:h-10 xl:w-10"
               />
-              <span className="font-brand text-base tracking-wider text-brand-gold lg:text-xl">{settings.siteName}</span>
+              <span className="min-w-0 font-brand text-[1.05rem] leading-[1.05] tracking-[0.06em] text-brand-gold sm:text-lg xl:text-[1.35rem]">
+                {COMPANY_NAME}
+              </span>
             </Link>
 
-            <div className="hidden items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2 py-1 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.12),0_14px_35px_hsl(222_42%_10%_/_0.18)] backdrop-blur-xl lg:flex">
+            <div className="hidden items-center justify-center gap-0.5 rounded-full border border-white/15 bg-white/10 px-1.5 py-1 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.12),0_14px_35px_hsl(222_42%_10%_/_0.18)] backdrop-blur-xl xl:flex">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`relative rounded-full px-3.5 py-2 font-body text-[13px] font-semibold tracking-wide transition-all duration-300 ${
+                  className={`relative whitespace-nowrap rounded-full px-3 py-2 font-body text-[13px] font-semibold tracking-wide transition-all duration-300 ${
                     location.pathname === link.path ? 'bg-brand-gold text-brand-black shadow-[0_8px_20px_hsl(39_92%_56%_/_0.25)]' : 'text-white/90 hover:bg-white/10 hover:text-brand-gold'
                   }`}
                 >
@@ -70,15 +70,15 @@ const Navbar = () => {
               ))}
             </div>
 
-            <div className="hidden lg:flex items-center gap-4">
+            <div className="hidden min-w-0 items-center justify-end gap-2 xl:flex">
               {isAuthenticated && user ? (
                 <>
-                  <Link to="/bookings" className="font-body text-sm font-semibold text-white/90 transition-colors hover:text-brand-gold">My Bookings</Link>
-                  <Link to="/my-orders" className="font-body text-sm font-semibold text-white/90 transition-colors hover:text-brand-gold">My Orders</Link>
+                  <Link to="/bookings" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">My Bookings</Link>
+                  <Link to="/my-orders" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">My Orders</Link>
                   <div className="relative">
                     <button
                       onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1 font-body text-sm text-white transition-colors hover:border-brand-gold/35 hover:text-brand-gold"
+                      className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1 font-body text-[13px] text-white transition-colors hover:border-brand-gold/35 hover:text-brand-gold"
                     >
                       <div className="w-7 h-7 rounded-full bg-brand-gold/20 flex items-center justify-center">
                         <span className="text-brand-gold text-xs font-bold">{user.name.charAt(0)}</span>
@@ -117,17 +117,17 @@ const Navbar = () => {
                 </>
               ) : (
                 <>
-                  <Link to="/bookings" className="font-body text-sm font-semibold text-white/90 transition-colors hover:text-brand-gold">My Bookings</Link>
-                  <Link to="/login" className="font-body text-sm font-semibold text-white/90 transition-colors hover:text-brand-gold">Login</Link>
-                  <Link to="/contact" className="btn-gold px-5 py-2 rounded-lg text-sm inline-flex items-center gap-1.5">
+                  <Link to="/bookings" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">My Bookings</Link>
+                  <Link to="/login" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">Login</Link>
+                  <Link to="/contact" className="btn-gold inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2 text-[13px]">
                     <MessageCircle size={15} /> Enquire
                   </Link>
-                  <Link to="/register" className="btn-crimson px-4 py-2 rounded-lg text-sm">Sign Up</Link>
+                  <Link to="/register" className="btn-crimson whitespace-nowrap rounded-lg px-4 py-2 text-[13px]">Sign Up</Link>
                 </>
               )}
             </div>
 
-            <button onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden text-white p-2" aria-label="Toggle menu">
+            <button onClick={() => setMobileOpen(!mobileOpen)} className="justify-self-end p-2 text-white xl:hidden" aria-label="Toggle menu">
               {mobileOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
@@ -153,7 +153,7 @@ const Navbar = () => {
                 </motion.div>
               ))}
               <div className="h-px bg-brand-gold/20 my-4" />
-              <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="btn-gold px-6 py-3 rounded-lg text-center inline-flex items-center justify-center gap-2">
+              <a href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="btn-gold px-6 py-3 rounded-lg text-center inline-flex items-center justify-center gap-2">
                 <MessageCircle size={18} /> WhatsApp Enquiry
               </a>
               {isAuthenticated && user ? (

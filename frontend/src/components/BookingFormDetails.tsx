@@ -90,7 +90,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
           <p className="font-body text-xs font-semibold text-foreground mb-3">Partner payout breakdown</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Price" value={formatMoney(booking.checkoutSubtotal || booking.totalAmount)} />
-            <Field label={`Vrindavan Sarthi Commission (${booking.platformCommissionPercent || 0}%)`} value={`- ${formatMoney(booking.platformCommissionAmount || 0)}`} />
+            <Field label={`Vrindavan Sarthi Enterprises Commission (${booking.platformCommissionPercent || 0}%)`} value={`- ${formatMoney(booking.platformCommissionAmount || 0)}`} />
             <Field label="Net Payout" value={formatMoney(booking.partnerNetPayout ?? Math.max(0, (booking.checkoutSubtotal || booking.totalAmount) - (booking.platformCommissionAmount || 0)))} />
           </div>
         </div>
@@ -121,3 +121,4 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
 };
 
 export default BookingFormDetails;
+

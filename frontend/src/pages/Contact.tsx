@@ -3,6 +3,7 @@ import { MapPin, Phone, Mail, MessageCircle, Send } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { COMPANY_ADDRESS_LINE, COMPANY_EMAIL, COMPANY_NAME, COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand';
 
 const Contact = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
@@ -24,7 +25,7 @@ const Contact = () => {
     }
   };
 
-  const whatsappLink = `https://wa.me/8218303066?text=${encodeURIComponent('Hello Vrindavan Sarthi, I need help with...')}`;
+  const whatsappLink = `https://wa.me/91${COMPANY_PHONE_DIGITS}?text=${encodeURIComponent(`Hello ${COMPANY_NAME}, I need help with...`)}`;
 
   return (
     <div className="pt-20">
@@ -47,7 +48,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="font-body font-semibold text-foreground">Address</p>
-                    <p className="font-body text-sm text-muted-foreground">Vrindavan, Mathura, Uttar Pradesh, India</p>
+                    <p className="font-body text-sm text-muted-foreground">{COMPANY_ADDRESS_LINE}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -56,7 +57,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="font-body font-semibold text-foreground">Phone</p>
-                    <p className="font-body text-sm text-muted-foreground">+91 8218303066</p>
+                    <p className="font-body text-sm text-muted-foreground">{COMPANY_PHONE}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -65,7 +66,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="font-body font-semibold text-foreground">Email</p>
-                    <p className="font-body text-sm text-muted-foreground">vrindavansarthi108@gmail.com</p>
+                    <p className="font-body text-sm text-muted-foreground">{COMPANY_EMAIL}</p>
                   </div>
                 </div>
               </div>
@@ -83,13 +84,13 @@ const Contact = () => {
               {/* Map */}
               <div className="mt-8 rounded-xl overflow-hidden border border-border h-64">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d28384.44075869!2d77.67!3d27.58!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x397371163d4a5109%3A0x4d75b3e2a9acb2e1!2sVrindavan%2C%20Uttar%20Pradesh!5e0!3m2!1sen!2sin!4v1"
+                  src="https://www.google.com/maps?q=Raja%20wala%20mandir%2C%20Infront%20of%20Giriraj%20ji%20Maharaj%2C%20Goverdhan%2C%20Mathura%2C%20Uttar%20Pradesh%20281502&output=embed"
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}
                   allowFullScreen
                   loading="lazy"
-                  title="VrindavanSarthi location"
+                  title={`${COMPANY_NAME} location`}
                 />
               </div>
             </div>
@@ -142,3 +143,4 @@ const Contact = () => {
 };
 
 export default Contact;
+

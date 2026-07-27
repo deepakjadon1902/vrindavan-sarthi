@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import axios from 'axios';
 import { api, resolveBackendAssetUrl, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { COMPANY_EMAIL, COMPANY_NAME, COMPANY_PHONE } from '@/lib/brand';
 
 export interface AppSettings {
   siteName: string;
@@ -32,24 +33,24 @@ interface SettingsState {
 }
 
 const defaultSettings: AppSettings = {
-  siteName: 'Vrindavan Sarthi',
+  siteName: COMPANY_NAME,
   motto: 'Your Divine Guide to Vrindavan',
   logoUrl: '',
   faviconUrl: '',
-  metaTitle: 'Vrindavan Sarthi',
+  metaTitle: COMPANY_NAME,
   metaDescription: 'Your Divine Guide to Vrindavan',
   metaKeywords: 'Vrindavan, hotels, rooms, cabs, tours, bookings, shop',
   ogImageUrl: '',
   upiId: '',
-  upiName: 'Vrindavan Sarthi',
-  adminPhone: '+91 9876543210',
-  adminEmail: 'vrindavansarthi108@gmail.com',
+  upiName: COMPANY_NAME,
+  adminPhone: COMPANY_PHONE,
+  adminEmail: COMPANY_EMAIL,
   hotelTaxPercent: 12,
   termsOfService: `1. Acceptance of Terms
-By accessing and using Vrindavan Sarthi ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.
+By accessing and using Vrindavan Sarthi Enterprises ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.
 
 2. Services
-Vrindavan Sarthi provides an online platform for booking hotels, rooms, cabs, and tour packages in Vrindavan. We act as an intermediary between users and service providers (hotels, cab drivers, tour operators).
+Vrindavan Sarthi Enterprises provides an online platform for booking hotels, rooms, cabs, and tour packages in Vrindavan. We act as an intermediary between users and service providers (hotels, cab drivers, tour operators).
 
 3. User Accounts
 You must provide accurate and complete information when creating an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.
@@ -64,7 +65,7 @@ Cancellation policies vary by service provider. Refunds, if applicable, will be 
 Partners listing hotels, rooms, cabs, or tours must provide accurate information. All listings are subject to admin verification. Misrepresentation may result in removal from the platform.
 
 7. Limitation of Liability
-Vrindavan Sarthi is not liable for the quality of services provided by third-party partners. We make every effort to verify listings but do not guarantee accuracy of all information.
+Vrindavan Sarthi Enterprises is not liable for the quality of services provided by third-party partners. We make every effort to verify listings but do not guarantee accuracy of all information.
 
 8. Contact
 For questions about these Terms, contact us at vrindavansarthi108@gmail.com or visit our Contact page.`,
@@ -96,26 +97,39 @@ const getNumber = (obj: Record<string, unknown>, key: string, fallback: number) 
   const n = Number(obj[key]);
   return Number.isFinite(n) ? n : fallback;
 };
+const normalizeBrandText = (value: string) =>
+  value
+    .replaceAll('VrindavanSarthi', COMPANY_NAME)
+    .replace(/Vrindavan Sarthi Enterprises(?: Enterprises)+/g, COMPANY_NAME)
+    .replace(/Vrindavan Sarthi(?! Enterprises)/g, COMPANY_NAME)
+    .replaceAll('vrindavansarthi108@gmail.com', COMPANY_EMAIL)
+    .replaceAll('sanjaysharma148@gmail.com', COMPANY_EMAIL)
+    .replaceAll('+91 7351814747', COMPANY_PHONE)
+    .replaceAll('7351814747', COMPANY_PHONE)
+    .replaceAll('+91 9876543210', COMPANY_PHONE)
+    .replaceAll('9876543210', COMPANY_PHONE)
+    .replaceAll('+91 8218303066', COMPANY_PHONE);
+const normalizeBrandValue = (value: string, fallback: string) => normalizeBrandText(value || fallback);
 
 const normalizeSettings = (raw: unknown): AppSettings => {
   const obj = isRecord(raw) ? raw : {};
   return {
     ...defaultSettings,
-    siteName: getString(obj, 'siteName') || defaultSettings.siteName,
-    motto: getString(obj, 'motto') || defaultSettings.motto,
+    siteName: normalizeBrandValue(getString(obj, 'siteName'), defaultSettings.siteName),
+    motto: normalizeBrandValue(getString(obj, 'motto'), defaultSettings.motto),
     logoUrl: resolveBackendAssetUrl(getString(obj, 'logoUrl')),
     faviconUrl: resolveBackendAssetUrl(getString(obj, 'faviconUrl')),
-    metaTitle: getString(obj, 'metaTitle') || (getString(obj, 'siteName') || defaultSettings.metaTitle),
-    metaDescription: getString(obj, 'metaDescription') || (getString(obj, 'motto') || defaultSettings.metaDescription),
+    metaTitle: normalizeBrandValue(getString(obj, 'metaTitle'), getString(obj, 'siteName') || defaultSettings.metaTitle),
+    metaDescription: normalizeBrandValue(getString(obj, 'metaDescription'), getString(obj, 'motto') || defaultSettings.metaDescription),
     metaKeywords: getString(obj, 'metaKeywords') || defaultSettings.metaKeywords,
     ogImageUrl: resolveBackendAssetUrl(getString(obj, 'ogImageUrl')),
     upiId: getString(obj, 'upiId'),
-    upiName: getString(obj, 'upiName') || defaultSettings.upiName,
-    adminPhone: getString(obj, 'adminPhone') || defaultSettings.adminPhone,
-    adminEmail: getString(obj, 'adminEmail') || defaultSettings.adminEmail,
+    upiName: normalizeBrandValue(getString(obj, 'upiName'), defaultSettings.upiName),
+    adminPhone: normalizeBrandValue(getString(obj, 'adminPhone'), defaultSettings.adminPhone),
+    adminEmail: normalizeBrandValue(getString(obj, 'adminEmail'), defaultSettings.adminEmail),
     hotelTaxPercent: Math.min(50, Math.max(0, getNumber(obj, 'hotelTaxPercent', defaultSettings.hotelTaxPercent))),
-    termsOfService: getString(obj, 'termsOfService') || defaultSettings.termsOfService,
-    privacyPolicy: getString(obj, 'privacyPolicy') || defaultSettings.privacyPolicy,
+    termsOfService: normalizeBrandValue(getString(obj, 'termsOfService'), defaultSettings.termsOfService),
+    privacyPolicy: normalizeBrandValue(getString(obj, 'privacyPolicy'), defaultSettings.privacyPolicy),
   };
 };
 
@@ -189,6 +203,18 @@ export const useSettingsStore = create<SettingsState>()(
         }
       },
     }),
-    { name: 'vvs-settings' }
+    {
+      name: 'vvs-settings',
+      merge: (persisted, current) => {
+        const state = persisted && typeof persisted === 'object' ? persisted as Partial<SettingsState> : {};
+        return {
+          ...current,
+          ...state,
+          settings: normalizeSettings(state.settings),
+        };
+      },
+    }
   )
 );
+
+

@@ -1,3 +1,4 @@
-# VrindavanSarthi Frontend
+# Vrindavan Sarthi Enterprises Frontend
 
-Vite + React + TypeScript frontend for VrindavanSarthi.
+Vite + React + TypeScript frontend for Vrindavan Sarthi Enterprises.
+

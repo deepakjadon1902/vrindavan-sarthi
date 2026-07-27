@@ -1,7 +1,7 @@
 {
   "name": "vrindavansarthi-backend",
   "version": "1.0.0",
-  "description": "VrindavanSarthi Backend API - Node.js, Express, MongoDB",
+  "description": "Vrindavan Sarthi Enterprises Backend API - Node.js, Express, MongoDB",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -25,3 +25,4 @@
     "nodemon": "^3.1.14"
   }
 }
+

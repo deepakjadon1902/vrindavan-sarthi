@@ -89,21 +89,21 @@ const seedAdminOnce = async () => {
     let settings = await Settings.findOne();
     if (!settings) settings = await Settings.create({});
 
-    const desiredSiteName = getEnvString('SITE_NAME') || 'Vrindavan Sarthi';
+    const desiredSiteName = getEnvString('SITE_NAME') || 'Vrindavan Sarthi Enterprises';
     const desiredMetaTitle = getEnvString('META_TITLE') || desiredSiteName;
     const desiredUpiName = getEnvString('UPI_NAME') || desiredSiteName;
 
     let settingsChanged = false;
 
-    if (!settings.siteName || settings.siteName === 'VrindavanSarthi') {
+    if (!settings.siteName || settings.siteName === 'VrindavanSarthi' || settings.siteName === 'Vrindavan Sarthi') {
       settings.siteName = desiredSiteName;
       settingsChanged = true;
     }
-    if (!settings.metaTitle || settings.metaTitle === 'VrindavanSarthi') {
+    if (!settings.metaTitle || settings.metaTitle === 'VrindavanSarthi' || settings.metaTitle === 'Vrindavan Sarthi') {
       settings.metaTitle = desiredMetaTitle;
       settingsChanged = true;
     }
-    if (!settings.upiName || settings.upiName === 'VrindavanSarthi') {
+    if (!settings.upiName || settings.upiName === 'VrindavanSarthi' || settings.upiName === 'Vrindavan Sarthi') {
       settings.upiName = desiredUpiName;
       settingsChanged = true;
     }
@@ -123,3 +123,5 @@ const seedAdminOnce = async () => {
 };
 
 module.exports = { seedAdminOnce };
+
+

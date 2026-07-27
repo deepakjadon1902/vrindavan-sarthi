@@ -1,9 +1,9 @@
 export const SITE_ORIGIN = 'https://vrindavansarthi.in';
-export const SITE_NAME = 'Vrindavan Sarthi';
+export const SITE_NAME = 'Vrindavan Sarthi Enterprises';
 export const DEFAULT_DESCRIPTION =
-  'Discover the best Vrindavan tour packages, temple darshan, taxi services, Mathura sightseeing, Govardhan Parikrama, Barsana tours, and customized Braj pilgrimage experiences with Vrindavan Sarthi.';
+  'Discover the best Vrindavan tour packages, temple darshan, taxi services, Mathura sightseeing, Govardhan Parikrama, Barsana tours, and customized Braj pilgrimage experiences with Vrindavan Sarthi Enterprises.';
 export const DEFAULT_OG_IMAGE = '/vrindasarthi%20logo.jpeg';
-export const BRAND_PHONE = '+91 9876543210';
+export const BRAND_PHONE = '+91 8218303066';
 export const BRAND_EMAIL = 'vrindavansarthi108@gmail.com';
 
 export type BreadcrumbItem = {
@@ -79,8 +79,10 @@ export const buildOrganizationJsonLd = (logoUrl?: string, email = BRAND_EMAIL, p
   telephone: phone,
   address: {
     '@type': 'PostalAddress',
-    addressLocality: 'Vrindavan',
+    streetAddress: 'Raja wala mandir, Infront of Giriraj ji Maharaj',
+    addressLocality: 'Goverdhan',
     addressRegion: 'Uttar Pradesh',
+    postalCode: '281502',
     addressCountry: 'IN',
   },
   areaServed: ['Vrindavan', 'Mathura', 'Uttar Pradesh'],
@@ -101,7 +103,7 @@ export const buildWebsiteJsonLd = () => ({
   '@type': 'WebSite',
   '@id': `${SITE_ORIGIN}/#website`,
   name: SITE_NAME,
-  alternateName: ['VrindavanSarthi', 'Vrindavan Sarthi'],
+  alternateName: ['Vrindavan Sarthi Enterprises'],
   url: SITE_ORIGIN,
   publisher: { '@id': `${SITE_ORIGIN}/#organization` },
   potentialAction: {
@@ -126,7 +128,7 @@ export const buildFaqJsonLd = (items: Array<{ question: string; answer: string }
 
 export const publicRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
   '/': {
-    title: 'Vrindavan Sarthi | Vrindavan Tour Packages, Taxi Service & Braj Darshan',
+    title: 'Vrindavan Sarthi Enterprises | Vrindavan Tour Packages, Taxi Service & Braj Darshan',
     description: DEFAULT_DESCRIPTION,
     image: '/backgrounds/hero-vrindavan.jpg',
   },
@@ -152,23 +154,23 @@ export const publicRouteMeta: Record<string, { title: string; description: strin
   },
   '/track-order': {
     title: 'Track Your Order',
-    description: 'Track Vrindavan Sarthi shop orders using your tracking ID.',
+    description: 'Track Vrindavan Sarthi Enterprises shop orders using your tracking ID.',
   },
   '/about': {
-    title: 'About Vrindavan Sarthi | Trusted Travel & Tourism Company',
-    description: 'Learn about Vrindavan Sarthi, your trusted travel partner for Vrindavan, Mathura, Govardhan, Barsana, Gokul, and Braj pilgrimage tours with reliable transportation and personalized service.',
+    title: 'About Vrindavan Sarthi Enterprises | Trusted Travel & Tourism Company',
+    description: 'Learn about Vrindavan Sarthi Enterprises, your trusted travel partner for Vrindavan, Mathura, Govardhan, Barsana, Gokul, and Braj pilgrimage tours with reliable transportation and personalized service.',
   },
   '/contact': {
-    title: 'Contact Vrindavan Sarthi | Book Tours & Taxi Services',
-    description: 'Contact Vrindavan Sarthi for tour bookings, taxi reservations, customized itineraries, temple darshan assistance, and travel support across the Braj region.',
+    title: 'Contact Vrindavan Sarthi Enterprises | Book Tours & Taxi Services',
+    description: 'Contact Vrindavan Sarthi Enterprises for tour bookings, taxi reservations, customized itineraries, temple darshan assistance, and travel support across the Braj region.',
   },
   '/terms': {
-    title: 'Terms & Conditions | Vrindavan Sarthi',
-    description: 'Review the booking terms, cancellation policy, payment terms, and conditions of using Vrindavan Sarthi services.',
+    title: 'Terms & Conditions | Vrindavan Sarthi Enterprises',
+    description: 'Review the booking terms, cancellation policy, payment terms, and conditions of using Vrindavan Sarthi Enterprises services.',
   },
   '/privacy': {
-    title: 'Privacy Policy | Vrindavan Sarthi',
-    description: 'Read how Vrindavan Sarthi collects, stores, and protects your personal information.',
+    title: 'Privacy Policy | Vrindavan Sarthi Enterprises',
+    description: 'Read how Vrindavan Sarthi Enterprises collects, stores, and protects your personal information.',
   },
   '/one-day-tour': {
     title: 'One Day Vrindavan Tour Package | Same Day Braj Darshan',
@@ -188,7 +190,7 @@ export const publicRouteMeta: Record<string, { title: string; description: strin
   },
   '/barsana-tour': {
     title: 'Barsana Tour Package | Radha Rani Temple Darshan',
-    description: 'Visit Radha Rani Temple, Kirti Mandir, and the sacred town of Barsana with professional travel services from Vrindavan Sarthi.',
+    description: 'Visit Radha Rani Temple, Kirti Mandir, and the sacred town of Barsana with professional travel services from Vrindavan Sarthi Enterprises.',
   },
   '/gokul-tour': {
     title: 'Gokul Tour Package | Krishna Childhood Places',
@@ -203,47 +205,47 @@ export const publicRouteMeta: Record<string, { title: string; description: strin
     description: 'Read travel guides, temple information, Braj pilgrimage tips, local attractions, festivals, and travel recommendations.',
   },
   '/faq': {
-    title: 'Frequently Asked Questions | Vrindavan Sarthi',
+    title: 'Frequently Asked Questions | Vrindavan Sarthi Enterprises',
     description: 'Find answers to common questions about bookings, taxi services, tour packages, cancellations, and travel planning.',
   },
   '/refund-policy': {
-    title: 'Refund Policy | Vrindavan Sarthi',
+    title: 'Refund Policy | Vrindavan Sarthi Enterprises',
     description: 'Learn about refunds, cancellations, booking modifications, and applicable refund timelines.',
   },
   '/careers': {
-    title: 'Careers at Vrindavan Sarthi | Join Our Team',
-    description: 'Explore career opportunities with Vrindavan Sarthi in tourism, customer service, operations, and travel management.',
+    title: 'Careers at Vrindavan Sarthi Enterprises | Join Our Team',
+    description: 'Explore career opportunities with Vrindavan Sarthi Enterprises in tourism, customer service, operations, and travel management.',
   },
   '/gallery': {
     title: 'Vrindavan Travel Gallery | Tour Photos & Braj Attractions',
     description: 'Explore beautiful photos of temples, pilgrimage sites, tour experiences, and attractions across Vrindavan and Braj.',
   },
   '/testimonials': {
-    title: 'Customer Reviews | Vrindavan Sarthi',
-    description: 'Read genuine customer reviews and experiences from travelers who explored Braj with Vrindavan Sarthi.',
+    title: 'Customer Reviews | Vrindavan Sarthi Enterprises',
+    description: 'Read genuine customer reviews and experiences from travelers who explored Braj with Vrindavan Sarthi Enterprises.',
   },
 };
 
 export const privateRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
   '/login': {
     title: 'Login | Secure Travel Account',
-    description: 'Sign in to your Vrindavan Sarthi account to manage bookings, orders, partner listings, and travel plans.',
+    description: 'Sign in to your Vrindavan Sarthi Enterprises account to manage bookings, orders, partner listings, and travel plans.',
   },
   '/register': {
     title: 'Create Account | Traveller & Partner Registration',
-    description: 'Create a Vrindavan Sarthi account as a traveller or verified partner for hotels, rooms, cabs, tours, and booking management.',
+    description: 'Create a Vrindavan Sarthi Enterprises account as a traveller or verified partner for hotels, rooms, cabs, tours, and booking management.',
   },
   '/forgot-password': {
     title: 'Forgot Password | Account Recovery',
-    description: 'Recover your Vrindavan Sarthi account securely with email verification.',
+    description: 'Recover your Vrindavan Sarthi Enterprises account securely with email verification.',
   },
   '/reset-password': {
     title: 'Reset Password | Secure Account Access',
-    description: 'Set a new password for your Vrindavan Sarthi account and regain secure access.',
+    description: 'Set a new password for your Vrindavan Sarthi Enterprises account and regain secure access.',
   },
   '/auth/google/callback': {
     title: 'Completing Google Sign In',
-    description: 'Completing secure Google sign in for your Vrindavan Sarthi account.',
+    description: 'Completing secure Google sign in for your Vrindavan Sarthi Enterprises account.',
   },
   '/profile': {
     title: 'My Profile | Personal & Partner Details',
@@ -251,18 +253,18 @@ export const privateRouteMeta: Record<string, { title: string; description: stri
   },
   '/bookings': {
     title: 'My Bookings | Hotels, Rooms, Cabs & Tours',
-    description: 'Manage your Vrindavan Sarthi bookings, payment status, trip details, and travel history.',
+    description: 'Manage your Vrindavan Sarthi Enterprises bookings, payment status, trip details, and travel history.',
   },
   '/my-orders': {
     title: 'My Orders | Sacred Shop Purchases',
-    description: 'Track and manage your devotional product orders from the Vrindavan Sarthi shop.',
+    description: 'Track and manage your devotional product orders from the Vrindavan Sarthi Enterprises shop.',
   },
 };
 
 export const adminRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
   '/admin/login': {
-    title: 'Admin Login | Vrindavan Sarthi Control Desk',
-    description: 'Secure admin access for managing Vrindavan Sarthi bookings, listings, partners, inventory, payments, and settings.',
+    title: 'Admin Login | Vrindavan Sarthi Enterprises Control Desk',
+    description: 'Secure admin access for managing Vrindavan Sarthi Enterprises bookings, listings, partners, inventory, payments, and settings.',
   },
   '/admin': {
     title: 'Admin Dashboard | Travel Operations Overview',
@@ -270,7 +272,7 @@ export const adminRouteMeta: Record<string, { title: string; description: string
   },
   '/admin/hotels': {
     title: 'Manage Hotels & Dharamshalas | Admin',
-    description: 'Create, update, verify, and manage hotels and dharamshalas listed on Vrindavan Sarthi.',
+    description: 'Create, update, verify, and manage hotels and dharamshalas listed on Vrindavan Sarthi Enterprises.',
   },
   '/admin/inventory': {
     title: 'Room Inventory | Admin',
@@ -318,7 +320,7 @@ export const adminRouteMeta: Record<string, { title: string; description: string
   },
   '/admin/users': {
     title: 'User Management | Admin',
-    description: 'View and manage traveller, partner, and admin user accounts on Vrindavan Sarthi.',
+    description: 'View and manage traveller, partner, and admin user accounts on Vrindavan Sarthi Enterprises.',
   },
   '/admin/settings': {
     title: 'Application Settings | Admin',
@@ -329,7 +331,7 @@ export const adminRouteMeta: Record<string, { title: string; description: string
 export const partnerRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
   '/partner': {
     title: 'Partner Dashboard | Business Travel Desk',
-    description: 'Partner overview for verification status, listings, bookings, payments, and Vrindavan Sarthi business operations.',
+    description: 'Partner overview for verification status, listings, bookings, payments, and Vrindavan Sarthi Enterprises business operations.',
   },
   '/partner/hotels': {
     title: 'My Hotels | Partner',
@@ -424,13 +426,15 @@ export const getRouteMeta = (pathname: string) => {
     return { title: 'Vrindavan Tour Details', description: 'View itinerary, inclusions, duration, price, and booking options for a Vrindavan tour package.' };
   }
   if (path.startsWith('/shop/')) {
-    return { title: 'Vrindavan Product Details', description: 'View product details, price, availability, and ordering options from the Vrindavan Sarthi shop.' };
+    return { title: 'Vrindavan Product Details', description: 'View product details, price, availability, and ordering options from the Vrindavan Sarthi Enterprises shop.' };
   }
   if (path.startsWith('/bookings/')) {
     return { title: 'Booking Details | Reservation & Payment Status', description: 'View your booking summary, customer details, payment status, cancellation status, and travel reservation information.' };
   }
   return {
-    title: 'Page Not Found | Vrindavan Sarthi',
+    title: 'Page Not Found | Vrindavan Sarthi Enterprises',
     description: "The page you're looking for doesn't exist. Explore our tour packages, taxi services, and travel guides instead.",
   };
 };
+
+

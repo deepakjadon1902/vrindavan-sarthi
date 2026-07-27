@@ -677,7 +677,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint, Star, Landmark } from 'lucide-react';
+import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint, Star, Landmark, BedDouble } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { api } from '@/lib/api';
@@ -910,6 +910,36 @@ const RoomTypeDetail = () => {
       : availableCount !== null && availableCount > 0
         ? `${availableCount} rooms available`
         : 'Unavailable at this time';
+  const roomInventorySummary = checkIn && checkOut
+    ? roomAvailability.length > 0
+      ? `${availableRoomCount} of ${roomAvailability.length} rooms open for your stay`
+      : availabilityLoading
+        ? 'Checking room numbers...'
+        : 'Room number status will appear after availability loads.'
+    : 'Select check-in and check-out dates to see every room number.';
+  const getRoomStatusTone = (statusValue: unknown) => {
+    const status = String(statusValue || 'unavailable');
+    if (status === 'available') return {
+      row: 'border-green-100 bg-green-50/80',
+      badge: 'border-green-200 bg-white text-green-700',
+      dot: 'bg-green-500',
+    };
+    if (status === 'offline_booking') return {
+      row: 'border-amber-100 bg-amber-50/80',
+      badge: 'border-amber-200 bg-white text-amber-700',
+      dot: 'bg-amber-500',
+    };
+    if (status === 'closed') return {
+      row: 'border-gray-200 bg-gray-50',
+      badge: 'border-gray-200 bg-white text-gray-600',
+      dot: 'bg-gray-400',
+    };
+    return {
+      row: 'border-red-100 bg-red-50/80',
+      badge: 'border-red-200 bg-white text-red-700',
+      dot: 'bg-red-500',
+    };
+  };
 
   const loadAvailabilityCalendar = async (opts?: { from?: string; to?: string }) => {
     if (!id) return;
@@ -990,7 +1020,7 @@ const RoomTypeDetail = () => {
   };
 
   const images = Array.isArray(roomType.images) && roomType.images.length ? roomType.images : [hotel.image, ...(hotel.images || [])].filter(Boolean);
-  const roomDescription = truncate(roomType.description || `${roomType.name} at ${hotel.name}, ${hotel.location || 'Vrindavan'}, with verified booking on Vrindavan Sarthi.`);
+  const roomDescription = truncate(roomType.description || `${roomType.name} at ${hotel.name}, ${hotel.location || 'Vrindavan'}, with verified booking on Vrindavan Sarthi Enterprises.`);
   const roomJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'HotelRoom',
@@ -1061,7 +1091,11 @@ const RoomTypeDetail = () => {
 
             {/* Image carousel */}
             <div className="rounded-2xl overflow-hidden shadow-sm">
-              <ImageCarousel images={images} alt={roomType.name} />
+              <ImageCarousel
+                images={images}
+                alt={roomType.name}
+                heightClass="aspect-[4/3] h-auto min-h-[220px] max-h-[330px] sm:aspect-[16/10] sm:min-h-[260px] md:max-h-[350px] lg:aspect-[16/9]"
+              />
             </div>
 
             {/* Room info card */}
@@ -1235,46 +1269,50 @@ const RoomTypeDetail = () => {
                     {availabilityLoading ? 'Loading calendar…' : 'Refresh availability calendar'}
                   </button>
 
-                  {checkIn && checkOut && roomAvailability.length > 0 && (
-                    <div className="mt-3 rounded-xl border border-gray-100 bg-white p-3">
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-semibold text-gray-900">Room numbers</p>
-                          <p className="text-[11px] text-gray-400">Live status for selected dates</p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-medium text-green-700">
-                          {availableRoomCount}/{roomAvailability.length} available
+                  <div className="mt-3 rounded-xl border border-gray-100 bg-white p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                          <BedDouble size={16} />
                         </span>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-900">Room inventory</p>
+                          <p className="text-[11px] leading-snug text-gray-500">{roomInventorySummary}</p>
+                        </div>
                       </div>
-                      <div className="grid max-h-52 gap-2 overflow-y-auto pr-1">
+                      {checkIn && checkOut && roomAvailability.length > 0 && (
+                        <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">
+                          {availableRoomCount}/{roomAvailability.length}
+                        </span>
+                      )}
+                    </div>
+                    {checkIn && checkOut && roomAvailability.length > 0 ? (
+                      <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-1">
                         {roomAvailability.map((room: any) => {
-                          const status = String(room?.status || 'unavailable');
-                          const tone =
-                            status === 'available'
-                              ? 'border-green-100 bg-green-50 text-green-700'
-                              : status === 'offline_booking'
-                                ? 'border-amber-100 bg-amber-50 text-amber-700'
-                                : status === 'closed'
-                                  ? 'border-gray-200 bg-gray-100 text-gray-700'
-                                  : 'border-red-100 bg-red-50 text-red-700';
+                          const tone = getRoomStatusTone(room?.status);
                           return (
                             <div
                               key={room?.roomUnitId || room?.number}
-                              className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                              className={`flex min-h-14 items-center justify-between gap-3 rounded-lg border px-3 py-2 ${tone.row}`}
                             >
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-gray-900">Room {room?.number || '-'}</p>
                                 <p className="truncate text-[11px] text-gray-500">{room?.floor || 'Floor not set'}</p>
                               </div>
-                              <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium ${tone}`}>
-                                {room?.label || 'Unavailable at this time'}
+                              <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone.badge}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+                                {room?.label || 'Unavailable'}
                               </span>
                             </div>
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-[11px] leading-relaxed text-gray-500">
+                        Room numbers are matched with the calendar once both dates are selected.
+                      </div>
+                    )}
+                  </div>
 
                   {showAvailability && (
                     <div className="mt-3 rounded-lg border border-gray-200 bg-white overflow-hidden">
@@ -1517,7 +1555,7 @@ const RoomTypeDetail = () => {
                   </div>
                 )}
 
-                <p className="text-center text-[11px] text-gray-400">🔒 Secure UPI · Instant confirmation after verification</p>
+                <p className="text-center text-[11px] text-gray-400">Secure UPI - instant confirmation after verification</p>
               </div>
             )}
           </div>
@@ -1528,3 +1566,4 @@ const RoomTypeDetail = () => {
 };
 
 export default RoomTypeDetail;
+

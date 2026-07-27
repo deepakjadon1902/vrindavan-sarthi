@@ -18,7 +18,7 @@ const About = () => {
         <img src={templeImg} alt="Vrindavan Temple" className="absolute inset-0 w-full h-full object-cover" loading="lazy" width={1280} height={720} />
         <div className="absolute inset-0 bg-foreground/60" />
         <div className="relative z-10 text-center px-4">
-          <h1 className="font-brand text-3xl md:text-5xl text-brand-gold mb-3">About VrindavanSarthi</h1>
+          <h1 className="font-brand text-3xl md:text-5xl text-brand-gold mb-3">About Vrindavan Sarthi Enterprises</h1>
           <p className="font-heading italic text-xl text-primary-foreground/80">Where Devotion Meets Comfort</p>
         </div>
       </section>
@@ -28,7 +28,7 @@ const About = () => {
         <div className="container mx-auto px-4 max-w-3xl text-center">
           <SectionTitle label="Our Story" title="Guiding Pilgrims Since Day One" />
           <p className="font-body text-muted-foreground leading-relaxed">
-            VrindavanSarthi was born from a simple idea — to make every pilgrim's journey to the sacred land of Lord Krishna as seamless and comfortable as possible. Just as Lord Krishna served as the divine charioteer (Sarthi) to Arjuna, we serve as your trusted guide through the holy city of Vrindavan.
+            Vrindavan Sarthi Enterprises was born from a simple idea — to make every pilgrim's journey to the sacred land of Lord Krishna as seamless and comfortable as possible. Just as Lord Krishna served as the divine charioteer (Sarthi) to Arjuna, we serve as your trusted guide through the holy city of Vrindavan.
           </p>
           <p className="font-body text-muted-foreground leading-relaxed mt-4">
             We connect devotees with verified hotels, comfortable rooms, reliable cabs, and insightful guided tours — all in one place. Every listing is personally verified, every service is curated with care, and every booking is backed by our commitment to your comfort and peace of mind.

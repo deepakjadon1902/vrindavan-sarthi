@@ -231,7 +231,7 @@ const MyBookings = () => {
                             <span className="font-display text-lg font-bold text-brand-crimson flex items-center"><IndianRupee size={13} />{b.totalAmount.toLocaleString('en-IN')}</span>
                           )}
                           <span className="font-body text-[10px] text-muted-foreground">
-                            {b.paymentMethod === 'doorstep' ? '💰 Doorstep' : `💳 ${b.paymentStatus}`}
+                            {b.paymentMethod === 'doorstep' ? 'Doorstep' : `Online - ${b.paymentStatus}`}
                           </span>
                         </div>
                         {b.bookingStatus === 'confirmed' && (
