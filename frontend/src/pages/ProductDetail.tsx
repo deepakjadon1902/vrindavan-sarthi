@@ -87,7 +87,9 @@ const ProductDetail = () => {
 
   const productImages = product.images.map((img) => resolveBackendAssetUrl(img)).filter(Boolean);
   const selectedProductImage = productImages[selectedImage] || '/placeholder.svg';
-  const total = product.price * quantity;
+  const subtotal = product.price * quantity;
+  const shippingFee = 49;
+  const total = subtotal + shippingFee;
   const productJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -168,6 +170,8 @@ const ProductDetail = () => {
       productImage: productImages[0] || '',
       productPrice: product.price,
       quantity,
+      subtotalAmount: subtotal,
+      shippingFee,
       totalAmount: total,
       userName: user!.name,
       userEmail: address.email.trim() || user!.email,
@@ -301,9 +305,13 @@ const ProductDetail = () => {
                 <div className="bg-card rounded-xl border border-border p-5">
                   <div className="flex justify-between font-body text-sm">
                     <span className="text-muted-foreground">
-                      ₹{product.price.toLocaleString('en-IN')} * {quantity}
-                    </span>
-                    <span>₹{total.toLocaleString('en-IN')}</span>
+                    ₹{product.price.toLocaleString('en-IN')} * {quantity}
+                  </span>
+                    <span>₹{subtotal.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between font-body text-sm mt-2">
+                    <span className="text-muted-foreground">Shipping fee</span>
+                    <span>₹{shippingFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-body text-sm font-semibold border-t border-border pt-2 mt-2">
                     <span>Total</span>
@@ -316,7 +324,7 @@ const ProductDetail = () => {
                 </button>
 
                 <div className="flex items-center gap-2 justify-center font-body text-xs text-muted-foreground">
-                  <Truck size={14} /> Free delivery on orders above ₹ 500
+                  <Truck size={14} /> Shipping fee ₹49 included in invoice
                 </div>
               </div>
             )}

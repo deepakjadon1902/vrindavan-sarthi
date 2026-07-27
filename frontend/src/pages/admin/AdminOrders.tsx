@@ -26,6 +26,7 @@ const AdminOrders = () => {
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState('');
   const [cancelReason, setCancelReason] = useState('');
+  const [cancelDetails, setCancelDetails] = useState('');
   const [trackingForm, setTrackingForm] = useState({
     orderStatus: 'processing' as
       | 'pending' | 'processing' | 'confirmed' | 'packed'
@@ -68,11 +69,13 @@ const AdminOrders = () => {
 
   const handleCancel = async () => {
     if (!cancelOrderId || !cancelReason.trim()) return toast.error('Cancellation reason is required');
-    const res = await cancelOrder(cancelOrderId, cancelReason.trim());
+    if (!cancelDetails.trim()) return toast.error('Cancellation details are required');
+    const res = await cancelOrder(cancelOrderId, cancelReason.trim(), cancelDetails.trim());
     if (res.success) {
       toast.success('Order cancelled and customer notified');
       setCancelOrderId('');
       setCancelReason('');
+      setCancelDetails('');
     } else {
       toast.error(res.error || 'Cancel failed');
     }
@@ -287,13 +290,20 @@ const AdminOrders = () => {
             <input
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Enter reason sent to customer"
+              placeholder="Short reason sent to customer"
               className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 font-body text-sm"
             />
+            <input
+              value={cancelDetails}
+              onChange={(e) => setCancelDetails(e.target.value)}
+              placeholder="Details, refund timeline, and support note"
+              className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 font-body text-sm"
+            />
+            <span className="font-body text-[11px] text-muted-foreground">12% cancellation charge applies; remaining amount is refundable.</span>
             <button onClick={handleCancel} className="rounded-lg bg-destructive px-3 py-2 font-body text-xs text-primary-foreground">
               Confirm Cancel
             </button>
-            <button onClick={() => { setCancelOrderId(''); setCancelReason(''); }} className="rounded-lg border border-border px-3 py-2 font-body text-xs">
+            <button onClick={() => { setCancelOrderId(''); setCancelReason(''); setCancelDetails(''); }} className="rounded-lg border border-border px-3 py-2 font-body text-xs">
               Close
             </button>
           </div>
@@ -495,6 +505,7 @@ const AdminOrders = () => {
                       onClick={() => {
                         setCancelOrderId(o.id);
                         setCancelReason('');
+                        setCancelDetails('');
                       }}
                       className="flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 font-body text-xs font-semibold text-red-700 hover:bg-red-100"
                     >

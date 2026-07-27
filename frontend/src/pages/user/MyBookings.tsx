@@ -18,6 +18,9 @@ const MyBookings = () => {
   const { user } = useAuthStore();
   const { myBookings, fetchMyBookings, cancelBooking, isLoading } = useBookingStore();
   const [filter, setFilter] = useState('All');
+  const [cancelBookingId, setCancelBookingId] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelDetails, setCancelDetails] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -89,14 +92,24 @@ const MyBookings = () => {
     return { cls: 'bg-muted text-muted-foreground border-border', icon: Clock };
   };
 
-  const handleCancel = async (e: React.MouseEvent, id: string) => {
+  const openCancel = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    const target = bookings.find((b) => b.id === id);
-    const needsReason = target?.bookingStatus === 'confirmed';
-    const reason = needsReason ? window.prompt('Please enter a reason for cancellation request:') || '' : '';
-    if (needsReason && !reason.trim()) return toast.error('Cancellation reason is required for confirmed bookings');
-    const res = await cancelBooking(id, reason.trim() || undefined);
-    if (res.success) toast.success('Booking cancelled');
+    e.preventDefault();
+    setCancelBookingId(id);
+    setCancelReason('');
+    setCancelDetails('');
+  };
+
+  const submitCancel = async () => {
+    if (!cancelBookingId || !cancelReason.trim()) return toast.error('Cancellation reason is required');
+    if (!cancelDetails.trim()) return toast.error('Cancellation details are required');
+    const res = await cancelBooking(cancelBookingId, cancelReason.trim(), cancelDetails.trim());
+    if (res.success) {
+      toast.success('Cancellation submitted');
+      setCancelBookingId('');
+      setCancelReason('');
+      setCancelDetails('');
+    }
     else toast.error(res.error || 'Cancel failed');
   };
 
@@ -172,6 +185,20 @@ const MyBookings = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {cancelBookingId && (
+                <div className="md:col-span-2 glass-panel rounded-2xl p-5 border border-destructive/25">
+                  <h2 className="font-display text-xl font-semibold text-foreground mb-3">Cancel booking</h2>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Reason for cancellation" className="rounded-lg border border-border bg-background/70 px-3 py-2 font-body text-sm" />
+                    <input value={cancelDetails} onChange={(e) => setCancelDetails(e.target.value)} placeholder="Full details for cancellation request" className="rounded-lg border border-border bg-background/70 px-3 py-2 font-body text-sm" />
+                  </div>
+                  <p className="mt-3 font-body text-xs text-muted-foreground">A 12% cancellation charge will be deducted from the total payment. The remaining amount will be refundable after review.</p>
+                  <div className="mt-4 flex gap-2">
+                    <button onClick={submitCancel} className="rounded-lg bg-destructive px-4 py-2 font-body text-xs text-primary-foreground">Submit Cancellation</button>
+                    <button onClick={() => { setCancelBookingId(''); setCancelReason(''); setCancelDetails(''); }} className="rounded-lg border border-border px-4 py-2 font-body text-xs">Close</button>
+                  </div>
+                </div>
+              )}
               {filtered.map((b) => {
                 const Icon = typeIcon[b.bookingType] || ClipboardList;
                 const sb = statusBadge(b.bookingStatus);
@@ -235,7 +262,7 @@ const MyBookings = () => {
                           </span>
                         </div>
                         {b.bookingStatus === 'confirmed' && (
-                          <button onClick={(e) => handleCancel(e, b.id)} className="mt-2 flex items-center gap-1 font-body text-[11px] text-destructive hover:underline">
+                          <button onClick={(e) => openCancel(e, b.id)} className="mt-2 flex items-center gap-1 font-body text-[11px] text-destructive hover:underline">
                             <XCircle size={11} /> Cancel
                           </button>
                         )}

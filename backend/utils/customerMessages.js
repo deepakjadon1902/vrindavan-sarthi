@@ -104,6 +104,11 @@ const bookingRows = (booking) => [
   ['Payment Status', booking.paymentStatus],
   ['UPI Transaction ID', booking.upiTransactionId],
   ['Additional Info', booking.additionalInfo],
+  ['Cancellation Reason', booking.cancellationReason],
+  ['Cancellation Details', booking.cancellationDetails],
+  ['Cancelled By', booking.cancelledByRole],
+  ['Cancellation Deduction', Number(booking.cancellationDeductionAmount || 0) ? `${money(booking.cancellationDeductionAmount)} (${Number(booking.cancellationDeductionPercent || 12)}%)` : ''],
+  ['Refundable Amount', Number(booking.refundableAmount || 0) ? money(booking.refundableAmount) : ''],
 ];
 
 const orderRows = (order) => [
@@ -113,6 +118,8 @@ const orderRows = (order) => [
   ['Product', order.productName],
   ['Quantity', order.quantity],
   ['Unit Price', money(order.productPrice)],
+  ['Subtotal', money(order.subtotalAmount || Number(order.productPrice || 0) * Number(order.quantity || 1))],
+  ['Shipping Fee', money(order.shippingFee)],
   ['Grand Total', money(order.totalAmount)],
   ['Customer', order.userName],
   ['Mobile', order.userPhone],
@@ -128,6 +135,11 @@ const orderRows = (order) => [
   ['Tracking Notes', order.trackingNotes],
   ['Shipped At', dateTimeText(order.shippedAt)],
   ['Delivered At', dateTimeText(order.deliveredAt)],
+  ['Cancellation Reason', order.cancellationReason],
+  ['Cancellation Details', order.cancellationDetails],
+  ['Cancelled By', order.cancelledByRole],
+  ['Cancellation Deduction', Number(order.cancellationDeductionAmount || 0) ? `${money(order.cancellationDeductionAmount)} (${Number(order.cancellationDeductionPercent || 12)}%)` : ''],
+  ['Refundable Amount', Number(order.refundableAmount || 0) ? money(order.refundableAmount) : ''],
 ];
 
 const sendBookingInvoice = async (booking) => {
@@ -188,10 +200,10 @@ const sendBookingCancellationEmail = async (booking, reason) => {
   await sendEmail({
     to,
     subject: `Booking cancelled ${booking.bookingId}`,
-    text: `Your Vrindavan Sarthi Enterprises booking ${booking.bookingId} has been cancelled.\nReason: ${reason}`,
+    text: `Your Vrindavan Sarthi Enterprises booking ${booking.bookingId} has been cancelled.\nReason: ${reason}\nCancellation charge: ${money(booking.cancellationDeductionAmount)}\nRefundable amount: ${money(booking.refundableAmount)}`,
     html: emailShell({
       title: 'Booking cancelled',
-      intro: 'Your booking has been cancelled. The reason is shown below with your booking details.',
+      intro: 'Your booking has been cancelled. The reason, cancellation charge, and refundable amount are shown below.',
       rows: bookingRows(booking),
       totalLabel: 'Booking Value',
       totalAmount: booking.totalAmount,
@@ -206,10 +218,10 @@ const sendOrderCancellationEmail = async (order, reason) => {
   await sendEmail({
     to,
     subject: `Order cancelled ${order.orderId}`,
-    text: `Your Vrindavan Sarthi Enterprises order ${order.orderId} has been cancelled.\nReason: ${reason}`,
+    text: `Your Vrindavan Sarthi Enterprises order ${order.orderId} has been cancelled.\nReason: ${reason}\nCancellation charge: ${money(order.cancellationDeductionAmount)}\nRefundable amount: ${money(order.refundableAmount)}`,
     html: emailShell({
       title: 'Order cancelled',
-      intro: 'Your order has been cancelled. The reason is shown below with your order details.',
+      intro: 'Your order has been cancelled. The reason, cancellation charge, and refundable amount are shown below.',
       rows: orderRows(order),
       totalLabel: 'Order Value',
       totalAmount: order.totalAmount,

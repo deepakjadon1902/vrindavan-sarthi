@@ -45,15 +45,12 @@ const Navbar = () => {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navBg} ${scrolled ? 'border-brand-gold/40' : ''}`}>
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-5 xl:px-7">
           <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-3 xl:h-[4.75rem] xl:grid-cols-[minmax(250px,0.9fr)_auto_minmax(300px,0.9fr)] xl:gap-4">
-            <Link to="/" className="group flex min-w-0 items-center gap-2.5 xl:max-w-[320px]">
+            <Link to="/" className="group flex min-w-0 items-center gap-2.5 xl:max-w-[80px]" aria-label={COMPANY_NAME}>
               <img
                 src={APP_LOGO_URL}
                 alt={COMPANY_NAME}
                 className="h-9 w-9 shrink-0 rounded-full border border-brand-gold/40 object-cover shadow-[0_10px_22px_hsl(39_92%_56%_/_0.22)] transition-transform duration-300 group-hover:scale-105 xl:h-10 xl:w-10"
               />
-              <span className="min-w-0 font-brand text-[1.05rem] leading-[1.05] tracking-[0.06em] text-brand-gold sm:text-lg xl:text-[1.35rem]">
-                {COMPANY_NAME}
-              </span>
             </Link>
 
             <div className="hidden items-center justify-center gap-0.5 rounded-full border border-white/15 bg-white/10 px-1.5 py-1 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.12),0_14px_35px_hsl(222_42%_10%_/_0.18)] backdrop-blur-xl xl:flex">

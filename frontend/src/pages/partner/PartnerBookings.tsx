@@ -13,9 +13,13 @@ const PartnerBookings = () => {
     isLoading,
     partnerVerifyPayment,
     partnerRejectPayment,
+    adminCancelBooking,
   } = useBookingStore();
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'completed'>('all');
   const [expandedBookingId, setExpandedBookingId] = useState<string>('');
+  const [cancelBookingId, setCancelBookingId] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelDetails, setCancelDetails] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -47,6 +51,20 @@ const PartnerBookings = () => {
     else toast.error(res.error || 'Reject failed');
   };
 
+  const handlePartnerCancel = async () => {
+    if (!cancelBookingId || !cancelReason.trim()) return toast.error('Cancellation reason is required');
+    if (!cancelDetails.trim()) return toast.error('Cancellation details are required');
+    const res = await adminCancelBooking(cancelBookingId, cancelReason.trim(), cancelDetails.trim());
+    if (res.success) {
+      toast.success('Booking cancelled and customer notified');
+      setCancelBookingId('');
+      setCancelReason('');
+      setCancelDetails('');
+    } else {
+      toast.error(res.error || 'Cancel failed');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex gap-2 flex-wrap">
@@ -75,6 +93,20 @@ const PartnerBookings = () => {
         </div>
       ) : (
         <div className="space-y-4">
+          {cancelBookingId && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+              <div className="flex flex-col gap-3">
+                <div className="font-body text-sm font-medium text-foreground">Cancel booking with customer message</div>
+                <input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Short reason sent to customer" className="rounded-lg border border-border bg-card px-3 py-2 font-body text-sm" />
+                <textarea value={cancelDetails} onChange={(e) => setCancelDetails(e.target.value)} rows={3} placeholder="Details, refund timeline, and support note" className="resize-none rounded-lg border border-border bg-card px-3 py-2 font-body text-sm" />
+                <p className="font-body text-[11px] text-muted-foreground">12% cancellation charge applies; remaining amount is refundable.</p>
+                <div className="flex gap-2">
+                  <button onClick={handlePartnerCancel} className="rounded-lg bg-destructive px-3 py-2 font-body text-xs text-primary-foreground">Confirm Cancel</button>
+                  <button onClick={() => { setCancelBookingId(''); setCancelReason(''); setCancelDetails(''); }} className="rounded-lg border border-border px-3 py-2 font-body text-xs">Close</button>
+                </div>
+              </div>
+            </div>
+          )}
           {filtered.map((b) => (
             <div key={b.id} className="bg-card rounded-xl border border-border p-5">
               <div className="flex flex-col sm:flex-row gap-4">
@@ -138,6 +170,19 @@ const PartnerBookings = () => {
                   </button>
 
                   {expandedBookingId === b.id && <BookingFormDetails booking={b} viewer="partner" />}
+
+                  {b.bookingStatus !== 'cancelled' && (
+                    <button
+                      onClick={() => {
+                        setCancelBookingId(b.id);
+                        setCancelReason('');
+                        setCancelDetails('');
+                      }}
+                      className="mt-3 px-3 py-1.5 rounded-lg text-xs font-body bg-destructive/10 text-destructive hover:bg-destructive/15"
+                    >
+                      Cancel Booking
+                    </button>
+                  )}
 
                   {needsPartnerVerify(b) && (
                     <div className="mt-4 flex flex-wrap gap-2">

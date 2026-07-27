@@ -80,6 +80,13 @@ export interface Booking {
   cancellationReason?: string;
   cancellationRequestedAt?: string;
   cancellationReviewedByAdmin?: boolean;
+  cancelledByRole?: 'user' | 'admin' | 'partner';
+  cancelledByName?: string;
+  cancelledAt?: string;
+  cancellationDetails?: string;
+  cancellationDeductionPercent?: number;
+  cancellationDeductionAmount?: number;
+  refundableAmount?: number;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -180,6 +187,13 @@ const normalizeBooking = (b: unknown): Booking => {
     cancellationReason: getString(obj, 'cancellationReason') || undefined,
     cancellationRequestedAt: getString(obj, 'cancellationRequestedAt') || undefined,
     cancellationReviewedByAdmin: typeof obj.cancellationReviewedByAdmin === 'boolean' ? obj.cancellationReviewedByAdmin : undefined,
+    cancelledByRole: (getString(obj, 'cancelledByRole') as Booking['cancelledByRole']) || undefined,
+    cancelledByName: getString(obj, 'cancelledByName') || undefined,
+    cancelledAt: getString(obj, 'cancelledAt') || undefined,
+    cancellationDetails: getString(obj, 'cancellationDetails') || undefined,
+    cancellationDeductionPercent: getNumber(obj, 'cancellationDeductionPercent') || undefined,
+    cancellationDeductionAmount: getNumber(obj, 'cancellationDeductionAmount') || undefined,
+    refundableAmount: getNumber(obj, 'refundableAmount') || undefined,
   };
 };
 
@@ -207,8 +221,8 @@ interface BookingState {
   createBooking: (data: Omit<Booking, 'id' | 'bookingId' | 'createdAt' | 'userId' | 'userName' | 'userEmail' | 'userPhone'>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   createRoomTypeBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   createCabBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
-  cancelBooking: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
-  adminCancelBooking: (id: string, reason: string) => Promise<{ success: boolean; error?: string }>;
+  cancelBooking: (id: string, reason?: string, details?: string) => Promise<{ success: boolean; error?: string }>;
+  adminCancelBooking: (id: string, reason: string, details?: string) => Promise<{ success: boolean; error?: string }>;
   submitPayment: (id: string, upiTransactionId: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   verifyPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   rejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
@@ -322,11 +336,11 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     }
   },
 
-  cancelBooking: async (id, reason) => {
+  cancelBooking: async (id, reason, details) => {
     const token = useAuthStore.getState().token;
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const res = await api.put(`/bookings/${id}/cancel`, { reason }, withAuth(token));
+      const res = await api.put(`/bookings/${id}/cancel`, { reason, details }, withAuth(token));
       const updated = normalizeBooking(res.data?.data);
       set((state) => ({
         myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
@@ -339,11 +353,11 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     }
   },
 
-  adminCancelBooking: async (id, reason) => {
+  adminCancelBooking: async (id, reason, details) => {
     const token = useAuthStore.getState().token;
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const res = await api.put(`/bookings/${id}/cancel`, { reason }, withAuth(token));
+      const res = await api.put(`/bookings/${id}/cancel`, { reason, details }, withAuth(token));
       const updated = normalizeBooking(res.data?.data);
       set((state) => ({
         adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),

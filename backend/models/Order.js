@@ -10,6 +10,8 @@ const orderSchema = new mongoose.Schema({
   productImage: String,
   productPrice: Number,
   quantity: { type: Number, default: 1 },
+  subtotalAmount: { type: Number, default: 0 },
+  shippingFee: { type: Number, default: 49 },
   totalAmount: { type: Number, default: 0 },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   userName: String,
@@ -38,6 +40,10 @@ const orderSchema = new mongoose.Schema({
   cancellationReason: String,
   cancelledByRole: { type: String, enum: ['user', 'admin'], default: null },
   cancelledAt: Date,
+  cancellationDetails: String,
+  cancellationDeductionPercent: { type: Number, default: 12 },
+  cancellationDeductionAmount: { type: Number, default: 0 },
+  refundableAmount: { type: Number, default: 0 },
 }, { timestamps: true });
 
 const generate5DigitTrackingId = () => String(Math.floor(10000 + Math.random() * 90000));

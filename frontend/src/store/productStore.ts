@@ -24,6 +24,8 @@ export interface Order {
   productImage: string;
   productPrice: number;
   quantity: number;
+  subtotalAmount?: number;
+  shippingFee?: number;
   totalAmount: number;
   userId: string;
   userName: string;
@@ -50,6 +52,10 @@ export interface Order {
   cancellationReason?: string;
   cancelledByRole?: 'user' | 'admin';
   cancelledAt?: string;
+  cancellationDetails?: string;
+  cancellationDeductionPercent?: number;
+  cancellationDeductionAmount?: number;
+  refundableAmount?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -132,6 +138,8 @@ const normalizeOrder = (o: unknown): Order => {
     productImage: resolveBackendAssetUrl(getString(obj, 'productImage')),
     productPrice: getNumber(obj, 'productPrice'),
     quantity: getNumber(obj, 'quantity') || 1,
+    subtotalAmount: getNumber(obj, 'subtotalAmount') || undefined,
+    shippingFee: getNumber(obj, 'shippingFee') || undefined,
     totalAmount: getNumber(obj, 'totalAmount'),
     userId: getString(userIdObj, '_id') || getString(obj, 'userId'),
     userName: getString(obj, 'userName'),
@@ -153,6 +161,10 @@ const normalizeOrder = (o: unknown): Order => {
     cancellationReason: getString(obj, 'cancellationReason') || undefined,
     cancelledByRole: (getString(obj, 'cancelledByRole') as Order['cancelledByRole']) || undefined,
     cancelledAt: getString(obj, 'cancelledAt') || undefined,
+    cancellationDetails: getString(obj, 'cancellationDetails') || undefined,
+    cancellationDeductionPercent: getNumber(obj, 'cancellationDeductionPercent') || undefined,
+    cancellationDeductionAmount: getNumber(obj, 'cancellationDeductionAmount') || undefined,
+    refundableAmount: getNumber(obj, 'refundableAmount') || undefined,
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
     updatedAt: getString(obj, 'updatedAt') || undefined,
   };
@@ -189,7 +201,7 @@ interface ProductState {
   trackOrderById: (trackingId: string) => Promise<{ success: boolean; data?: Order; error?: string }>;
   verifyOrderPayment: (id: string) => Promise<{ success: boolean; error?: string }>;
   rejectOrderPayment: (id: string) => Promise<{ success: boolean; error?: string }>;
-  cancelOrder: (id: string, reason: string) => Promise<{ success: boolean; error?: string }>;
+  cancelOrder: (id: string, reason: string, details?: string) => Promise<{ success: boolean; error?: string }>;
   updateOrderStatus: (id: string, status: Order['orderStatus']) => Promise<{ success: boolean; error?: string }>;
   updateOrderTracking: (id: string, data: Partial<Pick<Order, 'orderStatus' | 'courierName' | 'awbNumber' | 'trackingUrl' | 'trackingNotes'>>) => Promise<{ success: boolean; error?: string }>;
 }
@@ -364,11 +376,11 @@ export const useProductStore = create<ProductState>()((set, get) => ({
     }
   },
 
-  cancelOrder: async (id, reason) => {
+  cancelOrder: async (id, reason, details) => {
     const token = useAuthStore.getState().token;
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const res = await api.put(`/orders/${id}/cancel`, { reason }, withAuth(token));
+      const res = await api.put(`/orders/${id}/cancel`, { reason, details }, withAuth(token));
       const updated = normalizeOrder(res.data?.data);
       set((state) => ({
         adminOrders: state.adminOrders.map((o) => (o.id === id ? updated : o)),

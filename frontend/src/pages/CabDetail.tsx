@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Car, CheckCircle, MapPin, Users, Sparkles, ShieldCheck, IndianRupee } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,6 +10,9 @@ import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
+
+const comparableKey = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const vehicleKey = (value: unknown) => comparableKey(value).replace(/\b(seater|seat|seats|cab|car|taxi|vehicle)\b/g, '').replace(/\s+/g, ' ').trim();
 
 const CabDetail = () => {
   const { id } = useParams();
@@ -29,6 +32,8 @@ const CabDetail = () => {
   const [tollOption, setTollOption] = useState<'included' | 'excluded' | ''>('');
   const [fare, setFare] = useState<number | null>(null);
   const [fareErr, setFareErr] = useState<string>('');
+  const [fareRules, setFareRules] = useState<any[]>([]);
+  const [selectedFareRuleId, setSelectedFareRuleId] = useState('');
   const [showPayment, setShowPayment] = useState(false);
   const [pendingBookingId, setPendingBookingId] = useState('');
   const [booked, setBooked] = useState(false);
@@ -50,37 +55,101 @@ const CabDetail = () => {
   }, [id]);
 
   useEffect(() => {
+    const run = async () => {
+      try {
+        const res = await api.get('/cab-fares');
+        setFareRules(Array.isArray(res.data?.data) ? res.data.data : []);
+      } catch {
+        setFareRules([]);
+      }
+    };
+    void run();
+  }, []);
+
+  useEffect(() => {
     setFullName(user?.name || '');
     setMobileNumber(user?.phone || '');
   }, [user?.name, user?.phone]);
 
-  useEffect(() => {
-    const vehicleLabel = cab?.vehicleName && cab?.capacity ? `${cab.vehicleName} - ${cab.capacity}-Seater` : '';
-    setCabType((prev) => prev || vehicleLabel);
-  }, [cab?.vehicleName, cab?.capacity]);
+  const routeOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const currentCabKeys = [
+      vehicleKey(cab?.vehicleName),
+      vehicleKey(cab?.vehicleName && cab?.capacity ? `${cab.vehicleName} ${cab.capacity}` : ''),
+      vehicleKey(cab?.vehicleName && cab?.capacity ? `${cab.vehicleName} ${cab.capacity} seater` : ''),
+    ].filter(Boolean);
+    const rulesForCab = fareRules.filter((rule) => {
+      if (!currentCabKeys.length) return true;
+      const ruleKey = vehicleKey(rule.cabType);
+      return currentCabKeys.some((key) => ruleKey === key || ruleKey.includes(key) || key.includes(ruleKey));
+    });
+    const source = rulesForCab.length ? rulesForCab : fareRules;
+    return source
+      .map((rule) => ({
+        key: `${rule.pickupLocation}|||${rule.dropLocation}`,
+        pickupLocation: String(rule.pickupLocation || ''),
+        dropLocation: String(rule.dropLocation || ''),
+        label: `${rule.pickupLocation} to ${rule.dropLocation}`,
+      }))
+      .filter((route) => {
+        if (!route.pickupLocation || !route.dropLocation || seen.has(route.key)) return false;
+        seen.add(route.key);
+        return true;
+      });
+  }, [cab?.capacity, cab?.vehicleName, fareRules]);
+
+  const vehicleOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return fareRules
+      .filter((rule) => String(rule.pickupLocation || '') === pickup && String(rule.dropLocation || '') === dropoff)
+      .map((rule) => ({
+        id: String(rule._id || rule.id || ''),
+        cabType: String(rule.cabType || '').trim(),
+        baseFare: Number(rule.baseFare || 0),
+      }))
+      .filter((value) => {
+        if (!value.cabType || seen.has(value.id || value.cabType)) return false;
+        seen.add(value.id || value.cabType);
+        return true;
+      });
+  }, [dropoff, fareRules, pickup]);
 
   useEffect(() => {
-    const run = async () => {
+    if (!vehicleOptions.length) return;
+    const selected = vehicleOptions.find((option) => option.id === selectedFareRuleId || option.cabType === cabType);
+    const next = selected || vehicleOptions[0];
+    if (!selected || cabType !== next.cabType || selectedFareRuleId !== next.id) {
+      setCabType(next.cabType);
+      setSelectedFareRuleId(next.id);
+    }
+  }, [cabType, selectedFareRuleId, vehicleOptions]);
+
+  useEffect(() => {
+    if (pickup || dropoff || !routeOptions.length) return;
+    const first = routeOptions[0];
+    setPickup(first.pickupLocation);
+    setDropoff(first.dropLocation);
+  }, [dropoff, pickup, routeOptions]);
+
+  const selectedFareRule = useMemo(
+    () => fareRules.find((rule) => String(rule._id || rule.id || '') === selectedFareRuleId) || null,
+    [fareRules, selectedFareRuleId],
+  );
+
+  useEffect(() => {
+    setFareErr('');
+    if (!pickup || !dropoff || !cabType) {
       setFare(null);
-      setFareErr('');
-      if (!pickup || !dropoff || !cabType) return;
-      try {
-        const res = await api.get('/cab-fares/calculate', {
-          params: {
-            pickupLocation: pickup,
-            dropLocation: dropoff,
-            cabType,
-          },
-        });
-        const total = Number(res.data?.data?.totalFare ?? res.data?.data?.cabFareTotal ?? 0);
-        if (Number.isFinite(total) && total >= 0) setFare(total);
-      } catch (e: any) {
-        const msg = e?.response?.data?.message || 'Fare not set for this route/vehicle.';
-        setFareErr(String(msg));
-      }
-    };
-    void run();
-  }, [pickup, dropoff, cabType]);
+      return;
+    }
+    if (selectedFareRule) {
+      const total = Number(selectedFareRule.baseFare || 0);
+      setFare(Number.isFinite(total) && total >= 0 ? total : null);
+      return;
+    }
+    setFare(null);
+    setFareErr('Please select a taxi rate set by admin for this route.');
+  }, [cabType, dropoff, pickup, selectedFareRule]);
 
   if (isLoading && !cab) return (
     <div className="pt-24 pb-16 text-center min-h-screen bg-background">
@@ -122,6 +191,7 @@ const CabDetail = () => {
       pickupTime,
       passengers,
       cabType,
+      cabFareRuleId: selectedFareRuleId,
       tollOption,
       paymentOption: 'advance_30',
       upiTransactionId: transactionId,
@@ -137,7 +207,6 @@ const CabDetail = () => {
   };
 
   const allImages = [cab.image, ...(cab.images || [])].filter(Boolean);
-  const vehicleLabel = cab?.vehicleName && cab?.capacity ? `${cab.vehicleName} - ${cab.capacity}-Seater` : cabType;
   const convenienceFee = typeof fare === 'number' ? Math.round(fare * 0.02) : 0;
   const checkoutTotal = typeof fare === 'number' ? fare + convenienceFee : 0;
   const advanceAmount = checkoutTotal > 0 ? Math.round(checkoutTotal * 0.3) : 0;
@@ -244,11 +313,10 @@ const CabDetail = () => {
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Mobile Number</label><input type="tel" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Date</label><input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Time</label><input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Location</label><input type="text" value={pickup} onChange={(e) => setPickup(e.target.value)} placeholder="e.g. Vrindavan" className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Drop Location</label><input type="text" value={dropoff} onChange={(e) => setDropoff(e.target.value)} placeholder="e.g. Mathura" className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Route</label><select value={pickup && dropoff ? `${pickup}|||${dropoff}` : ''} onChange={(e) => { const [from, to] = e.target.value.split('|||'); setPickup(from || ''); setDropoff(to || ''); setCabType(''); setSelectedFareRuleId(''); }} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select route</option>{routeOptions.map((route) => <option key={route.key} value={route.key}>{route.label}</option>)}</select></div>
                     <div className="grid grid-cols-2 gap-3">
                       <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Passengers</label><input type="number" min={1} max={cab?.capacity || undefined} value={passengers} onChange={(e) => setPassengers(Math.max(1, Number(e.target.value || 1)))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                      <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Vehicle</label><select value={cabType} onChange={(e) => setCabType(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select vehicle</option><option value={vehicleLabel}>{vehicleLabel}</option></select></div>
+                      <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Vehicle</label><select value={selectedFareRuleId} onChange={(e) => { const next = vehicleOptions.find((option) => option.id === e.target.value); setSelectedFareRuleId(e.target.value); setCabType(next?.cabType || ''); }} disabled={!vehicleOptions.length} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 disabled:opacity-60"><option value="">Select vehicle</option>{vehicleOptions.map((vehicle) => <option key={vehicle.id || vehicle.cabType} value={vehicle.id}>{vehicle.cabType} - Rs. {vehicle.baseFare.toLocaleString('en-IN')}</option>)}</select></div>
                     </div>
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Toll Charges</label><select value={tollOption} onChange={(e) => setTollOption(e.target.value as 'included' | 'excluded' | '')} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select toll option</option><option value="included">Tolls Included</option><option value="excluded">Tolls Excluded</option></select></div>
 

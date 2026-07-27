@@ -11,7 +11,18 @@ const {
 const router = express.Router();
 
 const allowedStatuses = ['pending', 'processing', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
+const SHIPPING_FEE = 49;
 const clean = (value) => String(value || '').trim();
+const cancellationMoney = (totalAmount) => {
+  const total = Math.max(0, Math.round(Number(totalAmount || 0)));
+  const cancellationDeductionPercent = 12;
+  const cancellationDeductionAmount = Math.round((total * cancellationDeductionPercent) / 100);
+  return {
+    cancellationDeductionPercent,
+    cancellationDeductionAmount,
+    refundableAmount: Math.max(0, total - cancellationDeductionAmount),
+  };
+};
 
 const stripLargeInlineImage = (value) => {
   const image = clean(value);
@@ -84,6 +95,8 @@ router.get('/track/:trackingId', async (req, res) => {
       'trackingId',
       'productName',
       'productImage',
+      'subtotalAmount',
+      'shippingFee',
       'quantity',
       'totalAmount',
       'paymentStatus',
@@ -95,6 +108,13 @@ router.get('/track/:trackingId', async (req, res) => {
       'shippedAt',
       'deliveredAt',
       'statusHistory',
+      'cancellationReason',
+      'cancelledByRole',
+      'cancelledAt',
+      'cancellationDetails',
+      'cancellationDeductionPercent',
+      'cancellationDeductionAmount',
+      'refundableAmount',
       'createdAt',
       'updatedAt',
     ]);
@@ -144,6 +164,8 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
               // omit productImage by default (can be large base64)
               'productPrice',
               'quantity',
+              'subtotalAmount',
+              'shippingFee',
               'totalAmount',
               'userId',
               'userName',
@@ -165,6 +187,10 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
               'cancellationReason',
               'cancelledByRole',
               'cancelledAt',
+              'cancellationDetails',
+              'cancellationDeductionPercent',
+              'cancellationDeductionAmount',
+              'refundableAmount',
               'createdAt',
               'updatedAt',
             ]
@@ -199,6 +225,8 @@ router.post('/', protect, async (req, res) => {
 
     const productPrice = Math.max(0, Math.round(Number(product.price || 0)));
     if (!productPrice) return res.status(400).json({ success: false, message: 'Product price is not available' });
+    const subtotalAmount = productPrice * quantity;
+    const shippingFee = SHIPPING_FEE;
 
     // In the very rare case of a trackingId collision, retry a few times.
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -210,7 +238,9 @@ router.post('/', protect, async (req, res) => {
           productImage: stripLargeInlineImage(product.images?.[0] || req.body?.productImage),
           productPrice,
           quantity,
-          totalAmount: productPrice * quantity,
+          subtotalAmount,
+          shippingFee,
+          totalAmount: subtotalAmount + shippingFee,
           userId: req.user._id,
           userName: clean(req.body?.userName) || req.user.name,
           userEmail: clean(req.body?.userEmail) || req.user.email,
@@ -265,6 +295,8 @@ router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
     order.cancellationReason = clean(req.body?.reason || req.body?.note) || 'Payment rejected and order cancelled';
     order.cancelledByRole = 'admin';
     order.cancelledAt = new Date();
+    order.cancellationDetails = clean(req.body?.details || req.body?.cancellationDetails) || 'Payment could not be verified by admin.';
+    Object.assign(order, cancellationMoney(order.totalAmount));
     order.statusHistory.push({
       status: 'cancelled',
       note: order.cancellationReason,
@@ -277,20 +309,29 @@ router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
-router.put('/:id/cancel', protect, authorize('admin'), async (req, res) => {
+router.put('/:id/cancel', protect, async (req, res) => {
   try {
     const reason = clean(req.body?.reason || req.body?.cancellationReason);
+    const cancellationDetails = clean(req.body?.details || req.body?.cancellationDetails);
     if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
-    const order = await Order.findById(req.params.id);
+    if (!cancellationDetails) return res.status(400).json({ success: false, message: 'Cancellation details are required' });
+    const query = req.user.role === 'admin' ? { _id: req.params.id } : { _id: req.params.id, userId: req.user._id };
+    const order = await Order.findOne(query);
     if (!order) return res.status(404).json({ success: false, message: 'Not found' });
+    if (order.orderStatus === 'cancelled') return res.status(400).json({ success: false, message: 'Order is already cancelled' });
+    if (req.user.role !== 'admin' && (order.orderStatus === 'shipped' || order.orderStatus === 'delivered')) {
+      return res.status(400).json({ success: false, message: 'Shipped or delivered orders cannot be cancelled online. Please contact support.' });
+    }
     order.orderStatus = 'cancelled';
     order.cancellationReason = reason;
-    order.cancelledByRole = 'admin';
+    order.cancelledByRole = req.user.role === 'admin' ? 'admin' : 'user';
     order.cancelledAt = new Date();
+    order.cancellationDetails = cancellationDetails;
+    Object.assign(order, cancellationMoney(order.totalAmount));
     order.statusHistory.push({
       status: 'cancelled',
       note: reason,
-      updatedByName: req.user?.name || 'Admin',
+      updatedByName: req.user?.name || (req.user.role === 'admin' ? 'Admin' : 'Customer'),
       createdAt: new Date(),
     });
     await order.save();

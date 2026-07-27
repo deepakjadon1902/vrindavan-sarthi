@@ -101,10 +101,38 @@ const buildMoneyFields = ({ subtotal, paymentOption = 'advance_30', commissionPe
 
 const normalize = (v) => String(v || '').trim();
 const normalizeLocationKey = (v) => normalize(v).replace(/\s+/g, ' ');
+const comparableKey = (v) => normalizeLocationKey(v).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const vehicleKey = (v) => comparableKey(v).replace(/\b(seater|seat|seats|cab|car|taxi|vehicle)\b/g, '').replace(/\s+/g, ' ').trim();
 
 const calcCabFare = ({ baseFare }) => {
   const base = Number(baseFare || 0);
   return { base, included: 0, extraCharge: 0, pax: 0, extraPersons: 0, extra: 0, total: Math.max(0, base) };
+};
+
+const findCabFareRule = async ({ pickupLocation, dropLocation, cabType }) => {
+  const exact = await CabFare.findOne({ pickupLocation, dropLocation, cabType, status: 'active' }).lean();
+  if (exact) return exact;
+  const pickupKey = comparableKey(pickupLocation);
+  const dropKey = comparableKey(dropLocation);
+  const cabKey = vehicleKey(cabType);
+  const fares = await CabFare.find({ status: 'active' }).lean();
+  return fares.find((fare) => {
+    const fareCabKey = vehicleKey(fare.cabType);
+    return comparableKey(fare.pickupLocation) === pickupKey &&
+      comparableKey(fare.dropLocation) === dropKey &&
+      (fareCabKey === cabKey || fareCabKey.includes(cabKey) || cabKey.includes(fareCabKey));
+  }) || null;
+};
+
+const cancellationMoney = (totalAmount) => {
+  const total = Math.max(0, Math.round(Number(totalAmount || 0)));
+  const cancellationDeductionPercent = 12;
+  const cancellationDeductionAmount = Math.round((total * cancellationDeductionPercent) / 100);
+  return {
+    cancellationDeductionPercent,
+    cancellationDeductionAmount,
+    refundableAmount: Math.max(0, total - cancellationDeductionAmount),
+  };
 };
 
 const buildPartnerBookingHtml = (booking) => {
@@ -177,7 +205,7 @@ const bookingDetailFields = [
   'baseAmount taxPercent taxAmount checkoutSubtotal convenienceFeePercent convenienceFeeAmount totalAmount advanceAmount balanceAmount advancePercent paymentOption',
   'platformCommissionPercent platformCommissionAmount partnerNetPayout',
   'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo',
-  'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin createdAt',
+  'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount createdAt',
 ].join(' ');
 
 // Create cab booking (authenticated user)
@@ -186,11 +214,12 @@ router.post('/cab', protect, async (req, res) => {
   try {
     const fullName = normalize(req.body?.fullName) || normalize(req.body?.customerFullName) || normalize(req.user?.name);
     const mobileNumber = normalize(req.body?.mobileNumber) || normalize(req.body?.customerMobile) || normalize(req.user?.phone);
-    const pickupLocation = normalizeLocationKey(req.body?.pickupLocation);
-    const dropLocation = normalizeLocationKey(req.body?.dropLocation);
+    let pickupLocation = normalizeLocationKey(req.body?.pickupLocation);
+    let dropLocation = normalizeLocationKey(req.body?.dropLocation);
     const pickupDate = normalize(req.body?.pickupDate);
     const pickupTime = normalize(req.body?.pickupTime);
-    const cabType = normalize(req.body?.cabType);
+    let cabType = normalize(req.body?.cabType);
+    const cabFareRuleId = normalize(req.body?.cabFareRuleId);
     const passengers = Number(req.body?.passengers || req.body?.persons || req.body?.guests || 1);
     const tollOptionInput = normalize(req.body?.tollOption).toLowerCase();
     const tollOption = tollOptionInput === 'included' || tollOptionInput === 'tolls_included'
@@ -208,7 +237,14 @@ router.post('/cab', protect, async (req, res) => {
     if (!tollOption) return res.status(400).json({ success: false, message: 'Please choose Tolls Included or Tolls Excluded' });
     if (!upiTransactionId) return res.status(400).json({ success: false, message: 'UPI transaction ID is required for the 30% advance payment' });
 
-    const rule = await CabFare.findOne({ pickupLocation, dropLocation, cabType, status: 'active' }).lean();
+    let rule = cabFareRuleId ? await CabFare.findOne({ _id: cabFareRuleId, status: 'active' }).lean() : null;
+    if (rule) {
+      pickupLocation = rule.pickupLocation;
+      dropLocation = rule.dropLocation;
+      cabType = rule.cabType;
+    } else {
+      rule = await findCabFareRule({ pickupLocation, dropLocation, cabType });
+    }
     if (!rule) return res.status(404).json({ success: false, message: 'Fare not set for this route/vehicle' });
 
     const breakdown = calcCabFare(rule);
@@ -678,13 +714,18 @@ const releaseBookingInventory = async (booking) => {
   }
 };
 
-const cancelBookingNow = async (booking, reason, reviewedByAdmin = false) => {
+const cancelBookingNow = async (booking, reason, reviewedByAdmin = false, meta = {}) => {
   booking.bookingStatus = 'cancelled';
   booking.cancellationRequested = true;
   booking.cancellationReason = reason;
   booking.cancellationRequestedAt = booking.cancellationRequestedAt || new Date();
   booking.cancellationReviewedByAdmin = reviewedByAdmin;
   booking.cancellationReviewedAt = reviewedByAdmin ? new Date() : booking.cancellationReviewedAt;
+  booking.cancelledByRole = meta.cancelledByRole || booking.cancelledByRole || (reviewedByAdmin ? 'admin' : 'user');
+  booking.cancelledByName = meta.cancelledByName || booking.cancelledByName || '';
+  booking.cancelledAt = new Date();
+  booking.cancellationDetails = meta.cancellationDetails || booking.cancellationDetails || '';
+  Object.assign(booking, cancellationMoney(booking.totalAmount));
   await booking.save();
   await releaseBookingInventory(booking);
   enqueueJob(`booking-cancel-email:${booking.bookingId}:${Date.now()}`, () => sendBookingCancellationEmail(booking, reason));
@@ -693,29 +734,34 @@ const cancelBookingNow = async (booking, reason, reviewedByAdmin = false) => {
 // Cancel booking
 router.put('/:id/cancel', protect, async (req, res) => {
   try {
-    const query = req.user.role === 'admin' ? { _id: req.params.id } : { _id: req.params.id, userId: req.user._id };
+    const query = req.user.role === 'admin'
+      ? { _id: req.params.id }
+      : req.user.role === 'partner'
+        ? { _id: req.params.id, partnerId: req.user._id }
+        : { _id: req.params.id, userId: req.user._id };
     const booking = await Booking.findOne(query);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
     const reason = normalize(req.body?.reason || req.body?.cancellationReason);
-    if (req.user.role === 'admin') {
-      if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
-      await cancelBookingNow(booking, reason, true);
+    const cancellationDetails = normalize(req.body?.details || req.body?.cancellationDetails);
+    if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
+    if (!cancellationDetails) return res.status(400).json({ success: false, message: 'Cancellation details are required' });
+    if (booking.bookingStatus === 'cancelled') return res.status(400).json({ success: false, message: 'Booking is already cancelled' });
+
+    if (req.user.role === 'admin' || req.user.role === 'partner') {
+      await cancelBookingNow(booking, reason, true, {
+        cancelledByRole: req.user.role,
+        cancelledByName: req.user.name,
+        cancellationDetails,
+      });
       return res.json({ success: true, data: booking, message: 'Booking cancelled and customer notified.' });
     }
 
-    // If already confirmed, require a reason and route through admin review.
-    if (booking.bookingStatus === 'confirmed') {
-      if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required for confirmed bookings' });
-      booking.cancellationRequested = true;
-      booking.cancellationReason = reason;
-      booking.cancellationRequestedAt = new Date();
-      await booking.save();
-      return res.json({ success: true, data: booking, message: 'Cancellation request submitted. Admin will review.' });
-    }
-
-    // Pending bookings can be cancelled immediately.
-    await cancelBookingNow(booking, reason || 'Cancelled by customer', true);
+    await cancelBookingNow(booking, reason, true, {
+      cancelledByRole: 'user',
+      cancelledByName: req.user.name,
+      cancellationDetails,
+    });
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

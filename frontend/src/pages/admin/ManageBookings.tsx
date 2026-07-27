@@ -25,6 +25,7 @@ const ManageBookings = () => {
   const [expandedBookingId, setExpandedBookingId] = useState<string>('');
   const [cancelBookingId, setCancelBookingId] = useState('');
   const [cancelReason, setCancelReason] = useState('');
+  const [cancelDetails, setCancelDetails] = useState('');
 
   useEffect(() => {
     void fetchAllBookings();
@@ -91,11 +92,13 @@ const ManageBookings = () => {
 
   const handleAdminCancel = async () => {
     if (!cancelBookingId || !cancelReason.trim()) return toast.error('Cancellation reason is required');
-    const res = await adminCancelBooking(cancelBookingId, cancelReason.trim());
+    if (!cancelDetails.trim()) return toast.error('Cancellation details are required');
+    const res = await adminCancelBooking(cancelBookingId, cancelReason.trim(), cancelDetails.trim());
     if (res.success) {
       toast.success('Booking cancelled and user notified');
       setCancelBookingId('');
       setCancelReason('');
+      setCancelDetails('');
     } else {
       toast.error(res.error || 'Cancel failed');
     }
@@ -206,13 +209,20 @@ const ManageBookings = () => {
                 <input
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Enter reason sent to customer"
+                  placeholder="Short reason sent to customer"
                   className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 font-body text-sm"
                 />
+                <input
+                  value={cancelDetails}
+                  onChange={(e) => setCancelDetails(e.target.value)}
+                  placeholder="Details, refund timeline, and support note"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 font-body text-sm"
+                />
+                <span className="font-body text-[11px] text-muted-foreground">12% cancellation charge applies; remaining amount is refundable.</span>
                 <button onClick={handleAdminCancel} className="rounded-lg bg-destructive px-3 py-2 font-body text-xs text-primary-foreground">
                   Confirm Cancel
                 </button>
-                <button onClick={() => { setCancelBookingId(''); setCancelReason(''); }} className="rounded-lg border border-border px-3 py-2 font-body text-xs">
+                <button onClick={() => { setCancelBookingId(''); setCancelReason(''); setCancelDetails(''); }} className="rounded-lg border border-border px-3 py-2 font-body text-xs">
                   Close
                 </button>
               </div>
@@ -307,6 +317,7 @@ const ManageBookings = () => {
                         onClick={() => {
                           setCancelBookingId(b.id);
                           setCancelReason('');
+                          setCancelDetails('');
                         }}
                         className="px-3 py-1.5 rounded-lg text-xs font-body bg-destructive/10 text-destructive hover:bg-destructive/15"
                       >

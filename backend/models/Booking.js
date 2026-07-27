@@ -102,6 +102,13 @@ const bookingSchema = new mongoose.Schema({
   cancellationRequestedAt: Date,
   cancellationReviewedByAdmin: { type: Boolean, default: false },
   cancellationReviewedAt: Date,
+  cancelledByRole: { type: String, enum: ['user', 'admin', 'partner'], default: null },
+  cancelledByName: String,
+  cancelledAt: Date,
+  cancellationDetails: String,
+  cancellationDeductionPercent: { type: Number, default: 12 },
+  cancellationDeductionAmount: { type: Number, default: 0 },
+  refundableAmount: { type: Number, default: 0 },
 }, { timestamps: true });
 
 bookingSchema.pre('save', function (next) {

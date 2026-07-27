@@ -6,6 +6,8 @@ const router = express.Router();
 const normalize = (v) => String(v || '').trim();
 
 const normalizeLocationKey = (v) => normalize(v).replace(/\s+/g, ' ');
+const comparableKey = (v) => normalizeLocationKey(v).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const vehicleKey = (v) => comparableKey(v).replace(/\b(seater|seat|seats|cab|car|taxi|vehicle)\b/g, '').replace(/\s+/g, ' ').trim();
 
 const calcFare = ({ baseFare }) => {
   const base = Number(baseFare || 0);
@@ -46,12 +48,25 @@ router.get('/calculate', async (req, res) => {
       return res.status(400).json({ success: false, message: 'pickupLocation, dropLocation and cabType are required' });
     }
 
-    const rule = await CabFare.findOne({
+    let rule = await CabFare.findOne({
       pickupLocation: pickup,
       dropLocation: drop,
       cabType,
       status: 'active',
     }).lean();
+
+    if (!rule) {
+      const pickupKey = comparableKey(pickup);
+      const dropKey = comparableKey(drop);
+      const cabKey = vehicleKey(cabType);
+      const fares = await CabFare.find({ status: 'active' }).lean();
+      rule = fares.find((fare) => {
+        const fareCabKey = vehicleKey(fare.cabType);
+        return comparableKey(fare.pickupLocation) === pickupKey &&
+          comparableKey(fare.dropLocation) === dropKey &&
+          (fareCabKey === cabKey || fareCabKey.includes(cabKey) || cabKey.includes(fareCabKey));
+      });
+    }
 
     if (!rule) return res.status(404).json({ success: false, message: 'Fare not set for this route/cab type' });
 

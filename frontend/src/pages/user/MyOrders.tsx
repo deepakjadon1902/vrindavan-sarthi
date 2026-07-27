@@ -2,11 +2,15 @@ import { useAuthStore } from '@/store/authStore';
 import { useProductStore } from '@/store/productStore';
 import { ShoppingBag, Package, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 const MyOrders = () => {
   const { user } = useAuthStore();
-  const { myOrders, fetchMyOrders, isLoadingOrders } = useProductStore();
+  const { myOrders, fetchMyOrders, cancelOrder, isLoadingOrders } = useProductStore();
+  const [cancelOrderId, setCancelOrderId] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelDetails, setCancelDetails] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -34,6 +38,20 @@ const MyOrders = () => {
     return 'bg-brand-saffron/10 text-brand-saffron';
   };
 
+  const submitCancel = async () => {
+    if (!cancelOrderId || !cancelReason.trim()) return toast.error('Cancellation reason is required');
+    if (!cancelDetails.trim()) return toast.error('Cancellation details are required');
+    const res = await cancelOrder(cancelOrderId, cancelReason.trim(), cancelDetails.trim());
+    if (res.success) {
+      toast.success('Order cancelled');
+      setCancelOrderId('');
+      setCancelReason('');
+      setCancelDetails('');
+    } else {
+      toast.error(res.error || 'Cancel failed');
+    }
+  };
+
   return (
     <div className="pt-24 pb-16 min-h-screen bg-background">
       <div className="container mx-auto px-4 max-w-4xl">
@@ -58,6 +76,20 @@ const MyOrders = () => {
           </div>
         ) : (
           <div className="space-y-4">
+            {cancelOrderId && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                <h2 className="font-heading text-base font-semibold text-foreground mb-3">Cancel order</h2>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Reason for cancellation" className="rounded-lg border border-border bg-card px-3 py-2 font-body text-sm" />
+                  <input value={cancelDetails} onChange={(e) => setCancelDetails(e.target.value)} placeholder="Full details for cancellation request" className="rounded-lg border border-border bg-card px-3 py-2 font-body text-sm" />
+                </div>
+                <p className="mt-3 font-body text-xs text-muted-foreground">A 12% cancellation charge will be deducted from the total payment. The remaining amount will be refundable.</p>
+                <div className="mt-4 flex gap-2">
+                  <button onClick={submitCancel} className="rounded-lg bg-destructive px-4 py-2 font-body text-xs text-primary-foreground">Submit Cancellation</button>
+                  <button onClick={() => { setCancelOrderId(''); setCancelReason(''); setCancelDetails(''); }} className="rounded-lg border border-border px-4 py-2 font-body text-xs">Close</button>
+                </div>
+              </div>
+            )}
             {orders.map((order) => (
               <div key={order.id} className="bg-card rounded-xl border border-border p-4">
                 <div className="flex gap-4">
@@ -88,12 +120,33 @@ const MyOrders = () => {
                       <span className="font-heading text-sm font-bold text-brand-crimson">₹{order.totalAmount.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex items-center gap-4 mt-1">
+                      <span className="font-body text-[10px] text-muted-foreground">Subtotal: ₹{Number(order.subtotalAmount || order.productPrice * order.quantity).toLocaleString('en-IN')}</span>
+                      <span className="font-body text-[10px] text-muted-foreground">Shipping: ₹{Number(order.shippingFee || 49).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex items-center gap-4 mt-1">
                       <span className="font-body text-[10px] text-muted-foreground">
                         Payment: <span className={order.paymentStatus === 'paid' ? 'text-brand-green' : order.paymentStatus === 'failed' ? 'text-destructive' : 'text-brand-saffron'}>{order.paymentStatus}</span>
                       </span>
                       <span className="font-body text-[10px] text-muted-foreground">{new Date(order.createdAt).toLocaleDateString()}</span>
                     </div>
                     <p className="font-body text-[10px] text-muted-foreground mt-1">Shipping: {order.shippingAddress}</p>
+                    {order.orderStatus !== 'cancelled' && order.orderStatus !== 'shipped' && order.orderStatus !== 'delivered' && (
+                      <button
+                        onClick={() => {
+                          setCancelOrderId(order.id);
+                          setCancelReason('');
+                          setCancelDetails('');
+                        }}
+                        className="mt-2 flex items-center gap-1 font-body text-[11px] text-destructive hover:underline"
+                      >
+                        <XCircle size={11} /> Cancel
+                      </button>
+                    )}
+                    {order.orderStatus === 'cancelled' && order.cancellationReason && (
+                      <p className="mt-2 font-body text-[10px] text-destructive">
+                        Cancelled: {order.cancellationReason}. Refundable ₹{Number(order.refundableAmount || 0).toLocaleString('en-IN')}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
