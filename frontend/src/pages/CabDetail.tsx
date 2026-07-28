@@ -152,13 +152,13 @@ const CabDetail = () => {
   }, [cabType, dropoff, pickup, selectedFareRule]);
 
   if (isLoading && !cab) return (
-    <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+    <div className="pt-20 pb-8 text-center min-h-screen bg-background">
       <p className="font-body text-sm text-muted-foreground">Loading…</p>
     </div>
   );
 
   if (!cab) return (
-    <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+    <div className="pt-20 pb-8 text-center min-h-screen bg-background">
       <p className="font-heading text-2xl text-muted-foreground">Cab not found</p>
       <Link to="/cabs" className="btn-gold px-6 py-2 rounded-lg text-sm mt-4 inline-block">Back to Cabs</Link>
     </div>
@@ -231,7 +231,7 @@ const CabDetail = () => {
   };
 
   return (
-    <div className="pt-20 pb-16 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
+    <div className="pt-20 pb-8 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
       <SEO
         title={`${cab.vehicleName} Cab Booking in Vrindavan`}
         description={cabDescription}
@@ -239,30 +239,27 @@ const CabDetail = () => {
         canonicalPath={`/cabs/${cab._id}`}
         jsonLd={cabJsonLd}
       />
-      <div className="pointer-events-none absolute -top-20 -left-20 w-72 h-72 rounded-full bg-brand-gold/20 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-1/4 -right-24 w-80 h-80 rounded-full bg-brand-green/15 blur-3xl" />
-
       <div className="container mx-auto px-4 max-w-6xl relative">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-6 mt-4 transition-colors">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 mt-3 transition-colors">
           <ArrowLeft size={16} /> Back
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4">
             <ImageCarousel images={allImages} alt={cab.vehicleName} />
 
-            <div className="glass-panel rounded-2xl p-6 metallic-border">
+            <div className="glass-panel rounded-lg p-4 sm:p-5 metallic-border">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles size={14} className="text-brand-gold animate-float-slow" />
                 <span className="font-ui text-[11px] uppercase tracking-[0.2em] text-brand-gold">Trusted Ride</span>
               </div>
-              <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground leading-tight">{cab.vehicleName}</h1>
+              <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground leading-tight">{cab.vehicleName}</h1>
               <p className="font-body text-sm text-muted-foreground mt-2">🚗 {cab.vehicleType}</p>
             </div>
 
-            <div className="glass-panel rounded-2xl p-6">
-              <h3 className="font-display text-xl font-semibold text-foreground mb-4">Vehicle Details</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-body text-sm">
+            <div className="glass-panel rounded-lg p-4 sm:p-5">
+              <h3 className="font-display text-xl font-semibold text-foreground mb-3">Vehicle Details</h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 font-body text-sm">
                 <div className="text-center p-3 rounded-xl bg-secondary/50"><Car size={20} className="mx-auto text-brand-gold mb-1" /><p className="text-xs text-muted-foreground">Type</p><p className="font-semibold">{cab.vehicleType}</p></div>
                 <div className="text-center p-3 rounded-xl bg-secondary/50"><Users size={20} className="mx-auto text-brand-crimson mb-1" /><p className="text-xs text-muted-foreground">Seats</p><p className="font-semibold">{cab.capacity}</p></div>
                 <div className="text-center p-3 rounded-xl bg-secondary/50"><ShieldCheck size={20} className="mx-auto text-brand-green mb-1" /><p className="text-xs text-muted-foreground">Driver</p><p className="font-semibold truncate">Assigned after confirmation</p></div>
@@ -271,7 +268,7 @@ const CabDetail = () => {
             </div>
 
             {cab.routes?.length > 0 && (
-              <div className="glass-panel rounded-2xl p-6">
+              <div className="glass-panel rounded-lg p-4 sm:p-5">
                 <h3 className="font-display text-xl font-semibold text-foreground mb-3">Available Routes</h3>
                 <div className="flex flex-wrap gap-2">
                   {cab.routes.map((r: string) => (
@@ -281,7 +278,7 @@ const CabDetail = () => {
               </div>
             )}
 
-            <div className="relative overflow-hidden rounded-2xl p-6 text-center metallic-border glass-panel">
+            <div className="relative overflow-hidden rounded-lg p-4 sm:p-5 text-center metallic-border glass-panel">
               <ShieldCheck size={32} className="mx-auto text-brand-green mb-2" />
               <p className="font-display text-xl font-semibold text-foreground mb-1">30% Advance Required</p>
               <p className="font-body text-sm text-muted-foreground">Fare is fixed for the whole vehicle. Pay 30% online now and 70% later.</p>
@@ -289,9 +286,9 @@ const CabDetail = () => {
           </div>
 
           <div className="lg:col-span-1">
-            <div className="glass-panel rounded-2xl p-6 sticky top-24 metallic-border">
+            <div className="glass-panel rounded-lg p-4 sm:p-5 sticky top-24 metallic-border">
               {booked ? (
-                <div className="text-center py-8">
+                <div className="text-center py-5">
                   <CheckCircle size={48} className="mx-auto mb-4 text-brand-green animate-float-slow" />
                   <h3 className="font-display text-2xl font-semibold text-foreground mb-2">Cab Booked!</h3>
                   <p className="font-body text-sm text-muted-foreground mb-4">Advance submitted. Admin will verify payment and assign a driver.</p>
@@ -307,7 +304,7 @@ const CabDetail = () => {
                 />
               ) : (
                 <>
-                  <h3 className="font-display text-2xl font-semibold text-foreground mb-4">Book this Cab</h3>
+                  <h3 className="font-display text-2xl font-semibold text-foreground mb-3">Book this Cab</h3>
                   <div className="space-y-4">
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Full Name</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                     <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Mobile Number</label><input type="tel" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
@@ -339,7 +336,7 @@ const CabDetail = () => {
                       )}
                     </div>
                   </div>
-                  <button onClick={handleBook} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-6 tracking-wide">Pay 30% Advance</button>
+                  <button onClick={handleBook} className="metallic-gold w-full py-3 rounded-lg text-sm font-body font-semibold mt-4 tracking-wide">Pay 30% Advance</button>
                 </>
               )}
             </div>

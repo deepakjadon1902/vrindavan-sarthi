@@ -68,7 +68,7 @@ const ProductDetail = () => {
 
   if (isLoading) {
     return (
-      <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+      <div className="pt-20 pb-8 text-center min-h-screen bg-background">
         <p className="font-body text-sm text-muted-foreground">Loading…</p>
       </div>
     );
@@ -76,7 +76,7 @@ const ProductDetail = () => {
 
   if (!product) {
     return (
-      <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+      <div className="pt-20 pb-8 text-center min-h-screen bg-background">
         <p className="font-heading text-2xl text-muted-foreground">Product not found</p>
         <Link to="/shop" className="btn-gold px-6 py-2 rounded-lg text-sm mt-4 inline-block">
           Back to Shop
@@ -197,7 +197,7 @@ const ProductDetail = () => {
   };
 
   return (
-    <div className="pt-20 pb-16 min-h-screen bg-background">
+    <div className="pt-20 pb-8 min-h-screen bg-background">
       <SEO
         title={`${product.name} - ${product.category}`}
         description={truncate(product.description || `Buy ${product.name} from the Vrindavan Sarthi Enterprises sacred shop.`)}
@@ -209,12 +209,12 @@ const ProductDetail = () => {
       <div className="container mx-auto px-4 max-w-6xl">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-6 mt-4"
+          className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 mt-3"
         >
           <ArrowLeft size={16} /> Back
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div className="space-y-4">
             <div className="rounded-xl overflow-hidden aspect-[4/3] max-h-[340px] bg-white border border-border">
               <img
@@ -251,12 +251,12 @@ const ProductDetail = () => {
                 onCancel={() => setShowPayment(false)}
               />
             ) : ordered ? (
-              <div className="bg-card rounded-2xl border border-border p-8 text-center">
+              <div className="bg-card rounded-lg border border-border p-5 text-center">
                 <CheckCircle size={56} className="mx-auto mb-4 text-brand-saffron" />
                 <h3 className="font-heading text-2xl font-semibold text-foreground mb-2">Order Placed!</h3>
                 <p className="font-body text-sm text-muted-foreground mb-1">Order ID: {orderId}</p>
                 {trackingId && <p className="font-body text-sm text-muted-foreground mb-1">Tracking ID: {trackingId}</p>}
-                <p className="font-body text-sm text-muted-foreground mb-6">
+                <p className="font-body text-sm text-muted-foreground mb-4">
                   Your payment is being verified. You'll be notified once confirmed.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">

@@ -50,9 +50,9 @@ const logoUrl = () => {
 const emailShell = ({ title, intro, rows, totalLabel = 'Total', totalAmount = 0, reason = '' }) => `
   <div style="margin:0;padding:0;background:#f7f3ec">
     <div style="max-width:680px;margin:0 auto;padding:24px 12px">
-      <div style="background:#2b120d;color:#f7c948;padding:16px 22px;border-radius:12px 12px 0 0;font:700 22px Georgia,serif;display:flex;align-items:center;gap:12px">
-        ${logoUrl() ? `<img src="${logoUrl()}" alt="Vrindavan Sarthi Enterprises" width="44" height="44" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid #f7c948" />` : ''}
-        <span>Vrindavan Sarthi Enterprises</span>
+      <div style="background:#2b120d;color:#f7c948;padding:16px 22px;border-radius:12px 12px 0 0;font:700 22px Georgia,serif;position:relative;text-align:center">
+        ${logoUrl() ? `<img src="${logoUrl()}" alt="Vrindavan Sarthi Enterprises" width="44" height="44" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid #f7c948;position:absolute;left:22px;top:50%;transform:translateY(-50%)" />` : ''}
+        <span style="display:block;padding:0 58px">Vrindavan Sarthi Enterprises</span>
       </div>
       <div style="background:#fff;border:1px solid #eadfc7;border-top:0;border-radius:0 0 12px 12px;padding:22px">
         <h1 style="margin:0 0 8px;color:#2b2018;font:700 22px Arial,sans-serif">${escapeHtml(title)}</h1>

@@ -63,9 +63,9 @@ const TrackOrder = () => {
   );
 
   return (
-    <div className="pt-24 pb-16 min-h-screen bg-background">
+    <div className="pt-20 pb-8 min-h-screen bg-background">
       <div className="container mx-auto px-4 max-w-4xl">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           <PackageSearch size={28} className="text-brand-crimson" />
           <div>
             <h1 className="font-heading text-2xl font-bold text-foreground">Track Order</h1>
@@ -90,7 +90,7 @@ const TrackOrder = () => {
         </div>
 
         {trackedOrder && (
-          <div className="mt-6 space-y-4">
+          <div className="mt-4 space-y-4">
             <div className="bg-card rounded-xl border border-border p-5">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">

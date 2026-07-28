@@ -19,10 +19,15 @@ const COLORS = {
 const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 const isFilled = (value) => value !== undefined && value !== null && clean(value) !== '';
 const money = (value) => `INR ${Number(value || 0).toLocaleString('en-IN')}`;
+const normalizeInvoiceText = (value) =>
+  clean(value)
+    .replace(/VrindavanSarthi/gi, 'Vrindavan Sarthi')
+    .replace(/\bTotalINR\b/gi, 'Total INR')
+    .replace(/\bTotal\s+INR\b/gi, 'Total INR');
 const todayText = () => new Date().toLocaleDateString('en-IN');
 
 const escapePdfText = (value) =>
-  clean(value)
+  normalizeInvoiceText(value)
     .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '')
     .replace(/\\/g, '\\\\')
     .replace(/\(/g, '\\(')
@@ -98,6 +103,12 @@ class PdfCanvas {
     this.ops.push(`BT /${font} ${size} Tf ${x} ${y} Td (${escapePdfText(value)}) Tj ET`);
   }
 
+  centeredText(value, y, { size = 10, font = 'F1', color = COLORS.ink } = {}) {
+    const text = normalizeInvoiceText(value);
+    const x = (PAGE.width - textWidth(text, size)) / 2;
+    this.text(text, Math.max(PAGE.margin, x), y, { size, font, color });
+  }
+
   wrapped(value, x, y, width, { size = 10, font = 'F1', color = COLORS.ink, lineHeight = 13 } = {}) {
     const lines = wrapText(value, width, size);
     lines.forEach((line, index) => this.text(line, x, y - index * lineHeight, { size, font, color }));
@@ -107,10 +118,12 @@ class PdfCanvas {
   header() {
     this.rect(0, PAGE.height - 96, PAGE.width, 96, COLORS.cream);
     this.rect(0, PAGE.height - 96, 8, 96, COLORS.gold);
-    this.text(COMPANY_NAME, PAGE.margin, 736, { size: 20, font: 'F2', color: COLORS.crimson });
-    this.wrapped(COMPANY_ADDRESS, PAGE.margin, 718, 330, { size: 8.5, color: COLORS.muted, lineHeight: 10 });
-    this.text(`Phone: ${COMPANY_PHONE}`, PAGE.margin, 694, { size: 8.5, color: COLORS.muted });
-    this.text(`Email: ${COMPANY_EMAIL}`, PAGE.margin, 682, { size: 8.5, color: COLORS.muted });
+    this.rect(24, 724, 42, 42, COLORS.white, COLORS.gold);
+    this.text('VS', 37, 740, { size: 14, font: 'F2', color: COLORS.crimson });
+    this.centeredText(COMPANY_NAME, 738, { size: 20, font: 'F2', color: COLORS.crimson });
+    this.wrapped(COMPANY_ADDRESS, 176, 720, 270, { size: 8.5, color: COLORS.muted, lineHeight: 10 });
+    this.centeredText(`Phone: ${COMPANY_PHONE}`, 696, { size: 8.5, color: COLORS.muted });
+    this.centeredText(`Email: ${COMPANY_EMAIL}`, 684, { size: 8.5, color: COLORS.muted });
     this.wrapped(this.documentLabel, 408, 730, 160, { size: 15, font: 'F2', color: COLORS.ink, lineHeight: 17 });
     this.text(`Generated: ${todayText()}`, 462, 712, { size: 8.5, color: COLORS.muted });
     this.y = 656;
@@ -169,8 +182,9 @@ class PdfCanvas {
       cursor -= rowHeight;
     });
     this.line(x + 14, cursor + 6, x + width - 14, cursor + 6, COLORS.border, 0.8);
-    this.text(totalLabel, x + 14, cursor - 10, { size: 11, font: 'F2', color: COLORS.ink });
-    const total = money(totalAmount);
+    const label = normalizeInvoiceText(totalLabel).replace(/^(Grand\s+)?Total(\s+Payable)?$/i, 'Total INR');
+    this.text(label, x + 14, cursor - 10, { size: 11, font: 'F2', color: COLORS.ink });
+    const total = Number(totalAmount || 0).toLocaleString('en-IN');
     this.text(total, x + width - 14 - Math.min(130, textWidth(total, 12)), cursor - 10, { size: 12, font: 'F2', color: COLORS.crimson });
     this.y -= height + 18;
   }

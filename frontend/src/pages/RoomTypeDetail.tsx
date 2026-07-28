@@ -919,7 +919,7 @@ const RoomTypeDetail = () => {
 
   if (loading && !roomType) {
     return (
-      <div className="pt-24 pb-16 text-center min-h-screen" style={{ background: '#f5f0e6' }}>
+      <div className="pt-20 pb-8 text-center min-h-screen" style={{ background: '#f5f0e6' }}>
         <p className="text-sm text-gray-500">Loading…</p>
       </div>
     );
@@ -927,7 +927,7 @@ const RoomTypeDetail = () => {
 
   if (!roomType || !hotel) {
     return (
-      <div className="pt-24 pb-16 text-center min-h-screen" style={{ background: '#f5f0e6' }}>
+      <div className="pt-20 pb-8 text-center min-h-screen" style={{ background: '#f5f0e6' }}>
         <p className="text-2xl text-gray-500">Room type not found</p>
         <Link to="/rooms" className="inline-block mt-4 px-6 py-2 rounded-lg text-sm text-white" style={{ background: '#8B1A1A' }}>
           Back to Rooms
@@ -1117,7 +1117,7 @@ const RoomTypeDetail = () => {
   const inputCls = "w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-400";
 
   return (
-    <div className="min-h-screen pt-20 pb-16" style={{ background: '#f5f0e6' }}>
+    <div className="min-h-screen pt-20 pb-8" style={{ background: '#f5f0e6' }}>
       <SEO
         title={`${roomType.name} at ${hotel.name}`}
         description={roomDescription}
@@ -1138,7 +1138,7 @@ const RoomTypeDetail = () => {
           Back to Hotels
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* ── Left / Main ──────────────────────────────────────────────── */}
           <div className="lg:col-span-2 space-y-5">
 

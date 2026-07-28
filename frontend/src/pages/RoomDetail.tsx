@@ -57,13 +57,13 @@ const RoomDetail = () => {
   }, [id]);
 
   if (isLoading && !room) return (
-    <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+    <div className="pt-20 pb-8 text-center min-h-screen bg-background">
       <p className="font-body text-sm text-muted-foreground">Loading…</p>
     </div>
   );
 
   if (!room) return (
-    <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+    <div className="pt-20 pb-8 text-center min-h-screen bg-background">
       <p className="font-heading text-2xl text-muted-foreground">Room not found</p>
       <Link to="/rooms" className="btn-gold px-6 py-2 rounded-lg text-sm mt-4 inline-block">Back to Rooms</Link>
     </div>
@@ -134,28 +134,25 @@ const RoomDetail = () => {
   const allImages = [room.image, ...(room.images || [])].filter(Boolean);
 
   return (
-    <div className="pt-20 pb-16 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
-      <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-gold/20 blur-3xl" />
-      <div className="pointer-events-none absolute top-1/2 -left-24 w-80 h-80 rounded-full bg-brand-crimson/15 blur-3xl" />
-
+    <div className="pt-20 pb-8 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
       <div className="container mx-auto px-4 max-w-6xl relative">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-6 mt-4 transition-colors">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 mt-3 transition-colors">
           <ArrowLeft size={16} /> Back
         </button>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4">
             <ImageCarousel images={allImages} alt={room.name} />
-            <div className="glass-panel rounded-2xl p-6 metallic-border">
+            <div className="glass-panel rounded-lg p-4 sm:p-5 metallic-border">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles size={14} className="text-brand-gold animate-float-slow" />
                 <span className="font-ui text-[11px] uppercase tracking-[0.2em] text-brand-gold">Cozy Retreat</span>
               </div>
-              <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground leading-tight">{room.name}</h1>
+              <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground leading-tight">{room.name}</h1>
               <p className="font-body text-sm text-muted-foreground mt-2">📍 {room.hotelName}</p>
             </div>
-            <div className="glass-panel rounded-2xl p-6">
-              <h3 className="font-display text-xl font-semibold text-foreground mb-4">Room Details</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-body text-sm">
+            <div className="glass-panel rounded-lg p-4 sm:p-5">
+              <h3 className="font-display text-xl font-semibold text-foreground mb-3">Room Details</h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 font-body text-sm">
                 <div className="text-center p-3 rounded-xl bg-secondary/50"><BedDouble size={20} className="mx-auto text-brand-gold mb-1" /><p className="text-xs text-muted-foreground">Type</p><p className="font-semibold">{room.type}</p></div>
                 <div className="text-center p-3 rounded-xl bg-secondary/50"><User size={20} className="mx-auto text-brand-crimson mb-1" /><p className="text-xs text-muted-foreground">Capacity</p><p className="font-semibold">{room.capacity}</p></div>
                 <div className="text-center p-3 rounded-xl bg-secondary/50"><Snowflake size={20} className={`mx-auto mb-1 ${room.isAC ? 'text-blue-500' : 'text-muted-foreground/40'}`} /><p className="text-xs text-muted-foreground">AC</p><p className="font-semibold">{room.isAC ? 'Yes' : 'No'}</p></div>
@@ -163,13 +160,13 @@ const RoomDetail = () => {
               </div>
             </div>
             {room.description && (
-              <div className="glass-panel rounded-2xl p-6">
+              <div className="glass-panel rounded-lg p-4 sm:p-5">
                 <h3 className="font-display text-xl font-semibold text-foreground mb-3">About this Room</h3>
                 <p className="font-body text-sm text-muted-foreground leading-relaxed">{room.description}</p>
               </div>
             )}
             {room.amenities?.length > 0 && (
-              <div className="glass-panel rounded-2xl p-6">
+              <div className="glass-panel rounded-lg p-4 sm:p-5">
                 <h3 className="font-display text-xl font-semibold text-foreground mb-3">Amenities</h3>
                 <div className="flex flex-wrap gap-2">
                   {room.amenities.map((a: string) => (<span key={a} className="font-body text-sm bg-secondary/80 backdrop-blur px-3 py-1.5 rounded-lg text-secondary-foreground border border-brand-gold/20">{a}</span>))}
@@ -177,7 +174,7 @@ const RoomDetail = () => {
               </div>
             )}
             {room.partnerName && (
-              <div className="glass-panel rounded-2xl p-6">
+              <div className="glass-panel rounded-lg p-4 sm:p-5">
                 <h3 className="font-display text-xl font-semibold text-foreground mb-3">Listed By</h3>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full metallic-gold flex items-center justify-center font-display font-bold">{room.partnerName.charAt(0)}</div>
@@ -187,11 +184,11 @@ const RoomDetail = () => {
             )}
           </div>
           <div className="lg:col-span-1">
-            <div className="glass-panel rounded-2xl p-6 sticky top-24 metallic-border">
+            <div className="glass-panel rounded-lg p-4 sm:p-5 sticky top-24 metallic-border">
               {showPayment ? (
                 <UpiPayment amount={total} bookingId={bookingId} itemName={`${room.name} - ${room.hotelName}`} onPaymentConfirm={handlePaymentConfirm} onCancel={() => setShowPayment(false)} />
               ) : booked ? (
-                <div className="text-center py-8">
+                <div className="text-center py-5">
                   <CheckCircle size={48} className="mx-auto mb-4 text-brand-saffron animate-float-slow" />
                   <h3 className="font-display text-2xl font-semibold text-foreground mb-2">Booking Submitted!</h3>
                   <p className="font-body text-sm text-muted-foreground mb-4">Payment verification pending.</p>

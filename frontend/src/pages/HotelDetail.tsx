@@ -631,7 +631,7 @@ const HotelDetail = () => {
 
   if (!isLoading && !hotel) {
     return (
-      <div className="pt-20 pb-16 text-center min-h-screen bg-background">
+      <div className="pt-20 pb-8 text-center min-h-screen bg-background">
         <p className="font-heading text-2xl text-muted-foreground">Hotel not found</p>
         <Link to="/hotels" className="btn-gold px-6 py-2 rounded-lg text-sm mt-4 inline-block">
           Back to Hotels
@@ -641,7 +641,7 @@ const HotelDetail = () => {
   }
 
   return (
-    <div className="pt-20 pb-16 min-h-screen bg-background">
+    <div className="pt-20 pb-8 min-h-screen bg-background">
       {hotel && (
         <SEO
           title={`${hotel.name} Hotel in ${hotel.location || 'Vrindavan'}`}
@@ -656,7 +656,7 @@ const HotelDetail = () => {
         {/* ── Back Button ── */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 font-body text-[13px] font-medium text-muted-foreground hover:text-foreground mb-6 mt-5 transition-colors group"
+          className="flex items-center gap-2 font-body text-[13px] font-medium text-muted-foreground hover:text-foreground mb-3 mt-3 transition-colors group"
         >
           <span className="w-7 h-7 rounded-lg border border-border bg-card flex items-center justify-center group-hover:border-brand-gold/40 transition-colors">
             <ArrowLeft size={14} />
@@ -664,10 +664,10 @@ const HotelDetail = () => {
           Back to Hotels
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 
           {/* ── LEFT COLUMN ── */}
-          <div className="lg:col-span-2 space-y-5">
+          <div className="lg:col-span-2 space-y-4">
 
             {/* Image Carousel */}
             <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
@@ -676,7 +676,7 @@ const HotelDetail = () => {
 
             {/* Hotel Name + Meta */}
             <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
-              <div className="p-6">
+              <div className="p-4 sm:p-5">
                 <h1 className="font-heading text-2xl md:text-[28px] font-bold text-foreground leading-tight">
                   {isLoading ? 'Loading…' : hotel?.name}
                 </h1>
@@ -703,7 +703,7 @@ const HotelDetail = () => {
                 </div>
 
                 {/* Badges */}
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-body font-semibold text-emerald-700">
                     <ShieldCheck size={12} className="text-emerald-600" /> Verified Listing
                   </span>
@@ -727,7 +727,7 @@ const HotelDetail = () => {
                 <div className="border-b border-border px-6 py-3.5 bg-muted/30">
                   <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">About this Hotel</h2>
                 </div>
-                <div className="px-6 py-5">
+                <div className="px-5 py-4">
                   <p className="font-body text-[14px] text-muted-foreground leading-relaxed">{hotel.description}</p>
                 </div>
               </div>
@@ -739,7 +739,7 @@ const HotelDetail = () => {
                 <div className="border-b border-border px-6 py-3.5 bg-muted/30">
                   <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Amenities</h2>
                 </div>
-                <div className="px-6 py-5">
+                <div className="px-5 py-4">
                   <div className="flex flex-wrap gap-2">
                     {hotel.amenities.map((a: string) => (
                       <span

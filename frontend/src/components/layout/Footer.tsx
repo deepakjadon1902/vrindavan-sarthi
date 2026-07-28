@@ -31,8 +31,8 @@ const Footer = () => {
     <footer className="bg-brand-black text-primary-foreground">
       <div className="h-1 bg-gradient-to-r from-brand-saffron via-brand-gold to-brand-green" />
 
-      <div className="container mx-auto px-4 lg:px-8 py-12 lg:py-16">
-        <div className="mb-10 grid gap-3 rounded-lg border border-brand-gold/25 bg-white/5 p-4 md:grid-cols-3">
+      <div className="container mx-auto px-4 py-6 lg:px-8 lg:py-8">
+        <div className="mb-5 grid gap-2 rounded-lg border border-brand-gold/25 bg-white/5 p-2.5 md:grid-cols-3">
           <a href={`tel:${COMPANY_PHONE}`} className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <Phone size={18} className="text-brand-gold" /> Call for Vrindavan booking
           </a>
@@ -44,9 +44,9 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
           <div>
-            <Link to="/" className="flex items-center gap-2 mb-4 w-fit">
+            <Link to="/" className="flex items-center gap-2 mb-3 w-fit">
               <img
                 src={APP_LOGO_URL}
                 alt={settings.siteName}
@@ -54,7 +54,7 @@ const Footer = () => {
               />
               <span className="font-brand text-xl text-brand-gold">{settings.siteName}</span>
             </Link>
-            <p className="font-heading italic text-primary-foreground/70 text-lg mb-6">
+            <p className="font-heading italic text-primary-foreground/70 text-lg mb-3">
               {settings.motto}
             </p>
             <p className="font-body text-sm text-primary-foreground/55 leading-relaxed">
@@ -63,7 +63,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-heading text-lg text-brand-gold mb-4">Explore</h4>
+            <h4 className="font-heading text-lg text-brand-gold mb-3">Explore</h4>
             <ul className="space-y-2.5">
               {footerLinks.explore.map((link) => (
                 <li key={link.path}>
@@ -74,7 +74,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-heading text-lg text-brand-gold mb-4">Account</h4>
+            <h4 className="font-heading text-lg text-brand-gold mb-3">Account</h4>
             <ul className="space-y-2.5">
               {footerLinks.account.map((link) => (
                 <li key={link.path}>
@@ -85,7 +85,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-heading text-lg text-brand-gold mb-4">Support</h4>
+            <h4 className="font-heading text-lg text-brand-gold mb-3">Support</h4>
             <ul className="space-y-2.5">
               {footerLinks.support.map((link) => (
                 <li key={link.path}>
@@ -96,9 +96,9 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-primary-foreground/10 mt-12 pt-8 text-center">
+        <div className="border-t border-primary-foreground/10 mt-5 pt-4 text-center">
           <p className="font-body text-sm text-primary-foreground/45">
-            (c) 2026 {settings.siteName}. Crafted in the Land of Krishna, Vrindavan.
+            (c) 2026 {settings.siteName}. All rights reserved.
           </p>
         </div>
       </div>

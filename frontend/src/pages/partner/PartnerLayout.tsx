@@ -105,11 +105,10 @@ const PartnerLayout = () => {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="p-6 border-b border-brand-gold/20">
-          <div className="flex items-center gap-2">
-            <img src={APP_LOGO_URL} alt={settings.siteName} className="h-8 w-8 rounded-full object-cover border border-brand-gold/30" />
+        <div className="flex justify-center p-5 border-b border-brand-gold/20">
+          <div className="flex items-center justify-center">
+            <img src={APP_LOGO_URL} alt={settings.siteName} className="h-12 w-12 rounded-full object-cover border border-brand-gold/30" />
           </div>
-          <p className="font-body text-xs text-white/55 mt-1">Partner Travel Desk</p>
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto">

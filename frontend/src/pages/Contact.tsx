@@ -28,20 +28,20 @@ const Contact = () => {
   const whatsappLink = `https://wa.me/91${COMPANY_PHONE_DIGITS}?text=${encodeURIComponent(`Hello ${COMPANY_NAME}, I need help with...`)}`;
 
   return (
-    <div className="pt-20">
-      <section className="section-cream py-12 lg:py-16">
+    <div className="pt-16">
+      <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-4">
           <SectionTitle label="Reach Out" title="Get In Touch" subtitle="We're here to help you plan your perfect Vrindavan journey" />
         </div>
       </section>
 
-      <section className="py-12 lg:py-20">
+      <section className="py-5 lg:py-6">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
             {/* Left - Contact Info */}
             <div>
-              <h3 className="font-heading text-2xl font-semibold text-foreground mb-6">Contact Information</h3>
-              <div className="space-y-5">
+              <h3 className="font-heading text-2xl font-semibold text-foreground mb-3">Contact Information</h3>
+              <div className="space-y-4">
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center shrink-0">
                     <MapPin className="text-brand-gold" size={18} />
@@ -75,14 +75,14 @@ const Contact = () => {
                 href={whatsappLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-8 inline-flex items-center gap-2 bg-brand-green text-primary-foreground font-body font-semibold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity"
+                className="mt-5 inline-flex items-center gap-2 bg-brand-green text-primary-foreground font-body font-semibold px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
               >
                 <MessageCircle size={20} />
                 Chat with us on WhatsApp →
               </a>
 
               {/* Map */}
-              <div className="mt-8 rounded-xl overflow-hidden border border-border h-64">
+              <div className="mt-4 rounded-lg overflow-hidden border border-border h-48">
                 <iframe
                   src="https://www.google.com/maps?q=Raja%20wala%20mandir%2C%20Infront%20of%20Giriraj%20ji%20Maharaj%2C%20Goverdhan%2C%20Mathura%2C%20Uttar%20Pradesh%20281502&output=embed"
                   width="100%"
@@ -98,13 +98,13 @@ const Contact = () => {
             {/* Right - Form */}
             <div>
               {submitted ? (
-                <div className="bg-brand-green/10 border border-brand-green/30 rounded-xl p-10 text-center">
+                <div className="bg-brand-green/10 border border-brand-green/30 rounded-lg p-4 text-center">
                   <p className="font-heading text-2xl text-foreground mb-2">Thank You! 🙏</p>
                   <p className="font-body text-muted-foreground">We'll reply within 24 hours.</p>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Name</label>
                       <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="Your name" />
@@ -114,7 +114,7 @@ const Contact = () => {
                       <input type="email" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="your@email.com" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Phone</label>
                       <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="+91 XXXXX XXXXX" />

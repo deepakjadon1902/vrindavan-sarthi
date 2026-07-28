@@ -91,11 +91,11 @@ const Rooms = () => {
   };
 
   return (
-    <div className="pt-20">
-      <section className="section-cream py-10 lg:py-16">
+    <div className="pt-16">
+      <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle label="Room Options" title="Browse Rooms" subtitle="Choose a room type, then book from the hotel page" />
-          <div className="premium-toolbar mx-auto grid max-w-4xl grid-cols-1 gap-3 p-3">
+          <div className="premium-toolbar mx-auto grid max-w-4xl grid-cols-1 gap-3 p-2">
             <div className="relative md:col-span-3">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
               <input
@@ -110,10 +110,10 @@ const Rooms = () => {
         </div>
       </section>
 
-      <section className="py-10 lg:py-16">
+      <section className="py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
           {roomTypes.length === 0 ? (
-            <div className="text-center py-20">
+            <div className="text-center py-8">
               <p className="font-heading text-2xl text-muted-foreground mb-2">No Rooms Listed Yet</p>
               <p className="font-body text-sm text-muted-foreground">Room types will appear here once hotels are approved and inventory is added.</p>
             </div>

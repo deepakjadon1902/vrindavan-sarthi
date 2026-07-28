@@ -53,9 +53,9 @@ const MyOrders = () => {
   };
 
   return (
-    <div className="pt-24 pb-16 min-h-screen bg-background">
+    <div className="pt-20 pb-8 min-h-screen bg-background">
       <div className="container mx-auto px-4 max-w-4xl">
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-4">
           <Package size={28} className="text-brand-crimson" />
           <div>
             <h1 className="font-heading text-2xl font-bold text-foreground">My Orders</h1>
@@ -64,11 +64,11 @@ const MyOrders = () => {
         </div>
 
         {isLoadingOrders ? (
-          <div className="bg-card rounded-2xl border border-border p-12 text-center">
+          <div className="bg-card rounded-lg border border-border p-8 text-center">
             <p className="font-body text-sm text-muted-foreground">Loading orders…</p>
           </div>
         ) : orders.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border p-12 text-center">
+          <div className="bg-card rounded-lg border border-border p-8 text-center">
             <ShoppingBag size={48} className="mx-auto mb-4 text-muted-foreground/30" />
             <p className="font-heading text-xl text-foreground mb-2">No Orders Yet</p>
             <p className="font-body text-sm text-muted-foreground mb-6">Browse our shop to find something you'll love!</p>

@@ -259,10 +259,10 @@ const Hotels = () => {
   };
 
   return (
-    <div className="pt-20">
+    <div className="pt-16">
 
       {/* ── Hero / Search Banner ── */}
-      <section className="section-cream py-12 lg:py-20 relative overflow-hidden">
+      <section className="section-cream relative overflow-hidden py-4 lg:py-5">
         {/* Subtle decorative background blur */}
         <div className="container mx-auto px-4 sm:px-6 relative">
           <SectionTitle
@@ -272,7 +272,7 @@ const Hotels = () => {
           />
 
           {/* Search bar */}
-          <div className="premium-toolbar mx-auto mt-8 max-w-2xl p-3">
+          <div className="premium-toolbar mx-auto mt-4 max-w-2xl p-2">
             <div className="relative">
               <Search
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/60"
@@ -291,12 +291,12 @@ const Hotels = () => {
       </section>
 
       {/* ── Listings ── */}
-      <section className="py-10 lg:py-16">
+      <section className="py-4 lg:py-5">
         <div className="container mx-auto px-4 sm:px-6">
 
           {hotels.length === 0 ? (
             /* Empty state */
-            <div className="flex flex-col items-center justify-center py-28 text-center">
+            <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-5">
                 <Hotel size={30} className="text-muted-foreground/40" />
               </div>
@@ -308,7 +308,7 @@ const Hotels = () => {
           ) : (
             <>
               {/* Toolbar */}
-              <div className="flex items-center justify-between mb-6 gap-3">
+              <div className="flex items-center justify-between mb-3 gap-3">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-brand-gold/10 text-brand-gold font-heading text-[13px] font-bold">
                     {filtered.length}
@@ -340,7 +340,7 @@ const Hotels = () => {
               </div>
 
               {/* Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 {filtered.map((hotel) => (
                   <ListingCard
                     key={hotel._id}
@@ -359,7 +359,7 @@ const Hotels = () => {
 
               {/* No search results */}
               {filtered.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mb-4">
                     <Search size={24} className="text-muted-foreground/40" />
                   </div>

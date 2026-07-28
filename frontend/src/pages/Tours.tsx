@@ -99,11 +99,11 @@ const Tours = () => {
     });
 
   return (
-    <div className="pt-20">
-      <section className="section-cream py-10 lg:py-16">
+    <div className="pt-16">
+      <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle label="Spiritual Journeys" title="Explore Tour Packages" subtitle="Guided tours to experience the divine essence of Vrindavan" />
-          <div className="premium-toolbar mx-auto grid max-w-5xl gap-3 p-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="premium-toolbar mx-auto grid max-w-5xl gap-2 p-2 sm:grid-cols-2 lg:grid-cols-5">
             <div className="relative sm:col-span-2 lg:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
               <input type="text" placeholder="Search tours" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="premium-field h-11 w-full pl-10 pr-3" />
@@ -143,40 +143,35 @@ const Tours = () => {
           </div>
         </div>
       </section>
-      <section className="py-10 lg:py-16">
+      <section className="py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
           {tours.length === 0 ? (
-            <div className="text-center py-20">
+            <div className="text-center py-8">
               <p className="font-heading text-2xl text-muted-foreground mb-2">No Tours Listed Yet</p>
               <p className="font-body text-sm text-muted-foreground">Tour packages will appear here once the admin adds them.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map((tour) => (
-                <div key={tour._id} className="overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:shadow-md">
-                  <ListingCard
-                    image={tour.image}
-                    images={tour.images}
-                    name={tour.name}
-                    location={tour.destination || tour.duration}
-                    price={tour.pricePerPerson}
-                    priceLabel="starting"
-                    rating={0}
-                    reviewCount={0}
-                    badge={tour.duration}
-                    amenities={(tour.placesCovered || tour.includes || []).slice(0, 4)}
-                    variant="compact"
-                    onViewDetails={() => {
-                      prefetchDetail('tours', tour._id, tour);
-                      navigate(`/tours/${tour._id}`);
-                    }}
-                  />
-                  <div className="border-t border-border px-3 py-2">
-                    <button onClick={() => navigate(`/tours/${tour._id}`)} className="w-full rounded-md bg-brand-gold py-2 font-body text-xs font-semibold text-foreground hover:bg-brand-gold/90">
-                      Book Now
-                    </button>
-                  </div>
-                </div>
+                <ListingCard
+                  key={tour._id}
+                  image={tour.image}
+                  images={tour.images}
+                  name={tour.name}
+                  location={tour.destination || tour.duration}
+                  price={tour.pricePerPerson}
+                  priceLabel="/person"
+                  rating={0}
+                  reviewCount={0}
+                  badge={tour.duration}
+                  amenities={(tour.placesCovered || tour.includes || []).slice(0, 2)}
+                  variant="tour"
+                  ctaLabel="Book Tour"
+                  onViewDetails={() => {
+                    prefetchDetail('tours', tour._id, tour);
+                    navigate(`/tours/${tour._id}`);
+                  }}
+                />
               ))}
               {filtered.length === 0 && (
                 <div className="premium-focus-card col-span-full mx-auto max-w-md p-6 text-center">

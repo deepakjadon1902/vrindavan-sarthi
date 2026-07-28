@@ -41,13 +41,13 @@ const TourDetail = () => {
   }, [id]);
 
   if (isLoading && !tour) return (
-    <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+    <div className="pt-20 pb-8 text-center min-h-screen bg-background">
       <p className="font-body text-sm text-muted-foreground">Loading…</p>
     </div>
   );
 
   if (!tour) return (
-    <div className="pt-24 pb-16 text-center min-h-screen bg-background">
+    <div className="pt-20 pb-8 text-center min-h-screen bg-background">
       <p className="font-heading text-2xl text-muted-foreground">Tour not found</p>
       <Link to="/tours" className="btn-gold px-6 py-2 rounded-lg text-sm mt-4 inline-block">Back to Tours</Link>
     </div>
@@ -127,7 +127,7 @@ const TourDetail = () => {
   ];
 
   return (
-    <div className="pt-20 pb-16 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
+    <div className="pt-20 pb-8 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
       <SEO
         title={`${tour.name} Tour Package`}
         description={tourDescription}
@@ -135,22 +135,19 @@ const TourDetail = () => {
         canonicalPath={`/tours/${tour._id}`}
         jsonLd={tourJsonLd}
       />
-      <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-saffron/20 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 -left-24 w-80 h-80 rounded-full bg-brand-crimson/15 blur-3xl" />
-
       <div className="container mx-auto px-4 max-w-6xl relative">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-6 mt-4 transition-colors">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 mt-3 transition-colors">
           <ArrowLeft size={16} /> Back
         </button>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4">
             <ImageCarousel images={allImages} alt={tour.name} />
-            <div className="glass-panel rounded-2xl p-6 metallic-border">
+            <div className="glass-panel rounded-lg p-4 sm:p-5 metallic-border">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles size={14} className="text-brand-gold animate-float-slow" />
                 <span className="font-ui text-[11px] uppercase tracking-[0.2em] text-brand-gold">Sacred Journey</span>
               </div>
-              <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground leading-tight">{tour.name}</h1>
+              <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground leading-tight">{tour.name}</h1>
               <div className="flex flex-wrap items-center gap-4 mt-3">
                 <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><Clock size={15} className="text-brand-crimson" /> {tour.duration}</span>
                 <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><Users size={15} className="text-brand-gold" /> Max {tour.groupSize}</span>
@@ -159,7 +156,7 @@ const TourDetail = () => {
               </div>
             </div>
             {tour.placesCovered?.length > 0 && (
-              <div className="glass-panel rounded-2xl p-6">
+              <div className="glass-panel rounded-lg p-4 sm:p-5">
                 <h3 className="font-display text-xl font-semibold text-foreground mb-3">Places Covered</h3>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {tour.placesCovered.map((place: string) => (
@@ -169,19 +166,19 @@ const TourDetail = () => {
               </div>
             )}
             {tour.description && (
-              <div className="glass-panel rounded-2xl p-6">
+              <div className="glass-panel rounded-lg p-4 sm:p-5">
                 <h3 className="font-display text-xl font-semibold text-foreground mb-3">About this Tour</h3>
                 <p className="font-body text-sm text-muted-foreground leading-relaxed">{tour.description}</p>
               </div>
             )}
             {tour.itinerary && (
-              <div className="glass-panel rounded-2xl p-6">
+              <div className="glass-panel rounded-lg p-4 sm:p-5">
                 <h3 className="font-display text-xl font-semibold text-foreground mb-3">Itinerary</h3>
                 <p className="font-body text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{tour.itinerary}</p>
               </div>
             )}
             {tour.includes?.length > 0 && (
-              <div className="glass-panel rounded-2xl p-6">
+              <div className="glass-panel rounded-lg p-4 sm:p-5">
                 <h3 className="font-display text-xl font-semibold text-foreground mb-3">What's Included</h3>
                 <div className="flex flex-wrap gap-2">
                   {tour.includes.map((i: string) => (
@@ -192,11 +189,11 @@ const TourDetail = () => {
             )}
           </div>
           <div className="lg:col-span-1">
-            <div className="glass-panel rounded-2xl p-6 sticky top-24 metallic-border">
+            <div className="glass-panel rounded-lg p-4 sm:p-5 sticky top-24 metallic-border">
               {showPayment ? (
                 <UpiPayment amount={total} bookingId={bookingId} itemName={tour.name} onPaymentConfirm={handlePaymentConfirm} onCancel={() => setShowPayment(false)} />
               ) : booked ? (
-                <div className="text-center py-8">
+                <div className="text-center py-5">
                   <CheckCircle size={48} className="mx-auto mb-4 text-brand-saffron animate-float-slow" />
                   <h3 className="font-display text-2xl font-semibold text-foreground mb-2">Booking Submitted!</h3>
                   <p className="font-body text-sm text-muted-foreground mb-4">Payment verification pending.</p>

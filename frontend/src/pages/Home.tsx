@@ -657,7 +657,7 @@ const Home = () => {
             initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }}
             className="font-brand text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-black mb-2 leading-tight"
           >
-            Vrindavan Sarthi Enterprises
+            Vrindavan Sarthi
           </motion.h1>
           <motion.h2
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
@@ -755,9 +755,9 @@ const Home = () => {
       </section>
 
       {/* ===== STATS ===== */}
-      <section className="bg-brand-black py-8">
+      <section className="bg-brand-black py-4">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {stats.map((stat, i) => (
               <div key={stat.label} className={`text-center py-2 ${i !== stats.length - 1 ? 'md:border-r md:border-white/10' : ''}`}>
                 <p className="font-heading text-3xl md:text-4xl font-bold text-brand-gold">{stat.value}</p>
@@ -769,22 +769,22 @@ const Home = () => {
       </section>
 
       {/* ===== JOURNEY CARDS ===== */}
-      <section className="py-16 lg:py-24 bg-royal-dark">
+      <section className="py-5 lg:py-7 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle
             label="Travel Desk"
             title="Plan The Complete Vrindavan Journey"
             subtitle="Useful booking paths, verified information, and local support arranged around how travellers actually decide."
           />
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
             {services.map((service) => (
               <Link
                 key={service.title}
                 to={service.link}
-                className="travel-card group flex min-h-[230px] flex-col rounded-2xl border border-border/70 p-6 text-left hover:border-brand-gold/50"
+                className="travel-card group flex min-h-[170px] flex-col rounded-lg border border-border/70 p-4 text-left hover:border-brand-gold/50"
               >
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-saffron/12 group-hover:bg-brand-saffron/20 transition-colors">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-saffron/12 group-hover:bg-brand-saffron/20 transition-colors">
                     <service.icon className="text-brand-saffron" size={22} />
                   </div>
                   <span className="rounded-full bg-secondary px-3 py-1 font-body text-[11px] font-bold text-muted-foreground">
@@ -792,8 +792,8 @@ const Home = () => {
                   </span>
                 </div>
                 <h3 className="font-heading text-xl font-bold leading-tight text-foreground">{service.title}</h3>
-                <p className="mt-3 flex-1 font-body text-sm leading-relaxed text-muted-foreground">{service.desc}</p>
-                <span className="mt-5 inline-flex items-center gap-2 font-body text-sm font-bold text-brand-crimson">
+                <p className="mt-2 flex-1 font-body text-sm leading-relaxed text-muted-foreground">{service.desc}</p>
+                <span className="mt-3 inline-flex items-center gap-2 font-body text-sm font-bold text-brand-crimson">
                   {service.cta} <ArrowRight size={15} />
                 </span>
               </Link>
@@ -803,7 +803,7 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED HOTELS ===== */}
-      <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
+      <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
         <img src="/backgrounds/hotel-room.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
         <div className="absolute inset-0 bg-white/75" />
         <div className="container mx-auto px-4 relative">
@@ -814,7 +814,7 @@ const Home = () => {
           />
           {hotels.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {hotels.map((hotel) => (
                   <ListingCard
                     key={hotel._id}
@@ -832,14 +832,14 @@ const Home = () => {
                   />
                 ))}
               </div>
-              <div className="text-center mt-10">
+              <div className="text-center mt-4">
                 <Link to="/hotels" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
                   View All Hotels <ArrowRight size={18} />
                 </Link>
               </div>
             </>
           ) : (
-            <div className="text-center py-14">
+            <div className="text-center py-8">
               <p className="font-body text-[14px] text-muted-foreground mb-4">No hotels listed yet. Check back soon!</p>
               <Link to="/hotels" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
                 Browse Hotels <ArrowRight size={16} />
@@ -850,7 +850,7 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED ROOMS ===== */}
-      <section className="py-16 lg:py-24 bg-royal-dark">
+      <section className="py-5 lg:py-7 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle
             label="Room Options"
@@ -859,7 +859,7 @@ const Home = () => {
           />
           {roomTypes.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {roomTypes.map((roomType) => (
                   <ListingCard
                     key={roomType._id}
@@ -881,14 +881,14 @@ const Home = () => {
                   />
                 ))}
               </div>
-              <div className="text-center mt-10">
+              <div className="text-center mt-4">
                 <Link to="/rooms" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
                   View All Rooms <ArrowRight size={18} />
                 </Link>
               </div>
             </>
           ) : (
-            <div className="text-center py-14">
+            <div className="text-center py-8">
               <p className="font-body text-[14px] text-muted-foreground mb-4">No rooms listed yet. Check back soon!</p>
               <Link to="/rooms" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
                 Browse Rooms <ArrowRight size={16} />
@@ -899,7 +899,7 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED CABS ===== */}
-      <section className="py-16 lg:py-24 bg-royal-dark">
+      <section className="py-5 lg:py-7 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle
             label="Transportation"
@@ -908,7 +908,7 @@ const Home = () => {
           />
           {cabs.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {cabs.map((cab) => (
                   <ListingCard
                     key={cab._id}
@@ -930,14 +930,14 @@ const Home = () => {
                   />
                 ))}
               </div>
-              <div className="text-center mt-10">
+              <div className="text-center mt-4">
                 <Link to="/cabs" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
                   View All Cabs <ArrowRight size={18} />
                 </Link>
               </div>
             </>
           ) : (
-            <div className="text-center py-14">
+            <div className="text-center py-8">
               <p className="font-body text-[14px] text-muted-foreground mb-4">No cabs listed yet. Check back soon!</p>
               <Link to="/cabs" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
                 Browse Cabs <ArrowRight size={16} />
@@ -948,7 +948,7 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED TOURS ===== */}
-      <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
+      <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
         <img src="/backgrounds/parikrama.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-14" />
         <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
@@ -959,7 +959,7 @@ const Home = () => {
           />
           {tours.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {tours.map((tour) => (
                   <ListingCard
                     key={tour._id}
@@ -980,14 +980,14 @@ const Home = () => {
                   />
                 ))}
               </div>
-              <div className="text-center mt-10">
+              <div className="text-center mt-4">
                 <Link to="/tours" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
                   View All Tours <ArrowRight size={18} />
                 </Link>
               </div>
             </>
           ) : (
-            <div className="text-center py-14">
+            <div className="text-center py-8">
               <p className="font-body text-[14px] text-muted-foreground mb-4">No tours listed yet. Check back soon!</p>
               <Link to="/tours" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
                 Browse Tours <ArrowRight size={16} />
@@ -999,14 +999,14 @@ const Home = () => {
 
       {/* ===== FEATURED PRODUCTS (Shop) ===== */}
       {featuredProducts.length > 0 && (
-        <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
+        <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
           <div className="container mx-auto px-4 relative">
             <SectionTitle
               label="Divine Shop"
               title="Sacred Souvenirs from Vrindavan"
               subtitle="Take a piece of Vrindavan's blessings home with you"
             />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {featuredProducts.map((p) => (
                 <Link
                   key={p.id}
@@ -1039,7 +1039,7 @@ const Home = () => {
                 </Link>
               ))}
             </div>
-            <div className="text-center mt-10">
+            <div className="text-center mt-4">
               <Link to="/shop" className="metallic-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 font-semibold text-[15px]">
                 Visit Shop <ArrowRight size={18} />
               </Link>
@@ -1049,18 +1049,18 @@ const Home = () => {
       )}
 
       {/* ===== WHY US ===== */}
-      <section className="py-16 lg:py-24 relative overflow-hidden bg-royal-dark">
+      <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
         <img src="/backgrounds/temple-interior.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
         <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle label="Why Choose Us" title="Your Trusted Companion in Vrindavan" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {whyUs.map((item) => (
               <div
                 key={item.title}
-                className="text-center p-7 rounded-2xl border border-border/50 bg-card/60 hover:border-primary/30 hover:shadow-md transition-all duration-200 group"
+                className="text-center p-5 rounded-lg border border-border/50 bg-card/60 hover:border-primary/30 hover:shadow-md transition-all duration-200 group"
               >
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-primary/16 group-hover:scale-105 transition-all duration-200">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/16 group-hover:scale-105 transition-all duration-200">
                   <item.icon className="text-primary" size={24} />
                 </div>
                 <h3 className="font-heading text-[17px] font-bold text-foreground mb-2">{item.title}</h3>
@@ -1072,14 +1072,14 @@ const Home = () => {
       </section>
 
       {/* ===== TESTIMONIALS ===== */}
-      <section className="py-16 lg:py-24 bg-royal-dark">
+      <section className="py-5 lg:py-7 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle
             label="Testimonials"
             title="What Our Pilgrims Say"
             subtitle="Real experiences from real devotees"
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((t) => (
               <TestimonialCard key={t.name} {...t} avatar="" />
             ))}
@@ -1088,7 +1088,7 @@ const Home = () => {
       </section>
 
       {/* ===== TRUST STORY BANNER ===== */}
-      <section className="relative overflow-hidden bg-background py-14 lg:py-18">
+      <section className="relative overflow-hidden bg-background py-6 lg:py-8">
         <div className="container mx-auto px-4">
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_50px_hsl(222_42%_10%_/_0.08)]">
             <div className="grid lg:grid-cols-[1.08fr_0.92fr]">

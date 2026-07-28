@@ -34,7 +34,7 @@ const BookingDetail = () => {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen bg-background pt-24 pb-16 px-4 flex items-center justify-center">
+        <div className="min-h-screen bg-background pt-20 pb-8 px-4 flex items-center justify-center">
           <div className="text-center">
             <p className="font-body text-sm text-muted-foreground">Loading booking...</p>
           </div>
@@ -48,7 +48,7 @@ const BookingDetail = () => {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen bg-background pt-24 pb-16 px-4 flex items-center justify-center">
+        <div className="min-h-screen bg-background pt-20 pb-8 px-4 flex items-center justify-center">
           <div className="text-center">
             <ClipboardList size={64} className="mx-auto mb-4 text-muted-foreground/30" />
             <h2 className="font-heading text-2xl font-semibold text-foreground mb-2">Booking Not Found</h2>
@@ -150,16 +150,16 @@ const BookingDetail = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-background pt-24 pb-16 px-4">
+      <div className="min-h-screen bg-background pt-20 pb-8 px-4">
         <div className="container mx-auto max-w-4xl">
           {/* Back Button */}
-          <button onClick={() => navigate('/bookings')} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+          <button onClick={() => navigate('/bookings')} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors">
             <ArrowLeft size={16} /> Back to My Bookings
           </button>
 
           {/* Header */}
-          <div className="bg-card rounded-2xl border border-border overflow-hidden mb-6">
-            <div className="relative h-48 sm:h-64 bg-muted">
+          <div className="bg-card rounded-lg border border-border overflow-hidden mb-4">
+            <div className="relative h-40 sm:h-52 bg-muted">
               {booking.itemImage && booking.itemImage !== '/placeholder.svg' ? (
                 <img src={booking.itemImage} alt={booking.itemName} className="w-full h-full object-cover" />
               ) : (
@@ -179,18 +179,18 @@ const BookingDetail = () => {
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-5">
               <p className="font-body text-xs text-brand-crimson font-medium mb-1">{booking.bookingId}</p>
               <h1 className="font-heading text-2xl sm:text-3xl font-bold text-foreground mb-2">{booking.itemName}</h1>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {/* Booking Details */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-4">
               {/* Dates & Guests */}
-              <div className="bg-card rounded-xl border border-border p-6">
-                <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Booking Details</h3>
+              <div className="bg-card rounded-lg border border-border p-4 sm:p-5">
+                <h3 className="font-heading text-lg font-semibold text-foreground mb-3">Booking Details</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {booking.checkIn && (
                     <div>

@@ -18,7 +18,7 @@ interface ListingCardProps {
   onViewDetails?: () => void;
   ctaLabel?: string;
   intervalMs?: number;
-  variant?: 'default' | 'hotel' | 'compact';
+  variant?: 'default' | 'hotel' | 'compact' | 'tour';
 }
 
 const ListingCard = ({
@@ -73,10 +73,10 @@ const ListingCard = ({
   const typeLabel = badge || meta || (variant === 'hotel' ? 'Hotel' : 'Listing');
 
   return (
-    <div className="group min-w-0 h-full overflow-hidden rounded-lg border border-border bg-white shadow-[0_2px_10px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.14)]">
+    <div className={`group min-w-0 overflow-hidden rounded-lg border border-border bg-white shadow-[0_2px_10px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.14)] ${variant === 'tour' ? 'h-auto' : 'h-full'}`}>
       <div
         className={`relative overflow-hidden bg-muted ${
-          variant === 'hotel' ? 'aspect-[4/3]' : variant === 'compact' ? 'aspect-[4/3]' : 'aspect-[16/11]'
+          variant === 'hotel' ? 'aspect-[4/3]' : variant === 'compact' ? 'aspect-[4/3]' : variant === 'tour' ? 'aspect-[16/11]' : 'aspect-[16/11]'
         }`}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
@@ -128,7 +128,7 @@ const ListingCard = ({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-3.5">
+      <div className="flex flex-1 flex-col p-2.5">
         <div className="mb-1 flex min-h-5 items-center gap-1.5">
           <span className="font-body text-[11px] text-muted-foreground">{typeLabel}</span>
           {rating > 0 && (
@@ -172,7 +172,7 @@ const ListingCard = ({
           </div>
         )}
 
-        <div className="mt-auto flex flex-col items-stretch gap-2 pt-4">
+        <div className={`${variant === 'tour' ? 'mt-3' : 'mt-auto'} flex flex-col items-stretch gap-1.5 pt-2.5`}>
           {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
             <div className="text-right">
               <span className="block font-body text-[11px] text-muted-foreground">Starting from</span>

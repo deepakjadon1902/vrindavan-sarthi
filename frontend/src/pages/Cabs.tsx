@@ -73,15 +73,15 @@ const Cabs = () => {
   });
 
   return (
-    <div className="pt-20">
-      <section className="section-cream py-10 lg:py-16">
+    <div className="pt-16">
+      <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle
             label="Transportation"
             title="Book a Cab in Vrindavan"
             subtitle="Reliable local and outstation cab services"
           />
-          <div className="premium-toolbar mx-auto max-w-xl p-3">
+          <div className="premium-toolbar mx-auto max-w-xl p-2">
             <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
             <input
@@ -96,10 +96,10 @@ const Cabs = () => {
         </div>
       </section>
 
-      <section className="py-6">
+      <section className="py-3">
         <div className="container mx-auto px-3 sm:px-4">
-          <div className="bg-brand-green/10 border border-brand-green/30 rounded-xl p-6 text-center">
-            <p className="font-heading text-xl font-semibold text-foreground mb-2">🚗 Cab Fare Policy</p>
+          <div className="bg-brand-green/10 border border-brand-green/30 rounded-lg px-5 py-4 text-center">
+            <p className="font-heading text-lg font-semibold text-foreground mb-1.5">Cab Fare Policy</p>
             <p className="font-body text-sm text-muted-foreground">
               Fare is fixed route-wise for the whole vehicle. A 30% online advance is required to confirm a request.
             </p>
@@ -110,10 +110,10 @@ const Cabs = () => {
         </div>
       </section>
 
-      <section className="py-10 lg:py-16">
+      <section className="py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
           {cabs.length === 0 ? (
-            <div className="text-center py-20">
+            <div className="text-center py-8">
               <p className="font-heading text-2xl text-muted-foreground mb-2">No Cabs Listed Yet</p>
               <p className="font-body text-sm text-muted-foreground">Cabs will appear here once listed.</p>
             </div>

@@ -116,36 +116,33 @@ const MyBookings = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 pt-24 pb-16 px-4 relative overflow-hidden">
-        <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-gold/15 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 -left-24 w-80 h-80 rounded-full bg-brand-crimson/15 blur-3xl" />
-
+      <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 pt-20 pb-8 px-4 relative overflow-hidden">
         <div className="container mx-auto max-w-5xl relative">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-5">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles size={14} className="text-brand-gold animate-float-slow" />
               <span className="font-ui text-[11px] uppercase tracking-[0.2em] text-brand-gold">Your Sacred Journey</span>
             </div>
-            <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground">My Bookings</h1>
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground">My Bookings</h1>
             <p className="font-body text-sm text-muted-foreground mt-2">Track every stay, ride, and tour in one place</p>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-            <div className="glass-panel rounded-2xl p-4 water-hover">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            <div className="glass-panel rounded-lg p-3 water-hover">
               <p className="font-body text-xs text-muted-foreground">Total</p>
               <p className="font-display text-2xl font-bold text-foreground">{stats.total}</p>
             </div>
-            <div className="glass-panel rounded-2xl p-4 water-hover">
+            <div className="glass-panel rounded-lg p-3 water-hover">
               <p className="font-body text-xs text-muted-foreground">Confirmed</p>
               <p className="font-display text-2xl font-bold text-brand-green">{stats.confirmed}</p>
             </div>
-            <div className="glass-panel rounded-2xl p-4 water-hover">
+            <div className="glass-panel rounded-lg p-3 water-hover">
               <p className="font-body text-xs text-muted-foreground">Pending</p>
               <p className="font-display text-2xl font-bold text-brand-saffron">{stats.pending}</p>
             </div>
-            <div className="glass-panel rounded-2xl p-4 water-hover">
+            <div className="glass-panel rounded-lg p-3 water-hover">
               <p className="font-body text-xs text-muted-foreground">Total Spent</p>
               <p className="font-display text-2xl font-bold text-brand-crimson flex items-center"><IndianRupee size={16} />{stats.spent.toLocaleString('en-IN')}</p>
             </div>

@@ -158,17 +158,17 @@ const Profile = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-background pt-24 pb-16 px-4">
+      <div className="min-h-screen bg-background pt-20 pb-8 px-4">
         <div className="container mx-auto max-w-5xl">
           {/* Hero Banner */}
-          <div className="relative rounded-2xl overflow-hidden mb-8 bg-gradient-to-r from-brand-crimson via-brand-crimson/80 to-brand-gold h-44 sm:h-52">
+          <div className="relative rounded-lg overflow-hidden mb-6 bg-gradient-to-r from-brand-crimson via-brand-crimson/80 to-brand-gold h-32 sm:h-40">
             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyem0wLTR2Mkgy
 NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background/60 to-transparent" />
           </div>
 
           {/* Profile Avatar - overlapping banner */}
-          <div className="relative -mt-20 mb-6 px-4 sm:px-8 flex flex-col sm:flex-row items-start sm:items-end gap-4">
+          <div className="relative -mt-16 mb-4 px-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-end gap-4">
             <div className="relative">
               <div className="w-28 h-28 rounded-2xl bg-card border-4 border-background flex items-center justify-center overflow-hidden">
                 <span className="text-5xl font-brand text-brand-gold">{user.name.charAt(0)}</span>
@@ -199,7 +199,7 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
             <div className="bg-card rounded-xl border border-border p-4 text-center">
               <div className="w-10 h-10 mx-auto rounded-lg bg-brand-crimson/10 flex items-center justify-center mb-2">
                 <ClipboardList size={18} className="text-brand-crimson" />
@@ -230,10 +230,10 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {/* Personal Info */}
-            <div className="lg:col-span-2 bg-card rounded-2xl border border-border p-6">
-              <h3 className="font-heading text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
+            <div className="lg:col-span-2 bg-card rounded-lg border border-border p-4 sm:p-5">
+              <h3 className="font-heading text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <User size={18} className="text-brand-crimson" /> Personal Information
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

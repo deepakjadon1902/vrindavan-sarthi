@@ -77,12 +77,18 @@ const SEOBreadcrumbs = ({ items }: SEOBreadcrumbsProps) => {
   if (!isPublicBreadcrumbPath(path)) return null;
 
   const breadcrumbItems = items?.length ? items : fromPath(path);
+  const parts = path.split('/').filter(Boolean);
+  const topLevelCatalog = parts.length === 1 && ['hotels', 'rooms', 'cabs', 'tours', 'shop'].includes(parts[0]);
+
+  if (topLevelCatalog) {
+    return <JsonLd id="breadcrumbs" value={buildBreadcrumbJsonLd(breadcrumbItems)} />;
+  }
 
   return (
     <>
       <JsonLd id="breadcrumbs" value={buildBreadcrumbJsonLd(breadcrumbItems)} />
       <nav aria-label="Breadcrumb" className="bg-background/90 border-b border-border pt-16 lg:pt-[4.75rem]">
-        <ol className="container mx-auto px-4 flex min-h-10 items-center gap-1 overflow-x-auto text-xs font-body text-muted-foreground">
+        <ol className="container mx-auto px-4 flex min-h-8 items-center gap-1 overflow-x-auto text-xs font-body text-muted-foreground">
           {breadcrumbItems.map((item, index) => {
             const last = index === breadcrumbItems.length - 1;
             return (
