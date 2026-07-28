@@ -36,7 +36,7 @@ const uploadDataUri = async (dataUri, opts = {}) => {
   const folder = String(opts.folder || getDefaultFolder()).trim();
   const uploadOpts = {
     folder,
-    resource_type: 'image',
+    resource_type: opts.resourceType || 'image',
     overwrite: true,
   };
 
@@ -59,4 +59,3 @@ module.exports = {
   dataUriFromBuffer,
   getDefaultFolder,
 };
-

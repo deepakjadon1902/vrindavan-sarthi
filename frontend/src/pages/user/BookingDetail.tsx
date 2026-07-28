@@ -81,9 +81,11 @@ const BookingDetail = () => {
 
   const handleCancel = async () => {
     const needsReason = booking.bookingStatus === 'confirmed';
-    const reason = needsReason ? window.prompt('Please enter a reason for cancellation request:') || '' : '';
+    const reason = needsReason ? window.prompt('Please enter a cancellation reason:') || '' : '';
     if (needsReason && !reason.trim()) return toast.error('Cancellation reason is required for confirmed bookings');
-    const res = await cancelBooking(booking.id, reason.trim() || undefined);
+    const details = needsReason ? window.prompt('Please add cancellation details:') || '' : '';
+    if (needsReason && !details.trim()) return toast.error('Cancellation details are required');
+    const res = await cancelBooking(booking.id, reason.trim() || undefined, details.trim() || undefined);
     if (res.success) toast.success('Booking cancelled successfully');
     else toast.error(res.error || 'Cancel failed');
   };
@@ -115,6 +117,21 @@ const BookingDetail = () => {
     if (!['confirmed', 'completed'].includes(String(booking.bookingStatus))) return false;
     return new Date(booking.checkOut).getTime() <= Date.now();
   })();
+
+  const isHotelMarketplace =
+    booking.service_billing_model === 'hotel_marketplace' ||
+    ['hotel', 'room', 'room_type'].includes(String(booking.bookingType || ''));
+  const formatMoney = (value: unknown) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
+  const roomAmount = Number(booking.baseAmount || booking.checkoutSubtotal || 0);
+  const hotelTaxes = Number(booking.taxAmount || 0);
+  const convenienceFee = Number(booking.convenienceFeeAmount || 0);
+  const totalPayable = Number(booking.totalAmount || 0);
+  const advancePaid = Number(booking.advanceAmount || (booking.paymentOption === 'advance_30' ? Math.round(totalPayable * 0.3) : totalPayable));
+  const balancePayable = Number(booking.balanceAmount || Math.max(0, totalPayable - advancePaid));
+  const customerName = booking.customerFullName || booking.userName || '-';
+  const customerPhone = booking.customerMobile || booking.userPhone || '-';
+  const customerEmail = booking.customerEmail || booking.userEmail || '-';
+  const documentLabel = isHotelMarketplace ? 'Booking Confirmation & Payment Receipt' : 'Tax Invoice';
 
   const submitReview = async () => {
     if (!token || !booking?.id) return;
@@ -254,26 +271,26 @@ const BookingDetail = () => {
               {/* Guest Info */}
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Guest Information</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-body text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-brand-crimson/10 flex items-center justify-center"><User size={14} className="text-brand-crimson" /></div>
-                    <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-body text-sm">
+                  <div className="flex min-w-0 items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
+                    <div className="w-8 h-8 shrink-0 rounded-lg bg-brand-crimson/10 flex items-center justify-center"><User size={14} className="text-brand-crimson" /></div>
+                    <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">Name</p>
-                      <p className="font-medium text-foreground">{booking.userName}</p>
+                      <p className="font-medium text-foreground break-words">{customerName}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-brand-gold/10 flex items-center justify-center"><Phone size={14} className="text-brand-gold" /></div>
-                    <div>
+                  <div className="flex min-w-0 items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
+                    <div className="w-8 h-8 shrink-0 rounded-lg bg-brand-gold/10 flex items-center justify-center"><Phone size={14} className="text-brand-gold" /></div>
+                    <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">Phone</p>
-                      <p className="font-medium text-foreground">{booking.userPhone}</p>
+                      <p className="font-medium text-foreground break-words">{customerPhone}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-brand-green/10 flex items-center justify-center"><Mail size={14} className="text-brand-green" /></div>
-                    <div>
+                  <div className="flex min-w-0 items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3 md:col-span-2">
+                    <div className="w-8 h-8 shrink-0 rounded-lg bg-brand-green/10 flex items-center justify-center"><Mail size={14} className="text-brand-green" /></div>
+                    <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">Email</p>
-                      <p className="font-medium text-foreground truncate">{booking.userEmail}</p>
+                      <p className="font-medium text-foreground break-all">{customerEmail}</p>
                     </div>
                   </div>
                 </div>
@@ -283,9 +300,40 @@ const BookingDetail = () => {
             {/* Payment Sidebar */}
             <div className="space-y-6">
               <div className="bg-card rounded-xl border border-border p-6">
+                <p className="font-body text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-crimson mb-1">{documentLabel}</p>
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Payment Summary</h3>
                 <div className="space-y-3">
-                  <div className="flex justify-between font-body text-sm">
+                  {isHotelMarketplace ? (
+                    <>
+                      <div className="flex justify-between gap-4 font-body text-sm">
+                        <span className="text-muted-foreground">Room Amount</span>
+                        <span className="font-semibold text-foreground">{formatMoney(roomAmount)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4 font-body text-sm">
+                        <span className="text-muted-foreground">Hotel GST / Hotel Taxes</span>
+                        <span className="font-semibold text-foreground">{formatMoney(hotelTaxes)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4 font-body text-sm">
+                        <span className="text-muted-foreground">Platform Convenience Fee</span>
+                        <span className="font-semibold text-foreground">{formatMoney(convenienceFee)}</span>
+                      </div>
+                    </>
+                  ) : null}
+                  <div className="flex justify-between gap-4 font-body text-sm">
+                    <span className="font-semibold text-foreground">Total Payable</span>
+                    <span className="font-bold text-brand-crimson">{formatMoney(totalPayable)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4 font-body text-sm">
+                    <span className="text-muted-foreground">Advance Paid Online</span>
+                    <span className="font-semibold text-brand-green">{formatMoney(advancePaid)}</span>
+                  </div>
+                  {isHotelMarketplace && (
+                    <div className="flex justify-between gap-4 font-body text-sm">
+                      <span className="text-muted-foreground">Balance at Property</span>
+                      <span className="font-semibold text-foreground">{formatMoney(balancePayable)}</span>
+                    </div>
+                  )}
+                  <div className="hidden">
                     <span className="text-muted-foreground">Amount</span>
                     <span className="font-semibold text-foreground">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
                   </div>
@@ -302,13 +350,18 @@ const BookingDetail = () => {
                   </div>
                   <div className="flex justify-between font-body text-sm">
                     <span className="text-muted-foreground">Verification</span>
-                    <span className="text-foreground">{verificationLabel}</span>
+                    <span className="text-right text-foreground">{verificationLabel}</span>
                   </div>
                   <div className="h-px bg-border" />
                   <div className="flex justify-between font-body text-base">
-                    <span className="font-semibold text-foreground">Total Paid</span>
+                    <span className="font-semibold text-foreground">Booking Total</span>
                     <span className="font-bold text-brand-crimson text-lg">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
                   </div>
+                  {isHotelMarketplace && (
+                    <p className="rounded-lg border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-relaxed text-muted-foreground">
+                      This is not a tax invoice for accommodation. The property partner will issue the hotel tax invoice where applicable.
+                    </p>
+                  )}
                 </div>
               </div>
 

@@ -9,8 +9,11 @@ type PartnerStatus = 'pending' | 'approved' | 'rejected';
 
 type PartnerDocument = {
   name?: string;
+  originalName?: string;
   type?: string;
   mimeType?: string;
+  sizeBytes?: number;
+  storage?: string;
   url?: string;
   uploadedAt?: string;
 };
@@ -52,6 +55,11 @@ const DOCUMENT_LABELS: Record<string, string> = {
 };
 
 const getDocumentLabel = (value?: string) => DOCUMENT_LABELS[String(value || '')] || DOCUMENT_LABELS.other;
+const formatKb = (bytes?: number) => {
+  const size = Number(bytes || 0);
+  if (!size) return '';
+  return `${Math.max(1, Math.round(size / 1024)).toLocaleString('en-IN')} KB`;
+};
 
 const normalizePartner = (value: unknown): PartnerUser => {
   const obj = isRecord(value) ? value : {};
@@ -60,8 +68,11 @@ const normalizePartner = (value: unknown): PartnerUser => {
   const docs = Array.isArray(obj.partnerDocuments)
     ? obj.partnerDocuments.filter(isRecord).map((doc) => ({
       name: getString(doc, 'name') || 'Document',
+      originalName: getString(doc, 'originalName') || undefined,
       type: getString(doc, 'type') || 'other',
       mimeType: getString(doc, 'mimeType') || '',
+      sizeBytes: typeof doc.sizeBytes === 'number' ? doc.sizeBytes : Number(doc.sizeBytes || 0) || undefined,
+      storage: getString(doc, 'storage') || undefined,
       url: getString(doc, 'url'),
       uploadedAt: getString(doc, 'uploadedAt'),
     }))
@@ -329,8 +340,9 @@ const ManagePartners = () => {
                           </div>
                         )}
                         <div className="p-3">
-                          <p className="font-body text-sm font-medium text-foreground">{doc.name || `Document ${index + 1}`}</p>
-                          <p className="font-body text-xs text-muted-foreground">{getDocumentLabel(doc.type)} - {doc.mimeType || 'file'}</p>
+                          <p className="font-body text-sm font-medium text-foreground">{doc.name || doc.originalName || `Document ${index + 1}`}</p>
+                          <p className="font-body text-xs text-muted-foreground">{getDocumentLabel(doc.type)} - {doc.mimeType || 'file'}{doc.sizeBytes ? ` - ${formatKb(doc.sizeBytes)}` : ''}</p>
+                          {doc.storage && <p className="font-body text-[11px] text-muted-foreground">Storage: {doc.storage}</p>}
                           <div className="flex flex-wrap gap-2 mt-3">
                             <button type="button" onClick={() => openViewer(doc, index)} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 font-body text-xs hover:bg-muted">
                               <Eye size={12} /> View
@@ -374,7 +386,7 @@ const ManagePartners = () => {
             <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3">
               <div className="min-w-0">
                 <h3 className="font-heading text-base font-semibold text-foreground truncate">
-                  {viewer.doc.name || `Document ${viewer.index + 1}`}
+                  {viewer.doc.name || viewer.doc.originalName || `Document ${viewer.index + 1}`}
                 </h3>
                 <p className="font-body text-xs text-muted-foreground truncate">
                   {getDocumentLabel(viewer.doc.type)} - {viewer.doc.mimeType || 'Legal document'}

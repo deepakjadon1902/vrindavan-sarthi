@@ -11,6 +11,9 @@ const money = (value) => `INR ${Number(value || 0).toLocaleString('en-IN')}`;
 const dateText = (value) => (value ? new Date(value).toLocaleDateString('en-IN') : '');
 const dateTimeText = (value) => (value ? new Date(value).toLocaleString('en-IN') : '');
 const yesNo = (value) => (value ? 'Yes' : 'No');
+const COMPANY_GSTIN = clean(process.env.COMPANY_GSTIN || process.env.VRINDAVAN_SARTHI_GSTIN || '');
+const HOTEL_MARKETPLACE_DISCLAIMER =
+  'Vrindavan Sarthi acts only as an online booking and payment facilitation platform. The accommodation service is provided by the hotel/property partner. The hotel/property partner is solely responsible for issuing the tax invoice to the guest and for payment of applicable GST and other taxes. This document is only a booking confirmation and payment receipt.';
 
 const escapeHtml = (value) =>
   clean(value)
@@ -65,51 +68,63 @@ const emailShell = ({ title, intro, rows, totalLabel = 'Total', totalAmount = 0,
   </div>
 `;
 
-const bookingRows = (booking) => [
-  ['Booking ID', booking.bookingId],
-  ['Created On', dateTimeText(booking.createdAt)],
-  ['Service Type', booking.bookingType],
-  ['Service Name', booking.itemName],
-  ['Customer', booking.customerFullName || booking.userName],
-  ['Mobile', booking.customerMobile || booking.userPhone],
-  ['Email', booking.customerEmail || booking.userEmail],
-  ['Partner', booking.partnerName],
-  ['Booking Status', booking.bookingStatus],
-  ['Verification Stage', booking.verificationStage],
-  ['Check-in / Travel Date', booking.pickupDate || dateText(booking.checkIn)],
-  ['Check-out', dateText(booking.checkOut)],
-  ['Route', booking.bookingType === 'cab' ? `${booking.pickupLocation} to ${booking.dropLocation}` : ''],
-  ['Pickup Time', booking.pickupTime],
-  ['Arrival Mode', booking.arrivalMode],
-  ['Arrival Time', booking.arrivalTime],
-  ['Vehicle Number', booking.vehicleNumber],
-  ['Cab Type', booking.cabType || booking.assignedVehicleType],
-  ['Assigned Vehicle', booking.assignedVehicleName],
-  ['Driver Name', booking.assignedDriverName],
-  ['Driver Phone', booking.assignedDriverPhone],
-  ['Guests / Passengers', booking.guests],
-  ['Adults', booking.totalAdults],
-  ['Children', booking.totalChildren],
-  ['Travelling with Pet', booking.hasPet ? yesNo(booking.hasPet) : ''],
-  ['Room Number', booking.roomNumber],
-  ['Waitlisted', booking.isWaitlisted ? 'Yes' : ''],
-  ['Base Amount', money(booking.baseAmount || booking.checkoutSubtotal)],
-  ['GST', Number(booking.taxAmount || 0) ? `${money(booking.taxAmount)} (${Number(booking.taxPercent || 0)}%)` : ''],
-  ['Convenience Fee', money(booking.convenienceFeeAmount)],
-  ['Grand Total', money(booking.totalAmount)],
-  ['Advance Paid', money(booking.advanceAmount)],
-  ['Balance Payable', money(booking.balanceAmount)],
-  ['Payment Option', booking.paymentOption === 'advance_30' ? '30% advance' : 'Full payment'],
-  ['Payment Method', booking.paymentMethod],
-  ['Payment Status', booking.paymentStatus],
-  ['UPI Transaction ID', booking.upiTransactionId],
-  ['Additional Info', booking.additionalInfo],
-  ['Cancellation Reason', booking.cancellationReason],
-  ['Cancellation Details', booking.cancellationDetails],
-  ['Cancelled By', booking.cancelledByRole],
-  ['Cancellation Deduction', Number(booking.cancellationDeductionAmount || 0) ? `${money(booking.cancellationDeductionAmount)} (${Number(booking.cancellationDeductionPercent || 12)}%)` : ''],
-  ['Refundable Amount', Number(booking.refundableAmount || 0) ? money(booking.refundableAmount) : ''],
-];
+const isHotelMarketplace = (booking) =>
+  booking?.service_billing_model === 'hotel_marketplace' ||
+  ['hotel', 'room', 'room_type'].includes(String(booking?.bookingType || ''));
+
+const bookingRows = (booking) => {
+  const hotelBooking = isHotelMarketplace(booking);
+  return [
+    ['Booking ID', booking.bookingId],
+    ['Created On', dateTimeText(booking.createdAt)],
+    ['Service Type', booking.bookingType],
+    ['Billing Model', booking.service_billing_model],
+    ['Service Name', booking.itemName],
+    ['Property Name', hotelBooking ? String(booking.itemName || '').split(' - ')[0] : ''],
+    ['Property Partner Name', hotelBooking ? booking.partnerName : ''],
+    ['Customer', booking.customerFullName || booking.userName],
+    ['Mobile', booking.customerMobile || booking.userPhone],
+    ['Email', booking.customerEmail || booking.userEmail],
+    ['Partner', hotelBooking ? '' : booking.partnerName],
+    ['Booking Status', booking.bookingStatus],
+    ['Verification Stage', booking.verificationStage],
+    ['Check-in / Travel Date', booking.pickupDate || dateText(booking.checkIn)],
+    ['Check-out', dateText(booking.checkOut)],
+    ['Route', booking.bookingType === 'cab' ? `${booking.pickupLocation} to ${booking.dropLocation}` : ''],
+    ['Pickup Time', booking.pickupTime],
+    ['Arrival Mode', booking.arrivalMode],
+    ['Arrival Time', booking.arrivalTime],
+    ['Vehicle Number', booking.vehicleNumber],
+    ['Cab Type', booking.cabType || booking.assignedVehicleType],
+    ['Assigned Vehicle', booking.assignedVehicleName],
+    ['Driver Name', booking.assignedDriverName],
+    ['Driver Phone', booking.assignedDriverPhone],
+    ['Guests / Passengers', booking.guests],
+    ['Adults', booking.totalAdults],
+    ['Children', booking.totalChildren],
+    ['Travelling with Pet', booking.hasPet ? yesNo(booking.hasPet) : ''],
+    ['Room Details', hotelBooking ? booking.itemName : ''],
+    ['Room Number', booking.roomNumber],
+    ['Waitlisted', booking.isWaitlisted ? 'Yes' : ''],
+    [hotelBooking ? 'Room Amount' : 'Base Amount', money(booking.baseAmount || booking.checkoutSubtotal)],
+    [hotelBooking ? 'Hotel GST / Hotel Taxes' : 'GST', Number(booking.taxAmount || 0) ? `${money(booking.taxAmount)} (${Number(booking.taxPercent || 0)}%)` : ''],
+    [hotelBooking ? 'Platform Convenience Fee' : 'Convenience Fee', money(booking.convenienceFeeAmount)],
+    [hotelBooking ? 'Total Payable' : 'Grand Total', money(booking.totalAmount)],
+    [hotelBooking ? 'Advance Paid Online' : 'Advance Paid', money(booking.advanceAmount)],
+    [hotelBooking ? 'Balance Payable at Property' : 'Balance Payable', money(booking.balanceAmount)],
+    ['Payment Option', booking.paymentOption === 'advance_30' ? '30% advance' : 'Full payment'],
+    ['Payment Method', booking.paymentMethod],
+    ['Payment Status', booking.paymentStatus],
+    ['UPI Transaction ID', booking.upiTransactionId],
+    ['Vrindavan Sarthi GSTIN', !hotelBooking ? COMPANY_GSTIN : ''],
+    ['Additional Info', booking.additionalInfo],
+    ['Cancellation Reason', booking.cancellationReason],
+    ['Cancellation Details', booking.cancellationDetails],
+    ['Cancelled By', booking.cancelledByRole],
+    ['Cancellation Deduction', Number(booking.cancellationDeductionAmount || 0) ? `${money(booking.cancellationDeductionAmount)} (${Number(booking.cancellationDeductionPercent || 12)}%)` : ''],
+    ['Refundable Amount', Number(booking.refundableAmount || 0) ? money(booking.refundableAmount) : ''],
+  ];
+};
 
 const orderRows = (order) => [
   ['Order ID', order.orderId],
@@ -119,6 +134,7 @@ const orderRows = (order) => [
   ['Quantity', order.quantity],
   ['Unit Price', money(order.productPrice)],
   ['Subtotal', money(order.subtotalAmount || Number(order.productPrice || 0) * Number(order.quantity || 1))],
+  ['GST', 'As applicable'],
   ['Shipping Fee', money(order.shippingFee)],
   ['Grand Total', money(order.totalAmount)],
   ['Customer', order.userName],
@@ -126,6 +142,9 @@ const orderRows = (order) => [
   ['Email', order.userEmail],
   ['Shipping Address', order.shippingAddress],
   ['Order Notes', order.orderNotes],
+  ['Document Type', 'TAX INVOICE'],
+  ['Billing Model', order.service_billing_model || 'ecommerce_direct'],
+  ['Vrindavan Sarthi GSTIN', COMPANY_GSTIN],
   ['Payment Status', order.paymentStatus],
   ['Order Status', order.orderStatus],
   ['UPI Transaction ID', order.upiTransactionId],
@@ -145,22 +164,32 @@ const orderRows = (order) => [
 const sendBookingInvoice = async (booking) => {
   const to = clean(booking.customerEmail || booking.userEmail);
   if (!to || booking.invoiceSentAt) return;
+  const hotelBooking = isHotelMarketplace(booking);
+  const documentTitle = hotelBooking ? 'BOOKING CONFIRMATION & PAYMENT RECEIPT' : 'TAX INVOICE';
+  const filenamePrefix = hotelBooking ? 'booking-receipt' : 'tax-invoice';
   const rows = bookingRows(booking);
   await sendEmail({
     to,
-    subject: `Vrindavan Sarthi Enterprises booking invoice ${booking.bookingId}`,
-    text: ['Vrindavan Sarthi Enterprises booking invoice', ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'),
+    subject: hotelBooking
+      ? `Vrindavan Sarthi booking confirmation ${booking.bookingId}`
+      : `Vrindavan Sarthi Enterprises tax invoice ${booking.bookingId}`,
+    text: [documentTitle, ...(hotelBooking ? [HOTEL_MARKETPLACE_DISCLAIMER] : []), ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'),
     html: emailShell({
-      title: 'Booking invoice',
-      intro: 'Your payment has been verified. Here are the complete booking and payment details.',
+      title: documentTitle,
+      intro: hotelBooking
+        ? HOTEL_MARKETPLACE_DISCLAIMER
+        : 'Your payment has been verified. Here are the complete booking and payment details.',
       rows,
       totalAmount: booking.totalAmount,
     }),
     attachments: [{
-      filename: `invoice-${booking.bookingId}.pdf`,
+      filename: `${filenamePrefix}-${booking.bookingId}.pdf`,
       content: buildPdf({
-        title: `Invoice ${booking.bookingId}`,
+        title: documentTitle,
+        documentLabel: documentTitle,
         sections: [{ title: 'Booking Details', rows }],
+        lines: hotelBooking ? [HOTEL_MARKETPLACE_DISCLAIMER] : [],
+        totalLabel: hotelBooking ? 'Total Payable' : 'Grand Total',
         totalAmount: booking.totalAmount,
       }),
       contentType: 'application/pdf',
@@ -177,7 +206,7 @@ const sendOrderInvoice = async (order) => {
     subject: `Vrindavan Sarthi Enterprises order invoice ${order.orderId}`,
     text: ['Vrindavan Sarthi Enterprises order invoice', ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'),
     html: emailShell({
-      title: 'Order invoice',
+      title: 'TAX INVOICE',
       intro: 'Your order payment has been verified. Here are the product, delivery, and payment details.',
       rows,
       totalAmount: order.totalAmount,
@@ -185,7 +214,8 @@ const sendOrderInvoice = async (order) => {
     attachments: [{
       filename: `invoice-${order.orderId}.pdf`,
       content: buildPdf({
-        title: `Invoice ${order.orderId}`,
+        title: 'TAX INVOICE',
+        documentLabel: 'TAX INVOICE',
         sections: [{ title: 'Order Details', rows }],
         totalAmount: order.totalAmount,
       }),

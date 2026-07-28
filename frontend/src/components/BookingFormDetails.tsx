@@ -8,10 +8,10 @@ type Props = {
 const formatDate = (value?: string) => (value ? new Date(value).toLocaleDateString('en-IN') : '-');
 const formatMoney = (value?: number) => `Rs. ${Number(value || 0).toLocaleString('en-IN')}`;
 
-const Field = ({ label, value }: { label: string; value?: string | number | boolean | null }) => (
+const Field = ({ label, value, valueClass = 'text-foreground' }: { label: string; value?: string | number | boolean | null; valueClass?: string }) => (
   <div>
     <span className="block text-[11px] text-muted-foreground">{label}</span>
-    <span className="font-body text-xs font-medium text-foreground break-words">
+    <span className={`font-body text-xs font-medium break-words ${valueClass}`}>
       {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value || '-'}
     </span>
   </div>
@@ -27,6 +27,16 @@ const maskEmail = (value?: string) => {
 const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
   const canShowEmail = viewer !== 'partner' || booking.bookingStatus === 'confirmed';
   const guestDetails = booking.guestDetails || [];
+  const isHotelMarketplace =
+    booking.service_billing_model === 'hotel_marketplace' ||
+    ['hotel', 'room', 'room_type'].includes(booking.bookingType);
+  const baseAmount = Number(booking.baseAmount || 0);
+  const hotelGst = Number(booking.taxAmount || 0);
+  const grossForHotel = Number(booking.grossForHotel ?? (baseAmount + hotelGst));
+  const commissionRate = Number(booking.platformCommissionPercent || 0);
+  const commissionAmount = Math.round((baseAmount * commissionRate) / 100);
+  const gatewayFee = Number(booking.paymentGatewayFeeAmount || Math.round((baseAmount * 2) / 100));
+  const netPayout = Math.max(0, grossForHotel - commissionAmount - gatewayFee);
 
   return (
     <div className="mt-4 space-y-4">
@@ -62,37 +72,44 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Field label="Check-in" value={formatDate(booking.checkIn)} />
           <Field label="Check-out" value={formatDate(booking.checkOut)} />
-          <Field label="Room designation" value={booking.roomNumber} />
-          <Field label="Waitlisted" value={booking.isWaitlisted} />
-          <Field label="Transport mode" value={booking.arrivalMode?.replace('_', ' ')} />
-          <Field label="Vehicle no." value={booking.vehicleNumber} />
-          <Field label="Arrival timestamp" value={booking.arrivalTime} />
-          <Field label="Adults / Children" value={`${booking.totalAdults || 0} / ${booking.totalChildren || 0}`} />
+          <Field label="Room number" value={booking.roomNumber} />
+          <Field label="Vehicle number" value={booking.vehicleNumber} />
+          <Field label="Arrival time" value={booking.arrivalTime} />
+          <Field label="Guest count" value={booking.guests || `${booking.totalAdults || 0} / ${booking.totalChildren || 0}`} />
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-background/70 p-4">
-        <p className="font-body text-xs font-semibold text-foreground mb-3">Isolated Financial Ledger Breakdown</p>
+        <p className="font-body text-xs font-semibold text-foreground mb-3">
+          {isHotelMarketplace ? 'Booking Financial Summary' : 'Tax Invoice Payment Summary'}
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <Field label="Base Amount" value={formatMoney(booking.baseAmount || 0)} />
-          <Field label={`Dynamic GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={formatMoney(booking.taxAmount || 0)} />
-          <Field label="Dynamic Convenience Fee (2%)" value={formatMoney(booking.convenienceFeeAmount || 0)} />
-          <Field label="Net Checkout Grand Total" value={formatMoney(booking.totalAmount)} />
-          <Field label="Online Advance Collection Status" value={`${booking.paymentStatus} | ${formatMoney(booking.advanceAmount || 0)}`} />
-          <Field label="Residual Cash Balance Collector" value={formatMoney(booking.balanceAmount || 0)} />
+          <Field label="Base Amount" value={formatMoney(baseAmount)} />
+          <Field label={isHotelMarketplace ? `Hotel GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}` : `GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={formatMoney(hotelGst)} />
+          <Field label={isHotelMarketplace ? 'Platform Convenience Fee' : 'Convenience Fee'} value={formatMoney(booking.convenienceFeeAmount || 0)} />
+          <Field label={isHotelMarketplace ? 'Customer Grand Total' : 'Grand Total'} value={formatMoney(booking.totalAmount)} />
+          <Field label={isHotelMarketplace ? 'Online Advance Received' : 'Advance Paid'} value={formatMoney(booking.advanceAmount || 0)} />
+          <Field label={isHotelMarketplace ? 'Balance to Collect at Property' : 'Balance Payable'} value={formatMoney(booking.balanceAmount || 0)} />
           <Field label="Payment option" value={booking.paymentOption === 'full_100' ? '100% full online' : '30% advance online'} />
           <Field label="UPI transaction" value={booking.upiTransactionId} />
         </div>
+        {isHotelMarketplace && (
+          <p className="mt-3 rounded-md border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-relaxed text-muted-foreground">
+            Booking Confirmation only. The hotel/property partner is responsible for accommodation tax invoice and applicable GST filing.
+          </p>
+        )}
       </div>
 
       {viewer === 'partner' && (
         <div className="rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-4">
-          <p className="font-body text-xs font-semibold text-foreground mb-3">Partner payout breakdown</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Field label="Price" value={formatMoney(booking.checkoutSubtotal || booking.totalAmount)} />
-            <Field label={`Vrindavan Sarthi Enterprises Commission (${booking.platformCommissionPercent || 0}%)`} value={`- ${formatMoney(booking.platformCommissionAmount || 0)}`} />
-            <Field label="Net Payout" value={formatMoney(booking.partnerNetPayout ?? Math.max(0, (booking.checkoutSubtotal || booking.totalAmount) - (booking.platformCommissionAmount || 0)))} />
+          <p className="font-body text-xs font-semibold text-foreground mb-3">Partner Settlement Summary</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Field label="Gross Booking Value (Room + Hotel GST)" value={formatMoney(grossForHotel)} valueClass="text-foreground" />
+            <Field label={`OTA Commission (${commissionRate}% of ${formatMoney(baseAmount)})`} value={`- ${formatMoney(commissionAmount)}`} valueClass="text-destructive" />
+            <Field label="Payment Gateway Fee" value={`- ${formatMoney(gatewayFee)}`} valueClass="text-destructive" />
+            <Field label="Net Payout to Hotel" value={formatMoney(netPayout)} valueClass="text-brand-green" />
           </div>
+          <p className="mt-3 font-body text-[11px] text-muted-foreground">Platform convenience fee is not included in hotel payout.</p>
         </div>
       )}
 

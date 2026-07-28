@@ -692,6 +692,28 @@ import { useSettingsStore } from '@/store/settingsStore';
 import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getNextDateKey = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+    ? new Date(year, month - 1, day)
+    : new Date();
+  date.setDate(date.getDate() + 1);
+  return getLocalDateKey(date);
+};
+
+const dateKeyToLocalDate = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return undefined;
+  return new Date(year, month - 1, day);
+};
+
 const RoomTypeDetail = () => {
   const { id } = useParams();
   const location = useLocation();
@@ -865,6 +887,35 @@ const RoomTypeDetail = () => {
     const now = new Date();
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   }, []);
+  const todayKey = useMemo(() => getLocalDateKey(), []);
+  const checkOutMinKey = useMemo(() => (checkIn ? getNextDateKey(checkIn) : todayKey), [checkIn, todayKey]);
+
+  const handleCheckInDateChange = (value: string) => {
+    if (value && value < todayKey) {
+      toast.error('Check-in date cannot be in the past');
+      return;
+    }
+    setCheckIn(value);
+    if (checkOut && value && checkOut <= value) setCheckOut('');
+    const from = value ? dateKeyToLocalDate(value) : undefined;
+    const to = checkOut && value && checkOut > value ? dateKeyToLocalDate(checkOut) : undefined;
+    setSelectedRange(from ? { from, ...(to ? { to } : {}) } : undefined);
+  };
+
+  const handleCheckOutDateChange = (value: string) => {
+    if (value && value < todayKey) {
+      toast.error('Check-out date cannot be in the past');
+      return;
+    }
+    if (value && checkIn && value <= checkIn) {
+      toast.error('Check-out must be after check-in');
+      return;
+    }
+    setCheckOut(value);
+    const from = checkIn ? dateKeyToLocalDate(checkIn) : undefined;
+    const to = value ? dateKeyToLocalDate(value) : undefined;
+    setSelectedRange(from ? { from, ...(to ? { to } : {}) } : undefined);
+  };
 
   if (loading && !roomType) {
     return (
@@ -966,6 +1017,8 @@ const RoomTypeDetail = () => {
   const validateBookingForm = () => {
     if (!isAuthenticated) { toast.error('Please login to book'); navigate('/login'); return false; }
     if (!checkIn || !checkOut) { toast.error('Please select check-in and check-out dates'); return false; }
+    if (checkIn < todayKey) { toast.error('Check-in date cannot be in the past'); return false; }
+    if (checkOut <= checkIn) { toast.error('Check-out must be after check-in'); return false; }
     if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) { toast.error('Please fill your name, mobile and email'); return false; }
     if (!paymentOption) { toast.error('Please select a payment option'); return false; }
     const invalidAdult = adultDetails.some((a) => !a.name.trim() || !Number(a.age || 0));
@@ -1237,11 +1290,11 @@ const RoomTypeDetail = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Check-in</label>
-                    <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className={inputCls} />
+                    <input type="date" min={todayKey} value={checkIn} onChange={(e) => handleCheckInDateChange(e.target.value)} className={inputCls} />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Check-out</label>
-                    <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className={inputCls} />
+                    <input type="date" min={checkOutMinKey} value={checkOut} onChange={(e) => handleCheckOutDateChange(e.target.value)} className={inputCls} />
                   </div>
                 </div>
 
@@ -1331,11 +1384,13 @@ const RoomTypeDetail = () => {
                           setSelectedRange(range);
                           const from = range?.from ? format(range.from, 'yyyy-MM-dd') : '';
                           const to = range?.to ? format(range.to, 'yyyy-MM-dd') : '';
+                          if (from && from < todayKey) return;
                           setCheckIn(from);
-                          setCheckOut(to);
+                          setCheckOut(from && to && to > from ? to : '');
                         }}
                         numberOfMonths={1}
                         fromDate={todayUtc}
+                        disabled={(date) => date < todayUtc}
                         modifiers={{
                           fullyBooked: (date) => {
                             const key = format(date, 'yyyy-MM-dd');
@@ -1470,12 +1525,12 @@ const RoomTypeDetail = () => {
                   </div>
                   {taxEnabled && (
                     <div className="flex justify-between text-gray-500">
-                      <span>GST ({taxPercent}%)</span>
+                      <span>Hotel GST / Hotel Taxes ({taxPercent}%)</span>
                       <span className="text-gray-700">₹{taxTotal.toLocaleString('en-IN')}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <span>Convenience fee (2%)</span>
+                    <span>Platform convenience fee (2%)</span>
                     <span className="text-gray-700">₹{convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">

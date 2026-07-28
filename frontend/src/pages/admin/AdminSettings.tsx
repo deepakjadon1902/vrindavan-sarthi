@@ -121,7 +121,7 @@ const AdminSettings = () => {
                   placeholder="Vrindavan Sarthi Enterprises" />
               </div>
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Default GST (%)</label>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Default Hotel GST / Hotel Taxes (%)</label>
                 <input
                   type="number"
                   min={0}
@@ -132,7 +132,7 @@ const AdminSettings = () => {
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                   placeholder="12"
                 />
-                <p className="font-body text-xs text-muted-foreground mt-1">Fallback GST rate for room bookings when a property does not define its own percentage.</p>
+                <p className="font-body text-xs text-muted-foreground mt-1">Fallback hotel tax rate for room bookings when a property does not define its own percentage.</p>
               </div>
             </div>
             {form.upiId && (

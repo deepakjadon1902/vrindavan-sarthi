@@ -67,24 +67,48 @@ const clampPercent = (value, fallback = 0, max = 100) => {
 };
 
 const calculateConvenienceFee = (subtotal) => Math.round((Math.max(0, Number(subtotal || 0)) * 2) / 100);
+const calculateGatewayFee = (amount) => Math.round((Math.max(0, Number(amount || 0)) * 2) / 100);
 
 const getPaymentOption = (value, allowed = ['advance_30', 'full_100']) => {
   const option = String(value || '').trim();
   return allowed.includes(option) ? option : '';
 };
 
-const buildMoneyFields = ({ subtotal, paymentOption = 'advance_30', commissionPercent = 0 }) => {
+const getBillingModelForBookingType = (bookingType) => {
+  if (bookingType === 'cab') return 'taxi_direct';
+  if (bookingType === 'tour') return 'tour_direct';
+  if (bookingType === 'hotel' || bookingType === 'room' || bookingType === 'room_type') return 'hotel_marketplace';
+  return 'hotel_marketplace';
+};
+
+const buildMoneyFields = ({ subtotal, baseAmount, taxAmount = 0, paymentOption = 'advance_30', commissionPercent = 0, gatewayFeeAmount }) => {
   const checkoutSubtotal = Math.round(Math.max(0, Number(subtotal || 0)));
   const convenienceFeeAmount = calculateConvenienceFee(checkoutSubtotal);
   const totalAmount = checkoutSubtotal + convenienceFeeAmount;
   const advancePercent = paymentOption === 'full_100' ? 100 : 30;
   const advanceAmount = Math.round(totalAmount * (advancePercent / 100));
   const balanceAmount = Math.max(0, totalAmount - advanceAmount);
+  const roomAmount = Math.round(Math.max(0, Number(baseAmount ?? (checkoutSubtotal - Number(taxAmount || 0)))));
+  const hotelTaxAmount = Math.round(Math.max(0, Number(taxAmount || 0)));
+  const grossForHotel = roomAmount + hotelTaxAmount;
   const platformCommissionPercent = clampPercent(commissionPercent, 0, 100);
-  const platformCommissionAmount = Math.round((checkoutSubtotal * platformCommissionPercent) / 100);
-  const partnerNetPayout = Math.max(0, checkoutSubtotal - platformCommissionAmount);
+  const platformCommissionAmount = Math.round((roomAmount * platformCommissionPercent) / 100);
+  const paymentGatewayFeeAmount = Math.max(0, Math.round(Number.isFinite(Number(gatewayFeeAmount)) ? Number(gatewayFeeAmount) : calculateGatewayFee(roomAmount)));
+  const partnerNetPayout = Math.max(0, grossForHotel - platformCommissionAmount - paymentGatewayFeeAmount);
 
   return {
+    base_amount: roomAmount,
+    hotel_gst_amount: hotelTaxAmount,
+    convenience_fee: convenienceFeeAmount,
+    customer_total: totalAmount,
+    advance_paid: advanceAmount,
+    balance_at_property: balanceAmount,
+    commission_rate: platformCommissionPercent,
+    commission_amount: platformCommissionAmount,
+    payment_gateway_fee: paymentGatewayFeeAmount,
+    gross_for_hotel: grossForHotel,
+    hotel_net_payout: partnerNetPayout,
+    payout_status: 'pending',
     checkoutSubtotal,
     convenienceFeePercent: 2,
     convenienceFeeAmount,
@@ -95,6 +119,8 @@ const buildMoneyFields = ({ subtotal, paymentOption = 'advance_30', commissionPe
     balanceAmount,
     platformCommissionPercent,
     platformCommissionAmount,
+    grossForHotel,
+    paymentGatewayFeeAmount,
     partnerNetPayout,
   };
 };
@@ -146,11 +172,11 @@ const buildPartnerBookingHtml = (booking) => {
     ['Room', booking.roomNumber],
     ['Guests', booking.guests],
     ['Base Amount', `INR ${Number(booking.baseAmount || 0).toLocaleString('en-IN')}`],
-    ['GST', `INR ${Number(booking.taxAmount || 0).toLocaleString('en-IN')}`],
+    ['Hotel GST', `INR ${Number(booking.taxAmount || 0).toLocaleString('en-IN')}`],
     ['Convenience Fee', `INR ${Number(booking.convenienceFeeAmount || 0).toLocaleString('en-IN')}`],
     ['Grand Total', `INR ${Number(booking.totalAmount || 0).toLocaleString('en-IN')}`],
     ['Advance Online', `INR ${Number(booking.advanceAmount || 0).toLocaleString('en-IN')}`],
-    ['Balance Cash', `INR ${Number(booking.balanceAmount || 0).toLocaleString('en-IN')}`],
+    ['Balance to Collect at Property', `INR ${Number(booking.balanceAmount || 0).toLocaleString('en-IN')}`],
   ].filter(([, value]) => typeof value !== 'undefined' && value !== null && value !== '');
 
   return `
@@ -197,13 +223,15 @@ const enqueueBookingNotifications = (booking, { invoice = false, partnerAlert = 
 
 const bookingDetailFields = [
   'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName',
+  'service_billing_model',
   'hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
   'assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail',
   'customerFullName customerMobile customerEmail arrivalMode vehicleNumber arrivalTime',
   'totalAdults totalChildren hasPet guestDetails',
   'baseAmount taxPercent taxAmount checkoutSubtotal convenienceFeePercent convenienceFeeAmount totalAmount advanceAmount balanceAmount advancePercent paymentOption',
-  'platformCommissionPercent platformCommissionAmount partnerNetPayout',
+  'base_amount hotel_gst_amount convenience_fee customer_total advance_paid balance_at_property commission_rate commission_amount payment_gateway_fee gross_for_hotel hotel_net_payout payout_status hotel_gstin hotel_invoice_number',
+  'platformCommissionPercent platformCommissionAmount grossForHotel paymentGatewayFeeAmount partnerNetPayout',
   'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo',
   'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount createdAt',
 ].join(' ');
@@ -250,12 +278,13 @@ router.post('/cab', protect, async (req, res) => {
     const breakdown = calcCabFare(rule);
     const paymentOption = getPaymentOption(req.body?.paymentOption || 'advance_30', ['advance_30']);
     if (!paymentOption) return res.status(400).json({ success: false, message: 'Cab bookings only support 30% advance online payment' });
-    const money = buildMoneyFields({ subtotal: breakdown.total, paymentOption });
+    const money = buildMoneyFields({ subtotal: breakdown.total, baseAmount: breakdown.total, taxAmount: 0, paymentOption, gatewayFeeAmount: req.body?.paymentGatewayFeeAmount });
     const bookingId = generateBookingCode();
 
     const booking = await Booking.create({
       bookingId,
       bookingType: 'cab',
+      service_billing_model: 'taxi_direct',
       itemId: 'cab_request',
       itemName: `${pickupLocation} → ${dropLocation} (${cabType})`,
       itemImage: '/placeholder.svg',
@@ -283,6 +312,9 @@ router.post('/cab', protect, async (req, res) => {
       cabFareTotal: breakdown.total,
       tollOption,
 
+      baseAmount: breakdown.total,
+      taxPercent: 0,
+      taxAmount: 0,
       ...money,
       paymentMethod: 'online',
       paymentStatus: 'pending',
@@ -370,8 +402,11 @@ router.post('/room-type', protect, async (req, res) => {
 
     const money = buildMoneyFields({
       subtotal,
+      baseAmount,
+      taxAmount,
       paymentOption,
       commissionPercent: hotel.platform_commission_percentage,
+      gatewayFeeAmount: req.body?.paymentGatewayFeeAmount,
     });
 
     const units = await RoomUnit.find({ roomTypeId: roomType._id, status: { $in: BOOKABLE_ROOM_STATUSES } }).sort({ number: 1 }).lean();
@@ -400,6 +435,7 @@ router.post('/room-type', protect, async (req, res) => {
       const booking = new Booking({
         bookingId,
         bookingType: 'room_type',
+        service_billing_model: 'hotel_marketplace',
         itemId: String(roomType._id),
         itemName: `${hotel.name} - ${roomType.name}`,
         itemImage: (roomType.images && roomType.images[0]) || hotel.image,
@@ -435,6 +471,7 @@ router.post('/room-type', protect, async (req, res) => {
         baseAmount,
         taxPercent,
         taxAmount,
+        hotel_gstin: hotel.hotelGstin || '',
         ...money,
         paymentMethod: 'online',
         bookingStatus: 'pending',
@@ -477,6 +514,7 @@ router.post('/room-type', protect, async (req, res) => {
       const waitlistedBooking = await Booking.create({
         bookingId,
         bookingType: 'room_type',
+        service_billing_model: 'hotel_marketplace',
         itemId: String(roomType._id),
         itemName: `${hotel.name} - ${roomType.name}`,
         itemImage: (roomType.images && roomType.images[0]) || hotel.image,
@@ -510,6 +548,7 @@ router.post('/room-type', protect, async (req, res) => {
         baseAmount,
         taxPercent,
         taxAmount,
+        hotel_gstin: hotel.hotelGstin || '',
         ...money,
         paymentMethod: 'online',
         bookingStatus: 'pending',
@@ -550,12 +589,17 @@ router.post('/', protect, async (req, res) => {
     if (!paymentOption) return res.status(400).json({ success: false, message: 'Invalid payment option' });
 
     const subtotal = Number(req.body?.checkoutSubtotal ?? req.body?.totalAmount ?? 0);
+    const baseAmount = Number(req.body?.baseAmount ?? subtotal);
+    const taxAmount = Number(req.body?.taxAmount ?? 0);
     const commissionPercent = clampPercent(req.body?.platformCommissionPercent, 0, 100);
-    const money = buildMoneyFields({ subtotal, paymentOption, commissionPercent });
+    const money = buildMoneyFields({ subtotal, baseAmount, taxAmount, paymentOption, commissionPercent, gatewayFeeAmount: req.body?.paymentGatewayFeeAmount });
 
     const payload = {
       ...req.body,
       ...money,
+      baseAmount,
+      taxAmount,
+      service_billing_model: getBillingModelForBookingType(bookingType),
       userId: req.user._id,
       userName: req.user.name,
       userEmail: req.user.email,
@@ -724,6 +768,7 @@ const cancelBookingNow = async (booking, reason, reviewedByAdmin = false, meta =
   booking.cancelledByRole = meta.cancelledByRole || booking.cancelledByRole || (reviewedByAdmin ? 'admin' : 'user');
   booking.cancelledByName = meta.cancelledByName || booking.cancelledByName || '';
   booking.cancelledAt = new Date();
+  booking.payout_status = 'cancelled';
   booking.cancellationDetails = meta.cancellationDetails || booking.cancellationDetails || '';
   Object.assign(booking, cancellationMoney(booking.totalAmount));
   await booking.save();
@@ -904,6 +949,28 @@ router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
     );
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: update operational stay status for hotel settlement flow
+router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    const nextStatus = normalize(req.body?.bookingStatus || req.body?.status);
+    const allowed = ['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'settled', 'completed'];
+    if (!allowed.includes(nextStatus)) return res.status(400).json({ success: false, message: 'Invalid booking status' });
+    if (booking.bookingStatus === 'cancelled') return res.status(400).json({ success: false, message: 'Cancelled booking status cannot be changed' });
+
+    booking.bookingStatus = nextStatus;
+    if (nextStatus === 'checked_in') booking.payout_status = 'checked_in';
+    if (nextStatus === 'checked_out') booking.payout_status = 'checked_out';
+    if (nextStatus === 'settled') booking.payout_status = 'settled';
+    if (nextStatus === 'cancelled') booking.payout_status = 'cancelled';
+    await booking.save();
     res.json({ success: true, data: booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

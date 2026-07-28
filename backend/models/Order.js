@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
   orderId: { type: String, unique: true },
+  service_billing_model: {
+    type: String,
+    enum: ['hotel_marketplace', 'taxi_direct', 'tour_direct', 'ecommerce_direct'],
+    default: 'ecommerce_direct',
+    index: true,
+  },
   // NOTE: Do not use sparse here. Existing deployments may already have a non-sparse
   // unique index named trackingId_1; using sparse would cause createIndexes conflicts.
   trackingId: { type: String, unique: true, index: true },

@@ -1,12 +1,14 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const fs = require('fs/promises');
 const https = require('https');
+const path = require('path');
 const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
-const { maybeUploadImageArray } = require('../utils/imageFields');
+const { uploadDataUri, isCloudinaryEnabled } = require('../utils/cloudinary');
 const router = express.Router();
 
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
@@ -27,6 +29,87 @@ const getDocumentPayload = (item) => {
   };
 };
 
+const DOCUMENT_TYPES = ['aadhar_card', 'gstin_registration', 'property_registry_document', 'business_license', 'pan_card', 'other'];
+const safeFileName = (value) => {
+  const parsed = path.parse(String(value || 'document'));
+  const base = String(parsed.name || 'document').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'document';
+  const ext = String(parsed.ext || '').replace(/[^a-z0-9.]/gi, '').slice(0, 12);
+  return `${base}${ext}`;
+};
+
+const extensionForMime = (mimeType) => {
+  const mime = String(mimeType || '').toLowerCase();
+  if (mime === 'application/pdf') return '.pdf';
+  if (mime.includes('png')) return '.png';
+  if (mime.includes('jpeg') || mime.includes('jpg')) return '.jpg';
+  if (mime.includes('webp')) return '.webp';
+  if (mime.includes('msword')) return '.doc';
+  if (mime.includes('wordprocessingml')) return '.docx';
+  return '';
+};
+
+const storePartnerDocument = async (doc, index) => {
+  const data = String(doc.data || '').trim();
+  const originalName = safeFileName(doc.name || `document-${index + 1}`);
+  const mimeFromDataUri = data.match(/^data:([^;]+);base64,/i)?.[1] || '';
+  const mimeType = doc.mimeType || mimeFromDataUri || 'application/octet-stream';
+  const category = DOCUMENT_TYPES.includes(doc.type) ? doc.type : 'other';
+
+  if (!data.startsWith('data:')) {
+    return {
+      name: originalName,
+      originalName,
+      type: category,
+      mimeType,
+      sizeBytes: 0,
+      storage: 'external',
+      url: data,
+      uploadedAt: new Date(),
+    };
+  }
+
+  const b64 = data.split(',')[1] || '';
+  const buffer = Buffer.from(b64, 'base64');
+  if (!buffer.length) return null;
+
+  if (isCloudinaryEnabled()) {
+    const url = await uploadDataUri(data, {
+      folder: 'vrindavan-sarthi/partner-documents',
+      tags: ['partner', 'document', category],
+      resourceType: 'auto',
+    });
+    if (url) {
+      return {
+        name: originalName,
+        originalName,
+        type: category,
+        mimeType,
+        sizeBytes: buffer.length,
+        storage: 'cloudinary',
+        url,
+        uploadedAt: new Date(),
+      };
+    }
+  }
+
+  const folder = path.join(process.cwd(), 'uploads', 'partner-documents');
+  await fs.mkdir(folder, { recursive: true });
+  const parsed = path.parse(originalName);
+  const ext = parsed.ext || extensionForMime(mimeType) || '.bin';
+  const fileName = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}-${parsed.name || 'document'}${ext}`;
+  await fs.writeFile(path.join(folder, fileName), buffer);
+  return {
+    name: originalName,
+    originalName,
+    type: category,
+    mimeType,
+    sizeBytes: buffer.length,
+    storage: 'local',
+    url: `/uploads/partner-documents/${fileName}`,
+    uploadedAt: new Date(),
+  };
+};
+
 const normalizePartnerDocuments = async (docsInput, { max = 10 } = {}) => {
   const docs = (Array.isArray(docsInput) ? docsInput : [])
     .map(getDocumentPayload)
@@ -34,25 +117,8 @@ const normalizePartnerDocuments = async (docsInput, { max = 10 } = {}) => {
   const limited = docs.slice(0, Math.max(0, Number(max) || 0) || 10);
   if (!limited.length) return [];
 
-  const urls = await maybeUploadImageArray(
-    limited.map((doc) => doc.data),
-    { folder: 'vrindavan-sarthi/partner-documents', tags: ['partner', 'document'], max }
-  );
-  const now = new Date();
-  return urls.map((url, index) => {
-    const source = limited[index] || {};
-    const mimeFromDataUri = String(source.data || '').match(/^data:([^;]+);/i)?.[1] || '';
-    const category = ['aadhar_card', 'gstin_registration', 'property_registry_document', 'business_license', 'pan_card', 'other'].includes(source.type)
-      ? source.type
-      : 'other';
-    return {
-      name: source.name || `document-${index + 1}`,
-      type: category,
-      mimeType: source.mimeType || mimeFromDataUri || 'application/octet-stream',
-      url,
-      uploadedAt: now,
-    };
-  });
+  const stored = await Promise.all(limited.map((doc, index) => storePartnerDocument(doc, index)));
+  return stored.filter(Boolean);
 };
 
 const requireEnv = (key) => {

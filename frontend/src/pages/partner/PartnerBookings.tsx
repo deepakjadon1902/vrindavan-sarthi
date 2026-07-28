@@ -15,7 +15,7 @@ const PartnerBookings = () => {
     partnerRejectPayment,
     adminCancelBooking,
   } = useBookingStore();
-  const [filter, setFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'settled'>('all');
   const [expandedBookingId, setExpandedBookingId] = useState<string>('');
   const [cancelBookingId, setCancelBookingId] = useState('');
   const [cancelReason, setCancelReason] = useState('');
@@ -31,8 +31,10 @@ const PartnerBookings = () => {
 
   const statusColor = (s: string) => {
     if (s === 'confirmed') return 'bg-brand-green/10 text-brand-green';
+    if (s === 'checked_in') return 'bg-blue-50 text-blue-700';
+    if (s === 'checked_out') return 'bg-emerald-50 text-emerald-700';
     if (s === 'cancelled') return 'bg-destructive/10 text-destructive';
-    if (s === 'completed') return 'bg-brand-gold/10 text-brand-gold';
+    if (s === 'completed' || s === 'settled') return 'bg-brand-gold/10 text-brand-gold';
     return 'bg-muted text-muted-foreground';
   };
 
@@ -68,7 +70,7 @@ const PartnerBookings = () => {
   return (
     <div className="space-y-6">
       <div className="flex gap-2 flex-wrap">
-        {(['all', 'confirmed', 'cancelled', 'completed'] as const).map((f) => (
+        {(['all', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'completed', 'settled'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}

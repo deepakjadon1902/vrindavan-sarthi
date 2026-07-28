@@ -32,10 +32,33 @@ const normalizeBankDetails = (body) => {
   return { data: { account_holder_name, bank_name, account_number, ifsc_code, verified: true, updatedAt: new Date() } };
 };
 
+const applyPartnerHotelDefaults = (body, user) => {
+  const businessName = String(user?.businessName || '').trim();
+  const businessAddress = String(user?.businessAddress || '').trim();
+  const businessDescription = String(user?.businessDescription || '').trim();
+  const businessPhone = String(user?.businessPhone || user?.phone || '').trim();
+  const businessEmail = String(user?.businessEmail || user?.email || '').trim();
+
+  body.name = String(body?.name || businessName || user?.name || '').trim();
+  body.location = String(body?.location || businessAddress || '').trim();
+  body.description = String(body?.description || businessDescription || '').trim();
+  body.contactPhone = String(body?.contactPhone || businessPhone || '').trim();
+  body.contactEmail = String(body?.contactEmail || businessEmail || '').trim();
+  body.fullAddress = String(body?.fullAddress || businessAddress || body.location || '').trim();
+  body.businessName = businessName;
+  return body;
+};
+
 // Partner: Submit hotel
 router.post('/hotels', protect, authorize('partner'), async (req, res) => {
   try {
     const body = { ...req.body };
+    const existingHotel = await Hotel.findOne({ partnerId: req.user._id }).select('_id name').lean();
+    if (existingHotel) {
+      return res.status(409).json({ success: false, message: 'Only one hotel can be listed per partner. Add unlimited room types and room numbers from Inventory.' });
+    }
+    applyPartnerHotelDefaults(body, req.user);
+    if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Hotel name and location are required' });
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
@@ -61,6 +84,8 @@ router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
 
     const body = { ...req.body };
+    applyPartnerHotelDefaults(body, req.user);
+    if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Hotel name and location are required' });
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
@@ -152,7 +177,7 @@ router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerId: req.user._id })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name location rating image images description amenities googleMapLink nearestTemple status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage createdAt updatedAt')
+      .select('name location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage createdAt updatedAt')
       .lean();
 
     hotelQuery.limit(limit);
@@ -178,7 +203,7 @@ router.get('/requests', protect, authorize('admin'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerSubmitted: true })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name location rating image images description amenities googleMapLink nearestTemple status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage createdAt updatedAt')
+      .select('name location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage createdAt updatedAt')
       .lean();
     hotelQuery.limit(limit);
 
@@ -259,16 +284,55 @@ router.get('/payouts', protect, authorize('admin'), async (req, res) => {
           $match: {
             partnerId: { $in: partnerIds },
             paymentStatus: 'paid',
-            bookingStatus: { $in: ['confirmed', 'completed'] },
+            bookingStatus: 'checked_out',
+            payout_status: { $ne: 'settled' },
           },
         },
         {
           $group: {
             _id: '$partnerId',
+            hotelRoomAmount: { $sum: '$baseAmount' },
+            hotelGstCollected: { $sum: '$taxAmount' },
+            platformConvenienceFee: { $sum: '$convenienceFeeAmount' },
             totalIngestedVolume: { $sum: '$totalAmount' },
-            deductedGstGatewayCosts: { $sum: { $add: ['$taxAmount', '$convenienceFeeAmount'] } },
-            deductedPlatformCommission: { $sum: '$platformCommissionAmount' },
-            netPayableRemittanceBalance: { $sum: '$partnerNetPayout' },
+            grossForHotel: { $sum: { $ifNull: ['$grossForHotel', { $add: ['$baseAmount', '$taxAmount'] }] } },
+            deductedPlatformCommission: {
+              $sum: {
+                $multiply: [
+                  '$baseAmount',
+                  { $divide: [{ $ifNull: ['$platformCommissionPercent', 0] }, 100] },
+                ],
+              },
+            },
+            paymentGatewayCharges: {
+              $sum: {
+                $ifNull: ['$paymentGatewayFeeAmount', { $multiply: ['$baseAmount', 0.02] }],
+              },
+            },
+            advanceReceived: { $sum: '$advanceAmount' },
+            balanceAtProperty: { $sum: '$balanceAmount' },
+            netPayableRemittanceBalance: {
+              $sum: {
+                $let: {
+                  vars: {
+                    net: {
+                      $subtract: [
+                        { $ifNull: ['$grossForHotel', { $add: ['$baseAmount', '$taxAmount'] }] },
+                        {
+                          $add: [
+                            { $multiply: ['$baseAmount', { $divide: [{ $ifNull: ['$platformCommissionPercent', 0] }, 100] }] },
+                            { $ifNull: ['$paymentGatewayFeeAmount', { $multiply: ['$baseAmount', 0.02] }] },
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                  in: { $cond: [{ $gt: ['$$net', 0] }, '$$net', 0] },
+                },
+              },
+            },
+            refunds: { $sum: { $ifNull: ['$refundableAmount', 0] } },
+            tdsTcs: { $sum: 0 },
             bookingCount: { $sum: 1 },
           },
         },
@@ -281,10 +345,18 @@ router.get('/payouts', protect, authorize('admin'), async (req, res) => {
       return {
         ...partner,
         ledger: {
+          hotelRoomAmount: Math.round(Number(ledger.hotelRoomAmount || 0)),
+          hotelGstCollected: Math.round(Number(ledger.hotelGstCollected || 0)),
+          platformConvenienceFee: Math.round(Number(ledger.platformConvenienceFee || 0)),
           totalIngestedVolume: Math.round(Number(ledger.totalIngestedVolume || 0)),
-          deductedGstGatewayCosts: Math.round(Number(ledger.deductedGstGatewayCosts || 0)),
+          grossForHotel: Math.round(Number(ledger.grossForHotel || 0)),
           deductedPlatformCommission: Math.round(Number(ledger.deductedPlatformCommission || 0)),
+          paymentGatewayCharges: Math.round(Number(ledger.paymentGatewayCharges || 0)),
+          advanceReceived: Math.round(Number(ledger.advanceReceived || 0)),
+          balanceAtProperty: Math.round(Number(ledger.balanceAtProperty || 0)),
           netPayableRemittanceBalance: Math.round(Number(ledger.netPayableRemittanceBalance || 0)),
+          refunds: Math.round(Number(ledger.refunds || 0)),
+          tdsTcs: Math.round(Number(ledger.tdsTcs || 0)),
           bookingCount: Number(ledger.bookingCount || 0),
           isPaid: Boolean(partner.payoutSettlement?.isPaid),
           paidAt: partner.payoutSettlement?.paidAt || null,

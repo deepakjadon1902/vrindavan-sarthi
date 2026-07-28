@@ -9,6 +9,22 @@ import ImageCarousel from '@/components/shared/ImageCarousel';
 import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getNextDateKey = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+    ? new Date(year, month - 1, day)
+    : new Date();
+  date.setDate(date.getDate() + 1);
+  return getLocalDateKey(date);
+};
+
 const RoomDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -21,6 +37,8 @@ const RoomDetail = () => {
   const [showPayment, setShowPayment] = useState(false);
   const [booked, setBooked] = useState(false);
   const [bookingId, setBookingId] = useState('');
+  const todayKey = getLocalDateKey();
+  const checkOutMinKey = checkIn ? getNextDateKey(checkIn) : todayKey;
 
   useEffect(() => {
     const run = async () => {
@@ -57,9 +75,32 @@ const RoomDetail = () => {
   const handleInitiateBooking = () => {
     if (!isAuthenticated) { toast.error('Please login to book'); navigate('/login'); return; }
     if (!checkIn || !checkOut) { toast.error('Please select dates'); return; }
+    if (checkIn < todayKey) { toast.error('Check-in date cannot be in the past'); return; }
+    if (checkOut <= checkIn) { toast.error('Check-out must be after check-in'); return; }
     const tempId = `VVS-2025-${String(Math.floor(10000 + Math.random() * 90000))}`;
     setBookingId(tempId);
     setShowPayment(true);
+  };
+
+  const handleCheckInChange = (value: string) => {
+    if (value && value < todayKey) {
+      toast.error('Check-in date cannot be in the past');
+      return;
+    }
+    setCheckIn(value);
+    if (checkOut && value && checkOut <= value) setCheckOut('');
+  };
+
+  const handleCheckOutChange = (value: string) => {
+    if (value && value < todayKey) {
+      toast.error('Check-out date cannot be in the past');
+      return;
+    }
+    if (value && checkIn && value <= checkIn) {
+      toast.error('Check-out must be after check-in');
+      return;
+    }
+    setCheckOut(value);
   };
 
   const handlePaymentConfirm = async (transactionId: string) => {
@@ -163,8 +204,8 @@ const RoomDetail = () => {
                     <span className="font-body text-sm text-muted-foreground"> /night</span>
                   </div>
                   <div className="space-y-4">
-                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-in</label><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-out</label><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-in</label><input type="date" min={todayKey} value={checkIn} onChange={(e) => handleCheckInChange(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-out</label><input type="date" min={checkOutMinKey} value={checkOut} onChange={(e) => handleCheckOutChange(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                   </div>
                   <div className="border-t border-brand-gold/20 mt-4 pt-4 space-y-2">
                     <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{room.pricePerNight} × {nights} night(s)</span><span>₹{total.toLocaleString('en-IN')}</span></div>

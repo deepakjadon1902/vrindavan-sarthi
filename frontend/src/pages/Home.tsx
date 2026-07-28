@@ -446,7 +446,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, CarTaxiFront, MapPinned, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag, MessageCircle, Search, CalendarDays, BedDouble, BadgeCheck } from 'lucide-react';
+import { Building2, CarTaxiFront, MapPinned, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag, MessageCircle, Search, BedDouble } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import TestimonialCard from '@/components/shared/TestimonialCard';
@@ -717,7 +717,7 @@ const Home = () => {
               })}
             </div>
 
-            <div className="mt-2.5 grid gap-2.5 lg:grid-cols-[1.3fr_0.8fr_auto]">
+            <div className="mt-2.5 grid gap-2.5 lg:grid-cols-[1fr_auto]">
               <label className="relative block">
                 <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-saffron" size={16} />
                 <input
@@ -730,20 +730,6 @@ const Home = () => {
                   className="h-12 w-full rounded-lg border border-border bg-white pl-10 pr-3 font-body text-sm text-foreground outline-none transition focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/35"
                 />
               </label>
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="rounded-lg border border-border bg-secondary/45 px-3 py-1.5">
-                  <span className="flex items-center gap-1.5 font-body text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-                    <CalendarDays size={12} /> Flexible
-                  </span>
-                  <p className="font-body text-xs font-semibold text-foreground">Today or later</p>
-                </div>
-                <div className="rounded-lg border border-border bg-secondary/45 px-3 py-1.5">
-                  <span className="flex items-center gap-1.5 font-body text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-                    <BadgeCheck size={12} /> Verified
-                  </span>
-                  <p className="font-body text-xs font-semibold text-foreground">Admin checked</p>
-                </div>
-              </div>
               <button
                 type="button"
                 onClick={runPlannerSearch}
@@ -753,13 +739,8 @@ const Home = () => {
               </button>
             </div>
 
-            <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border/70 pt-2.5">
-              {['Clear pricing', 'Verified partners', 'Local travel support', 'Secure UPI flow'].map((item) => (
-                <span key={item} className="trust-pill">
-                  <Shield size={13} /> {item}
-                </span>
-              ))}
-              <a href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-body text-xs font-bold text-brand-green hover:bg-brand-green/10">
+            <div className="mt-2.5 flex justify-end border-t border-border/70 pt-2.5">
+              <a href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-body text-xs font-bold text-brand-green hover:bg-brand-green/10">
                 <MessageCircle size={14} /> WhatsApp support
               </a>
             </div>
@@ -841,8 +822,8 @@ const Home = () => {
                     images={hotel.images}
                     name={hotel.name}
                     location={hotel.location}
-                    rating={0}
-                    reviewCount={0}
+                    rating={Number(hotel.rating || 0)}
+                    reviewCount={Number(hotel.reviewCount || 0)}
                     amenities={hotel.amenities || []}
                     onViewDetails={() => {
                       prefetchDetail('hotels', hotel._id, hotel);

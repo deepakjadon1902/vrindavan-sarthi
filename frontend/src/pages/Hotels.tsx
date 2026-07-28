@@ -349,8 +349,8 @@ const Hotels = () => {
                     images={hotel.images}
                     name={hotel.name}
                     location={hotel.location}
-                    rating={0}
-                    reviewCount={0}
+                    rating={Number(hotel.rating || 0)}
+                    reviewCount={Number(hotel.reviewCount || 0)}
                     amenities={hotel.amenities || []}
                     onViewDetails={() => void openHotel(hotel)}
                   />

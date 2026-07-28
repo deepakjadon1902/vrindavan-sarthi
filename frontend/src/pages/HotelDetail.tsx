@@ -823,7 +823,7 @@ const HotelDetail = () => {
                           location={rtHotel?.name || 'Hotel room'}
                           price={getTaxInclusivePrice(rt)}
                           priceLabel={rtHotel?.taxEnabled ? '/night incl. GST' : '/night'}
-                          rating={0}
+                          rating={Number(rtHotel?.rating || 0)}
                           reviewCount={0}
                           amenities={rt.amenities || rtHotel?.amenities || []}
                           meta={availabilityText}

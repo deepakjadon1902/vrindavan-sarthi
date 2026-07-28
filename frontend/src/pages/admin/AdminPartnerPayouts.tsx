@@ -20,10 +20,18 @@ type PayoutPartner = {
     updatedAt?: string;
   };
   ledger?: {
+    hotelRoomAmount: number;
+    hotelGstCollected: number;
+    platformConvenienceFee: number;
     totalIngestedVolume: number;
-    deductedGstGatewayCosts: number;
+    grossForHotel: number;
     deductedPlatformCommission: number;
+    paymentGatewayCharges: number;
+    advanceReceived: number;
+    balanceAtProperty: number;
     netPayableRemittanceBalance: number;
+    refunds: number;
+    tdsTcs: number;
     bookingCount: number;
     isPaid: boolean;
     paidAt?: string | null;
@@ -70,7 +78,7 @@ const AdminPartnerPayouts = () => {
 
   const exportCsv = () => {
     const rows = [
-      ['Partner Name', 'Business Name', 'Email', 'Phone', 'Account Holder', 'Bank Name', 'Account Number', 'IFSC Code', 'Bookings', 'Total Ingested Volume', 'Deducted GST & Gateway Costs', 'Deducted Platform Commission', 'Net Payable Remittance Balance', 'Settlement Status', 'Paid At', 'Updated At'],
+      ['Partner Name', 'Business Name', 'Email', 'Phone', 'Account Holder', 'Bank Name', 'Account Number', 'IFSC Code', 'Bookings', 'Hotel Room Amount', 'Hotel GST Collected', 'Platform Convenience Fee', 'Gross for Hotel', 'OTA Commission', 'Payment Gateway Charges', 'Advance Received', 'Balance at Property', 'Hotel Payout', 'Refunds', 'TDS/TCS', 'Settlement Status', 'Paid At', 'Updated At'],
       ...filtered.map((p) => [
         p.name,
         p.businessName || '',
@@ -81,10 +89,17 @@ const AdminPartnerPayouts = () => {
         p.bankDetails?.account_number || '',
         p.bankDetails?.ifsc_code || '',
         p.ledger?.bookingCount || 0,
-        p.ledger?.totalIngestedVolume || 0,
-        p.ledger?.deductedGstGatewayCosts || 0,
+        p.ledger?.hotelRoomAmount || 0,
+        p.ledger?.hotelGstCollected || 0,
+        p.ledger?.platformConvenienceFee || 0,
+        p.ledger?.grossForHotel || 0,
         p.ledger?.deductedPlatformCommission || 0,
+        p.ledger?.paymentGatewayCharges || 0,
+        p.ledger?.advanceReceived || 0,
+        p.ledger?.balanceAtProperty || 0,
         p.ledger?.netPayableRemittanceBalance || 0,
+        p.ledger?.refunds || 0,
+        p.ledger?.tdsTcs || 0,
         p.ledger?.isPaid ? 'Settled' : 'Pending',
         p.ledger?.paidAt ? new Date(p.ledger.paidAt).toLocaleString('en-IN') : '',
         p.bankDetails?.updatedAt ? new Date(p.bankDetails.updatedAt).toLocaleString('en-IN') : '',
@@ -147,7 +162,7 @@ const AdminPartnerPayouts = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  {['Partner', 'Business', 'Bank', 'Volume', 'GST + Gateway', 'Commission', 'Net Payable', 'Status', 'Action'].map((h) => (
+                  {['Partner', 'Business', 'Bank', 'Room Amount', 'Hotel GST', 'Convenience Fee', 'Commission', 'Gateway', 'Hotel Payout', 'Status', 'Action'].map((h) => (
                     <th key={h} className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">{h}</th>
                   ))}
                 </tr>
@@ -166,9 +181,11 @@ const AdminPartnerPayouts = () => {
                       <p className="text-muted-foreground">{p.bankDetails?.account_number || '-'}</p>
                       <p className="text-muted-foreground">{p.bankDetails?.ifsc_code || '-'}</p>
                     </td>
-                    <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">{money(p.ledger?.totalIngestedVolume)}</td>
-                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.deductedGstGatewayCosts)}</td>
+                    <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">{money(p.ledger?.hotelRoomAmount)}</td>
+                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.hotelGstCollected)}</td>
+                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.platformConvenienceFee)}</td>
                     <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.deductedPlatformCommission)}</td>
+                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.paymentGatewayCharges)}</td>
                     <td className="px-4 py-3 font-body text-sm font-semibold text-brand-green">{money(p.ledger?.netPayableRemittanceBalance)}</td>
                     <td className="px-4 py-3 font-body text-xs">
                       <span className={`px-2 py-1 rounded-full ${p.ledger?.isPaid ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-saffron/10 text-brand-saffron'}`}>

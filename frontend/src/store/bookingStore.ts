@@ -29,10 +29,16 @@ export interface Booking {
   paymentOption?: 'advance_30' | 'full_100';
   platformCommissionPercent?: number;
   platformCommissionAmount?: number;
+  service_billing_model?: 'hotel_marketplace' | 'taxi_direct' | 'tour_direct' | 'ecommerce_direct';
+  grossForHotel?: number;
+  paymentGatewayFeeAmount?: number;
   partnerNetPayout?: number;
+  payout_status?: 'pending' | 'checked_in' | 'checked_out' | 'cancelled' | 'settled';
+  hotel_gstin?: string;
+  hotel_invoice_number?: string;
   paymentMethod: 'online' | 'doorstep';
   paymentStatus: 'pending' | 'paid' | 'failed';
-  bookingStatus: 'confirmed' | 'cancelled' | 'completed' | 'pending';
+  bookingStatus: 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled';
   verificationStage?: 'pending_partner' | 'pending_admin' | 'verified' | 'rejected';
   partnerPaymentVerified?: boolean;
   adminPaymentVerified?: boolean;
@@ -134,16 +140,22 @@ const normalizeBooking = (b: unknown): Booking => {
     checkOut: getString(obj, 'checkOut') || undefined,
     guests: getNumber(obj, 'guests') || undefined,
     totalAmount: getNumber(obj, 'totalAmount'),
-    baseAmount: getNumber(obj, 'baseAmount') || undefined,
+    baseAmount: getNumber(obj, 'baseAmount') || getNumber(obj, 'base_amount') || undefined,
     taxPercent: getNumber(obj, 'taxPercent') || undefined,
-    taxAmount: getNumber(obj, 'taxAmount') || undefined,
+    taxAmount: getNumber(obj, 'taxAmount') || getNumber(obj, 'hotel_gst_amount') || undefined,
     checkoutSubtotal: getNumber(obj, 'checkoutSubtotal') || undefined,
     convenienceFeePercent: getNumber(obj, 'convenienceFeePercent') || undefined,
-    convenienceFeeAmount: getNumber(obj, 'convenienceFeeAmount') || undefined,
+    convenienceFeeAmount: getNumber(obj, 'convenienceFeeAmount') || getNumber(obj, 'convenience_fee') || undefined,
     paymentOption: (getString(obj, 'paymentOption') as Booking['paymentOption']) || undefined,
-    platformCommissionPercent: getNumber(obj, 'platformCommissionPercent') || undefined,
-    platformCommissionAmount: getNumber(obj, 'platformCommissionAmount') || undefined,
-    partnerNetPayout: getNumber(obj, 'partnerNetPayout') || undefined,
+    platformCommissionPercent: getNumber(obj, 'platformCommissionPercent') || getNumber(obj, 'commission_rate') || undefined,
+    platformCommissionAmount: getNumber(obj, 'platformCommissionAmount') || getNumber(obj, 'commission_amount') || undefined,
+    service_billing_model: (getString(obj, 'service_billing_model') as Booking['service_billing_model']) || undefined,
+    grossForHotel: getNumber(obj, 'grossForHotel') || getNumber(obj, 'gross_for_hotel') || undefined,
+    paymentGatewayFeeAmount: getNumber(obj, 'paymentGatewayFeeAmount') || getNumber(obj, 'payment_gateway_fee') || undefined,
+    partnerNetPayout: getNumber(obj, 'partnerNetPayout') || getNumber(obj, 'hotel_net_payout') || undefined,
+    payout_status: (getString(obj, 'payout_status') as Booking['payout_status']) || undefined,
+    hotel_gstin: getString(obj, 'hotel_gstin') || undefined,
+    hotel_invoice_number: getString(obj, 'hotel_invoice_number') || undefined,
     paymentMethod: (getString(obj, 'paymentMethod') as Booking['paymentMethod']) || 'online',
     paymentStatus: (getString(obj, 'paymentStatus') as Booking['paymentStatus']) || 'pending',
     bookingStatus: (getString(obj, 'bookingStatus') as Booking['bookingStatus']) || 'pending',
@@ -223,6 +235,7 @@ interface BookingState {
   createCabBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   cancelBooking: (id: string, reason?: string, details?: string) => Promise<{ success: boolean; error?: string }>;
   adminCancelBooking: (id: string, reason: string, details?: string) => Promise<{ success: boolean; error?: string }>;
+  updateBookingStatus: (id: string, status: Booking['bookingStatus']) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   submitPayment: (id: string, upiTransactionId: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   verifyPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   rejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
@@ -367,6 +380,23 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Cancel failed') };
+    }
+  },
+
+  updateBookingStatus: async (id, status) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/status`, { bookingStatus: status }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Status update failed') };
     }
   },
 

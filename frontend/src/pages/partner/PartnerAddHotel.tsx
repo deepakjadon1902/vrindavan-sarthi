@@ -18,6 +18,9 @@ interface PartnerHotel {
   amenities?: string[];
   googleMapLink?: string;
   nearestTemple?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  hotelGstin?: string;
   petsAllowed?: boolean;
   status: 'active' | 'inactive';
   approvalStatus: 'pending' | 'approved' | 'rejected';
@@ -30,6 +33,20 @@ const PartnerAddHotel = () => {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const [searchParams, setSearchParams] = useSearchParams();
+  const getDefaultForm = () => ({
+    name: user?.businessName || '',
+    location: user?.businessAddress || '',
+    rating: '',
+    description: user?.businessDescription || '',
+    amenities: '',
+    googleMapLink: '',
+    nearestTemple: '',
+    checkInTime: '12:00',
+    checkOutTime: '11:00',
+    hotelGstin: user?.gstNumber || '',
+    petsAllowed: false,
+    images: [] as string[],
+  });
 
   const [items, setItems] = useState<PartnerHotel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,17 +55,7 @@ const PartnerAddHotel = () => {
   const [search, setSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
-    name: '',
-    location: '',
-    rating: '',
-    description: '',
-    amenities: '',
-    googleMapLink: '',
-    nearestTemple: '',
-    petsAllowed: false,
-    images: [] as string[],
-  });
+  const [form, setForm] = useState(getDefaultForm);
 
   const load = async () => {
     if (!token) return;
@@ -84,6 +91,9 @@ const PartnerAddHotel = () => {
       amenities: (target.amenities || []).join(', '),
       googleMapLink: target.googleMapLink || '',
       nearestTemple: target.nearestTemple || '',
+      checkInTime: target.checkInTime || '12:00',
+      checkOutTime: target.checkOutTime || '11:00',
+      hotelGstin: target.hotelGstin || user?.gstNumber || '',
       petsAllowed: Boolean(target.petsAllowed),
       images: [target.image, ...(target.images || [])].filter(Boolean) as string[],
     });
@@ -96,17 +106,7 @@ const PartnerAddHotel = () => {
   }, [items, searchParams, setSearchParams]);
 
   const resetForm = () => {
-    setForm({
-      name: '',
-      location: '',
-      rating: '',
-      description: '',
-      amenities: '',
-      googleMapLink: '',
-      nearestTemple: '',
-      petsAllowed: false,
-      images: [],
-    });
+    setForm(getDefaultForm());
     setEditingId(null);
     setShowForm(false);
   };
@@ -142,11 +142,18 @@ const PartnerAddHotel = () => {
       description: form.description,
       googleMapLink: form.googleMapLink,
       nearestTemple: form.nearestTemple,
+      checkInTime: form.checkInTime || '12:00',
+      checkOutTime: form.checkOutTime || '11:00',
+      hotelGstin: form.hotelGstin.trim(),
       amenities: form.amenities
         .split(',')
         .map((a) => a.trim())
         .filter(Boolean),
       petsAllowed: Boolean(form.petsAllowed),
+      contactPhone: user?.businessPhone || user?.phone || '',
+      contactEmail: user?.businessEmail || user?.email || '',
+      fullAddress: user?.businessAddress || form.location,
+      businessName: user?.businessName || form.name,
       image: form.images[0] || '/placeholder.svg',
       images: form.images.slice(1),
     };
@@ -179,6 +186,9 @@ const PartnerAddHotel = () => {
       amenities: (item.amenities || []).join(', '),
       googleMapLink: item.googleMapLink || '',
       nearestTemple: item.nearestTemple || '',
+      checkInTime: item.checkInTime || '12:00',
+      checkOutTime: item.checkOutTime || '11:00',
+      hotelGstin: item.hotelGstin || user?.gstNumber || '',
       petsAllowed: Boolean(item.petsAllowed),
       images: [item.image, ...(item.images || [])].filter(Boolean) as string[],
     });
@@ -216,13 +226,14 @@ const PartnerAddHotel = () => {
     [items, search]
   );
   const isApproved = user?.partnerStatus === 'approved';
+  const hasHotel = items.length > 0;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="font-heading text-xl font-bold text-foreground">My Hotels</h2>
         <p className="font-body text-xs text-muted-foreground">
-          Submit hotels for approval. Approved hotels go live on the main application.
+          Submit one hotel for approval. Add unlimited room types and room numbers from Inventory after the hotel exists.
         </p>
         {user?.partnerStatus && (
           <p className="font-body text-xs text-muted-foreground mt-1">Partner status: {user.partnerStatus}</p>
@@ -250,16 +261,24 @@ const PartnerAddHotel = () => {
           />
         </div>
         <button
-          disabled={!isApproved}
+          disabled={!isApproved || hasHotel}
           onClick={() => {
-            resetForm();
+            setForm(getDefaultForm());
+            setEditingId(null);
             setShowForm(true);
           }}
           className="btn-gold px-5 py-2.5 rounded-lg text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus size={16} /> Submit Hotel
+          <Plus size={16} /> {hasHotel ? 'Hotel Already Listed' : 'Submit Hotel'}
         </button>
       </div>
+
+      {hasHotel && (
+        <div className="bg-brand-green/10 border border-brand-green/25 rounded-xl p-4">
+          <p className="font-body text-sm font-medium text-foreground">One hotel listing is active for your partner account.</p>
+          <p className="font-body text-xs text-muted-foreground mt-1">Use Inventory to add multiple room types and room numbers for this hotel.</p>
+        </div>
+      )}
 
       {showForm && (
         <div className="bg-card rounded-xl border border-border p-6">
@@ -325,6 +344,36 @@ const PartnerAddHotel = () => {
                   <option value="">Select landmark</option>
                   {landmarkOptions.map((name) => <option key={name} value={name}>{name}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-in Time *</label>
+                <input
+                  type="time"
+                  required
+                  value={form.checkInTime}
+                  onChange={(e) => setForm({ ...form, checkInTime: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-out Time *</label>
+                <input
+                  type="time"
+                  required
+                  value={form.checkOutTime}
+                  onChange={(e) => setForm({ ...form, checkOutTime: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Hotel GSTIN</label>
+                <input
+                  type="text"
+                  value={form.hotelGstin}
+                  onChange={(e) => setForm({ ...form, hotelGstin: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="Optional, auto-filled from profile if available"
+                />
               </div>
             </div>
 

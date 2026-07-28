@@ -15,8 +15,9 @@ const ManageBookings = () => {
     verifyPayment,
     rejectPayment,
     adminCancelBooking,
+    updateBookingStatus,
   } = useBookingStore();
-  const [filter, setFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'completed' | 'pending'>('all');
+  const [filter, setFilter] = useState<'all' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'room_type' | 'cab' | 'tour'>('all');
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignBookingId, setAssignBookingId] = useState<string>('');
@@ -53,8 +54,10 @@ const ManageBookings = () => {
 
   const statusColor = (s: string) => {
     if (s === 'confirmed') return 'bg-brand-green/10 text-brand-green';
+    if (s === 'checked_in') return 'bg-blue-50 text-blue-700';
+    if (s === 'checked_out') return 'bg-emerald-50 text-emerald-700';
     if (s === 'cancelled') return 'bg-destructive/10 text-destructive';
-    if (s === 'completed') return 'bg-brand-gold/10 text-brand-gold';
+    if (s === 'completed' || s === 'settled') return 'bg-brand-gold/10 text-brand-gold';
     return 'bg-muted text-muted-foreground';
   };
 
@@ -88,6 +91,12 @@ const ManageBookings = () => {
     const res = await rejectPayment(id);
     if (res.success) toast.success('Payment rejected');
     else toast.error(res.error || 'Reject failed');
+  };
+
+  const handleStatusChange = async (id: string, status: 'checked_in' | 'checked_out' | 'settled') => {
+    const res = await updateBookingStatus(id, status);
+    if (res.success) toast.success(`Booking marked ${status.replace('_', ' ')}`);
+    else toast.error(res.error || 'Status update failed');
   };
 
   const handleAdminCancel = async () => {
@@ -129,7 +138,7 @@ const ManageBookings = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
-        {(['all', 'confirmed', 'pending', 'cancelled', 'completed'] as const).map((f) => (
+        {(['all', 'confirmed', 'checked_in', 'checked_out', 'pending', 'cancelled', 'completed', 'settled'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -311,6 +320,22 @@ const ManageBookings = () => {
                       )
                     ) : (
                       <span className="font-body text-[11px] text-muted-foreground">-</span>
+                    )}
+                    {['hotel', 'room', 'room_type'].includes(b.bookingType) && b.paymentStatus === 'paid' && b.bookingStatus === 'confirmed' && (
+                      <button
+                        onClick={() => void handleStatusChange(b.id, 'checked_in')}
+                        className="px-3 py-1.5 rounded-lg text-xs font-body bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      >
+                        Mark Check-in
+                      </button>
+                    )}
+                    {['hotel', 'room', 'room_type'].includes(b.bookingType) && b.paymentStatus === 'paid' && b.bookingStatus === 'checked_in' && (
+                      <button
+                        onClick={() => void handleStatusChange(b.id, 'checked_out')}
+                        className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-green/10 text-brand-green hover:bg-brand-green/15"
+                      >
+                        Mark Check-out
+                      </button>
                     )}
                     {b.bookingStatus !== 'cancelled' && (
                       <button

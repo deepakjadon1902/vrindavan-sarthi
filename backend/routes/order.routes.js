@@ -233,6 +233,7 @@ router.post('/', protect, async (req, res) => {
       try {
         // eslint-disable-next-line no-await-in-loop
         const order = await Order.create({
+          service_billing_model: 'ecommerce_direct',
           productId: product._id,
           productName: product.name,
           productImage: stripLargeInlineImage(product.images?.[0] || req.body?.productImage),

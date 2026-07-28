@@ -20,6 +20,7 @@ const hotelSchema = new mongoose.Schema({
   checkOutTime: { type: String, default: '11:00' },
   contactPhone: String,
   contactEmail: String,
+  hotelGstin: String,
   fullAddress: String,
   googleMapLink: { type: String, required: true },
   nearestTemple: { type: String, required: true },

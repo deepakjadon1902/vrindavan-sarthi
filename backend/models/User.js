@@ -50,6 +50,7 @@ const userSchema = new mongoose.Schema({
   partnerDocuments: [
     {
       name: String,
+      originalName: String,
       type: {
         type: String,
         enum: ['aadhar_card', 'gstin_registration', 'property_registry_document', 'business_license', 'pan_card', 'other'],
@@ -57,6 +58,8 @@ const userSchema = new mongoose.Schema({
       },
       url: String,
       mimeType: String,
+      sizeBytes: { type: Number, default: 0 },
+      storage: { type: String, enum: ['cloudinary', 'local', 'external'], default: 'external' },
       uploadedAt: Date,
     },
   ],

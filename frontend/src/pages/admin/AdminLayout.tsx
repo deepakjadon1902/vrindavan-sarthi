@@ -121,7 +121,6 @@ const AdminLayout = () => {
         <div className="p-6 border-b border-brand-gold/20">
           <Link to="/admin" className="flex items-center gap-2">
             <img src={APP_LOGO_URL} alt={settings.siteName} className="h-8 w-8 rounded-full object-cover border border-brand-gold/30" />
-            <span className="font-brand text-sm text-brand-gold">{settings.siteName}</span>
           </Link>
           <p className="font-body text-xs text-white/55 mt-1">Admin Travel Desk</p>
         </div>

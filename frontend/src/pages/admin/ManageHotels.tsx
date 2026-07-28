@@ -17,6 +17,9 @@ interface Hotel {
   amenities?: string[];
   googleMapLink?: string;
   nearestTemple?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  hotelGstin?: string;
   taxEnabled?: boolean;
   taxPercent?: number;
   platform_commission_percentage?: number;
@@ -44,6 +47,9 @@ const ManageHotels = () => {
     amenities: '',
     googleMapLink: '',
     nearestTemple: '',
+    checkInTime: '12:00',
+    checkOutTime: '11:00',
+    hotelGstin: '',
     status: 'active' as Hotel['status'],
     image: '',
     taxEnabled: false,
@@ -79,6 +85,9 @@ const ManageHotels = () => {
       amenities: '',
       googleMapLink: '',
       nearestTemple: '',
+      checkInTime: '12:00',
+      checkOutTime: '11:00',
+      hotelGstin: '',
       status: 'active',
       image: '',
       taxEnabled: false,
@@ -111,6 +120,9 @@ const ManageHotels = () => {
       amenities: (hotel.amenities || []).join(', '),
       googleMapLink: hotel.googleMapLink || '',
       nearestTemple: hotel.nearestTemple || '',
+      checkInTime: hotel.checkInTime || '12:00',
+      checkOutTime: hotel.checkOutTime || '11:00',
+      hotelGstin: hotel.hotelGstin || '',
       status: hotel.status || 'active',
       image: hotel.image || '',
       taxEnabled: Boolean(hotel.taxEnabled),
@@ -137,6 +149,9 @@ const ManageHotels = () => {
       description: form.description,
       googleMapLink: form.googleMapLink,
       nearestTemple: form.nearestTemple,
+      checkInTime: form.checkInTime || '12:00',
+      checkOutTime: form.checkOutTime || '11:00',
+      hotelGstin: form.hotelGstin.trim(),
       amenities: form.amenities
         .split(',')
         .map((a) => a.trim())
@@ -327,6 +342,36 @@ const ManageHotels = () => {
                   <option value="">Select landmark</option>
                   {landmarkOptions.map((name) => <option key={name} value={name}>{name}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-in Time</label>
+                <input
+                  type="time"
+                  required
+                  value={form.checkInTime}
+                  onChange={(e) => setForm({ ...form, checkInTime: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-out Time</label>
+                <input
+                  type="time"
+                  required
+                  value={form.checkOutTime}
+                  onChange={(e) => setForm({ ...form, checkOutTime: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Hotel GSTIN</label>
+                <input
+                  type="text"
+                  value={form.hotelGstin}
+                  onChange={(e) => setForm({ ...form, hotelGstin: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="Optional partner GSTIN"
+                />
               </div>
             </div>
 

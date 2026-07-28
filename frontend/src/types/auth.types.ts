@@ -31,6 +31,9 @@ export interface PartnerDocument {
   name?: string;
   type?: 'aadhar_card' | 'gstin_registration' | 'property_registry_document' | 'business_license' | 'pan_card' | 'other';
   mimeType?: string;
+  originalName?: string;
+  sizeBytes?: number;
+  storage?: 'cloudinary' | 'local' | 'external';
   url?: string;
   uploadedAt?: string;
 }

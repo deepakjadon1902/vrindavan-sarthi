@@ -1,14 +1,46 @@
 import { useState } from 'react';
-import { Image as ImageIcon, Save, X } from 'lucide-react';
+import { FileText, Image as ImageIcon, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
+import type { PartnerDocumentUpload } from '@/types/auth.types';
+import { resolveBackendAssetUrl } from '@/lib/api';
+
+const DOCUMENT_TYPES = [
+  { value: 'aadhar_card', label: 'Aadhaar Card' },
+  { value: 'pan_card', label: 'PAN Card' },
+  { value: 'gstin_registration', label: 'GST Registration Certificate' },
+  { value: 'property_registry_document', label: 'Property Registry / Lease Document' },
+  { value: 'business_license', label: 'Business License' },
+  { value: 'other', label: 'Other Government / Legal Document' },
+] as const;
+
+type DocumentType = (typeof DOCUMENT_TYPES)[number]['value'];
+
+const getDocumentLabel = (value?: string) =>
+  DOCUMENT_TYPES.find((item) => item.value === value)?.label || 'Other Government / Legal Document';
+
+const formatKb = (bytes?: number) => {
+  const size = Number(bytes || 0);
+  if (!size) return '';
+  return `${Math.max(1, Math.round(size / 1024)).toLocaleString('en-IN')} KB`;
+};
 
 const PartnerProfileSettings = () => {
-  const { user, updateProfile } = useAuthStore();
+  const { user, updateProfile, uploadPartnerDocuments } = useAuthStore();
   const [displayName, setDisplayName] = useState(user?.profileDisplayName || user?.businessName || user?.name || '');
   const [bio, setBio] = useState(user?.profileBio || user?.businessDescription || '');
   const [profilePicture, setProfilePicture] = useState(user?.profilePicture || user?.avatar || '');
+  const [businessName, setBusinessName] = useState(user?.businessName || '');
+  const [gstNumber, setGstNumber] = useState(user?.gstNumber || '');
+  const [businessType, setBusinessType] = useState(user?.businessType || '');
+  const [businessAddress, setBusinessAddress] = useState(user?.businessAddress || '');
+  const [businessPhone, setBusinessPhone] = useState(user?.businessPhone || user?.phone || '');
+  const [businessEmail, setBusinessEmail] = useState(user?.businessEmail || user?.email || '');
+  const [businessDescription, setBusinessDescription] = useState(user?.businessDescription || '');
+  const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('aadhar_card');
+  const [documents, setDocuments] = useState<PartnerDocumentUpload[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -22,15 +54,56 @@ const PartnerProfileSettings = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!displayName.trim()) return toast.error('Display name is required');
+    if (!businessName.trim()) return toast.error('Business name is required');
     setIsSaving(true);
     const res = await updateProfile({
       profileDisplayName: displayName.trim(),
       profileBio: bio.trim(),
       profilePicture,
+      businessName: businessName.trim(),
+      gstNumber: gstNumber.trim(),
+      businessType: businessType.trim(),
+      businessAddress: businessAddress.trim(),
+      businessPhone: businessPhone.trim(),
+      businessEmail: businessEmail.trim(),
+      businessDescription: businessDescription.trim(),
     });
     setIsSaving(false);
     if (res.success) toast.success('Profile settings updated');
     else toast.error(res.error || 'Update failed');
+  };
+
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const data = String(reader.result || '');
+        if (!data) return;
+        setDocuments((prev) => [...prev, {
+          data,
+          name: file.name,
+          type: selectedDocumentType,
+          mimeType: file.type || 'application/octet-stream',
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const submitDocuments = async () => {
+    if (!documents.length) return toast.error('Select at least one document');
+    setIsUploading(true);
+    const res = await uploadPartnerDocuments(documents);
+    setIsUploading(false);
+    if (res.success) {
+      toast.success('Verification documents uploaded for admin review');
+      setDocuments([]);
+    } else {
+      toast.error(res.error || 'Document upload failed');
+    }
   };
 
   return (
@@ -87,10 +160,95 @@ const PartnerProfileSettings = () => {
           </div>
         </div>
 
+        <div className="border-t border-border pt-5">
+          <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Business Details</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Business Name *</label>
+              <input required value={businessName} onChange={(e) => setBusinessName(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+            </div>
+            <div>
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Business Type</label>
+              <input value={businessType} onChange={(e) => setBusinessType(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+            </div>
+            <div>
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">GST Number</label>
+              <input value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+            </div>
+            <div>
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Business Phone</label>
+              <input value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Business Email</label>
+              <input type="email" value={businessEmail} onChange={(e) => setBusinessEmail(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Business Address</label>
+              <input value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Business Description</label>
+              <textarea rows={3} value={businessDescription} onChange={(e) => setBusinessDescription(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none" />
+            </div>
+          </div>
+        </div>
+
         <button type="submit" disabled={isSaving} className="btn-crimson px-5 py-2.5 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-60">
           <Save size={16} /> {isSaving ? 'Saving...' : 'Save Profile'}
         </button>
       </form>
+
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <div>
+          <h3 className="font-heading text-lg font-semibold text-foreground">Verification Documents</h3>
+          <p className="font-body text-xs text-muted-foreground">Choose the document type first, then upload one or more files. Files are stored as URLs; the database keeps only metadata.</p>
+        </div>
+
+        {user?.partnerDocuments?.length ? (
+          <div className="grid gap-2">
+            {user.partnerDocuments.map((doc, index) => (
+              <div key={`${doc.url}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+                <div className="min-w-0">
+                  <p className="font-body text-sm text-foreground truncate">{doc.name || doc.originalName || `Document ${index + 1}`}</p>
+                  <p className="font-body text-xs text-muted-foreground">{getDocumentLabel(doc.type)}{doc.mimeType ? ` - ${doc.mimeType}` : ''}{doc.sizeBytes ? ` - ${formatKb(doc.sizeBytes)}` : ''}</p>
+                </div>
+                {doc.url && <a href={resolveBackendAssetUrl(doc.url)} target="_blank" rel="noreferrer" className="font-body text-xs text-brand-gold hover:underline">View</a>}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="font-body text-sm text-muted-foreground">No verification documents uploaded yet.</p>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+          <select value={selectedDocumentType} onChange={(e) => setSelectedDocumentType(e.target.value as DocumentType)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50">
+            {DOCUMENT_TYPES.map((docType) => <option key={docType.value} value={docType.value}>{docType.label}</option>)}
+          </select>
+          <label className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-border font-body text-sm cursor-pointer hover:bg-muted">
+            <FileText size={16} /> Select Files
+            <input type="file" accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={handleDocumentUpload} className="hidden" />
+          </label>
+        </div>
+
+        {documents.length > 0 && (
+          <div className="space-y-2">
+            {documents.map((doc, index) => (
+              <div key={`${doc.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2">
+                <div className="min-w-0">
+                  <p className="font-body text-sm text-foreground truncate">{doc.name}</p>
+                  <p className="font-body text-xs text-muted-foreground">{getDocumentLabel(doc.type)} - {doc.mimeType}</p>
+                </div>
+                <button type="button" onClick={() => setDocuments((prev) => prev.filter((_, i) => i !== index))} className="font-body text-xs text-destructive hover:underline">Remove</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button type="button" onClick={submitDocuments} disabled={isUploading || !documents.length} className="btn-gold px-5 py-2.5 rounded-lg text-sm disabled:opacity-60">
+          {isUploading ? 'Uploading...' : 'Upload Documents'}
+        </button>
+      </div>
     </div>
   );
 };

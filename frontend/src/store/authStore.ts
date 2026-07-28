@@ -13,6 +13,7 @@ interface AuthState {
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  uploadPartnerDocuments: (documents: Array<{ data: string; name: string; type: NonNullable<PartnerDocument['type']>; mimeType: string }>) => Promise<{ success: boolean; error?: string }>;
   refreshMe: () => Promise<void>;
   completeOAuth: (token: string) => Promise<{ success: boolean; error?: string }>;
 }
@@ -38,6 +39,9 @@ const mapPartnerDocuments = (value: unknown): PartnerDocument[] => {
           : 'other',
       mimeType: getString(doc, 'mimeType') || undefined,
       url: getString(doc, 'url') || undefined,
+      originalName: getString(doc, 'originalName') || undefined,
+      sizeBytes: typeof doc.sizeBytes === 'number' ? doc.sizeBytes : Number(doc.sizeBytes || 0) || undefined,
+      storage: (getString(doc, 'storage') as PartnerDocument['storage']) || undefined,
       uploadedAt: getString(doc, 'uploadedAt') || undefined,
     };
   });
@@ -176,6 +180,19 @@ export const useAuthStore = create<AuthState>()(
           return { success: true };
         } catch (err: unknown) {
           return { success: false, error: getApiErrorMessage(err, 'Update failed') };
+        }
+      },
+
+      uploadPartnerDocuments: async (documents) => {
+        const token = get().token;
+        if (!token) return { success: false, error: 'Not authenticated' };
+        try {
+          const res = await api.post('/auth/me/partner-verification', { documents }, withAuth(token));
+          const user = mapUser(res.data?.user);
+          set({ user });
+          return { success: true };
+        } catch (err: unknown) {
+          return { success: false, error: getApiErrorMessage(err, 'Document upload failed') };
         }
       },
     }),

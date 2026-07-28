@@ -53,6 +53,7 @@ const publicHotelListProjection = {
   taxEnabled: 1,
   taxPercent: 1,
   platform_commission_percentage: 1,
+  hotelGstin: 1,
   googleMapLink: 1,
   nearestTemple: 1,
   reviewCount: 1,
@@ -271,7 +272,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
-      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent platform_commission_percentage description amenities googleMapLink nearestTemple createdAt updatedAt')
+      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent platform_commission_percentage hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime createdAt updatedAt')
       .lean();
 
     for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
@@ -357,6 +358,7 @@ router.get('/:id', async (req, res) => {
           petsAllowed: 1,
           taxEnabled: 1,
           taxPercent: 1,
+          hotelGstin: 1,
           googleMapLink: 1,
           nearestTemple: 1,
           checkInTime: 1,

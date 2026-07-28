@@ -51,7 +51,8 @@ const wrapText = (value, maxWidth, fontSize = 10) => {
 };
 
 class PdfCanvas {
-  constructor() {
+  constructor(documentLabel = 'TAX INVOICE') {
+    this.documentLabel = clean(documentLabel) || 'TAX INVOICE';
     this.pages = [];
     this.ops = [];
     this.y = PAGE.height - PAGE.margin;
@@ -110,7 +111,7 @@ class PdfCanvas {
     this.wrapped(COMPANY_ADDRESS, PAGE.margin, 718, 330, { size: 8.5, color: COLORS.muted, lineHeight: 10 });
     this.text(`Phone: ${COMPANY_PHONE}`, PAGE.margin, 694, { size: 8.5, color: COLORS.muted });
     this.text(`Email: ${COMPANY_EMAIL}`, PAGE.margin, 682, { size: 8.5, color: COLORS.muted });
-    this.text('TAX INVOICE', 462, 730, { size: 18, font: 'F2', color: COLORS.ink });
+    this.wrapped(this.documentLabel, 408, 730, 160, { size: 15, font: 'F2', color: COLORS.ink, lineHeight: 17 });
     this.text(`Generated: ${todayText()}`, 462, 712, { size: 8.5, color: COLORS.muted });
     this.y = 656;
   }
@@ -118,7 +119,7 @@ class PdfCanvas {
   footer() {
     this.line(PAGE.margin, 42, PAGE.width - PAGE.margin, 42, COLORS.border, 0.6);
     this.text(`For any inquiry or support, contact ${COMPANY_PHONE} or ${COMPANY_EMAIL}.`, PAGE.margin, 30, { size: 8, color: COLORS.muted });
-    this.text('This is a system-generated invoice. Please keep it for booking, payment, and support records.', PAGE.margin, 18, { size: 8, color: COLORS.muted });
+    this.text('This is a system-generated document. Please keep it for booking, payment, and support records.', PAGE.margin, 18, { size: 8, color: COLORS.muted });
     this.text(`Page ${this.pageNo}`, PAGE.width - PAGE.margin - 36, 26, { size: 8, color: COLORS.muted });
   }
 
@@ -195,7 +196,7 @@ const splitRows = (rows = []) => {
     notes: [],
   };
   const customerKeys = ['Customer', 'Mobile', 'Email'];
-  const paymentKeys = ['Base Amount', 'GST', 'Convenience Fee', 'Advance Paid', 'Balance Payable', 'Payment Option', 'Payment Method', 'Payment Status', 'UPI Transaction ID', 'Unit Price', 'Quantity', 'Grand Total'];
+  const paymentKeys = ['Base Amount', 'Room Amount', 'Hotel GST / Hotel Taxes', 'GST', 'Convenience Fee', 'Platform Convenience Fee', 'Advance Paid', 'Advance Paid Online', 'Balance Payable', 'Balance Payable at Property', 'Payment Option', 'Payment Method', 'Payment Status', 'UPI Transaction ID', 'Unit Price', 'Quantity', 'Grand Total', 'Total Payable'];
   const fulfilmentKeys = ['Check-in / Travel Date', 'Check-out', 'Pickup Time', 'Route', 'Shipping Address', 'Courier', 'AWB Number', 'Tracking ID', 'Order Status', 'Booking Status', 'Verification Stage', 'Shipped At', 'Delivered At'];
   const invoiceKeys = ['Booking ID', 'Order ID', 'Invoice ID', 'Created On', 'Issued On'];
 
@@ -211,8 +212,8 @@ const splitRows = (rows = []) => {
   return result;
 };
 
-const buildPdf = ({ title = `${COMPANY_NAME} Invoice`, lines = [], sections = [], totalLabel = 'Grand Total', totalAmount = 0 } = {}) => {
-  const canvas = new PdfCanvas();
+const buildPdf = ({ title = `${COMPANY_NAME} Invoice`, documentLabel, lines = [], sections = [], totalLabel = 'Grand Total', totalAmount = 0 } = {}) => {
+  const canvas = new PdfCanvas(documentLabel || title);
   const allRows = (Array.isArray(sections) ? sections : []).flatMap((section) => Array.isArray(section?.rows) ? section.rows : []);
   const grouped = splitRows(allRows);
   const invoiceId = grouped.invoice.find(([label]) => /^(Booking|Order|Invoice) ID$/.test(label))?.[1] || title.replace(/^Invoice\s*/i, '');
