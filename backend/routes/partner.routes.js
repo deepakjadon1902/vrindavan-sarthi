@@ -18,6 +18,77 @@ const normalizeRequiredLocationFields = (body) => {
   return '';
 };
 
+const termsSectionKeys = [
+  'generalTerms',
+  'checkInRequirements',
+  'checkOutRules',
+  'cancellationPolicy',
+  'guestPolicies',
+  'idVerificationRequirements',
+  'ageRestrictions',
+  'propertyRules',
+  'additionalInstructions',
+];
+
+const normalizeTermsSections = (sections = {}) => {
+  const normalized = {};
+  for (const key of termsSectionKeys) normalized[key] = String(sections?.[key] || '').trim();
+  return normalized;
+};
+
+const termsEqual = (a = {}, b = {}) => termsSectionKeys.every((key) => String(a?.[key] || '') === String(b?.[key] || ''));
+const hasAnyTermsText = (sections = {}) => termsSectionKeys.some((key) => String(sections?.[key] || '').trim());
+
+const normalizePropertyTermsInput = (body, user) => {
+  if (!body || typeof body !== 'object' || typeof body.propertyTerms === 'undefined') return;
+  const current = body.propertyTerms || {};
+  const sections = normalizeTermsSections(current.sections || current);
+  const isActive = typeof current.isActive === 'undefined' ? true : Boolean(current.isActive);
+  body.propertyTerms = {
+    currentVersion: Number(current.currentVersion || 1),
+    isActive,
+    sections,
+    publishedAt: current.publishedAt ? new Date(current.publishedAt) : new Date(),
+    history: [{
+      version: Number(current.currentVersion || 1),
+      isActive,
+      sections,
+      publishedAt: current.publishedAt ? new Date(current.publishedAt) : new Date(),
+      updatedBy: user?._id,
+      updatedByRole: user?.role,
+    }],
+  };
+};
+
+const applyPropertyTermsUpdate = (hotel, propertyTerms, user) => {
+  if (typeof propertyTerms === 'undefined') return;
+  const incoming = propertyTerms || {};
+  const sections = normalizeTermsSections(incoming.sections || incoming);
+  const isActive = typeof incoming.isActive === 'undefined' ? true : Boolean(incoming.isActive);
+  const previous = hotel.propertyTerms || {};
+  const previousSections = normalizeTermsSections(previous.sections || {});
+  const currentVersion = Number(previous.currentVersion || 0) || 0;
+  const shouldVersion = !termsEqual(sections, previousSections) || Boolean(previous.isActive) !== isActive;
+  const nextVersion = shouldVersion ? currentVersion + 1 : currentVersion || 1;
+  hotel.propertyTerms = {
+    currentVersion: nextVersion,
+    isActive,
+    sections,
+    publishedAt: shouldVersion ? new Date() : previous.publishedAt || new Date(),
+    history: Array.isArray(previous.history) ? previous.history : [],
+  };
+  if (shouldVersion || hotel.propertyTerms.history.length === 0) {
+    hotel.propertyTerms.history.push({
+      version: nextVersion,
+      isActive,
+      sections,
+      publishedAt: hotel.propertyTerms.publishedAt,
+      updatedBy: user?._id,
+      updatedByRole: user?.role,
+    });
+  }
+};
+
 const normalizeBankDetails = (body) => {
   const account_holder_name = String(body?.account_holder_name || '').trim();
   const bank_name = String(body?.bank_name || '').trim();
@@ -61,6 +132,10 @@ router.post('/hotels', protect, authorize('partner'), async (req, res) => {
     if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Hotel name and location are required' });
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
+    normalizePropertyTermsInput(body, req.user);
+    if (!hasAnyTermsText(body.propertyTerms?.sections)) {
+      return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
+    }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
     const hotel = await Hotel.create({
       ...body,
@@ -88,8 +163,14 @@ router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
     if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Hotel name and location are required' });
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
+    const propertyTerms = body.propertyTerms;
+    delete body.propertyTerms;
+    if (typeof propertyTerms !== 'undefined' && !hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
+      return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
+    }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
     Object.assign(hotel, body);
+    applyPropertyTermsUpdate(hotel, propertyTerms, req.user);
     hotel.partnerSubmitted = true;
     hotel.approvalStatus = 'pending';
     hotel.status = 'inactive';
@@ -177,7 +258,7 @@ router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerId: req.user._id })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage createdAt updatedAt')
+      .select('name location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage propertyTerms createdAt updatedAt')
       .lean();
 
     hotelQuery.limit(limit);
@@ -203,7 +284,7 @@ router.get('/requests', protect, authorize('admin'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerSubmitted: true })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage createdAt updatedAt')
+      .select('name location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage propertyTerms createdAt updatedAt')
       .lean();
     hotelQuery.limit(limit);
 

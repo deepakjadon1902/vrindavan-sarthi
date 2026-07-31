@@ -10,6 +10,28 @@ const guestDetailSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const acceptedPropertyTermsSchema = new mongoose.Schema(
+  {
+    accepted: { type: Boolean, default: false },
+    propertyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel' },
+    customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    version: { type: Number, default: 0 },
+    acceptedAt: Date,
+    sections: {
+      generalTerms: { type: String, default: '' },
+      checkInRequirements: { type: String, default: '' },
+      checkOutRules: { type: String, default: '' },
+      cancellationPolicy: { type: String, default: '' },
+      guestPolicies: { type: String, default: '' },
+      idVerificationRequirements: { type: String, default: '' },
+      ageRestrictions: { type: String, default: '' },
+      propertyRules: { type: String, default: '' },
+      additionalInstructions: { type: String, default: '' },
+    },
+  },
+  { _id: false }
+);
+
 const bookingSchema = new mongoose.Schema({
   bookingId: { type: String, unique: true },
   bookingType: { type: String, enum: ['hotel', 'room', 'cab', 'tour', 'room_type'], required: true },
@@ -33,7 +55,10 @@ const bookingSchema = new mongoose.Schema({
   hotelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel' },
   roomTypeId: { type: mongoose.Schema.Types.ObjectId, ref: 'RoomType' },
   roomUnitId: { type: mongoose.Schema.Types.ObjectId, ref: 'RoomUnit' },
+  roomUnitIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'RoomUnit' }],
   roomNumber: String,
+  roomNumbers: [String],
+  roomQuantity: { type: Number, default: 1 },
 
   checkIn: Date,
   checkOut: Date,
@@ -112,6 +137,7 @@ const bookingSchema = new mongoose.Schema({
   adminPaymentVerifiedAt: Date,
   additionalInfo: String,
   upiTransactionId: String,
+  acceptedPropertyTerms: { type: acceptedPropertyTermsSchema, default: () => ({}) },
 
   // Waitlist (room_type bookings only): when no room unit could be assigned immediately.
   // Such bookings have roomUnitId/roomNumber unset until later assignment.

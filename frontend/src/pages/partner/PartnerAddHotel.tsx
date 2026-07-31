@@ -6,6 +6,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { PropertyTermsEditor, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
 
 interface PartnerHotel {
   _id: string;
@@ -22,6 +23,7 @@ interface PartnerHotel {
   checkOutTime?: string;
   hotelGstin?: string;
   petsAllowed?: boolean;
+  propertyTerms?: PropertyTermsValue;
   status: 'active' | 'inactive';
   approvalStatus: 'pending' | 'approved' | 'rejected';
   adminRemarks?: string;
@@ -45,6 +47,7 @@ const PartnerAddHotel = () => {
     checkOutTime: '11:00',
     hotelGstin: user?.gstNumber || '',
     petsAllowed: false,
+    propertyTerms: normalizePropertyTerms(),
     images: [] as string[],
   });
 
@@ -95,6 +98,7 @@ const PartnerAddHotel = () => {
       checkOutTime: target.checkOutTime || '11:00',
       hotelGstin: target.hotelGstin || user?.gstNumber || '',
       petsAllowed: Boolean(target.petsAllowed),
+      propertyTerms: normalizePropertyTerms(target.propertyTerms),
       images: [target.image, ...(target.images || [])].filter(Boolean) as string[],
     });
     setEditingId(target._id);
@@ -103,7 +107,7 @@ const PartnerAddHotel = () => {
     const next = new URLSearchParams(searchParams);
     next.delete('edit');
     setSearchParams(next, { replace: true });
-  }, [items, searchParams, setSearchParams]);
+  }, [items, searchParams, setSearchParams, user?.gstNumber]);
 
   const resetForm = () => {
     setForm(getDefaultForm());
@@ -150,6 +154,7 @@ const PartnerAddHotel = () => {
         .map((a) => a.trim())
         .filter(Boolean),
       petsAllowed: Boolean(form.petsAllowed),
+      propertyTerms: form.propertyTerms,
       contactPhone: user?.businessPhone || user?.phone || '',
       contactEmail: user?.businessEmail || user?.email || '',
       fullAddress: user?.businessAddress || form.location,
@@ -190,6 +195,7 @@ const PartnerAddHotel = () => {
       checkOutTime: item.checkOutTime || '11:00',
       hotelGstin: item.hotelGstin || user?.gstNumber || '',
       petsAllowed: Boolean(item.petsAllowed),
+      propertyTerms: normalizePropertyTerms(item.propertyTerms),
       images: [item.image, ...(item.images || [])].filter(Boolean) as string[],
     });
     setEditingId(item._id);
@@ -409,6 +415,11 @@ const PartnerAddHotel = () => {
                 className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none"
               />
             </div>
+
+            <PropertyTermsEditor
+              value={form.propertyTerms}
+              onChange={(propertyTerms) => setForm({ ...form, propertyTerms })}
+            />
 
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-2 block">Photos</label>

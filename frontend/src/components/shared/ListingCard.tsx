@@ -87,7 +87,7 @@ const ListingCard = ({
           onViewDetails();
         }
       }}
-      className={`premium-tilt-card group min-w-0 overflow-hidden rounded-lg border bg-white transition-colors ${onViewDetails ? 'cursor-pointer' : ''} ${
+      className={`premium-tilt-card group min-w-0 overflow-hidden rounded-lg border bg-white transition-colors focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${onViewDetails ? 'cursor-pointer' : ''} ${
         isStayCard
           ? 'border-border shadow-[0_2px_12px_rgba(15,23,42,0.10)] hover:border-border hover:shadow-[0_10px_28px_rgba(15,23,42,0.16)]'
           : 'border-border/90 shadow-[0_10px_26px_rgba(15,23,42,0.07)] hover:border-brand-gold/45 hover:shadow-[0_18px_42px_rgba(15,23,42,0.13)]'
@@ -95,7 +95,7 @@ const ListingCard = ({
     >
       <div
         className={`relative overflow-hidden bg-muted ${
-          isStayCard ? 'aspect-[4/3]' : variant === 'tour' ? 'aspect-[16/11]' : 'aspect-[16/11]'
+          isStayCard ? 'aspect-[16/10] sm:aspect-[4/3]' : variant === 'tour' ? 'aspect-[16/11]' : 'aspect-[16/11]'
         }`}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
@@ -153,7 +153,7 @@ const ListingCard = ({
         )}
       </div>
 
-      <div className={`premium-depth-content flex flex-1 flex-col ${isStayCard ? 'p-3' : 'p-3.5'}`}>
+      <div className={`premium-depth-content flex flex-1 flex-col ${isStayCard ? 'p-3.5 sm:p-3' : 'p-3.5'}`}>
         <div className="mb-1 flex min-h-5 items-center gap-1.5">
           <span className={`font-body text-[11px] ${isStayCard ? 'font-medium normal-case tracking-normal text-muted-foreground' : 'font-semibold uppercase tracking-[0.08em] text-muted-foreground'}`}>
             {typeLabel}{isRoomCard && meta ? ` - ${meta}` : ''}
@@ -167,7 +167,7 @@ const ListingCard = ({
           )}
         </div>
         <h3
-          className="font-body text-[15px] font-bold leading-snug text-foreground line-clamp-2"
+          className="font-body text-base font-bold leading-snug text-foreground line-clamp-2 sm:text-[15px]"
         >
           {name}
         </h3>
@@ -204,7 +204,7 @@ const ListingCard = ({
           {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
             <div className="ml-auto text-right">
               <span className="font-body text-[11px] text-muted-foreground">Starting from</span>
-              <span className="ml-1 font-body text-base font-bold text-foreground"> Rs. {price.toLocaleString('en-IN')}</span>
+              <span className="ml-1 font-body text-[17px] font-bold text-foreground sm:text-base"> Rs. {price.toLocaleString('en-IN')}</span>
               {priceLabel && !isStayCard && <span className="font-body text-[11px] text-muted-foreground"> {priceLabel}</span>}
             </div>
           ) : (

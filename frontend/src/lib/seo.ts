@@ -1,7 +1,7 @@
 export const SITE_ORIGIN = 'https://vrindavansarthi.in';
 export const SITE_NAME = 'Vrindavan Sarthi Enterprises';
 export const DEFAULT_DESCRIPTION =
-  'Discover the best Vrindavan tour packages, temple darshan, taxi services, Mathura sightseeing, Govardhan Parikrama, Barsana tours, and customized Braj pilgrimage experiences with Vrindavan Sarthi Enterprises.';
+  'Book verified hotels, Dharamshalas, family rooms and AC rooms in Vrindavan near temples. Compare availability, policies and prices with Vrindavan Sarthi.';
 export const DEFAULT_OG_IMAGE = '/vrindasarthi%20logo.jpeg';
 export const BRAND_PHONE = '+91 8218303066';
 export const BRAND_EMAIL = 'vrindavansarthi108@gmail.com';
@@ -128,17 +128,17 @@ export const buildFaqJsonLd = (items: Array<{ question: string; answer: string }
 
 export const publicRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
   '/': {
-    title: 'Vrindavan Sarthi Enterprises | Vrindavan Tour Packages, Taxi Service & Braj Darshan',
+    title: 'Vrindavan Hotel, Dharamshala & Room Booking | Vrindavan Sarthi',
     description: DEFAULT_DESCRIPTION,
     image: '/backgrounds/hero-vrindavan.jpg',
   },
   '/hotels': {
-    title: 'Hotels in Vrindavan Near Temples',
-    description: 'Find verified Vrindavan hotels near Banke Bihari Temple, ISKCON, Prem Mandir, and other sacred places.',
+    title: 'Hotels & Dharamshalas in Vrindavan Near Temples',
+    description: 'Find verified Vrindavan hotels and Dharamshalas near Banke Bihari Temple, ISKCON, Prem Mandir and other sacred places.',
   },
   '/rooms': {
-    title: 'Rooms in Vrindavan',
-    description: 'Browse room types from verified Vrindavan hotels with transparent pricing, amenities, and booking options.',
+    title: 'Rooms in Vrindavan | AC, Family & Budget Room Booking',
+    description: 'Browse verified Vrindavan rooms with live room options, amenities, transparent prices, hotel policies and simple booking support.',
   },
   '/cabs': {
     title: 'Taxi Service in Vrindavan | Local, Outstation & Airport Transfers',

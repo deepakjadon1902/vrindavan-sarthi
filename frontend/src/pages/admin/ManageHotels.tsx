@@ -5,6 +5,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { PropertyTermsEditor, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
 
 interface Hotel {
   _id: string;
@@ -23,6 +24,7 @@ interface Hotel {
   taxEnabled?: boolean;
   taxPercent?: number;
   platform_commission_percentage?: number;
+  propertyTerms?: PropertyTermsValue;
   status: 'active' | 'inactive';
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   partnerName?: string;
@@ -55,6 +57,7 @@ const ManageHotels = () => {
     taxEnabled: false,
     taxPercent: '12',
     platform_commission_percentage: '10',
+    propertyTerms: normalizePropertyTerms(),
   });
 
   const load = async () => {
@@ -93,6 +96,7 @@ const ManageHotels = () => {
       taxEnabled: false,
       taxPercent: '12',
       platform_commission_percentage: '10',
+      propertyTerms: normalizePropertyTerms(),
     });
     setImagePreview('');
     setEditingId(null);
@@ -128,6 +132,7 @@ const ManageHotels = () => {
       taxEnabled: Boolean(hotel.taxEnabled),
       taxPercent: String(hotel.taxPercent ?? 12),
       platform_commission_percentage: String(hotel.platform_commission_percentage ?? 10),
+      propertyTerms: normalizePropertyTerms(hotel.propertyTerms),
     });
     setImagePreview(hotel.image || '');
     setEditingId(hotel._id);
@@ -162,6 +167,7 @@ const ManageHotels = () => {
       taxEnabled: form.taxEnabled,
       taxPercent: Number(form.taxPercent || 12),
       platform_commission_percentage: Number(form.platform_commission_percentage || 0),
+      propertyTerms: form.propertyTerms,
     };
     if (editingId && payload.image === '/placeholder.svg') delete payload.image;
 
@@ -436,6 +442,11 @@ const ManageHotels = () => {
                 placeholder="Hotel details..."
               />
             </div>
+
+            <PropertyTermsEditor
+              value={form.propertyTerms}
+              onChange={(propertyTerms) => setForm({ ...form, propertyTerms })}
+            />
 
             <div className="flex gap-3 pt-2">
               <button type="submit" className="btn-crimson px-6 py-2.5 rounded-lg text-sm">

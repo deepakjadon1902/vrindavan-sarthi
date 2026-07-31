@@ -329,8 +329,8 @@ const Hotels = () => {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-3 gap-3">
-                <div className="flex items-center gap-2">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-brand-gold/10 text-brand-gold font-heading text-[13px] font-bold">
                     {filtered.length}
                   </span>
@@ -351,16 +351,16 @@ const Hotels = () => {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                   <SlidersHorizontal size={15} className="text-muted-foreground/50" />
-                  <select className="font-body text-[13px] font-medium border border-border rounded-lg px-3 py-2 bg-card focus:outline-none focus:ring-2 focus:ring-brand-gold/40 text-foreground cursor-pointer">
+                  <select className="w-full cursor-pointer rounded-lg border border-border bg-card px-3 py-2 font-body text-[13px] font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-brand-gold/40 sm:w-auto">
                     <option>Recommended</option>
                     <option>Rating: High to Low</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                 {filtered.map((hotel) => (
                   <ListingCard
                     key={hotel._id}

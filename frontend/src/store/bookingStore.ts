@@ -49,9 +49,20 @@ export interface Booking {
   hotelId?: string;
   roomTypeId?: string;
   roomUnitId?: string;
+  roomUnitIds?: string[];
   roomNumber?: string;
+  roomNumbers?: string[];
+  roomQuantity?: number;
   isWaitlisted?: boolean;
   waitlistAssignedAt?: string;
+  acceptedPropertyTerms?: {
+    accepted?: boolean;
+    propertyId?: string;
+    customerId?: string;
+    version?: number;
+    acceptedAt?: string;
+    sections?: Record<string, string>;
+  };
 
   // Detailed booking form fields
   customerFullName?: string;
@@ -168,9 +179,13 @@ const normalizeBooking = (b: unknown): Booking => {
     hotelId: getString(obj, 'hotelId') || undefined,
     roomTypeId: getString(obj, 'roomTypeId') || undefined,
     roomUnitId: getString(obj, 'roomUnitId') || undefined,
+    roomUnitIds: Array.isArray(obj.roomUnitIds) ? obj.roomUnitIds.map(String) : undefined,
     roomNumber: getString(obj, 'roomNumber') || undefined,
+    roomNumbers: Array.isArray(obj.roomNumbers) ? obj.roomNumbers.map(String) : undefined,
+    roomQuantity: getNumber(obj, 'roomQuantity') || undefined,
     isWaitlisted: typeof obj.isWaitlisted === 'boolean' ? obj.isWaitlisted : undefined,
     waitlistAssignedAt: getString(obj, 'waitlistAssignedAt') || undefined,
+    acceptedPropertyTerms: isRecord(obj.acceptedPropertyTerms) ? (obj.acceptedPropertyTerms as Booking['acceptedPropertyTerms']) : undefined,
     customerFullName: getString(obj, 'customerFullName') || undefined,
     customerMobile: getString(obj, 'customerMobile') || undefined,
     customerEmail: getString(obj, 'customerEmail') || undefined,

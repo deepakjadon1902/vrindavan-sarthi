@@ -266,7 +266,7 @@ router.get('/', async (req, res) => {
     // Ensure pagination is enforced (default 200).
 
     const hotels = await Hotel.find({ status: 'active', approvalStatus: 'approved' })
-      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime nearestTemple googleMapLink')
+      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime nearestTemple googleMapLink propertyTerms')
       .slice('images', 1)
       .lean();
     if (!hotels.length) return res.json({ success: true, data: [] });
@@ -389,9 +389,10 @@ router.get('/', async (req, res) => {
             checkInTime: hotel.checkInTime,
             checkOutTime: hotel.checkOutTime,
             partnerId: hotel.partnerId,
-            nearestTemple: hotel.nearestTemple,
-            googleMapLink: hotel.googleMapLink,
-          },
+          nearestTemple: hotel.nearestTemple,
+          googleMapLink: hotel.googleMapLink,
+          propertyTerms: hotel.propertyTerms,
+        },
         };
       })
       .filter(Boolean);
@@ -406,15 +407,7 @@ router.get('/', async (req, res) => {
 // Public: get one room type with hotel/uploader details and optional availability
 router.get('/:id', async (req, res) => {
   try {
-    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-
-    const cacheKey = (() => {
-      const checkInQ = String(req.query?.checkIn || '').trim();
-      const checkOutQ = String(req.query?.checkOut || '').trim();
-      return `roomType:${String(req.params.id)}:${checkInQ}:${checkOutQ}`;
-    })();
-    const cached = getMemCache(cacheKey);
-    if (cached) return res.json({ success: true, data: cached });
+    res.set('Cache-Control', 'no-store');
 
     const roomType = await RoomType.findById(req.params.id)
       .select('_id hotelId partnerId createdByUserId createdByRole name description images amenities pricePerNight maxAdults maxChildren petsAllowed status createdAt updatedAt')
@@ -422,7 +415,7 @@ router.get('/:id', async (req, res) => {
     if (!roomType || roomType.status !== 'active') return res.status(404).json({ success: false, message: 'Room type not found' });
 
     const hotel = await Hotel.findOne({ _id: roomType.hotelId, status: 'active', approvalStatus: 'approved' })
-      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime nearestTemple googleMapLink')
+      .select('_id name location rating image images amenities petsAllowed taxEnabled taxPercent checkInTime checkOutTime nearestTemple googleMapLink propertyTerms')
       .slice('images', 1)
       .lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
@@ -431,8 +424,6 @@ router.get('/:id', async (req, res) => {
     const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));
 
     const enriched = await enrichRoomType({ roomType, hotel, checkIn, checkOut });
-    const hasDates = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
-    setMemCache(cacheKey, enriched, hasDates ? 10_000 : 60_000);
     res.json({ success: true, data: enriched });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

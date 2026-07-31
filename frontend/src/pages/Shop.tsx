@@ -46,7 +46,7 @@ const Shop = () => {
           <p className="font-body text-sm text-muted-foreground mt-3 max-w-xl mx-auto">Hand-picked pooja items, devotional books, and blessed memorabilia from the holy land of Vrindavan</p>
         </div>
 
-        <div className="premium-toolbar mb-3 flex flex-col gap-2 p-2 sm:flex-row">
+          <div className="premium-toolbar mb-3 flex flex-col gap-2 p-2 sm:flex-row">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -77,7 +77,7 @@ const Shop = () => {
             <p className="font-body text-sm text-muted-foreground">Check back soon for new arrivals from Vrindavan.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {filtered.map((product) => (
               <Link
                 key={product.id}

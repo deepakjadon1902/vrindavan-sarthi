@@ -244,7 +244,7 @@ const CabDetail = () => {
           </div>
 
           <div>
-            <div className="sticky top-24 rounded-lg border border-brand-gold/45 bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.12)] sm:p-6">
+            <div className="rounded-lg border border-brand-gold/45 bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.12)] sm:p-6 lg:sticky lg:top-24">
               <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Booking desk</p>
               <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Confirm by call or WhatsApp</h2>
               <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">Our team confirms availability, driver details, final fare, and payment link. No advance is collected before confirmation.</p>
@@ -253,7 +253,7 @@ const CabDetail = () => {
                 <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Date</label><input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                 <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Time</label><input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                 <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Route</label><select value={pickup && dropoff ? `${pickup}|||${dropoff}` : ''} onChange={(e) => { const [from, to] = e.target.value.split('|||'); setPickup(from || ''); setDropoff(to || ''); setCabType(''); setSelectedFareRuleId(''); }} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select route</option>{routeOptions.map((route) => <option key={route.key} value={route.key}>{route.label}</option>)}</select></div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Passengers</label>
                     <input
@@ -294,7 +294,7 @@ const CabDetail = () => {
                 </a>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-4 font-body text-xs">
+              <div className="mt-4 grid grid-cols-1 gap-2 border-t border-border pt-4 font-body text-xs sm:grid-cols-2">
                 <div><p className="text-muted-foreground">Payment</p><p className="font-bold text-foreground">After confirmation</p></div>
                 <div><p className="text-muted-foreground">Advance</p><p className="font-bold text-foreground">30% or full</p></div>
               </div>

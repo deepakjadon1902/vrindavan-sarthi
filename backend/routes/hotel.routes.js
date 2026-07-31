@@ -84,6 +84,78 @@ const publicHotelListProjection = {
   images: { $slice: [{ $ifNull: ['$images', []] }, 4] },
 };
 
+const termsSectionKeys = [
+  'generalTerms',
+  'checkInRequirements',
+  'checkOutRules',
+  'cancellationPolicy',
+  'guestPolicies',
+  'idVerificationRequirements',
+  'ageRestrictions',
+  'propertyRules',
+  'additionalInstructions',
+];
+
+const normalizeTermsSections = (sections = {}) => {
+  const normalized = {};
+  for (const key of termsSectionKeys) normalized[key] = String(sections?.[key] || '').trim();
+  return normalized;
+};
+
+const hasAnyTermsText = (sections = {}) => termsSectionKeys.some((key) => String(sections?.[key] || '').trim());
+
+const termsEqual = (a = {}, b = {}) => termsSectionKeys.every((key) => String(a?.[key] || '') === String(b?.[key] || ''));
+
+const normalizePropertyTermsInput = (body, user) => {
+  if (!body || typeof body !== 'object' || typeof body.propertyTerms === 'undefined') return;
+  const current = body.propertyTerms || {};
+  const sections = normalizeTermsSections(current.sections || current);
+  body.propertyTerms = {
+    currentVersion: Number(current.currentVersion || 1),
+    isActive: typeof current.isActive === 'undefined' ? true : Boolean(current.isActive),
+    sections,
+    publishedAt: current.publishedAt ? new Date(current.publishedAt) : new Date(),
+    history: Array.isArray(current.history) ? current.history : [],
+  };
+  body.propertyTerms.history = [{
+    version: body.propertyTerms.currentVersion,
+    isActive: body.propertyTerms.isActive,
+    sections,
+    publishedAt: body.propertyTerms.publishedAt,
+    updatedBy: user?._id,
+    updatedByRole: user?.role,
+  }];
+};
+
+const applyPropertyTermsUpdate = (hotel, propertyTerms, user) => {
+  if (typeof propertyTerms === 'undefined') return;
+  const incoming = propertyTerms || {};
+  const sections = normalizeTermsSections(incoming.sections || incoming);
+  const isActive = typeof incoming.isActive === 'undefined' ? true : Boolean(incoming.isActive);
+  const previous = hotel.propertyTerms || {};
+  const previousSections = normalizeTermsSections(previous.sections || {});
+  const currentVersion = Number(previous.currentVersion || 0) || 0;
+  const shouldVersion = !termsEqual(sections, previousSections) || Boolean(previous.isActive) !== isActive;
+  const nextVersion = shouldVersion ? currentVersion + 1 : currentVersion || 1;
+  hotel.propertyTerms = {
+    currentVersion: nextVersion,
+    isActive,
+    sections,
+    publishedAt: shouldVersion ? new Date() : previous.publishedAt || new Date(),
+    history: Array.isArray(previous.history) ? previous.history : [],
+  };
+  if (shouldVersion || hotel.propertyTerms.history.length === 0) {
+    hotel.propertyTerms.history.push({
+      version: nextVersion,
+      isActive,
+      sections,
+      publishedAt: hotel.propertyTerms.publishedAt,
+      updatedBy: user?._id,
+      updatedByRole: user?.role,
+    });
+  }
+};
+
 const normalizeRequiredLocationFields = (body) => {
   const googleMapLink = String(body?.googleMapLink || '').trim();
   const nearestTemple = String(body?.nearestTemple || '').trim();
@@ -278,7 +350,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
-      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent platform_commission_percentage hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime createdAt updatedAt')
+      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent platform_commission_percentage hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
       .lean();
 
     for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
@@ -369,6 +441,7 @@ router.get('/:id', async (req, res) => {
           nearestTemple: 1,
           checkInTime: 1,
           checkOutTime: 1,
+          propertyTerms: 1,
           updatedAt: 1,
         },
       },
@@ -389,6 +462,10 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     body.approvalStatus = 'approved';
     body.status = body.status === 'inactive' ? 'inactive' : 'active';
+    normalizePropertyTermsInput(body, req.user);
+    if (!hasAnyTermsText(body.propertyTerms?.sections)) {
+      return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
+    }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
     const hotel = await Hotel.create(body);
     res.status(201).json({ success: true, data: hotel });
@@ -403,9 +480,17 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
     validateHotelPayload(body);
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
+    const propertyTerms = body.propertyTerms;
+    delete body.propertyTerms;
+    if (typeof propertyTerms !== 'undefined' && !hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
+      return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
+    }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
-    const hotel = await Hotel.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true });
+    const hotel = await Hotel.findById(req.params.id);
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    Object.assign(hotel, body);
+    applyPropertyTermsUpdate(hotel, propertyTerms, req.user);
+    await hotel.save();
     res.json({ success: true, data: hotel });
   } catch (err) { sendRouteError(res, err, 'admin.hotel.update'); }
 });

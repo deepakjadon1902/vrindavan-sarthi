@@ -534,6 +534,9 @@ const Home = () => {
 
   const visibleServices = shopEnabled ? services : services.filter((service) => service.link !== '/shop');
   const visiblePlannerServices = shopEnabled ? plannerServices : plannerServices.filter((service) => service.key !== 'shop');
+  const serviceGridClass = visibleServices.length >= 4
+    ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4'
+    : 'mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3';
   const featuredProducts = shopEnabled ? products.filter(p => p.inStock).slice(0, 4) : [];
   const activePlanner = visiblePlannerServices.find((item) => item.key === plannerService) || visiblePlannerServices[0];
 
@@ -691,13 +694,13 @@ const Home = () => {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
             className="font-heading italic text-xl md:text-2xl text-white mb-2"
           >
-            Your Divine Guide to Vrindavan
+            Trusted Hotel, Dharamshala & Room Booking in Vrindavan
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-            className="font-body text-white text-xs md:text-sm tracking-wider mb-6"
+            className="font-body text-white text-xs md:text-sm tracking-wide mb-6"
           >
-            Hotels - Rooms - Cabs - Tours - All in One Place
+            Verified stays near temples, family rooms, AC rooms, and budget Dharamshalas in one simple platform
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }}
@@ -804,7 +807,7 @@ const Home = () => {
             title="Plan The Complete Vrindavan Journey"
             subtitle="Useful booking paths, verified information, and local support arranged around how travellers actually decide."
           />
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+          <div className={serviceGridClass}>
             {visibleServices.map((service) => (
               <Link
                 key={service.title}
@@ -842,7 +845,7 @@ const Home = () => {
           />
           {hotels.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {hotels.map((hotel) => (
                   <ListingCard
                     key={hotel._id}
@@ -890,7 +893,7 @@ const Home = () => {
           />
           {roomTypes.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {roomTypes.map((roomType) => (
                   <ListingCard
                     key={roomType._id}
@@ -939,7 +942,7 @@ const Home = () => {
           />
           {cabs.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {cabs.map((cab) => (
                   <ListingCard
                     key={cab._id}
@@ -990,7 +993,7 @@ const Home = () => {
           />
           {tours.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {tours.map((tour) => (
                   <ListingCard
                     key={tour._id}
@@ -1037,7 +1040,7 @@ const Home = () => {
               title="Sacred Souvenirs from Vrindavan"
               subtitle="Take a piece of Vrindavan's blessings home with you"
             />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {featuredProducts.map((p) => (
                 <Link
                   key={p.id}

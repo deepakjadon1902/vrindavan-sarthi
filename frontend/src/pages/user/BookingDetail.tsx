@@ -301,7 +301,7 @@ const BookingDetail = () => {
                         <span className="font-semibold text-foreground">{formatMoney(roomAmount)}</span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Hotel GST / Hotel Taxes</span>
+                        <span className="text-muted-foreground">Hotel Taxes</span>
                         <span className="font-semibold text-foreground">{formatMoney(hotelTaxes)}</span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">

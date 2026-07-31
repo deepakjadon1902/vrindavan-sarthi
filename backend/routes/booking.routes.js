@@ -24,6 +24,40 @@ const {
 const router = express.Router();
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
+const propertyTermsSectionKeys = [
+  'generalTerms',
+  'checkInRequirements',
+  'checkOutRules',
+  'cancellationPolicy',
+  'guestPolicies',
+  'idVerificationRequirements',
+  'ageRestrictions',
+  'propertyRules',
+  'additionalInstructions',
+];
+
+const normalizeTermsSections = (sections = {}) => {
+  const normalized = {};
+  for (const key of propertyTermsSectionKeys) normalized[key] = String(sections?.[key] || '').trim();
+  return normalized;
+};
+
+const hasAnyTermsText = (sections = {}) => propertyTermsSectionKeys.some((key) => String(sections?.[key] || '').trim());
+
+const getActivePropertyTermsSnapshot = (hotel, userId) => {
+  const terms = hotel?.propertyTerms || {};
+  const sections = normalizeTermsSections(terms.sections || {});
+  const version = Number(terms.currentVersion || 0);
+  if (!terms.isActive || !version || !hasAnyTermsText(sections)) return null;
+  return {
+    accepted: true,
+    propertyId: hotel._id,
+    customerId: userId,
+    version,
+    acceptedAt: new Date(),
+    sections,
+  };
+};
 
 const stripLargeInlineImage = (value) => {
   const v = typeof value === 'string' ? value : '';
@@ -224,7 +258,7 @@ const enqueueBookingNotifications = (booking, { invoice = false, partnerAlert = 
 const bookingDetailFields = [
   'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName',
   'service_billing_model',
-  'hotelId roomTypeId roomUnitId roomNumber checkIn checkOut guests',
+  'hotelId roomTypeId roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
   'assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail',
   'customerFullName customerMobile customerEmail arrivalMode vehicleNumber arrivalTime',
@@ -233,6 +267,7 @@ const bookingDetailFields = [
   'base_amount hotel_gst_amount convenience_fee customer_total advance_paid balance_at_property commission_rate commission_amount payment_gateway_fee gross_for_hotel hotel_net_payout payout_status hotel_gstin hotel_invoice_number',
   'platformCommissionPercent platformCommissionAmount grossForHotel paymentGatewayFeeAmount partnerNetPayout',
   'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo',
+  'acceptedPropertyTerms',
   'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount createdAt',
 ].join(' ');
 
@@ -240,7 +275,9 @@ const sanitizeCustomerBooking = (booking) => {
   if (!booking) return booking;
   const plain = typeof booking.toObject === 'function' ? booking.toObject() : { ...booking };
   delete plain.roomUnitId;
+  delete plain.roomUnitIds;
   delete plain.roomNumber;
+  delete plain.roomNumbers;
   return plain;
 };
 
@@ -348,6 +385,17 @@ router.post('/room-type', protect, async (req, res) => {
 
     const hotel = await Hotel.findById(hotelId).lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    const acceptedTermsSnapshot = getActivePropertyTermsSnapshot(hotel, req.user._id);
+    if (acceptedTermsSnapshot) {
+      const accepted = Boolean(req.body?.propertyTermsAccepted);
+      const acceptedVersion = Number(req.body?.acceptedPropertyTermsVersion || 0);
+      if (!accepted || acceptedVersion !== acceptedTermsSnapshot.version) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please read and accept this property terms and policies before booking.',
+        });
+      }
+    }
 
     const roomType = await RoomType.findOne({ _id: roomTypeId, hotelId: hotel._id, status: 'active' }).lean();
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
@@ -367,11 +415,14 @@ router.post('/room-type', protect, async (req, res) => {
 
     const totalAdults = Number(req.body?.totalAdults || 0);
     const totalChildren = Number(req.body?.totalChildren || 0);
+    const roomQuantity = Math.min(20, Math.max(1, Math.floor(Number(req.body?.roomQuantity || 1))));
     if (!Number.isFinite(totalAdults) || totalAdults < 1) return res.status(400).json({ success: false, message: 'At least 1 adult is required' });
     if (!Number.isFinite(totalChildren) || totalChildren < 0) return res.status(400).json({ success: false, message: 'Invalid totalChildren' });
 
-    if (totalAdults > (roomType.maxAdults || 0)) return res.status(400).json({ success: false, message: `Max adults for this room type is ${roomType.maxAdults}` });
-    if (totalChildren > (roomType.maxChildren || 0)) return res.status(400).json({ success: false, message: `Max children for this room type is ${roomType.maxChildren}` });
+    const maxAdultsForBooking = Math.max(1, Number(roomType.maxAdults || 1)) * roomQuantity;
+    const maxChildrenForBooking = Math.max(0, Number(roomType.maxChildren || 0)) * roomQuantity;
+    if (totalAdults > maxAdultsForBooking) return res.status(400).json({ success: false, message: `Max adults for ${roomQuantity} room(s) is ${maxAdultsForBooking}` });
+    if (totalChildren > maxChildrenForBooking) return res.status(400).json({ success: false, message: `Max children for ${roomQuantity} room(s) is ${maxChildrenForBooking}` });
 
     const hasPet = Boolean(req.body?.hasPet);
     if (hasPet && !hotel.petsAllowed) return res.status(400).json({ success: false, message: 'Pets are not allowed at this hotel' });
@@ -399,7 +450,7 @@ router.post('/room-type', protect, async (req, res) => {
 
     // Server-side subtotal calculation (includes admin-controlled GST).
     const nights = Math.max(1, daysToReserve.length);
-    const baseAmount = Math.max(0, Number(roomType.pricePerNight || 0)) * nights;
+    const baseAmount = Math.max(0, Number(roomType.pricePerNight || 0)) * nights * roomQuantity;
     const taxPercent = await getHotelTaxPercent(hotel);
     const taxAmount = Math.round((baseAmount * taxPercent) / 100);
     const subtotal = Math.round(baseAmount + taxAmount);
@@ -419,6 +470,12 @@ router.post('/room-type', protect, async (req, res) => {
 
     const units = await RoomUnit.find({ roomTypeId: roomType._id, status: { $in: BOOKABLE_ROOM_STATUSES } }).sort({ number: 1 }).lean();
     if (!units.length) return res.status(409).json({ success: false, message: 'No rooms available for selected dates' });
+    if (roomQuantity > units.length) {
+      return res.status(400).json({
+        success: false,
+        message: `Only ${units.length} room(s) are listed under this room type.`,
+      });
+    }
 
     const blockedByBlocks = await RoomUnitBlock.distinct('roomUnitId', {
       roomTypeId: roomType._id,
@@ -428,8 +485,58 @@ router.post('/room-type', protect, async (req, res) => {
     const blockedSet = new Set(blockedByBlocks.map(String));
 
     const bookingId = generateBookingCode();
+    const booking = new Booking({
+      bookingId,
+      bookingType: 'room_type',
+      service_billing_model: 'hotel_marketplace',
+      itemId: String(roomType._id),
+      itemName: `${hotel.name} - ${roomType.name}`,
+      itemImage: (roomType.images && roomType.images[0]) || hotel.image,
 
-    let createdBooking = null;
+      userId: req.user._id,
+      userName: req.user.name,
+      userEmail: req.user.email,
+      userPhone: req.user.phone,
+
+      partnerId: hotel.partnerId,
+      partnerName: hotel.partnerName,
+
+      hotelId: hotel._id,
+      roomTypeId: roomType._id,
+
+      checkIn,
+      checkOut,
+      guests: totalAdults + totalChildren,
+      roomQuantity,
+
+      customerFullName,
+      customerMobile,
+      customerEmail,
+      arrivalMode: req.body?.arrivalMode || null,
+      vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
+      arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
+      totalAdults,
+      totalChildren,
+      hasPet,
+      guestDetails,
+
+      baseAmount,
+      taxPercent,
+      taxAmount,
+      hotel_gstin: hotel.hotelGstin || '',
+      ...money,
+      paymentMethod: 'online',
+      bookingStatus: 'pending',
+      paymentStatus: 'pending',
+      verificationStage: hotel.partnerId ? 'pending_partner' : 'pending_admin',
+      partnerPaymentVerified: false,
+      adminPaymentVerified: false,
+      upiTransactionId,
+      additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
+      acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
+    });
+
+    const selectedUnits = [];
     for (const unit of units) {
       if (blockedSet.has(String(unit._id))) continue;
 
@@ -439,57 +546,6 @@ router.post('/room-type', protect, async (req, res) => {
           ? Boolean(roomType.petsAllowed)
           : Boolean(unit.petsAllowedOverride));
       if (hasPet && !effectivePetsAllowed) continue;
-
-      const booking = new Booking({
-        bookingId,
-        bookingType: 'room_type',
-        service_billing_model: 'hotel_marketplace',
-        itemId: String(roomType._id),
-        itemName: `${hotel.name} - ${roomType.name}`,
-        itemImage: (roomType.images && roomType.images[0]) || hotel.image,
-
-        userId: req.user._id,
-        userName: req.user.name,
-        userEmail: req.user.email,
-        userPhone: req.user.phone,
-
-        partnerId: hotel.partnerId,
-        partnerName: hotel.partnerName,
-
-        hotelId: hotel._id,
-        roomTypeId: roomType._id,
-        roomUnitId: unit._id,
-        roomNumber: unit.number,
-
-        checkIn,
-        checkOut,
-        guests: totalAdults + totalChildren,
-
-        customerFullName,
-        customerMobile,
-        customerEmail,
-        arrivalMode: req.body?.arrivalMode || null,
-        vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
-        arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
-        totalAdults,
-        totalChildren,
-        hasPet,
-        guestDetails,
-
-        baseAmount,
-        taxPercent,
-        taxAmount,
-        hotel_gstin: hotel.hotelGstin || '',
-        ...money,
-        paymentMethod: 'online',
-        bookingStatus: 'pending',
-        paymentStatus: 'pending',
-        verificationStage: hotel.partnerId ? 'pending_partner' : 'pending_admin',
-        partnerPaymentVerified: false,
-        adminPaymentVerified: false,
-        upiTransactionId,
-        additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
-      });
 
       try {
         await RoomUnitBookingDay.insertMany(
@@ -507,6 +563,15 @@ router.post('/room-type', protect, async (req, res) => {
         throw err;
       }
 
+      selectedUnits.push(unit);
+      if (selectedUnits.length >= roomQuantity) break;
+    }
+
+    if (selectedUnits.length >= roomQuantity) {
+      booking.roomUnitIds = selectedUnits.map((unit) => unit._id);
+      booking.roomNumbers = selectedUnits.map((unit) => unit.number);
+      booking.roomUnitId = selectedUnits[0]._id;
+      booking.roomNumber = selectedUnits[0].number;
       try {
         await booking.save();
       } catch (err) {
@@ -514,11 +579,13 @@ router.post('/room-type', protect, async (req, res) => {
         throw err;
       }
 
-      createdBooking = booking;
-      break;
+      enqueueBookingNotifications(booking, { partnerAlert: true });
+      return res.status(201).json({ success: true, data: sanitizeCustomerBooking(booking) });
     }
 
-    if (!createdBooking) {
+    await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
+
+    if (selectedUnits.length < roomQuantity) {
       const waitlistedBooking = await Booking.create({
         bookingId,
         bookingType: 'room_type',
@@ -537,6 +604,7 @@ router.post('/room-type', protect, async (req, res) => {
 
         hotelId: hotel._id,
         roomTypeId: roomType._id,
+        roomQuantity,
 
         checkIn,
         checkOut,
@@ -566,6 +634,7 @@ router.post('/room-type', protect, async (req, res) => {
         adminPaymentVerified: false,
         upiTransactionId,
         additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
+        acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
         isWaitlisted: true,
       });
 
@@ -573,12 +642,9 @@ router.post('/room-type', protect, async (req, res) => {
       return res.status(201).json({
         success: true,
         data: sanitizeCustomerBooking(waitlistedBooking),
-        message: 'All rooms are booked for selected dates. Added to waitlist; we will auto-assign a room if a slot opens.',
+        message: `Only ${selectedUnits.length} room(s) are available for selected dates. Added to waitlist; we will auto-assign rooms if slots open.`,
       });
     }
-
-    enqueueBookingNotifications(createdBooking, { partnerAlert: true });
-    res.status(201).json({ success: true, data: sanitizeCustomerBooking(createdBooking) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

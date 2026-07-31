@@ -1,5 +1,32 @@
 const mongoose = require('mongoose');
 
+const propertyTermsSectionsSchema = new mongoose.Schema(
+  {
+    generalTerms: { type: String, default: '' },
+    checkInRequirements: { type: String, default: '' },
+    checkOutRules: { type: String, default: '' },
+    cancellationPolicy: { type: String, default: '' },
+    guestPolicies: { type: String, default: '' },
+    idVerificationRequirements: { type: String, default: '' },
+    ageRestrictions: { type: String, default: '' },
+    propertyRules: { type: String, default: '' },
+    additionalInstructions: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
+const propertyTermsVersionSchema = new mongoose.Schema(
+  {
+    version: { type: Number, required: true },
+    isActive: { type: Boolean, default: true },
+    sections: { type: propertyTermsSectionsSchema, default: () => ({}) },
+    publishedAt: { type: Date, default: Date.now },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedByRole: String,
+  },
+  { _id: false }
+);
+
 const hotelSchema = new mongoose.Schema({
   name: { type: String, required: true },
   location: { type: String, required: true },
@@ -26,6 +53,13 @@ const hotelSchema = new mongoose.Schema({
   nearestTemple: { type: String, required: true },
   nearbyPlaces: String,
   policies: String,
+  propertyTerms: {
+    currentVersion: { type: Number, default: 1 },
+    isActive: { type: Boolean, default: true },
+    sections: { type: propertyTermsSectionsSchema, default: () => ({}) },
+    publishedAt: { type: Date, default: Date.now },
+    history: { type: [propertyTermsVersionSchema], default: [] },
+  },
   taxEnabled: { type: Boolean, default: false },
   taxPercent: { type: Number, default: 12 },
   platform_commission_percentage: { type: Number, default: 10 },

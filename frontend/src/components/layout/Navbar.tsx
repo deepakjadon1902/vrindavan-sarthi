@@ -145,41 +145,48 @@ const Navbar = () => {
           <motion.div
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-[60] nav-dark flex flex-col pt-20 px-8"
+            className="fixed inset-0 z-[60] flex flex-col overflow-y-auto nav-dark px-5 pb-6 pt-[calc(4.5rem+env(safe-area-inset-top))] sm:px-8"
           >
-            <button onClick={() => setMobileOpen(false)} className="absolute top-5 right-5 text-white" aria-label="Close menu">
-              <X size={28} />
+            <button onClick={() => setMobileOpen(false)} className="premium-icon-button absolute right-4 top-4 h-10 w-10 text-foreground" aria-label="Close menu">
+              <X size={20} />
             </button>
-            <div className="flex flex-col gap-6">
+            <div className="mb-5 flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.08] p-3">
+              <img src={APP_LOGO_URL} alt="" className="h-10 w-10 rounded-full border border-brand-gold/35 object-cover" />
+              <div className="min-w-0">
+                <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-gold">Vrindavan Sarthi</p>
+                <p className="truncate font-body text-sm font-semibold text-white/90">Hotels, rooms, cabs and tours</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
               {visibleNavLinks.map((link, i) => (
                 <motion.div key={link.path} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}>
-                  <Link to={link.path} className={`font-heading text-2xl tracking-wide ${location.pathname === link.path ? 'text-brand-gold' : 'text-white'}`}>
+                  <Link to={link.path} className={`flex min-h-12 items-center justify-between rounded-lg border px-4 font-body text-base font-bold transition-colors ${location.pathname === link.path ? 'border-brand-gold/55 bg-brand-gold text-brand-black' : 'border-white/10 bg-white/[0.06] text-white hover:bg-white/10'}`}>
                     {link.name}
                   </Link>
                 </motion.div>
               ))}
-              <div className="h-px bg-brand-gold/20 my-4" />
-              <a href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="btn-gold px-6 py-3 rounded-lg text-center inline-flex items-center justify-center gap-2">
+              <div className="my-3 h-px bg-brand-gold/20" />
+              <a href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-center">
                 <MessageCircle size={18} /> WhatsApp Enquiry
               </a>
               {isAuthenticated && user ? (
                 <>
-                  <Link to="/profile" className="font-body text-white text-lg">Profile</Link>
-                  <Link to="/bookings" className="font-body text-white text-lg">My Bookings</Link>
-                  {shopEnabled && <Link to="/my-orders" className="font-body text-white text-lg">My Orders</Link>}
+                  <Link to="/profile" className="rounded-lg px-3 py-2 font-body text-sm font-semibold text-white">Profile</Link>
+                  <Link to="/bookings" className="rounded-lg px-3 py-2 font-body text-sm font-semibold text-white">My Bookings</Link>
+                  {shopEnabled && <Link to="/my-orders" className="rounded-lg px-3 py-2 font-body text-sm font-semibold text-white">My Orders</Link>}
                   {user.role === 'partner' && (
-                    <Link to="/partner" className="font-body text-brand-gold text-lg">Partner Panel</Link>
+                    <Link to="/partner" className="rounded-lg px-3 py-2 font-body text-sm font-semibold text-brand-gold">Partner Panel</Link>
                   )}
                   {user.role === 'admin' && (
-                    <Link to="/admin" className="font-body text-brand-gold text-lg">Admin Panel</Link>
+                    <Link to="/admin" className="rounded-lg px-3 py-2 font-body text-sm font-semibold text-brand-gold">Admin Panel</Link>
                   )}
-                  <button onClick={handleLogout} className="font-body text-white text-lg text-left">Sign Out</button>
+                  <button onClick={handleLogout} className="rounded-lg px-3 py-2 text-left font-body text-sm font-semibold text-white">Sign Out</button>
                 </>
               ) : (
                 <>
-                  <Link to="/bookings" className="font-body text-white text-lg">My Bookings</Link>
-                  <Link to="/login" className="font-body text-white text-lg">Login</Link>
-                  <Link to="/register" className="btn-crimson px-6 py-3 rounded-lg text-center mt-2">Sign Up</Link>
+                  <Link to="/bookings" className="rounded-lg px-3 py-2 font-body text-sm font-semibold text-white">My Bookings</Link>
+                  <Link to="/login" className="rounded-lg px-3 py-2 font-body text-sm font-semibold text-white">Login</Link>
+                  <Link to="/register" className="btn-crimson mt-2 rounded-lg px-6 py-3 text-center">Sign Up</Link>
                 </>
               )}
             </div>

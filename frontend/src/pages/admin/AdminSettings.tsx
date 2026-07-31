@@ -158,7 +158,7 @@ const AdminSettings = () => {
                   placeholder="Vrindavan Sarthi Enterprises" />
               </div>
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Default Hotel GST / Hotel Taxes (%)</label>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Default Hotel Taxes (%)</label>
                 <input
                   type="number"
                   min={0}

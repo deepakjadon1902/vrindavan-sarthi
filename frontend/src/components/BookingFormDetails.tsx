@@ -1,4 +1,5 @@
 import type { Booking } from '@/store/bookingStore';
+import { PropertyTermsPreview } from '@/components/shared/PropertyTerms';
 
 type Props = {
   booking: Booking;
@@ -37,6 +38,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
   const commissionAmount = Math.round((baseAmount * commissionRate) / 100);
   const gatewayFee = Number(booking.paymentGatewayFeeAmount || Math.round((baseAmount * 2) / 100));
   const netPayout = Math.max(0, grossForHotel - commissionAmount - gatewayFee);
+  const acceptedTerms = booking.acceptedPropertyTerms;
 
   return (
     <div className="mt-4 space-y-4">
@@ -72,7 +74,8 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Field label="Check-in" value={formatDate(booking.checkIn)} />
           <Field label="Check-out" value={formatDate(booking.checkOut)} />
-          <Field label="Room number" value={booking.roomNumber} />
+          <Field label="Rooms booked" value={booking.roomQuantity || (booking.roomNumbers?.length || undefined)} />
+          <Field label="Room number" value={booking.roomNumbers?.length ? booking.roomNumbers.join(', ') : booking.roomNumber} />
           <Field label="Vehicle number" value={booking.vehicleNumber} />
           <Field label="Arrival time" value={booking.arrivalTime} />
           <Field label="Guest count" value={booking.guests || `${booking.totalAdults || 0} / ${booking.totalChildren || 0}`} />
@@ -85,7 +88,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <Field label="Base Amount" value={formatMoney(baseAmount)} />
-          <Field label={isHotelMarketplace ? `Hotel GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}` : `GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={formatMoney(hotelGst)} />
+          <Field label={isHotelMarketplace ? `Hotel Taxes${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}` : `GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={formatMoney(hotelGst)} />
           <Field label={isHotelMarketplace ? 'Platform Convenience Fee' : 'Convenience Fee'} value={formatMoney(booking.convenienceFeeAmount || 0)} />
           <Field label={isHotelMarketplace ? 'Customer Grand Total' : 'Grand Total'} value={formatMoney(booking.totalAmount)} />
           <Field label={isHotelMarketplace ? 'Online Advance Received' : 'Advance Paid'} value={formatMoney(booking.advanceAmount || 0)} />
@@ -104,7 +107,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         <div className="rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-4">
           <p className="font-body text-xs font-semibold text-foreground mb-3">Partner Settlement Summary</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <Field label="Gross Booking Value (Room + Hotel GST)" value={formatMoney(grossForHotel)} valueClass="text-foreground" />
+            <Field label="Gross Booking Value (Room + Hotel Taxes)" value={formatMoney(grossForHotel)} valueClass="text-foreground" />
             <Field label={`OTA Commission (${commissionRate}% of ${formatMoney(baseAmount)})`} value={`- ${formatMoney(commissionAmount)}`} valueClass="text-destructive" />
             <Field label="Payment Gateway Fee" value={`- ${formatMoney(gatewayFee)}`} valueClass="text-destructive" />
             <Field label="Net Payout to Hotel" value={formatMoney(netPayout)} valueClass="text-brand-green" />
@@ -122,9 +125,26 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
             <Field label="Pickup date" value={booking.pickupDate} />
             <Field label="Pickup time" value={booking.pickupTime} />
             <Field label="Cab type" value={booking.cabType} />
-            <Field label="Tolls" value={booking.tollOption} />
             <Field label="Cab fare" value={booking.cabFareTotal ? formatMoney(booking.cabFareTotal) : undefined} />
           </div>
+        </div>
+      )}
+
+      {acceptedTerms?.accepted && (
+        <div className="rounded-lg border border-border bg-background/70 p-4">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-body text-xs font-semibold text-foreground">Accepted Property Terms Snapshot</p>
+            <span className="font-body text-[11px] text-muted-foreground">
+              v{acceptedTerms.version || 1} accepted {acceptedTerms.acceptedAt ? new Date(acceptedTerms.acceptedAt).toLocaleString('en-IN') : '-'}
+            </span>
+          </div>
+          <PropertyTermsPreview
+            terms={{
+              currentVersion: acceptedTerms.version || 1,
+              isActive: true,
+              sections: acceptedTerms.sections || {},
+            }}
+          />
         </div>
       )}
 

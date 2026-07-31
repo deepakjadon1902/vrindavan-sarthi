@@ -674,7 +674,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint, Star, Landmark, BedDouble } from 'lucide-react';
+import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint, Star, Landmark, BedDouble, Minus, Plus, Info, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { api } from '@/lib/api';
@@ -688,6 +688,7 @@ import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import { useSettingsStore } from '@/store/settingsStore';
 import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
+import { PropertyTermsPreview, hasPropertyTermsText, normalizePropertyTerms, propertyTermsFields } from '@/components/shared/PropertyTerms';
 
 const getLocalDateKey = (date = new Date()) => {
   const year = date.getFullYear();
@@ -737,11 +738,14 @@ const RoomTypeDetail = () => {
   const [arrivalTime, setArrivalTime] = useState('');
   const [totalAdults, setTotalAdults] = useState(1);
   const [totalChildren, setTotalChildren] = useState(0);
+  const [roomQuantity, setRoomQuantity] = useState(1);
   const [hasPet, setHasPet] = useState(false);
   const [adultDetails, setAdultDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([{ name: '', age: '', gender: '' }]);
   const [childDetails, setChildDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([]);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentOption, setPaymentOption] = useState<'advance_30' | 'full_100' | ''>('');
+  const [policyPopover, setPolicyPopover] = useState<'advance_30' | 'full_100' | null>(null);
+  const [propertyTermsAccepted, setPropertyTermsAccepted] = useState(false);
   const [bookingId, setBookingId] = useState('');
   const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
   const [booked, setBooked] = useState(false);
@@ -822,14 +826,36 @@ const RoomTypeDetail = () => {
   const roomType = data || null;
   const hotel = roomType?.hotel || null;
   const uploader = roomType?.uploader || null;
+  const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
+  const mustAcceptPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
+  const visiblePropertyPolicies = propertyTerms.isActive
+    ? propertyTermsFields
+        .map((field) => ({ ...field, text: String(propertyTerms.sections[field.key] || '').trim() }))
+        .filter((field) => field.text)
+    : [];
+  const cancellationPolicyText = String(propertyTerms.sections.cancellationPolicy || '').trim();
+  const checkInPolicyText = String(propertyTerms.sections.checkInRequirements || '').trim();
+  const checkOutPolicyText = String(propertyTerms.sections.checkOutRules || '').trim();
+
+  useEffect(() => {
+    setPropertyTermsAccepted(false);
+  }, [hotel?._id, propertyTerms.currentVersion]);
 
   const maxAdults = Math.max(1, Number(roomType?.maxAdults || 1));
   const maxChildren = Math.max(0, Number(roomType?.maxChildren || 0));
+  const availableCountForSelection = typeof roomType?.availableCount === 'number' ? Math.max(0, Number(roomType.availableCount)) : null;
+  const maxRoomQuantity = Math.max(1, availableCountForSelection !== null ? availableCountForSelection : Math.min(10, Number(roomType?.totalCount || 1) || 1));
+  const maxAdultsForSelection = maxAdults * roomQuantity;
+  const maxChildrenForSelection = maxChildren * roomQuantity;
 
   useEffect(() => {
-    setTotalAdults((prev) => Math.min(maxAdults, Math.max(1, prev)));
-    setTotalChildren((prev) => Math.min(maxChildren, Math.max(0, prev)));
-  }, [maxAdults, maxChildren]);
+    setRoomQuantity((prev) => Math.min(maxRoomQuantity, Math.max(1, prev)));
+  }, [maxRoomQuantity]);
+
+  useEffect(() => {
+    setTotalAdults((prev) => Math.min(maxAdultsForSelection, Math.max(1, prev)));
+    setTotalChildren((prev) => Math.min(maxChildrenForSelection, Math.max(0, prev)));
+  }, [maxAdultsForSelection, maxChildrenForSelection]);
 
   useEffect(() => {
     setAdultDetails((prev) => {
@@ -933,7 +959,7 @@ const RoomTypeDetail = () => {
   }
 
   const nights = checkIn && checkOut ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 1;
-  const baseTotal = Number(roomType.pricePerNight || 0) * nights;
+  const baseTotal = Number(roomType.pricePerNight || 0) * nights * roomQuantity;
   const taxEnabled = Boolean(hotel?.taxEnabled);
   const taxPercent = taxEnabled ? Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? defaultHotelTaxPercent ?? 12))) : 0;
   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
@@ -942,7 +968,7 @@ const RoomTypeDetail = () => {
   const total = subtotal + convenienceFee;
   const payableNow = paymentOption === 'full_100' ? total : paymentOption === 'advance_30' ? Math.round(total * 0.3) : 0;
   const balanceLater = Math.max(0, total - payableNow);
-  const availableCount = typeof roomType.availableCount === 'number' ? roomType.availableCount : null;
+  const availableCount = availableCountForSelection;
   const totalCount = typeof roomType.totalCount === 'number' ? roomType.totalCount : null;
   const roomAvailability = selectedRoomAvailability.length
     ? selectedRoomAvailability
@@ -951,6 +977,7 @@ const RoomTypeDetail = () => {
       : [];
   const availableRoomCount = roomAvailability.filter((room: any) => room?.status === 'available').length;
   const isFullyBookedSelectedDates = Boolean(checkIn && checkOut && availableCount !== null && availableCount <= 0);
+  const isRequestedQuantityUnavailable = Boolean(checkIn && checkOut && availableCount !== null && roomQuantity > availableCount);
   const selectedAvailabilityLabel =
     typeof roomType.availabilityStatusLabel === 'string' && roomType.availabilityStatusLabel
       ? roomType.availabilityStatusLabel
@@ -1017,6 +1044,15 @@ const RoomTypeDetail = () => {
     if (checkOut <= checkIn) { toast.error('Check-out must be after check-in'); return false; }
     if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) { toast.error('Please fill your name, mobile and email'); return false; }
     if (!paymentOption) { toast.error('Please select a payment option'); return false; }
+    if (roomQuantity < 1) { toast.error('Please select at least 1 room'); return false; }
+    if (availableCount !== null && roomQuantity > availableCount) {
+      toast.error(`Only ${availableCount} room(s) are available for selected dates`);
+      return false;
+    }
+    if (mustAcceptPropertyTerms && !propertyTermsAccepted) {
+      toast.error('Please read and accept the property terms and policies.');
+      return false;
+    }
     const invalidAdult = adultDetails.some((a) => !a.name.trim() || !Number(a.age || 0));
     const invalidChild = childDetails.some((c) => !c.name.trim() || !Number(c.age || 0));
     if (invalidAdult || invalidChild) { toast.error('Please fill name and age for each guest'); return false; }
@@ -1027,10 +1063,10 @@ const RoomTypeDetail = () => {
   const handleInitiateBooking = () => {
     const ok = validateBookingForm();
     if (!ok) return;
-    if (availableCount !== null && availableCount <= 0) {
+    if (availableCount !== null && roomQuantity > availableCount) {
       setShowAvailability(true);
       void loadAvailabilityCalendar();
-      toast.error('These dates are fully booked. Please choose other dates or join the waitlist.');
+      toast.error('Selected room count is not available for these dates. Please reduce rooms or choose other dates.');
       return;
     }
     const tempId = `VVS-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
@@ -1053,10 +1089,13 @@ const RoomTypeDetail = () => {
     ];
     const res = await createRoomTypeBooking({
       hotelId: hotel?._id, roomTypeId: roomType?._id, checkIn, checkOut,
+      roomQuantity,
       customerFullName, customerMobile, customerEmail, arrivalMode,
       vehicleNumber: arrivalMode === 'personal_vehicle' ? vehicleNumber : '',
       arrivalTime, totalAdults, totalChildren, hasPet, guestDetails,
       totalAmount: total, paymentMethod: 'online', paymentOption,
+      propertyTermsAccepted,
+      acceptedPropertyTermsVersion: propertyTerms.currentVersion,
       upiTransactionId: transactionId, additionalInfo: `UPI Txn: ${transactionId}`,
     });
     if (!res.success) { toast.error(res.error || 'Booking failed'); return; }
@@ -1138,7 +1177,7 @@ const RoomTypeDetail = () => {
           <div className="lg:col-span-2 space-y-5">
 
             {/* Image carousel */}
-            <div className="rounded-2xl overflow-hidden shadow-sm">
+            <div className="overflow-hidden rounded-lg shadow-sm">
               <ImageCarousel
                 images={images}
                 alt={roomType.name}
@@ -1147,7 +1186,7 @@ const RoomTypeDetail = () => {
             </div>
 
             {/* Room info card */}
-            <div className="premium-surface p-6 space-y-5">
+            <div className="premium-surface space-y-5 p-4 sm:p-6">
               {/* Title row */}
               <div>
                 <h1 className="font-display text-2xl font-bold text-foreground leading-tight">{roomType.name}</h1>
@@ -1188,7 +1227,7 @@ const RoomTypeDetail = () => {
               </div>
 
               {/* Check-in/out times */}
-              <div className="flex items-center gap-4 text-sm text-gray-500 border-t border-gray-100 pt-4">
+              <div className="flex flex-col gap-2 border-t border-gray-100 pt-4 text-sm text-gray-500 sm:flex-row sm:items-center sm:gap-4">
                 <span className="flex items-center gap-1.5">
                   <Clock size={14} className="text-green-600" />
                   Check-in {hotel.checkInTime || '12:00'}
@@ -1218,7 +1257,7 @@ const RoomTypeDetail = () => {
               )}
 
               {/* Stats grid */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {[
                   { label: 'Capacity', value: `Adults ${maxAdults} · Children ${maxChildren}` },
                   { label: 'Inventory', value: totalCount !== null ? `${totalCount} rooms` : '-' },
@@ -1241,6 +1280,97 @@ const RoomTypeDetail = () => {
                   {uploader.bio && <p className="text-xs text-gray-500 mt-1">{uploader.bio}</p>}
                 </div>
               )}
+            </div>
+
+            <div className="premium-surface p-4 sm:p-6">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-4">
+                <Info size={18} className="text-brand-gold" />
+                <h2 className="font-display text-2xl font-bold text-foreground">Hotel Policies</h2>
+              </div>
+              <div className="grid gap-3 py-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Check-in Time</p>
+                  <p className="mt-2 text-sm font-semibold text-gray-800">{hotel.checkInTime || '12:00'}</p>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Check-out Time</p>
+                  <p className="mt-2 text-sm font-semibold text-gray-800">{hotel.checkOutTime || '11:00'}</p>
+                </div>
+                {visiblePropertyPolicies.length > 0 ? (
+                  visiblePropertyPolicies.map((policy) => (
+                    <div
+                      key={policy.key}
+                      className={`rounded-xl border p-4 ${policy.key === 'cancellationPolicy' ? 'border-amber-100 bg-amber-50/70 sm:col-span-2' : 'border-gray-100 bg-white'}`}
+                    >
+                      <p className={`text-xs font-bold uppercase tracking-wider ${policy.key === 'cancellationPolicy' ? 'text-amber-800' : 'text-gray-400'}`}>
+                        {policy.label}
+                      </p>
+                      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">{policy.text}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 sm:col-span-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-800">Property Policies</p>
+                    <p className="mt-2 text-sm leading-6 text-gray-600">
+                      This property has not published custom policy sections yet. Standard check-in, check-out, and booking verification rules apply.
+                    </p>
+                  </div>
+                )}
+              </div>
+              {visiblePropertyPolicies.length > 0 && (
+                <p className="rounded-xl border border-brand-green/20 bg-brand-green/5 px-4 py-3 text-xs font-semibold text-brand-green">
+                  These policies are active version {propertyTerms.currentVersion} and are saved with your booking after acceptance.
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="premium-surface p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <BedDouble size={18} className="text-brand-gold" />
+                  <h2 className="font-display text-xl font-bold text-foreground">Room Count Rule</h2>
+                </div>
+                <p className="text-sm leading-6 text-gray-500">
+                  This room type has {totalCount || maxRoomQuantity} room(s) listed by the property. A family booking can select multiple rooms in one booking, but never more than the listed or available inventory.
+                </p>
+              </div>
+              <div className="premium-surface p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Shield size={18} className="text-brand-green" />
+                  <h2 className="font-display text-xl font-bold text-foreground">After Booking</h2>
+                </div>
+                <p className="text-sm leading-6 text-gray-500">
+                  Your booking confirmation is shown to you after payment verification. Exact room numbers remain visible only to the admin and the respective property partner.
+                </p>
+              </div>
+              <div className="premium-surface border-amber-100 bg-amber-50/50 p-5 md:col-span-2">
+                <div className="mb-3 flex items-center gap-2">
+                  <Info size={18} className="text-amber-700" />
+                  <h2 className="font-display text-xl font-bold text-foreground">Booking Policies</h2>
+                </div>
+                <ul className="grid gap-2 text-sm leading-6 text-gray-600 sm:grid-cols-2">
+                  <li className="flex gap-2">
+                    <CheckCircle2 size={14} className="mt-1 shrink-0 text-amber-700" />
+                    Check-in: {hotel.checkInTime || '12:00'} - Check-out: {hotel.checkOutTime || '11:00'}
+                  </li>
+                  {checkInPolicyText && (
+                    <li className="flex gap-2">
+                      <CheckCircle2 size={14} className="mt-1 shrink-0 text-amber-700" />
+                      {checkInPolicyText}
+                    </li>
+                  )}
+                  {checkOutPolicyText && (
+                    <li className="flex gap-2">
+                      <CheckCircle2 size={14} className="mt-1 shrink-0 text-amber-700" />
+                      {checkOutPolicyText}
+                    </li>
+                  )}
+                  <li className="flex gap-2 sm:col-span-2">
+                    <CheckCircle2 size={14} className="mt-1 shrink-0 text-amber-700" />
+                    {cancellationPolicyText || 'Cancellation and refund rules are shown from the property active terms before payment.'}
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
 
@@ -1269,7 +1399,7 @@ const RoomTypeDetail = () => {
                 onCancel={() => setShowPayment(false)}
               />
             ) : (
-              <div className="premium-surface p-5 sticky top-24 space-y-4">
+              <div className="premium-surface space-y-4 p-4 sm:p-5 lg:sticky lg:top-24">
 
                 {/* Price */}
                 <div>
@@ -1283,7 +1413,7 @@ const RoomTypeDetail = () => {
                 <hr className="border-gray-100" />
 
                 {/* Date pickers */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Check-in</label>
                     <input type="date" min={todayKey} value={checkIn} onChange={(e) => handleCheckInDateChange(e.target.value)} className={inputCls} />
@@ -1429,6 +1559,59 @@ const RoomTypeDetail = () => {
                   )}
                 </div>
 
+                {/* Rooms */}
+                <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Rooms</p>
+                      <p className="mt-0.5 text-[11px] text-gray-500">
+                        {availableCount !== null ? `${availableCount} available for selected dates` : `${totalCount || 1} listed by property`}
+                      </p>
+                    </div>
+                    <div className="flex items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                      <button
+                        type="button"
+                        onClick={() => setRoomQuantity((prev) => Math.max(1, prev - 1))}
+                        disabled={roomQuantity <= 1}
+                        className="grid h-10 w-10 place-items-center text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Decrease rooms"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <div className="grid h-10 min-w-12 place-items-center border-x border-gray-200 bg-white px-3 text-sm font-bold text-gray-900">
+                        {roomQuantity}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setRoomQuantity((prev) => Math.min(maxRoomQuantity, prev + 1))}
+                        disabled={roomQuantity >= maxRoomQuantity}
+                        className="grid h-10 w-10 place-items-center text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Increase rooms"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] sm:grid-cols-2">
+                    <div className="rounded-xl bg-gray-50 px-3 py-2 text-gray-500">
+                      Capacity
+                      <span className="block font-semibold text-gray-800">{maxAdultsForSelection} adults · {maxChildrenForSelection} children</span>
+                    </div>
+                    <div className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">
+                      Room total
+                      <span className="block font-semibold">Rs. {baseTotal.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-gray-400">
+                    You can select up to {maxRoomQuantity} room(s) for this room type.
+                  </p>
+                  {isRequestedQuantityUnavailable && (
+                    <p className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-600">
+                      Only {availableCount} room(s) are available for these dates. Reduce rooms or choose another date.
+                    </p>
+                  )}
+                </div>
+
                 {/* Your Details */}
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Your Details</p>
@@ -1436,7 +1619,7 @@ const RoomTypeDetail = () => {
                   <input value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="Mobile Number" className={inputCls} />
                   <input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="Email" className={inputCls} />
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <select value={arrivalMode} onChange={(e) => setArrivalMode(e.target.value as any)} className={inputCls}>
                       <option value="transport">Transport</option>
                       <option value="personal_vehicle">Personal Vehicle</option>
@@ -1450,14 +1633,14 @@ const RoomTypeDetail = () => {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Adults</label>
-                      <input type="number" min={1} max={maxAdults} value={totalAdults}
-                        onChange={(e) => setTotalAdults(Math.min(maxAdults, Math.max(1, Number(e.target.value || 1))))}
+                      <input type="number" min={1} max={maxAdultsForSelection} value={totalAdults}
+                        onChange={(e) => setTotalAdults(Math.min(maxAdultsForSelection, Math.max(1, Number(e.target.value || 1))))}
                         className={inputCls} />
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Children</label>
-                      <input type="number" min={0} max={maxChildren} value={totalChildren}
-                        onChange={(e) => setTotalChildren(Math.min(maxChildren, Math.max(0, Number(e.target.value || 0))))}
+                      <input type="number" min={0} max={maxChildrenForSelection} value={totalChildren}
+                        onChange={(e) => setTotalChildren(Math.min(maxChildrenForSelection, Math.max(0, Number(e.target.value || 0))))}
                         className={inputCls} />
                     </div>
                   </div>
@@ -1474,10 +1657,10 @@ const RoomTypeDetail = () => {
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Guest Details</p>
                     {adultDetails.map((a, idx) => (
-                      <div key={idx} className="grid grid-cols-4 gap-1.5">
+                      <div key={idx} className="grid grid-cols-1 gap-1.5 sm:grid-cols-4">
                         <input placeholder={`Adult ${idx + 1} Name`} value={a.name}
                           onChange={(e) => setAdultDetails((prev) => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
-                          className={`col-span-2 ${inputCls}`} />
+                          className={`sm:col-span-2 ${inputCls}`} />
                         <input placeholder="Age" value={a.age}
                           onChange={(e) => setAdultDetails((prev) => prev.map((x, i) => i === idx ? { ...x, age: e.target.value } : x))}
                           className={inputCls} />
@@ -1492,10 +1675,10 @@ const RoomTypeDetail = () => {
                       </div>
                     ))}
                     {childDetails.map((c, idx) => (
-                      <div key={idx} className="grid grid-cols-4 gap-1.5">
+                      <div key={idx} className="grid grid-cols-1 gap-1.5 sm:grid-cols-4">
                         <input placeholder={`Child ${idx + 1} Name`} value={c.name}
                           onChange={(e) => setChildDetails((prev) => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
-                          className={`col-span-2 ${inputCls}`} />
+                          className={`sm:col-span-2 ${inputCls}`} />
                         <input placeholder="Age" value={c.age}
                           onChange={(e) => setChildDetails((prev) => prev.map((x, i) => i === idx ? { ...x, age: e.target.value } : x))}
                           className={inputCls} />
@@ -1515,23 +1698,36 @@ const RoomTypeDetail = () => {
                 {/* Price breakdown */}
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-1.5 text-sm">
                   <div className="flex justify-between text-gray-500">
-                    <span>₹{Number(roomType.pricePerNight || 0).toLocaleString('en-IN')} × {nights} night(s)</span>
-                    <span className="text-gray-700">₹{baseTotal.toLocaleString('en-IN')}</span>
+                    <span>Rs. {Number(roomType.pricePerNight || 0).toLocaleString('en-IN')} x {nights} night(s) x {roomQuantity} room(s)</span>
+                    <span className="text-gray-700">Rs. {baseTotal.toLocaleString('en-IN')}</span>
                   </div>
                   {taxEnabled && (
                     <div className="flex justify-between text-gray-500">
-                      <span>Hotel GST / Hotel Taxes ({taxPercent}%)</span>
-                      <span className="text-gray-700">₹{taxTotal.toLocaleString('en-IN')}</span>
+                      <span>Hotel Taxes ({taxPercent}%)</span>
+                      <span className="text-gray-700">Rs. {taxTotal.toLocaleString('en-IN')}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
                     <span>Platform convenience fee (2%)</span>
-                    <span className="text-gray-700">₹{convenienceFee.toLocaleString('en-IN')}</span>
+                    <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
                     <span className="text-gray-800">Total</span>
-                    <span className="text-brand-crimson">₹{total.toLocaleString('en-IN')}</span>
+                    <span className="text-brand-crimson">Rs. {total.toLocaleString('en-IN')}</span>
                   </div>
+                </div>
+
+                <div className="hidden">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Info size={14} className="text-amber-700" />
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-800">Booking policies</p>
+                  </div>
+                  <ul className="space-y-1.5 text-xs leading-5 text-gray-600">
+                    <li className="flex gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-amber-700" />Check-in: {hotel.checkInTime || '12:00'} · Check-out: {hotel.checkOutTime || '11:00'}</li>
+                    {checkInPolicyText && <li className="flex gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-amber-700" />{checkInPolicyText}</li>}
+                    {checkOutPolicyText && <li className="flex gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-amber-700" />{checkOutPolicyText}</li>}
+                    <li className="flex gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-amber-700" />{cancellationPolicyText || 'Cancellation and refund rules are shown from the property active terms before payment.'}</li>
+                  </ul>
                 </div>
 
                 {/* Payment options */}
@@ -1541,47 +1737,119 @@ const RoomTypeDetail = () => {
                   <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-gray-50 transition-colors"
                     style={{ borderColor: paymentOption === 'advance_30' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
                     <input type="radio" name="roomPaymentOption" checked={paymentOption === 'advance_30'} onChange={() => setPaymentOption('advance_30')} className="mt-1 accent-[hsl(var(--brand-crimson))]" />
-                    <span className="text-sm">
-                      <span className="block font-semibold text-gray-800">Pay 30% Advance Online</span>
+                    <span className="min-w-0 flex-1 text-sm">
+                      <span className="flex items-center gap-1.5 font-semibold text-gray-800">
+                        Pay 30% Advance Online
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setPolicyPopover((current) => current === 'advance_30' ? null : 'advance_30');
+                          }}
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-amber-300 bg-white text-amber-800 shadow-sm"
+                          aria-label="Show 30% advance cancellation policy"
+                        >
+                          <Info size={12} />
+                        </button>
+                      </span>
                       <span className="block text-xs text-gray-400 mt-0.5">
-                        Pay ₹{Math.round(total * 0.3).toLocaleString('en-IN')} now · Balance ₹{Math.max(0, total - Math.round(total * 0.3)).toLocaleString('en-IN')} at property.
+                        Pay Rs. {Math.round(total * 0.3).toLocaleString('en-IN')} now · Balance Rs. {Math.max(0, total - Math.round(total * 0.3)).toLocaleString('en-IN')} at property.
                       </span>
                       <span className="inline-block mt-1.5 rounded-md bg-red-50 border border-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600">
                         30% advance is strictly non-refundable
                       </span>
+                      {policyPopover === 'advance_30' && (
+                        <span className="mt-3 block whitespace-pre-line rounded-lg border border-gray-200 bg-white p-3 text-xs leading-5 text-gray-600 shadow-lg">
+                          <strong className="block text-gray-800">Cancellation Policy:</strong>
+                          {cancellationPolicyText || 'No cancellations allowed under any circumstances. No refund will be issued for the 30% booking amount.'}
+                        </span>
+                      )}
                     </span>
                   </label>
 
                   <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-gray-50 transition-colors"
                     style={{ borderColor: paymentOption === 'full_100' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
                     <input type="radio" name="roomPaymentOption" checked={paymentOption === 'full_100'} onChange={() => setPaymentOption('full_100')} className="mt-1 accent-[hsl(var(--brand-crimson))]" />
-                    <span className="text-sm">
-                      <span className="block font-semibold text-gray-800">Pay 100% Full Payment Online</span>
-                      <span className="block text-xs text-gray-400 mt-0.5">
-                        Pay ₹{total.toLocaleString('en-IN')} now with no balance at property.
+                    <span className="min-w-0 flex-1 text-sm">
+                      <span className="flex items-center gap-1.5 font-semibold text-gray-800">
+                        Pay 100% Full Payment Online
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setPolicyPopover((current) => current === 'full_100' ? null : 'full_100');
+                          }}
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-amber-300 bg-white text-amber-800 shadow-sm"
+                          aria-label="Show full payment cancellation policy"
+                        >
+                          <Info size={12} />
+                        </button>
                       </span>
+                      <span className="block text-xs text-gray-400 mt-0.5">
+                        Pay Rs. {total.toLocaleString('en-IN')} now with no balance at property.
+                      </span>
+                      {policyPopover === 'full_100' && (
+                        <span className="mt-3 block whitespace-pre-line rounded-lg border border-gray-200 bg-white p-3 text-xs leading-5 text-gray-600 shadow-lg">
+                          <strong className="block text-gray-800">Cancellation Policy:</strong>
+                          {cancellationPolicyText || (
+                            <>
+                              If you cancel at least 12 hours before check-in: 100% refund.
+                              <br />
+                              If you cancel less than 12 hours before check-in: No refund.
+                            </>
+                          )}
+                        </span>
+                      )}
                     </span>
                   </label>
 
                   {paymentOption && (
                     <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 flex justify-between text-sm">
                       <span className="text-gray-500">Payable now</span>
-                      <span className="font-bold text-brand-crimson">₹{payableNow.toLocaleString('en-IN')}</span>
+                      <span className="font-bold text-brand-crimson">Rs. {payableNow.toLocaleString('en-IN')}</span>
                     </div>
                   )}
                   {paymentOption === 'advance_30' && (
                     <div className="flex justify-between text-xs text-gray-400 px-1">
                       <span>Balance at property</span>
-                      <span>₹{balanceLater.toLocaleString('en-IN')}</span>
+                      <span>Rs. {balanceLater.toLocaleString('en-IN')}</span>
                     </div>
                   )}
                 </div>
+
+                {mustAcceptPropertyTerms && (
+                  <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 p-3">
+                    <div className="mb-3">
+                      <p className="font-body text-xs font-bold uppercase tracking-[0.12em] text-brand-crimson">Property terms</p>
+                      <p className="mt-1 font-body text-[11px] text-muted-foreground">
+                        Review the active terms for {hotel?.name}. These are saved with your booking after acceptance.
+                      </p>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto pr-1">
+                      <PropertyTermsPreview terms={propertyTerms} />
+                    </div>
+                    <label className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-white px-3 py-2 font-body text-xs text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={propertyTermsAccepted}
+                        onChange={(e) => setPropertyTermsAccepted(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        I have read and agree to the Terms & Conditions, Check-in Policies, Cancellation Policy, and other applicable property rules.
+                      </span>
+                    </label>
+                  </div>
+                )}
 
                 {/* CTA */}
                 {!isFullyBookedSelectedDates ? (
                   <button
                     onClick={handleInitiateBooking}
-                    className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide"
+                    disabled={(mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
+                    className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Pay &amp; Book Now
                   </button>
@@ -1596,7 +1864,8 @@ const RoomTypeDetail = () => {
                     </button>
                     <button
                       onClick={handleJoinWaitlist}
-                      className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide"
+                      disabled={(mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
+                      className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Join Waitlist for These Dates
                     </button>
@@ -1614,4 +1883,5 @@ const RoomTypeDetail = () => {
 };
 
 export default RoomTypeDetail;
+
 
