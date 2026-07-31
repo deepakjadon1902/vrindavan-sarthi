@@ -126,7 +126,7 @@ const SEO = ({
     upsertMeta('meta[name="twitter:description"]', { name: 'twitter:description', content: computed.metaDescription });
     upsertMeta('meta[name="twitter:image"]', { name: 'twitter:image', content: computed.imageUrl });
 
-    upsertMeta('meta[name="theme-color"]', { name: 'theme-color', content: '#8B1A1A' });
+    upsertMeta('meta[name="theme-color"]', { name: 'theme-color', content: '#111B31' });
     removeManagedJsonLd(jsonLdId);
     addJsonLd(computed.mergedJsonLd, jsonLdId);
   }, [computed, jsonLdId, noindex, type]);

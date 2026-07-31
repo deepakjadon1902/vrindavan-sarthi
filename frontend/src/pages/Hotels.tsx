@@ -175,6 +175,14 @@ type HotelListItem = {
   images?: string[];
   amenities?: string[];
   reviewCount?: number;
+  pricePerNight?: number;
+  pricePerBed?: number;
+  priceDoubleAC?: number;
+  priceDoubleNonAC?: number;
+  priceSingleAC?: number;
+  priceSingleNonAC?: number;
+  taxEnabled?: boolean;
+  taxPercent?: number;
 };
 
 const Hotels = () => {
@@ -229,6 +237,24 @@ const Hotels = () => {
     return h.name.toLowerCase().includes(q) || h.location.toLowerCase().includes(q);
   });
 
+  const getHotelStartingPrice = (hotel: HotelListItem) => {
+    const prices = [
+      hotel.pricePerNight,
+      hotel.pricePerBed,
+      hotel.priceDoubleAC,
+      hotel.priceDoubleNonAC,
+      hotel.priceSingleAC,
+      hotel.priceSingleNonAC,
+    ]
+      .map((price) => Number(price || 0))
+      .filter((price) => Number.isFinite(price) && price > 0);
+    if (!prices.length) return undefined;
+    const base = Math.min(...prices);
+    if (!hotel.taxEnabled) return base;
+    const percent = Math.min(50, Math.max(0, Number(hotel.taxPercent ?? 12)));
+    return Math.round(base + (base * percent) / 100);
+  };
+
   const removeHotelFromCache = (hotelId: string) => {
     setHotels((prev) => {
       const next = prev.filter((hotel) => hotel._id !== hotelId);
@@ -261,9 +287,7 @@ const Hotels = () => {
   return (
     <div className="pt-16">
 
-      {/* ── Hero / Search Banner ── */}
       <section className="section-cream relative overflow-hidden py-4 lg:py-5">
-        {/* Subtle decorative background blur */}
         <div className="container mx-auto px-4 sm:px-6 relative">
           <SectionTitle
             label="Stays in Vrindavan"
@@ -271,7 +295,6 @@ const Hotels = () => {
             subtitle="Comfortable, verified stays near the most sacred sites"
           />
 
-          {/* Search bar */}
           <div className="premium-toolbar mx-auto mt-4 max-w-2xl p-2">
             <div className="relative">
               <Search
@@ -280,7 +303,7 @@ const Hotels = () => {
               />
               <input
                 type="text"
-                placeholder="Search by hotel name or location…"
+                placeholder="Search by hotel name or location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="premium-field w-full pl-12 pr-5"
@@ -290,7 +313,6 @@ const Hotels = () => {
         </div>
       </section>
 
-      {/* ── Listings ── */}
       <section className="py-4 lg:py-5">
         <div className="container mx-auto px-4 sm:px-6">
 
@@ -307,7 +329,6 @@ const Hotels = () => {
             </div>
           ) : (
             <>
-              {/* Toolbar */}
               <div className="flex items-center justify-between mb-3 gap-3">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-brand-gold/10 text-brand-gold font-heading text-[13px] font-bold">
@@ -332,14 +353,13 @@ const Hotels = () => {
 
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal size={15} className="text-muted-foreground/50" />
-                  <select className="font-body text-[13px] font-medium border border-border rounded-xl px-3 py-2 bg-card focus:outline-none focus:ring-2 focus:ring-brand-gold/40 text-foreground cursor-pointer">
+                  <select className="font-body text-[13px] font-medium border border-border rounded-lg px-3 py-2 bg-card focus:outline-none focus:ring-2 focus:ring-brand-gold/40 text-foreground cursor-pointer">
                     <option>Recommended</option>
                     <option>Rating: High to Low</option>
                   </select>
                 </div>
               </div>
 
-              {/* Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 {filtered.map((hotel) => (
                   <ListingCard
@@ -349,6 +369,8 @@ const Hotels = () => {
                     images={hotel.images}
                     name={hotel.name}
                     location={hotel.location}
+                    price={getHotelStartingPrice(hotel)}
+                    priceLabel={hotel.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}
                     amenities={hotel.amenities || []}
@@ -357,7 +379,6 @@ const Hotels = () => {
                 ))}
               </div>
 
-              {/* No search results */}
               {filtered.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mb-4">
@@ -373,7 +394,7 @@ const Hotels = () => {
                       setSearchQuery('');
                       setSearchParams({});
                     }}
-                    className="mt-4 btn-gold rounded-xl px-5 py-2 font-body text-xs"
+                    className="mt-4 btn-gold rounded-lg px-5 py-2 font-body text-xs"
                   >
                     Show all hotels
                   </button>

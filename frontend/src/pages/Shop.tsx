@@ -59,7 +59,7 @@ const Shop = () => {
           </div>
           <div className="flex flex-wrap gap-2">
             {categories.map((c) => (
-              <button key={c} onClick={() => setCategory(c)} className={`px-4 py-2 rounded-lg font-body text-sm capitalize transition-all ${category === c ? 'metallic-gold' : 'glass-panel hover:text-foreground'}`}>
+              <button key={c} onClick={() => setCategory(c)} className={`px-4 py-2 rounded-lg font-body text-sm capitalize transition-colors ${category === c ? 'bg-brand-gold text-foreground font-semibold' : 'border border-border bg-white text-muted-foreground hover:text-foreground'}`}>
                 {c}
               </button>
             ))}
@@ -67,12 +67,12 @@ const Shop = () => {
         </div>
 
         {isLoadingProducts ? (
-          <div className="glass-panel rounded-3xl p-16 text-center metallic-border">
-            <p className="font-body text-sm text-muted-foreground">Loading products…</p>
+          <div className="premium-surface p-12 text-center">
+            <p className="font-body text-sm text-muted-foreground">Loading products...</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="glass-panel rounded-3xl p-16 text-center metallic-border">
-            <ShoppingBag size={56} className="mx-auto mb-4 text-brand-gold/40 animate-float-slow" />
+          <div className="premium-surface p-12 text-center">
+            <ShoppingBag size={48} className="mx-auto mb-4 text-brand-gold/70" />
             <p className="font-display text-2xl text-foreground mb-2">No Products Found</p>
             <p className="font-body text-sm text-muted-foreground">Check back soon for new arrivals from Vrindavan.</p>
           </div>
@@ -83,7 +83,7 @@ const Shop = () => {
                 key={product.id}
                 to={`/shop/${product.id}`}
                 onClick={() => prefetchDetail('products', product.id, product)}
-                className="glass-panel rounded-lg overflow-hidden water-hover group"
+                className="premium-surface overflow-hidden transition-transform hover:-translate-y-0.5 group"
               >
                 <div className="aspect-[16/11] overflow-hidden relative bg-white">
                   <img
@@ -92,7 +92,6 @@ const Shop = () => {
                     className="w-full h-full object-contain p-2.5 group-hover:scale-105 transition-transform duration-500"
                     onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}
                   />
-                  <div className="absolute inset-0 glossy-sheen pointer-events-none" />
                 </div>
                 <div className="p-2 sm:p-2.5">
                   <span className="font-body text-[10px] glass-chip px-2 py-0.5 rounded capitalize">{product.category}</span>

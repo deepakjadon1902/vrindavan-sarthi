@@ -915,17 +915,17 @@ const RoomTypeDetail = () => {
 
   if (loading && !roomType) {
     return (
-      <div className="pt-20 pb-8 text-center min-h-screen" style={{ background: '#f5f0e6' }}>
-        <p className="text-sm text-gray-500">Loading…</p>
+      <div className="braj-page pt-20 pb-8 text-center min-h-screen">
+        <p className="text-sm text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   if (!roomType || !hotel) {
     return (
-      <div className="pt-20 pb-8 text-center min-h-screen" style={{ background: '#f5f0e6' }}>
-        <p className="text-2xl text-gray-500">Room type not found</p>
-        <Link to="/rooms" className="inline-block mt-4 px-6 py-2 rounded-lg text-sm text-white" style={{ background: '#8B1A1A' }}>
+      <div className="braj-page pt-20 pb-8 text-center min-h-screen">
+        <p className="text-2xl text-muted-foreground">Room type not found</p>
+        <Link to="/rooms" className="btn-crimson inline-block mt-4 px-6 py-2 rounded-lg text-sm">
           Back to Rooms
         </Link>
       </div>
@@ -1109,10 +1109,10 @@ const RoomTypeDetail = () => {
   };
 
   // ── Shared input style ──────────────────────────────────────────────────────
-  const inputCls = "w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-400";
+  const inputCls = "premium-field w-full px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground";
 
   return (
-    <div className="min-h-screen pt-4 pb-8" style={{ background: '#f5f0e6' }}>
+    <div className="braj-page min-h-screen pt-4 pb-8">
       <SEO
         title={`${roomType.name} at ${hotel.name}`}
         description={roomDescription}
@@ -1125,9 +1125,9 @@ const RoomTypeDetail = () => {
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mt-0 mb-4 transition-colors"
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mt-0 mb-4 transition-colors"
         >
-          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-gray-300 bg-white">
+          <span className="premium-icon-button inline-flex h-7 w-7 items-center justify-center">
             <ArrowLeft size={14} />
           </span>
           Back to Hotels
@@ -1147,21 +1147,21 @@ const RoomTypeDetail = () => {
             </div>
 
             {/* Room info card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
+            <div className="premium-surface p-6 space-y-5">
               {/* Title row */}
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 leading-tight">{roomType.name}</h1>
+                <h1 className="font-display text-2xl font-bold text-foreground leading-tight">{roomType.name}</h1>
 
                 {/* Location + badges */}
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <span className="flex items-center gap-1 text-sm text-gray-500">
-                    <MapPin size={14} className="text-red-600" />
+                    <MapPin size={14} className="text-brand-crimson" />
                     {hotel.location}
                   </span>
 
                   {/* Rating */}
                   {hotel.rating && (
-                    <span className="flex items-center gap-1 text-sm text-gray-700 font-medium">
+                    <span className="flex items-center gap-1 text-sm text-foreground font-medium">
                       {[1,2,3,4,5].map((s) => (
                         <Star key={s} size={13} fill={s <= Math.round(hotel.rating) ? '#FBBF24' : 'none'} stroke={s <= Math.round(hotel.rating) ? '#FBBF24' : '#D1D5DB'} />
                       ))}
@@ -1193,9 +1193,9 @@ const RoomTypeDetail = () => {
                   <Clock size={14} className="text-green-600" />
                   Check-in {hotel.checkInTime || '12:00'}
                 </span>
-                <span className="text-gray-300">•</span>
+                  <span className="text-border">-</span>
                 <span className="flex items-center gap-1.5">
-                  <Clock size={14} className="text-red-500" />
+                  <Clock size={14} className="text-brand-crimson" />
                   Check-out {hotel.checkOutTime || '11:00'}
                 </span>
               </div>
@@ -1208,7 +1208,7 @@ const RoomTypeDetail = () => {
                     {roomType.amenities.map((a: string) => (
                       <span
                         key={a}
-                        className="px-3 py-1 rounded-full text-xs font-medium text-gray-700 border border-gray-200 bg-gray-50"
+                        className="rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs font-medium text-secondary-foreground"
                       >
                         {a}
                       </span>
@@ -1221,7 +1221,7 @@ const RoomTypeDetail = () => {
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { label: 'Capacity', value: `Adults ${maxAdults} · Children ${maxChildren}` },
-                  { label: 'Inventory', value: totalCount !== null ? `${totalCount} rooms` : '—' },
+                  { label: 'Inventory', value: totalCount !== null ? `${totalCount} rooms` : '-' },
                   { label: 'Pets', value: canPet ? 'Allowed' : 'Not allowed', icon: <PawPrint size={13} className="inline mr-1 text-gray-400" /> },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl bg-gray-50 border border-gray-100 p-3">
@@ -1247,7 +1247,7 @@ const RoomTypeDetail = () => {
           {/* ── Right / Booking sidebar ───────────────────────────────────── */}
           <div className="lg:col-span-1">
             {booked ? (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
+            <div className="premium-surface p-6 text-center">
                 <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
                   <Shield size={22} className="text-green-600" />
                 </div>
@@ -1256,7 +1256,7 @@ const RoomTypeDetail = () => {
                   {isWaitlistedBooking ? 'You are on the waitlist.' : 'Your room booking is received and payment verification is pending.'}
                 </p>
                 {bookingId && <p className="text-xs text-gray-400 mt-2">Booking ID: <span className="text-gray-700 font-medium">{bookingId}</span></p>}
-                <Link to="/bookings" className="inline-block mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: '#8B1A1A' }}>
+                <Link to="/bookings" className="btn-crimson inline-block mt-4 px-6 py-2.5 rounded-lg text-sm font-semibold">
                   View My Bookings
                 </Link>
               </div>
@@ -1264,17 +1264,17 @@ const RoomTypeDetail = () => {
               <UpiPayment
                 amount={payableNow}
                 bookingId={bookingId}
-                itemName={`${hotel.name} • ${roomType.name}`}
+                itemName={`${hotel.name} - ${roomType.name}`}
                 onPaymentConfirm={handlePaymentConfirm}
                 onCancel={() => setShowPayment(false)}
               />
             ) : (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sticky top-24 space-y-4">
+              <div className="premium-surface p-5 sticky top-24 space-y-4">
 
                 {/* Price */}
                 <div>
                   <p className="text-xs text-gray-400 uppercase tracking-wide">Price</p>
-                  <p className="text-3xl font-bold" style={{ color: '#8B1A1A' }}>
+                  <p className="text-3xl font-bold text-brand-crimson">
                     ₹{Number(roomType.pricePerNight || 0).toLocaleString('en-IN')}
                   </p>
                   <p className="text-xs text-gray-400">per night</p>
@@ -1305,17 +1305,16 @@ const RoomTypeDetail = () => {
                     {checkIn && checkOut
                       ? (availableCount !== null
                           ? selectedAvailabilityLabel
-                          : 'Checking availability…')
+                          : 'Checking availability...')
                       : 'Select dates to check availability.'}
                   </p>
                   <button
                     type="button"
                     onClick={() => void loadAvailabilityCalendar()}
                     disabled={availabilityLoading}
-                    className="mt-1.5 text-xs font-medium hover:underline disabled:opacity-50"
-                    style={{ color: '#8B1A1A' }}
+                    className="mt-1.5 text-xs font-medium text-brand-crimson hover:underline disabled:opacity-50"
                   >
-                    {availabilityLoading ? 'Loading calendar…' : 'Refresh availability calendar'}
+                    {availabilityLoading ? 'Loading calendar...' : 'Refresh availability calendar'}
                   </button>
 
                   <div className="mt-3 rounded-xl border border-gray-100 bg-white p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
@@ -1531,7 +1530,7 @@ const RoomTypeDetail = () => {
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
                     <span className="text-gray-800">Total</span>
-                    <span style={{ color: '#8B1A1A' }}>₹{total.toLocaleString('en-IN')}</span>
+                    <span className="text-brand-crimson">₹{total.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
 
@@ -1540,8 +1539,8 @@ const RoomTypeDetail = () => {
                   <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Payment Option *</p>
 
                   <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                    style={{ borderColor: paymentOption === 'advance_30' ? '#8B1A1A' : '#e5e7eb' }}>
-                    <input type="radio" name="roomPaymentOption" checked={paymentOption === 'advance_30'} onChange={() => setPaymentOption('advance_30')} className="mt-1 accent-red-800" />
+                    style={{ borderColor: paymentOption === 'advance_30' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
+                    <input type="radio" name="roomPaymentOption" checked={paymentOption === 'advance_30'} onChange={() => setPaymentOption('advance_30')} className="mt-1 accent-[hsl(var(--brand-crimson))]" />
                     <span className="text-sm">
                       <span className="block font-semibold text-gray-800">Pay 30% Advance Online</span>
                       <span className="block text-xs text-gray-400 mt-0.5">
@@ -1554,8 +1553,8 @@ const RoomTypeDetail = () => {
                   </label>
 
                   <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                    style={{ borderColor: paymentOption === 'full_100' ? '#8B1A1A' : '#e5e7eb' }}>
-                    <input type="radio" name="roomPaymentOption" checked={paymentOption === 'full_100'} onChange={() => setPaymentOption('full_100')} className="mt-1 accent-red-800" />
+                    style={{ borderColor: paymentOption === 'full_100' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
+                    <input type="radio" name="roomPaymentOption" checked={paymentOption === 'full_100'} onChange={() => setPaymentOption('full_100')} className="mt-1 accent-[hsl(var(--brand-crimson))]" />
                     <span className="text-sm">
                       <span className="block font-semibold text-gray-800">Pay 100% Full Payment Online</span>
                       <span className="block text-xs text-gray-400 mt-0.5">
@@ -1567,7 +1566,7 @@ const RoomTypeDetail = () => {
                   {paymentOption && (
                     <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 flex justify-between text-sm">
                       <span className="text-gray-500">Payable now</span>
-                      <span className="font-bold" style={{ color: '#8B1A1A' }}>₹{payableNow.toLocaleString('en-IN')}</span>
+                      <span className="font-bold text-brand-crimson">₹{payableNow.toLocaleString('en-IN')}</span>
                     </div>
                   )}
                   {paymentOption === 'advance_30' && (
@@ -1582,8 +1581,7 @@ const RoomTypeDetail = () => {
                 {!isFullyBookedSelectedDates ? (
                   <button
                     onClick={handleInitiateBooking}
-                    className="w-full py-3 rounded-xl text-sm font-bold text-white tracking-wide transition-opacity hover:opacity-90"
-                    style={{ background: '#C8941A' }}
+                    className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide"
                   >
                     Pay &amp; Book Now
                   </button>
@@ -1598,8 +1596,7 @@ const RoomTypeDetail = () => {
                     </button>
                     <button
                       onClick={handleJoinWaitlist}
-                      className="w-full py-3 rounded-xl text-sm font-bold text-white tracking-wide transition-opacity hover:opacity-90"
-                      style={{ background: '#C8941A' }}
+                      className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide"
                     >
                       Join Waitlist for These Dates
                     </button>

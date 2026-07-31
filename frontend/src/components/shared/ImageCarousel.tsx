@@ -63,7 +63,7 @@ const ImageCarousel = ({
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
         onMouseMove={handleMouseMove}
-        className={`relative ${heightClass} rounded-2xl overflow-hidden group glass-card`}
+        className={`relative ${heightClass} overflow-hidden rounded-lg premium-surface group`}
       >
         {/* Slides */}
         {safe.map((src, i) => (
@@ -82,9 +82,7 @@ const ImageCarousel = ({
           />
         ))}
 
-        {/* Glossy overlay */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-foreground/50 via-transparent to-transparent" />
-        <div className="pointer-events-none absolute inset-0 glossy-sheen" />
 
         {/* Empty fallback */}
         {safe[0] === '/placeholder.svg' && (
@@ -100,7 +98,7 @@ const ImageCarousel = ({
               type="button"
               onClick={prev}
               aria-label="Previous image"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-button flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className="premium-icon-button absolute left-3 top-1/2 h-10 w-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
             >
               <ChevronLeft size={18} />
             </button>
@@ -108,7 +106,7 @@ const ImageCarousel = ({
               type="button"
               onClick={next}
               aria-label="Next image"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-button flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className="premium-icon-button absolute right-3 top-1/2 h-10 w-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
             >
               <ChevronRight size={18} />
             </button>
@@ -117,7 +115,7 @@ const ImageCarousel = ({
 
         {/* Counter */}
         {safe.length > 1 && (
-          <div className="absolute top-3 right-3 px-3 py-1 rounded-full glass-chip font-body text-xs">
+          <div className="absolute top-3 right-3 rounded-full border border-white/60 bg-white/95 px-3 py-1 font-body text-xs font-semibold text-foreground shadow-sm">
             {active + 1} / {safe.length}
           </div>
         )}
@@ -132,7 +130,7 @@ const ImageCarousel = ({
                 onClick={() => setActive(i)}
                 aria-label={`Go to image ${i + 1}`}
                 className={`h-1.5 rounded-full transition-all ${
-                  i === active ? 'w-6 bg-brand-gold shadow-[0_0_10px_hsl(var(--brand-gold))]' : 'w-1.5 bg-primary-foreground/60'
+                  i === active ? 'w-6 bg-brand-gold' : 'w-1.5 bg-primary-foreground/70'
                 }`}
               />
             ))}
@@ -149,7 +147,7 @@ const ImageCarousel = ({
               type="button"
               onClick={() => setActive(i)}
               className={`relative h-14 w-[4.5rem] rounded-md overflow-hidden flex-shrink-0 transition-all ${
-                i === active ? 'ring-2 ring-brand-gold scale-105' : 'opacity-70 hover:opacity-100'
+                i === active ? 'ring-2 ring-brand-gold' : 'opacity-70 hover:opacity-100'
               }`}
             >
               <img src={src} alt="" width={160} height={128} loading="lazy" decoding="async" className="w-full h-full object-cover" />

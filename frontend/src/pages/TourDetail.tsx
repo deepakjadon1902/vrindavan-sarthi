@@ -87,7 +87,7 @@ const TourDetail = () => {
   ];
 
   return (
-    <div className="pt-4 pb-10 min-h-screen bg-[linear-gradient(180deg,#fffdfa_0%,#f7faf8_52%,#f3f6f3_100%)]">
+    <div className="braj-page pt-4 pb-10 min-h-screen">
       <SEO title={`${tour.name} Tour Package`} description={tourDescription} image={allImages[0]} canonicalPath={`/tours/${tour._id}`} jsonLd={tourJsonLd} />
       <div className="container mx-auto px-4 max-w-6xl">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-4 mt-0 transition-colors">
@@ -174,7 +174,7 @@ const TourDetail = () => {
                 <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Number of Persons</label><input type="number" min={1} max={tour.groupSize || 50} value={persons} onChange={(e) => setPersons(Math.max(1, Number(e.target.value || 1)))} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
               </div>
 
-              <div className="mt-5 rounded-lg border border-border bg-[#f8faf8] p-4">
+              <div className="mt-5 rounded-lg border border-border bg-secondary/45 p-4">
                 <div className="flex justify-between gap-3 font-body text-sm"><span className="text-muted-foreground">Estimated total</span><span className="font-bold text-foreground">{total > 0 ? `Rs. ${total.toLocaleString('en-IN')}` : 'On confirmation'}</span></div>
                 {total > 0 && (
                   <div className="mt-2 space-y-1 font-body text-[11px] text-muted-foreground">

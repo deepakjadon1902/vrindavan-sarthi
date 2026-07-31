@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, User, CheckCircle, BedDouble, Snowflake, Sparkles, Wifi, Bath } from 'lucide-react';
+import { ArrowLeft, User, CheckCircle, BedDouble, Snowflake, Wifi, Bath } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
@@ -144,7 +144,6 @@ const RoomDetail = () => {
             <ImageCarousel images={allImages} alt={room.name} />
             <div className="glass-panel rounded-lg p-4 sm:p-5 metallic-border">
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={14} className="text-brand-gold animate-float-slow" />
                 <span className="font-ui text-[11px] uppercase tracking-[0.2em] text-brand-gold">Cozy Retreat</span>
               </div>
               <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground leading-tight">{room.name}</h1>

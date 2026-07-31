@@ -649,6 +649,24 @@ const Home = () => {
     return Math.round(base + (base * percent) / 100);
   };
 
+  const getHotelStartingPrice = (hotel: any) => {
+    const prices = [
+      hotel?.pricePerNight,
+      hotel?.pricePerBed,
+      hotel?.priceDoubleAC,
+      hotel?.priceDoubleNonAC,
+      hotel?.priceSingleAC,
+      hotel?.priceSingleNonAC,
+    ]
+      .map((price) => Number(price || 0))
+      .filter((price) => Number.isFinite(price) && price > 0);
+    if (!prices.length) return undefined;
+    const base = Math.min(...prices);
+    if (!hotel?.taxEnabled) return base;
+    const percent = Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? 12)));
+    return Math.round(base + (base * percent) / 100);
+  };
+
   return (
     <div>
 
@@ -679,14 +697,14 @@ const Home = () => {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
             className="font-body text-white text-xs md:text-sm tracking-wider mb-6"
           >
-            Hotels • Rooms • Cabs • Tours — All in One Place
+            Hotels - Rooms - Cabs - Tours - All in One Place
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3"
           >
             <Link to="/hotels" className="btn-gold px-6 py-3 rounded-xl text-sm font-semibold">
-              Explore Now →
+              Explore Now
             </Link>
             <a
               href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`}
@@ -828,10 +846,13 @@ const Home = () => {
                 {hotels.map((hotel) => (
                   <ListingCard
                     key={hotel._id}
+                    variant="hotel"
                     image={hotel.image}
                     images={hotel.images}
                     name={hotel.name}
                     location={hotel.location}
+                    price={getHotelStartingPrice(hotel)}
+                    priceLabel={hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}
                     amenities={hotel.amenities || []}
@@ -925,7 +946,7 @@ const Home = () => {
                     image={cab.image}
                     images={cab.images}
                     name={cab.vehicleName}
-                    location={cab.routes?.join(' • ') || ''}
+                    location={cab.routes?.join(' - ') || ''}
                     price={0}
                     priceLabel=""
                     rating={0}
@@ -1021,7 +1042,7 @@ const Home = () => {
                 <Link
                   key={p.id}
                   to={`/shop/${p.id}`}
-                  className="glass-panel rounded-2xl overflow-hidden water-hover group border border-border/50 hover:border-brand-gold/30 hover:shadow-lg transition-all duration-200"
+                  className="premium-surface overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 group"
                 >
                   <div className="aspect-[4/3] overflow-hidden relative bg-white">
                     <img
@@ -1029,8 +1050,7 @@ const Home = () => {
                       alt={p.name}
                       className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 glossy-sheen pointer-events-none" />
-                    <span className="absolute top-2 left-2 glass-chip px-2.5 py-1 rounded-full font-body text-[10px] capitalize font-semibold">
+                    <span className="absolute top-2 left-2 rounded-full border border-white/60 bg-white/95 px-2.5 py-1 font-body text-[10px] capitalize font-semibold text-foreground shadow-sm">
                       {p.category}
                     </span>
                   </div>
@@ -1039,7 +1059,7 @@ const Home = () => {
                     <p className="font-body text-[12px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{p.description}</p>
                     <div className="flex items-center justify-between mt-3">
                       <span className="font-display text-[17px] font-extrabold text-brand-crimson">
-                        ₹{p.price.toLocaleString('en-IN')}
+                        Rs. {p.price.toLocaleString('en-IN')}
                       </span>
                       <span className="font-body text-[11px] text-brand-green font-semibold flex items-center gap-1">
                         <ShoppingBag size={12} /> Buy
@@ -1050,7 +1070,7 @@ const Home = () => {
               ))}
             </div>
             <div className="text-center mt-4">
-              <Link to="/shop" className="metallic-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 font-semibold text-[15px]">
+              <Link to="/shop" className="btn-gold px-8 py-3.5 rounded-lg inline-flex items-center gap-2 font-semibold text-[15px]">
                 Visit Shop <ArrowRight size={18} />
               </Link>
             </div>
@@ -1108,15 +1128,15 @@ const Home = () => {
                   alt="Vrindavan temple view"
                   className="absolute inset-0 h-full w-full object-cover"
                 />
-                <div className="absolute inset-0 bg-white/86" />
+                <div className="absolute inset-0 bg-brand-black/76" />
                 <div className="relative max-w-2xl">
                   <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-[0.22em] text-brand-crimson">
                     Our Dream
                   </p>
-                  <h2 className="mb-4 font-heading text-2xl font-bold leading-tight text-foreground sm:text-3xl lg:text-4xl">
+                  <h2 className="mb-4 font-heading text-2xl font-bold leading-tight text-white sm:text-3xl lg:text-4xl">
                     To make every Vrindavan visit feel guided, honest, and cared for.
                   </h2>
-                  <p className="font-body text-[14px] leading-7 text-muted-foreground sm:text-[15px]">
+                  <p className="font-body text-[14px] leading-7 text-white sm:text-[15px]">
                     Vrindavan Sarthi Enterprises was created to bring hotels, rooms, cabs, tours{shopEnabled ? ', and sacred products' : ''} into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">

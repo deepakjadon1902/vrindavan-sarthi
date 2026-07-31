@@ -187,7 +187,7 @@ const CabDetail = () => {
   };
 
   return (
-    <div className="pt-4 pb-10 min-h-screen bg-[linear-gradient(180deg,#fffdfa_0%,#f7faf8_52%,#f3f6f3_100%)]">
+    <div className="braj-page pt-4 pb-10 min-h-screen">
       <SEO title={`${cab.vehicleName} Cab Booking in Vrindavan`} description={cabDescription} image={allImages[0]} canonicalPath={`/cabs/${cab._id}`} jsonLd={cabJsonLd} />
       <div className="container mx-auto px-4 max-w-6xl">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-4 mt-0 transition-colors">
@@ -270,7 +270,7 @@ const CabDetail = () => {
                 </div>
               </div>
 
-              <div className="mt-5 rounded-lg border border-border bg-[#f8faf8] p-4">
+              <div className="mt-5 rounded-lg border border-border bg-secondary/45 p-4">
                 <div className="flex items-center justify-between gap-3 font-body text-sm">
                   <span className="text-muted-foreground">Estimated fare</span>
                   <span className="font-bold text-foreground">{typeof fare === 'number' ? `Rs. ${fare.toLocaleString('en-IN')}` : 'On confirmation'}</span>

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ClipboardList, ArrowRight, Calendar, XCircle, Hotel, BedDouble, Car, Map as MapIcon, Sparkles, CheckCircle2, Clock, IndianRupee } from 'lucide-react';
+import { ClipboardList, ArrowRight, Calendar, XCircle, Hotel, BedDouble, Car, Map as MapIcon, CheckCircle2, Clock, IndianRupee } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { useAuthStore } from '@/store/authStore';
@@ -120,29 +120,26 @@ const MyBookings = () => {
         <div className="container mx-auto max-w-5xl relative">
           {/* Header */}
           <div className="mb-5">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles size={14} className="text-brand-gold animate-float-slow" />
-              <span className="font-ui text-[11px] uppercase tracking-[0.2em] text-brand-gold">Your Sacred Journey</span>
-            </div>
+            <p className="premium-kicker">Travel Desk</p>
             <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground">My Bookings</h1>
             <p className="font-body text-sm text-muted-foreground mt-2">Track every stay, ride, and tour in one place</p>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-            <div className="glass-panel rounded-lg p-3 water-hover">
+            <div className="premium-surface p-4">
               <p className="font-body text-xs text-muted-foreground">Total</p>
               <p className="font-display text-2xl font-bold text-foreground">{stats.total}</p>
             </div>
-            <div className="glass-panel rounded-lg p-3 water-hover">
+            <div className="premium-surface p-4">
               <p className="font-body text-xs text-muted-foreground">Confirmed</p>
               <p className="font-display text-2xl font-bold text-brand-green">{stats.confirmed}</p>
             </div>
-            <div className="glass-panel rounded-lg p-3 water-hover">
+            <div className="premium-surface p-4">
               <p className="font-body text-xs text-muted-foreground">Pending</p>
               <p className="font-display text-2xl font-bold text-brand-saffron">{stats.pending}</p>
             </div>
-            <div className="glass-panel rounded-lg p-3 water-hover">
+            <div className="premium-surface p-4">
               <p className="font-body text-xs text-muted-foreground">Total Spent</p>
               <p className="font-display text-2xl font-bold text-brand-crimson flex items-center"><IndianRupee size={16} />{stats.spent.toLocaleString('en-IN')}</p>
             </div>
@@ -154,10 +151,10 @@ const MyBookings = () => {
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
-                className={`px-4 py-2 rounded-xl font-body text-sm whitespace-nowrap transition-all ${
+                className={`rounded-lg px-4 py-2 font-body text-sm whitespace-nowrap transition-colors ${
                   filter === tab
-                    ? 'metallic-gold'
-                    : 'glass-panel text-muted-foreground hover:text-foreground'
+                    ? 'bg-brand-gold text-foreground font-semibold'
+                    : 'border border-border bg-white text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {tab}
@@ -166,24 +163,24 @@ const MyBookings = () => {
           </div>
 
           {isLoading ? (
-            <div className="glass-panel rounded-3xl p-16 text-center metallic-border">
+            <div className="premium-surface p-12 text-center">
               <p className="font-body text-muted-foreground">Loading bookings...</p>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="glass-panel rounded-3xl p-16 text-center metallic-border">
-              <ClipboardList size={64} className="mx-auto mb-6 text-brand-gold/40 animate-float-slow" />
+            <div className="premium-surface p-12 text-center">
+              <ClipboardList size={48} className="mx-auto mb-5 text-brand-gold/70" />
               <h2 className="font-display text-3xl font-semibold text-foreground mb-2">No Bookings Yet</h2>
               <p className="font-body text-muted-foreground mb-6">
                 Start your sacred journey by booking a hotel, room, cab, or tour package.
               </p>
-              <Link to="/hotels" className="metallic-gold px-6 py-3 rounded-xl text-sm inline-flex items-center gap-2 font-semibold">
+              <Link to="/hotels" className="btn-gold px-6 py-3 rounded-lg text-sm inline-flex items-center gap-2 font-semibold">
                 Start Your Journey <ArrowRight size={16} />
               </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {cancelBookingId && (
-                <div className="md:col-span-2 glass-panel rounded-2xl p-5 border border-destructive/25">
+                <div className="md:col-span-2 premium-surface p-5 border-destructive/25">
                   <h2 className="font-display text-xl font-semibold text-foreground mb-3">Cancel booking</h2>
                   <div className="grid gap-3 md:grid-cols-2">
                     <input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Reason for cancellation" className="rounded-lg border border-border bg-background/70 px-3 py-2 font-body text-sm" />
@@ -204,10 +201,10 @@ const MyBookings = () => {
                   <Link
                     key={b.id}
                     to={`/bookings/${b.id}`}
-                    className="glass-panel rounded-2xl overflow-hidden water-hover group block"
+                    className="premium-surface overflow-hidden transition-transform hover:-translate-y-0.5 group block"
                   >
                     <div className="flex gap-4 p-4">
-                      <div className="w-28 h-28 rounded-xl overflow-hidden bg-muted flex-shrink-0 relative">
+                      <div className="w-28 h-28 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
                         {b.itemImage && b.itemImage !== '/placeholder.svg' ? (
                           <img src={b.itemImage} alt={b.itemName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                         ) : (
