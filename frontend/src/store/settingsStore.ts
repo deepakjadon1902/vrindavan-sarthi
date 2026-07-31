@@ -21,6 +21,8 @@ export interface AppSettings {
   termsOfService: string;
   privacyPolicy: string;
   hotelTaxPercent: number;
+  shopEnabled: boolean;
+  trackOrderEnabled: boolean;
 }
 
 interface SettingsState {
@@ -46,6 +48,8 @@ const defaultSettings: AppSettings = {
   adminPhone: COMPANY_PHONE,
   adminEmail: COMPANY_EMAIL,
   hotelTaxPercent: 12,
+  shopEnabled: true,
+  trackOrderEnabled: true,
   termsOfService: `1. Acceptance of Terms
 By accessing and using Vrindavan Sarthi Enterprises ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.
 
@@ -97,6 +101,8 @@ const getNumber = (obj: Record<string, unknown>, key: string, fallback: number) 
   const n = Number(obj[key]);
   return Number.isFinite(n) ? n : fallback;
 };
+const getBoolean = (obj: Record<string, unknown>, key: string, fallback: boolean) =>
+  typeof obj[key] === 'boolean' ? obj[key] : fallback;
 const normalizeBrandText = (value: string) =>
   value
     .replaceAll('VrindavanSarthi', COMPANY_NAME)
@@ -128,6 +134,8 @@ const normalizeSettings = (raw: unknown): AppSettings => {
     adminPhone: normalizeBrandValue(getString(obj, 'adminPhone'), defaultSettings.adminPhone),
     adminEmail: normalizeBrandValue(getString(obj, 'adminEmail'), defaultSettings.adminEmail),
     hotelTaxPercent: Math.min(50, Math.max(0, getNumber(obj, 'hotelTaxPercent', defaultSettings.hotelTaxPercent))),
+    shopEnabled: getBoolean(obj, 'shopEnabled', defaultSettings.shopEnabled),
+    trackOrderEnabled: getBoolean(obj, 'trackOrderEnabled', defaultSettings.trackOrderEnabled),
     termsOfService: normalizeBrandValue(getString(obj, 'termsOfService'), defaultSettings.termsOfService),
     privacyPolicy: normalizeBrandValue(getString(obj, 'privacyPolicy'), defaultSettings.privacyPolicy),
   };

@@ -134,9 +134,9 @@ const RoomDetail = () => {
   const allImages = [room.image, ...(room.images || [])].filter(Boolean);
 
   return (
-    <div className="pt-20 pb-8 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
+    <div className="pt-4 pb-8 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
       <div className="container mx-auto px-4 max-w-6xl relative">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 mt-3 transition-colors">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 mt-0 transition-colors">
           <ArrowLeft size={16} /> Back
         </button>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

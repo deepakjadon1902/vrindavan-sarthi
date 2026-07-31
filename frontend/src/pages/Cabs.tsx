@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { MessageCircle, Phone, Search } from 'lucide-react';
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
+import { useSettingsStore } from '@/store/settingsStore';
 
 type CabListItem = {
   _id: string;
@@ -22,8 +23,11 @@ type CabListItem = {
 const Cabs = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const companyPhone = useSettingsStore((s) => s.settings.adminPhone);
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [cabs, setCabs] = useState<CabListItem[]>([]);
+  const phoneDigits = companyPhone.replace(/\D/g, '');
+  const whatsappDigits = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
 
   useEffect(() => {
     setSearchQuery(searchParams.get('q') || '');
@@ -106,6 +110,26 @@ const Cabs = () => {
             <p className="font-body text-sm text-muted-foreground mt-1">
               Balance 70% is paid later after admin confirmation and driver assignment.
             </p>
+          </div>
+          <div className="mt-3 grid gap-3 rounded-lg border border-brand-gold/30 bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+            <div>
+              <p className="font-heading text-lg font-semibold text-foreground">Book your cab directly</p>
+              <p className="font-body text-sm text-muted-foreground">Share your pickup, drop, date, and passenger count on WhatsApp or call our travel desk.</p>
+            </div>
+            <a
+              href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Radhe Radhe, I want to book a cab with Vrindavan Sarthi Enterprises.')}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold"
+            >
+              <MessageCircle size={16} /> WhatsApp
+            </a>
+            <a
+              href={`tel:${phoneDigits}`}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-5 py-2.5 font-body text-sm font-semibold text-foreground hover:border-brand-gold/50"
+            >
+              <Phone size={16} /> Call
+            </a>
           </div>
         </div>
       </section>

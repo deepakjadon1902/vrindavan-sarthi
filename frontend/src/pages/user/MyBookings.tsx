@@ -36,7 +36,7 @@ const MyBookings = () => {
 
   useEffect(() => {
     if (!user) return;
-    const hasPendingWaitlist = myBookings.some((b) => Boolean(b.isWaitlisted) && !b.roomNumber && b.bookingStatus !== 'cancelled');
+    const hasPendingWaitlist = myBookings.some((b) => Boolean(b.isWaitlisted) && !b.waitlistAssignedAt && b.bookingStatus !== 'cancelled');
     if (!hasPendingWaitlist) return;
     const id = window.setInterval(() => void fetchMyBookings(), 15000);
     return () => window.clearInterval(id);
@@ -44,7 +44,7 @@ const MyBookings = () => {
 
   useEffect(() => {
     if (!user) return;
-    const assigned = myBookings.filter((b) => Boolean(b.waitlistAssignedAt) && b.roomNumber && b.bookingStatus !== 'cancelled');
+    const assigned = myBookings.filter((b) => Boolean(b.waitlistAssignedAt) && b.bookingStatus !== 'cancelled');
     if (!assigned.length) return;
 
     const storageKey = `vvs_waitlist_notified_${user.id || user.email || 'user'}`;
@@ -58,7 +58,7 @@ const MyBookings = () => {
     let changed = false;
     for (const booking of assigned) {
       if (!booking.id || seen.has(booking.id)) continue;
-      toast.success(`Room ${booking.roomNumber} is now assigned for ${booking.bookingId}. You can check in on your booked date.`);
+      toast.success(`Your room booking ${booking.bookingId} is now confirmed. You can check in on your booked date.`);
       seen.add(booking.id);
       changed = true;
     }
@@ -223,12 +223,7 @@ const MyBookings = () => {
                         <div className="flex items-start justify-between gap-2">
                           <p className="font-body text-[10px] text-brand-crimson font-medium tracking-wider">{b.bookingId}</p>
                           <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                            {b.roomNumber && (
-                              <span className="font-body text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted/40 text-foreground flex items-center gap-1">
-                                <BedDouble size={10} /> Room {String(b.roomNumber)}
-                              </span>
-                            )}
-                            {b.isWaitlisted && !b.roomNumber && (
+                            {b.isWaitlisted && !b.waitlistAssignedAt && (
                               <span className="font-body text-[10px] px-2 py-0.5 rounded-full border border-brand-saffron/30 bg-brand-saffron/10 text-brand-saffron">
                                 Waitlist
                               </span>
@@ -238,7 +233,7 @@ const MyBookings = () => {
                             </span>
                           </div>
                         </div>
-                        {b.isWaitlisted && !b.roomNumber && (
+                        {b.isWaitlisted && !b.waitlistAssignedAt && (
                           <p className="mt-1 font-body text-[11px] text-brand-saffron">
                             Waitlisted - waiting for room assignment
                           </p>

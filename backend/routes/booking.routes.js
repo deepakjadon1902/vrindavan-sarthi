@@ -236,6 +236,14 @@ const bookingDetailFields = [
   'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount createdAt',
 ].join(' ');
 
+const sanitizeCustomerBooking = (booking) => {
+  if (!booking) return booking;
+  const plain = typeof booking.toObject === 'function' ? booking.toObject() : { ...booking };
+  delete plain.roomUnitId;
+  delete plain.roomNumber;
+  return plain;
+};
+
 // Create cab booking (authenticated user)
 // Body: { fullName, mobileNumber, pickupLocation, dropLocation, pickupDate, pickupTime, passengers, cabType, tollOption, upiTransactionId }
 router.post('/cab', protect, async (req, res) => {
@@ -564,13 +572,13 @@ router.post('/room-type', protect, async (req, res) => {
       enqueueBookingNotifications(waitlistedBooking, { partnerAlert: true });
       return res.status(201).json({
         success: true,
-        data: waitlistedBooking,
+        data: sanitizeCustomerBooking(waitlistedBooking),
         message: 'All rooms are booked for selected dates. Added to waitlist; we will auto-assign a room if a slot opens.',
       });
     }
 
     enqueueBookingNotifications(createdBooking, { partnerAlert: true });
-    res.status(201).json({ success: true, data: createdBooking });
+    res.status(201).json({ success: true, data: sanitizeCustomerBooking(createdBooking) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -614,7 +622,7 @@ router.post('/', protect, async (req, res) => {
 
     const booking = await Booking.create(payload);
     enqueueBookingNotifications(booking, { partnerAlert: true });
-    res.status(201).json({ success: true, data: booking });
+    res.status(201).json({ success: true, data: sanitizeCustomerBooking(booking) });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -642,8 +650,10 @@ router.get('/my', protect, async (req, res) => {
     } else {
       for (const b of bookings) b.itemImage = stripLargeInlineImage(b.itemImage) || '/placeholder.svg';
     }
-    // Redact sensitive cab driver contact details until confirmed.
+    // Redact customer-hidden operational details. Admin/partner APIs keep full data.
     for (const b of bookings) {
+      delete b.roomUnitId;
+      delete b.roomNumber;
       if (b.bookingType === 'cab' && b.bookingStatus !== 'confirmed') {
         b.assignedDriverPhone = '';
         b.assignedDriverEmail = '';
@@ -741,7 +751,7 @@ router.get('/:id', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    res.json({ success: true, data: booking });
+    res.json({ success: true, data: isOwner && !isAdmin && !isPartner ? sanitizeCustomerBooking(booking) : booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -807,7 +817,7 @@ router.put('/:id/cancel', protect, async (req, res) => {
       cancelledByName: req.user.name,
       cancellationDetails,
     });
-    res.json({ success: true, data: booking });
+    res.json({ success: true, data: req.user.role === 'user' ? sanitizeCustomerBooking(booking) : booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -828,7 +838,7 @@ router.put('/:id/cancel-review', protect, authorize('admin'), async (req, res) =
 
     // Deny: keep booking status as-is, just mark reviewed.
     await booking.save();
-    res.json({ success: true, data: booking });
+    res.json({ success: true, data: sanitizeCustomerBooking(booking) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

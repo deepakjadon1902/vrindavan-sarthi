@@ -216,15 +216,6 @@ const BookingDetail = () => {
                       <p className="font-body text-sm font-medium text-foreground">{booking.guests} Guest(s)</p>
                     </div>
                   )}
-                  {booking.roomNumber && (
-                    <div>
-                      <p className="font-body text-xs text-muted-foreground mb-1">Room Number</p>
-                      <p className="font-body text-sm font-medium text-foreground flex items-center gap-1.5">
-                        <BedDouble size={14} className="text-brand-green" />
-                        {String(booking.roomNumber)}
-                      </p>
-                    </div>
-                  )}
                   <div>
                     <p className="font-body text-xs text-muted-foreground mb-1">Booked On</p>
                     <p className="font-body text-sm font-medium text-foreground">

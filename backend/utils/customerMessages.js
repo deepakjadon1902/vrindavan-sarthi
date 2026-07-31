@@ -104,7 +104,6 @@ const bookingRows = (booking) => {
     ['Children', booking.totalChildren],
     ['Travelling with Pet', booking.hasPet ? yesNo(booking.hasPet) : ''],
     ['Room Details', hotelBooking ? booking.itemName : ''],
-    ['Room Number', booking.roomNumber],
     ['Waitlisted', booking.isWaitlisted ? 'Yes' : ''],
     [hotelBooking ? 'Room Amount' : 'Base Amount', money(booking.baseAmount || booking.checkoutSubtotal)],
     [hotelBooking ? 'Hotel GST / Hotel Taxes' : 'GST', Number(booking.taxAmount || 0) ? `${money(booking.taxAmount)} (${Number(booking.taxPercent || 0)}%)` : ''],

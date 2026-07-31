@@ -455,6 +455,7 @@ import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 import { COMPANY_PHONE_DIGITS } from '@/lib/brand';
+import { useSettingsStore } from '@/store/settingsStore';
 
 import heroImg from '@/assets/images/hero-vrindavan.jpg';
 
@@ -522,6 +523,7 @@ const whyUs = [
 const Home = () => {
   const navigate = useNavigate();
   const { products, fetchProducts } = useProductStore();
+  const shopEnabled = useSettingsStore((s) => s.settings.shopEnabled);
   const [plannerService, setPlannerService] = useState<PlannerServiceKey>('hotels');
   const [plannerQuery, setPlannerQuery] = useState('');
   const [hotels, setHotels] = useState<any[]>([]);
@@ -530,8 +532,10 @@ const Home = () => {
   const [tours, setTours] = useState<any[]>([]);
   const featuredLimit = 4;
 
-  const featuredProducts = products.filter(p => p.inStock).slice(0, 4);
-  const activePlanner = plannerServices.find((item) => item.key === plannerService) || plannerServices[0];
+  const visibleServices = shopEnabled ? services : services.filter((service) => service.link !== '/shop');
+  const visiblePlannerServices = shopEnabled ? plannerServices : plannerServices.filter((service) => service.key !== 'shop');
+  const featuredProducts = shopEnabled ? products.filter(p => p.inStock).slice(0, 4) : [];
+  const activePlanner = visiblePlannerServices.find((item) => item.key === plannerService) || visiblePlannerServices[0];
 
   const runPlannerSearch = () => {
     const query = plannerQuery.trim();
@@ -539,10 +543,14 @@ const Home = () => {
   };
 
   const navigatePlanner = (key: PlannerServiceKey) => {
-    const item = plannerServices.find((service) => service.key === key) || plannerServices[0];
+    const item = visiblePlannerServices.find((service) => service.key === key) || visiblePlannerServices[0];
     setPlannerService(key);
     navigate(item.path);
   };
+
+  useEffect(() => {
+    if (!shopEnabled && plannerService === 'shop') setPlannerService('hotels');
+  }, [plannerService, shopEnabled]);
 
   useEffect(() => {
     const loadListings = async () => {
@@ -613,14 +621,16 @@ const Home = () => {
       } else setTours([]);
     };
 
-    void fetchProducts();
+    if (shopEnabled) void fetchProducts();
     void loadListings();
 
     const unsubListings = subscribeAppEvent('listing:changed', () => void loadListings());
-    const unsubProducts = subscribeAppEvent('product:changed', () => void fetchProducts());
+    const unsubProducts = subscribeAppEvent('product:changed', () => {
+      if (shopEnabled) void fetchProducts();
+    });
     const onFocus = () => {
       void loadListings();
-      void fetchProducts();
+      if (shopEnabled) void fetchProducts();
     };
     window.addEventListener('focus', onFocus);
 
@@ -629,7 +639,7 @@ const Home = () => {
       unsubProducts();
       window.removeEventListener('focus', onFocus);
     };
-  }, [fetchProducts]);
+  }, [fetchProducts, shopEnabled]);
 
   const getRoomPrice = (roomType: any) => {
     const base = Number(roomType?.pricePerNight || 0);
@@ -694,7 +704,7 @@ const Home = () => {
             className="travel-search-panel mx-auto mt-5 max-w-4xl rounded-xl border border-white/18 bg-white/95 p-2.5 text-left shadow-2xl backdrop-blur-xl"
           >
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {plannerServices.map((item) => {
+              {visiblePlannerServices.map((item) => {
                 const Icon = item.icon;
                 const active = item.key === plannerService;
                 return (
@@ -777,7 +787,7 @@ const Home = () => {
             subtitle="Useful booking paths, verified information, and local support arranged around how travellers actually decide."
           />
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-            {services.map((service) => (
+            {visibleServices.map((service) => (
               <Link
                 key={service.title}
                 to={service.link}
@@ -1107,7 +1117,7 @@ const Home = () => {
                     To make every Vrindavan visit feel guided, honest, and cared for.
                   </h2>
                   <p className="font-body text-[14px] leading-7 text-muted-foreground sm:text-[15px]">
-                    Vrindavan Sarthi Enterprises was created to bring hotels, rooms, cabs, tours, and sacred products into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
+                    Vrindavan Sarthi Enterprises was created to bring hotels, rooms, cabs, tours{shopEnabled ? ', and sacred products' : ''} into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Link to="/about" className="btn-gold inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold">
@@ -1122,7 +1132,7 @@ const Home = () => {
 
               <div className="grid gap-0 border-t border-border bg-white lg:border-l lg:border-t-0">
                 {[
-                  { icon: Shield, title: 'Verified Before Listing', desc: 'Hotels, room types, cabs, tours, and products are reviewed before customers rely on them.' },
+                  { icon: Shield, title: 'Verified Before Listing', desc: `Hotels, room types, cabs, tours${shopEnabled ? ', and products' : ''} are reviewed before customers rely on them.` },
                   { icon: Clock, title: 'Clear Booking Flow', desc: 'Dates, prices, payment status, invoices, and support details stay visible in a clean structure.' },
                   { icon: Users, title: 'Human Help When Needed', desc: 'For enquiry, booking support, order support, or payment help, users can reach the team directly.' },
                 ].map((item) => (
@@ -1144,7 +1154,7 @@ const Home = () => {
                 { label: 'Stays', value: 'Temple-side verified options' },
                 { label: 'Rooms', value: 'Room inventory with availability' },
                 { label: 'Cabs & Tours', value: 'Braj travel planning support' },
-                { label: 'Shop', value: 'Tracked devotional orders' },
+                ...(shopEnabled ? [{ label: 'Shop', value: 'Tracked devotional orders' }] : []),
               ].map((item) => (
                 <div key={item.label} className="border-b border-border px-5 py-4 last:border-b-0 sm:border-r sm:last:border-r-0 lg:border-b-0">
                   <p className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-brand-crimson">{item.label}</p>

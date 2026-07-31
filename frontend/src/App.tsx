@@ -116,8 +116,15 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+const FeatureRoute = ({ enabled, children }: { enabled: boolean; children: React.ReactNode }) => {
+  if (!enabled) return <Navigate to="/" replace />;
+  return <>{children}</>;
+};
+
 const App = () => {
   const refreshSettings = useSettingsStore((s) => s.refreshSettings);
+  const shopEnabled = useSettingsStore((s) => s.settings.shopEnabled);
+  const trackOrderEnabled = useSettingsStore((s) => s.settings.trackOrderEnabled);
 
   useEffect(() => {
     refreshSettings();
@@ -143,9 +150,9 @@ const App = () => {
               <Route path="/cabs/:id" element={<PublicLayout><CabDetail /></PublicLayout>} />
               <Route path="/tours" element={<PublicLayout><Tours /></PublicLayout>} />
               <Route path="/tours/:id" element={<PublicLayout><TourDetail /></PublicLayout>} />
-              <Route path="/shop" element={<PublicLayout><Shop /></PublicLayout>} />
-              <Route path="/shop/:id" element={<PublicLayout><ProductDetail /></PublicLayout>} />
-              <Route path="/track-order" element={<PublicLayout><TrackOrder /></PublicLayout>} />
+              <Route path="/shop" element={<FeatureRoute enabled={shopEnabled}><PublicLayout><Shop /></PublicLayout></FeatureRoute>} />
+              <Route path="/shop/:id" element={<FeatureRoute enabled={shopEnabled}><PublicLayout><ProductDetail /></PublicLayout></FeatureRoute>} />
+              <Route path="/track-order" element={<FeatureRoute enabled={trackOrderEnabled}><PublicLayout><TrackOrder /></PublicLayout></FeatureRoute>} />
               <Route path="/about" element={<PublicLayout><About /></PublicLayout>} />
               <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
               <Route path="/terms" element={<PublicLayout><Terms /></PublicLayout>} />
@@ -160,7 +167,7 @@ const App = () => {
               <Route path="/profile" element={<ProtectedRoute><PublicLayout><Profile /></PublicLayout></ProtectedRoute>} />
               <Route path="/bookings" element={<ProtectedRoute><PublicLayout><MyBookings /></PublicLayout></ProtectedRoute>} />
               <Route path="/bookings/:id" element={<ProtectedRoute><PublicLayout><BookingDetail /></PublicLayout></ProtectedRoute>} />
-              <Route path="/my-orders" element={<ProtectedRoute><PublicLayout><MyOrders /></PublicLayout></ProtectedRoute>} />
+              <Route path="/my-orders" element={<FeatureRoute enabled={shopEnabled}><ProtectedRoute><PublicLayout><MyOrders /></PublicLayout></ProtectedRoute></FeatureRoute>} />
 
               <Route path="/partner" element={<PartnerRoute><PartnerLayout /></PartnerRoute>}>
                 <Route index element={<PartnerDashboard />} />

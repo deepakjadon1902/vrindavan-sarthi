@@ -44,7 +44,6 @@
 //   const [showPayment, setShowPayment] = useState(false);
 //   const [paymentOption, setPaymentOption] = useState<'advance_30' | 'full_100' | ''>('');
 //   const [bookingId, setBookingId] = useState('');
-//   const [assignedRoomNumber, setAssignedRoomNumber] = useState('');
 //   const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
 //   const [booked, setBooked] = useState(false);
 //   const [showAvailability, setShowAvailability] = useState(false);
@@ -317,7 +316,6 @@
 //     }
 
 //     if (res.data?.bookingId) setBookingId(String(res.data.bookingId));
-//     if (res.data?.roomNumber) setAssignedRoomNumber(String(res.data.roomNumber));
 //     setIsWaitlistedBooking(Boolean(res.data?.isWaitlisted));
 //     setShowPayment(false);
 //     setBooked(true);
@@ -411,7 +409,6 @@
 //                 <p className="font-heading text-xl text-foreground font-semibold">Booking created</p>
 //                 <p className="font-body text-sm text-muted-foreground mt-2">{isWaitlistedBooking ? 'Waitlisted.' : 'Verification pending.'}</p>
 //                 {bookingId && <p className="font-body text-xs text-muted-foreground mt-2">Booking ID: <span className="text-foreground">{bookingId}</span></p>}
-//                 {assignedRoomNumber && <p className="font-body text-xs text-muted-foreground mt-1">Assigned room: <span className="text-foreground">{assignedRoomNumber}</span></p>}
 //                 <Link to="/bookings" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-block mt-4">
 //                   View My Bookings
 //                 </Link>
@@ -746,7 +743,6 @@ const RoomTypeDetail = () => {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentOption, setPaymentOption] = useState<'advance_30' | 'full_100' | ''>('');
   const [bookingId, setBookingId] = useState('');
-  const [assignedRoomNumber, setAssignedRoomNumber] = useState('');
   const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
   const [booked, setBooked] = useState(false);
   const [showAvailability, setShowAvailability] = useState(false);
@@ -1065,7 +1061,6 @@ const RoomTypeDetail = () => {
     });
     if (!res.success) { toast.error(res.error || 'Booking failed'); return; }
     if (res.data?.bookingId) setBookingId(String(res.data.bookingId));
-    if (res.data?.roomNumber) setAssignedRoomNumber(String(res.data.roomNumber));
     setIsWaitlistedBooking(Boolean(res.data?.isWaitlisted));
     setShowPayment(false);
     setBooked(true);
@@ -1117,7 +1112,7 @@ const RoomTypeDetail = () => {
   const inputCls = "w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-400";
 
   return (
-    <div className="min-h-screen pt-20 pb-8" style={{ background: '#f5f0e6' }}>
+    <div className="min-h-screen pt-4 pb-8" style={{ background: '#f5f0e6' }}>
       <SEO
         title={`${roomType.name} at ${hotel.name}`}
         description={roomDescription}
@@ -1130,7 +1125,7 @@ const RoomTypeDetail = () => {
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mt-4 mb-5 transition-colors"
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mt-0 mb-4 transition-colors"
         >
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-gray-300 bg-white">
             <ArrowLeft size={14} />
@@ -1256,10 +1251,11 @@ const RoomTypeDetail = () => {
                 <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
                   <Shield size={22} className="text-green-600" />
                 </div>
-                <p className="text-lg font-bold text-gray-900">Booking Created</p>
-                <p className="text-sm text-gray-500 mt-1">{isWaitlistedBooking ? 'You are on the waitlist.' : 'Verification pending.'}</p>
+                <p className="text-lg font-bold text-gray-900">Booking Successful</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {isWaitlistedBooking ? 'You are on the waitlist.' : 'Your room booking is received and payment verification is pending.'}
+                </p>
                 {bookingId && <p className="text-xs text-gray-400 mt-2">Booking ID: <span className="text-gray-700 font-medium">{bookingId}</span></p>}
-                {assignedRoomNumber && <p className="text-xs text-gray-400 mt-1">Room: <span className="text-gray-700 font-medium">{assignedRoomNumber}</span></p>}
                 <Link to="/bookings" className="inline-block mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: '#8B1A1A' }}>
                   View My Bookings
                 </Link>
@@ -1345,12 +1341,12 @@ const RoomTypeDetail = () => {
                           const tone = getRoomStatusTone(room?.status);
                           return (
                             <div
-                              key={room?.roomUnitId || room?.number}
+                              key={`${room?.displayLabel || 'room'}-${room?.status}-${room?.label}`}
                               className={`flex min-h-14 items-center justify-between gap-3 rounded-lg border px-3 py-2 ${tone.row}`}
                             >
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-gray-900">Room {room?.number || '-'}</p>
-                                <p className="truncate text-[11px] text-gray-500">{room?.floor || 'Floor not set'}</p>
+                                <p className="truncate text-sm font-semibold text-gray-900">{room?.displayLabel || 'Room option'}</p>
+                                <p className="truncate text-[11px] text-gray-500">Room number shared at property desk</p>
                               </div>
                               <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone.badge}`}>
                                 <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
@@ -1362,7 +1358,7 @@ const RoomTypeDetail = () => {
                       </div>
                     ) : (
                       <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-[11px] leading-relaxed text-gray-500">
-                        Room numbers are matched with the calendar once both dates are selected.
+                        Room availability is checked once both dates are selected. Exact room numbers are handled by the property desk.
                       </div>
                     )}
                   </div>

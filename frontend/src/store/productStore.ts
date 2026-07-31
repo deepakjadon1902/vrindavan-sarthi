@@ -222,7 +222,7 @@ export const useProductStore = create<ProductState>()((set, get) => ({
       const products = (res.data?.data || []).map(normalizeProduct);
       set({ products, isLoadingProducts: false });
     } catch {
-      set({ isLoadingProducts: false });
+      set({ products: [], isLoadingProducts: false });
     }
   },
 

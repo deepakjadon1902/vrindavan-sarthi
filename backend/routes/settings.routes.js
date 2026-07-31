@@ -39,6 +39,8 @@ router.put('/', protect, authorize('admin'), async (req, res) => {
       const p = Number(body.hotelTaxPercent);
       body.hotelTaxPercent = Number.isFinite(p) ? Math.min(50, Math.max(0, p)) : 12;
     }
+    if (typeof body.shopEnabled !== 'undefined') body.shopEnabled = body.shopEnabled === true || body.shopEnabled === 'true';
+    if (typeof body.trackOrderEnabled !== 'undefined') body.trackOrderEnabled = body.trackOrderEnabled === true || body.trackOrderEnabled === 'true';
 
     let settings = await Settings.findOne();
     if (!settings) settings = await Settings.create(body);

@@ -16,6 +16,8 @@ const settingsSchema = new mongoose.Schema({
   termsOfService: { type: String, default: '' },
   privacyPolicy: { type: String, default: '' },
   hotelTaxPercent: { type: Number, default: 12 },
+  shopEnabled: { type: Boolean, default: true },
+  trackOrderEnabled: { type: Boolean, default: true },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Settings', settingsSchema);

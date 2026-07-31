@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle, ShoppingBag, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useProductStore, type Product } from '@/store/productStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import UpiPayment from '@/components/UpiPayment';
 import AddressForm, { type AddressFormValue } from '@/components/AddressForm';
 import { getPrefetchedDetail } from '@/lib/detailCache';
@@ -16,6 +17,7 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const { fetchProductById, createOrder } = useProductStore();
+  const trackOrderEnabled = useSettingsStore((s) => s.settings.trackOrderEnabled);
   const [product, setProduct] = useState<Product | null>(() => getPrefetchedDetail<Product>('products', id) || null);
   const [isLoading, setIsLoading] = useState(() => !getPrefetchedDetail<Product>('products', id));
 
@@ -197,7 +199,7 @@ const ProductDetail = () => {
   };
 
   return (
-    <div className="pt-20 pb-8 min-h-screen bg-background">
+    <div className="pt-4 pb-8 min-h-screen bg-background">
       <SEO
         title={`${product.name} - ${product.category}`}
         description={truncate(product.description || `Buy ${product.name} from the Vrindavan Sarthi Enterprises sacred shop.`)}
@@ -209,7 +211,7 @@ const ProductDetail = () => {
       <div className="container mx-auto px-4 max-w-6xl">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 mt-3"
+          className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 mt-0"
         >
           <ArrowLeft size={16} /> Back
         </button>
@@ -263,7 +265,7 @@ const ProductDetail = () => {
                   <Link to="/my-orders" className="btn-gold px-6 py-2.5 rounded-xl text-sm">
                     View My Orders
                   </Link>
-                  {trackingId && (
+                  {trackingId && trackOrderEnabled && (
                     <Link to={`/track-order?trackingId=${encodeURIComponent(trackingId)}`} className="btn-crimson px-6 py-2.5 rounded-xl text-sm">
                       Track Order
                     </Link>

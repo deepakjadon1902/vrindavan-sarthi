@@ -125,7 +125,7 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
   });
   const bookedSet = new Set(blockedByBookings.map(String));
 
-  const roomAvailability = roomUnits.map((unit) => {
+  const roomAvailability = roomUnits.map((unit, index) => {
     const unitId = String(unit._id);
     const availability = getRoomUnitAvailability({
       unit,
@@ -133,9 +133,7 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
       isBooked: bookedSet.has(unitId),
     });
     return {
-      roomUnitId: unitId,
-      number: unit.number,
-      floor: unit.floor || '',
+      displayLabel: `Room option ${index + 1}`,
       status: availability.status,
       label: availability.label,
     };
@@ -441,7 +439,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Public: room-number availability for a selected stay duration
+// Public: room availability for a selected stay duration. Exact room numbers stay private to admin/partner.
 // Query: ?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD
 router.get('/:id/room-availability', async (req, res) => {
   try {
@@ -484,7 +482,7 @@ router.get('/:id/room-availability', async (req, res) => {
     });
     const bookedSet = new Set(bookedIds.map(String));
 
-    const roomAvailability = roomUnits.map((unit) => {
+    const roomAvailability = roomUnits.map((unit, index) => {
       const unitId = String(unit._id);
       const availability = getRoomUnitAvailability({
         unit,
@@ -492,9 +490,7 @@ router.get('/:id/room-availability', async (req, res) => {
         isBooked: bookedSet.has(unitId),
       });
       return {
-        roomUnitId: unitId,
-        number: unit.number,
-        floor: unit.floor || '',
+        displayLabel: `Room option ${index + 1}`,
         status: availability.status,
         label: availability.label,
       };
@@ -522,7 +518,7 @@ router.get('/:id/room-availability', async (req, res) => {
   }
 });
 
-// Public: calendar-style availability for a room type (per-day counts + room numbers)
+// Public: calendar-style availability for a room type (per-day counts only)
 // Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD (max 90 days)
 router.get('/:id/calendar', async (req, res) => {
   try {
@@ -559,8 +555,6 @@ router.get('/:id/calendar', async (req, res) => {
       .lean();
 
     const totalCount = units.length;
-    const numberByUnitId = new Map(units.map((u) => [String(u._id), String(u.number)]));
-
     const dateKey = (d) => d.toISOString().slice(0, 10);
     const blockedByDate = new Map(days.map((d) => [dateKey(d), { unitIds: new Set(), manualKinds: new Set(), hasOnlineBookings: false }]));
 
@@ -608,9 +602,6 @@ router.get('/:id/calendar', async (req, res) => {
     const calendar = days.map((d) => {
       const key = dateKey(d);
       const blockedInfo = blockedByDate.get(key) || { unitIds: new Set(), manualKinds: new Set(), hasOnlineBookings: false };
-      const unavailableRooms = Array.from(blockedInfo.unitIds)
-        .map((id) => numberByUnitId.get(String(id)))
-        .filter(Boolean);
       const unavailableCount = blockedInfo.unitIds.size;
       const availableCount = Math.max(0, totalCount - unavailableCount);
       const availabilityStatus = getAvailabilityStatus({
@@ -625,7 +616,6 @@ router.get('/:id/calendar', async (req, res) => {
         availableCount,
         availabilityStatus: availabilityStatus.status,
         availabilityStatusLabel: availabilityStatus.label,
-        unavailableRooms,
       };
     });
 

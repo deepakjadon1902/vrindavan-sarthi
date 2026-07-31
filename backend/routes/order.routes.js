@@ -1,6 +1,7 @@
 const express = require('express');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Settings = require('../models/Settings');
 const { protect, authorize } = require('../middleware/auth');
 const { enqueueJob } = require('../utils/jobQueue');
 const {
@@ -29,6 +30,14 @@ const stripLargeInlineImage = (value) => {
   if (!image) return '';
   if (image.startsWith('data:') && image.length > 2048) return '';
   return image;
+};
+
+const getFeatureSettings = async () => {
+  const settings = await Settings.findOne().select('shopEnabled trackOrderEnabled').lean();
+  return {
+    shopEnabled: settings?.shopEnabled !== false,
+    trackOrderEnabled: settings?.trackOrderEnabled !== false,
+  };
 };
 
 const normalizeTrackingUrl = (value) => {
@@ -85,6 +94,11 @@ const applyTrackingUpdate = (order, body, user) => {
 // Public tracking lookup (returns limited fields only)
 router.get('/track/:trackingId', async (req, res) => {
   try {
+    const { trackOrderEnabled } = await getFeatureSettings();
+    if (!trackOrderEnabled) {
+      return res.status(503).json({ success: false, message: 'Order tracking is currently unavailable' });
+    }
+
     const trackingId = String(req.params.trackingId || '').trim();
     if (!/^\d{5}$/.test(trackingId)) {
       return res.status(400).json({ success: false, message: 'Invalid tracking id' });
@@ -208,6 +222,11 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 
 router.post('/', protect, async (req, res) => {
   try {
+    const { shopEnabled } = await getFeatureSettings();
+    if (!shopEnabled) {
+      return res.status(503).json({ success: false, message: 'Shop is currently unavailable' });
+    }
+
     const productId = clean(req.body?.productId);
     const quantity = Math.max(1, Math.min(99, Math.floor(Number(req.body?.quantity || 1))));
     const shippingAddress = clean(req.body?.shippingAddress);

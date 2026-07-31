@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
-import { Settings, Save, CreditCard, FileText, Shield, Lock } from 'lucide-react';
+import { Settings, Save, CreditCard, FileText, Shield, Lock, ShoppingBag, PackageSearch, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
 import axios from 'axios';
 
 const AdminSettings = () => {
-  const { settings, saveSettings } = useSettingsStore();
-  const [activeTab, setActiveTab] = useState<'payment' | 'terms' | 'privacy' | 'security'>('payment');
+  const { settings, saveSettings, refreshSettings } = useSettingsStore();
+  const [activeTab, setActiveTab] = useState<'payment' | 'features' | 'terms' | 'privacy' | 'security'>('payment');
 
   const [form, setForm] = useState({ ...settings });
+  const [savingFeature, setSavingFeature] = useState<'shopEnabled' | 'trackOrderEnabled' | null>(null);
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const refreshMe = useAuthStore((s) => s.refreshMe);
@@ -30,8 +31,28 @@ const AdminSettings = () => {
 
   const handleSave = async () => {
     const res = await saveSettings(form);
-    if (res.success) toast.success('Settings saved successfully!');
+    if (res.success) {
+      await refreshSettings();
+      toast.success('Settings saved successfully!');
+    }
     else toast.error(res.error || 'Failed to save settings');
+  };
+
+  const handleToggleFeature = async (key: 'shopEnabled' | 'trackOrderEnabled') => {
+    const nextForm = { ...form, [key]: !form[key] };
+    setForm(nextForm);
+    setSavingFeature(key);
+    const res = await saveSettings(nextForm);
+    setSavingFeature(null);
+
+    if (!res.success) {
+      setForm({ ...settings });
+      toast.error(res.error || 'Failed to update feature visibility');
+      return;
+    }
+
+    await refreshSettings();
+    toast.success(`${key === 'shopEnabled' ? 'Shop' : 'Track Order'} ${nextForm[key] ? 'unblocked' : 'blocked'} successfully`);
   };
 
   const getApiErrorMessage = (err: unknown, fallback: string) => {
@@ -70,9 +91,25 @@ const AdminSettings = () => {
 
   const tabs = [
     { id: 'payment' as const, label: 'UPI Payment', icon: CreditCard },
+    { id: 'features' as const, label: 'Feature Visibility', icon: Eye },
     { id: 'terms' as const, label: 'Terms of Service', icon: FileText },
     { id: 'privacy' as const, label: 'Privacy Policy', icon: Shield },
     { id: 'security' as const, label: 'Security', icon: Lock },
+  ];
+
+  const featureCards = [
+    {
+      key: 'shopEnabled' as const,
+      title: 'Shop',
+      description: 'Controls the public shop page, product detail pages, featured products, shop links, and new product orders.',
+      icon: ShoppingBag,
+    },
+    {
+      key: 'trackOrderEnabled' as const,
+      title: 'Track Order',
+      description: 'Controls the public tracking page, navbar link, order success tracking link, and public tracking lookup.',
+      icon: PackageSearch,
+    },
   ];
 
   return (
@@ -159,6 +196,47 @@ const AdminSettings = () => {
               onChange={(e) => setForm({ ...form, termsOfService: e.target.value })}
               className="w-full px-4 py-3 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-y leading-relaxed"
             />
+          </div>
+        )}
+
+        {activeTab === 'features' && (
+          <div className="space-y-5">
+            <h3 className="font-heading text-lg font-semibold text-foreground border-b border-border pb-3">Main Application Visibility</h3>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {featureCards.map((feature) => {
+                const enabled = Boolean(form[feature.key]);
+                const Icon = feature.icon;
+                return (
+                  <div key={feature.key} className="rounded-xl border border-border bg-background p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Icon size={18} className={enabled ? 'text-brand-green' : 'text-destructive'} />
+                          <h4 className="font-heading text-base font-bold text-foreground">{feature.title}</h4>
+                        </div>
+                        <p className="mt-2 font-body text-xs leading-5 text-muted-foreground">{feature.description}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-3 py-1 font-body text-xs font-bold ${enabled ? 'bg-brand-green/10 text-brand-green' : 'bg-destructive/10 text-destructive'}`}>
+                        {enabled ? 'Visible' : 'Blocked'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFeature(feature.key)}
+                      disabled={savingFeature === feature.key}
+                      className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-body text-sm font-semibold transition-colors ${
+                        enabled
+                          ? 'border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15'
+                          : 'btn-gold'
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {enabled ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {savingFeature === feature.key ? 'Saving...' : enabled ? `Block ${feature.title}` : `Unblock ${feature.title}`}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const Product = require('../models/Product');
+const Settings = require('../models/Settings');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImages } = require('../utils/publicImages');
@@ -19,8 +20,18 @@ const setCache = (key, value, ttlMs) => {
   memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
 };
 
+const isShopEnabled = async () => {
+  const settings = await Settings.findOne().select('shopEnabled').lean();
+  return settings?.shopEnabled !== false;
+};
+
 router.get('/', async (req, res) => {
   try {
+    if (!(await isShopEnabled())) {
+      res.set('Cache-Control', 'no-store');
+      return res.status(503).json({ success: false, message: 'Shop is currently unavailable' });
+    }
+
     // Keep this endpoint fast for the Shop page:
     // - by default return all products (Shop can show Out of Stock)
     // - optional filter: ?inStock=true to only show in-stock items
@@ -106,6 +117,11 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    if (!(await isShopEnabled())) {
+      res.set('Cache-Control', 'no-store');
+      return res.status(503).json({ success: false, message: 'Shop is currently unavailable' });
+    }
+
     const product = await Product.findById(req.params.id).lean();
     if (!product) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, data: product });

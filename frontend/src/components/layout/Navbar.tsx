@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, User, LogOut, ChevronDown, Hotel, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { APP_LOGO_URL, COMPANY_NAME, COMPANY_PHONE_DIGITS } from '@/lib/brand';
 
 const navLinks = [
@@ -21,6 +22,12 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
+  const { shopEnabled, trackOrderEnabled } = useSettingsStore((s) => s.settings);
+  const visibleNavLinks = navLinks.filter((link) => {
+    if (link.path === '/shop') return shopEnabled;
+    if (link.path === '/track-order') return trackOrderEnabled;
+    return true;
+  });
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -54,7 +61,7 @@ const Navbar = () => {
             </Link>
 
             <div className="hidden items-center justify-center gap-0.5 rounded-full border border-white/15 bg-white/10 px-1.5 py-1 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.12),0_14px_35px_hsl(222_42%_10%_/_0.18)] backdrop-blur-xl xl:flex">
-              {navLinks.map((link) => (
+              {visibleNavLinks.map((link) => (
                 <Link
                   key={link.path}
                   to={link.path}
@@ -71,7 +78,7 @@ const Navbar = () => {
               {isAuthenticated && user ? (
                 <>
                   <Link to="/bookings" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">My Bookings</Link>
-                  <Link to="/my-orders" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">My Orders</Link>
+                  {shopEnabled && <Link to="/my-orders" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">My Orders</Link>}
                   <div className="relative">
                     <button
                       onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -91,9 +98,11 @@ const Navbar = () => {
                         <Link to="/bookings" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-foreground hover:bg-muted transition-colors">
                           <User size={14} /> My Bookings
                         </Link>
-                        <Link to="/my-orders" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-foreground hover:bg-muted transition-colors">
-                          <User size={14} /> My Orders
-                        </Link>
+                        {shopEnabled && (
+                          <Link to="/my-orders" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-foreground hover:bg-muted transition-colors">
+                            <User size={14} /> My Orders
+                          </Link>
+                        )}
                         {user.role === 'partner' && (
                           <Link to="/partner" className="flex items-center gap-2 px-4 py-2 font-body text-sm text-brand-gold hover:bg-muted transition-colors">
                             <Hotel size={14} /> Partner Panel
@@ -142,7 +151,7 @@ const Navbar = () => {
               <X size={28} />
             </button>
             <div className="flex flex-col gap-6">
-              {navLinks.map((link, i) => (
+              {visibleNavLinks.map((link, i) => (
                 <motion.div key={link.path} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}>
                   <Link to={link.path} className={`font-heading text-2xl tracking-wide ${location.pathname === link.path ? 'text-brand-gold' : 'text-white'}`}>
                     {link.name}
@@ -157,7 +166,7 @@ const Navbar = () => {
                 <>
                   <Link to="/profile" className="font-body text-white text-lg">Profile</Link>
                   <Link to="/bookings" className="font-body text-white text-lg">My Bookings</Link>
-                  <Link to="/my-orders" className="font-body text-white text-lg">My Orders</Link>
+                  {shopEnabled && <Link to="/my-orders" className="font-body text-white text-lg">My Orders</Link>}
                   {user.role === 'partner' && (
                     <Link to="/partner" className="font-body text-brand-gold text-lg">Partner Panel</Link>
                   )}

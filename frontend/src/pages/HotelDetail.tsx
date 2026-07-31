@@ -641,7 +641,7 @@ const HotelDetail = () => {
   }
 
   return (
-    <div className="pt-20 pb-8 min-h-screen bg-background">
+    <div className="pt-4 pb-8 min-h-screen bg-background">
       {hotel && (
         <SEO
           title={`${hotel.name} Hotel in ${hotel.location || 'Vrindavan'}`}
@@ -656,7 +656,7 @@ const HotelDetail = () => {
         {/* ── Back Button ── */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 font-body text-[13px] font-medium text-muted-foreground hover:text-foreground mb-3 mt-3 transition-colors group"
+          className="flex items-center gap-2 font-body text-[13px] font-medium text-muted-foreground hover:text-foreground mb-3 mt-0 transition-colors group"
         >
           <span className="w-7 h-7 rounded-lg border border-border bg-card flex items-center justify-center group-hover:border-brand-gold/40 transition-colors">
             <ArrowLeft size={14} />

@@ -1,28 +1,21 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Car, Clock, Users, CheckCircle, Sparkles, MapPin } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuthStore } from '@/store/authStore';
-import { useBookingStore } from '@/store/bookingStore';
-import UpiPayment from '@/components/UpiPayment';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, MessageCircle, Phone } from 'lucide-react';
 import ImageCarousel from '@/components/shared/ImageCarousel';
+import SEO from '@/components/SEO';
 import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
-import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
+import { useSettingsStore } from '@/store/settingsStore';
 
 const TourDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuthStore();
-  const { createBooking } = useBookingStore();
+  const companyPhone = useSettingsStore((s) => s.settings.adminPhone);
   const [tour, setTour] = useState<any>(() => getPrefetchedDetail('tours', id) || getCachedListingItem('tours', id) || null);
   const [isLoading, setIsLoading] = useState(true);
   const [travelDate, setTravelDate] = useState('');
   const [persons, setPersons] = useState(1);
-  const [showPayment, setShowPayment] = useState(false);
-  const [booked, setBooked] = useState(false);
-  const [bookingId, setBookingId] = useState('');
 
   useEffect(() => {
     const run = async () => {
@@ -40,63 +33,43 @@ const TourDetail = () => {
     void run();
   }, [id]);
 
-  if (isLoading && !tour) return (
-    <div className="pt-20 pb-8 text-center min-h-screen bg-background">
-      <p className="font-body text-sm text-muted-foreground">Loading…</p>
-    </div>
-  );
+  if (isLoading && !tour) {
+    return (
+      <div className="pt-20 pb-8 text-center min-h-screen bg-background">
+        <p className="font-body text-sm text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
-  if (!tour) return (
-    <div className="pt-20 pb-8 text-center min-h-screen bg-background">
-      <p className="font-heading text-2xl text-muted-foreground">Tour not found</p>
-      <Link to="/tours" className="btn-gold px-6 py-2 rounded-lg text-sm mt-4 inline-block">Back to Tours</Link>
-    </div>
-  );
+  if (!tour) {
+    return (
+      <div className="pt-20 pb-8 text-center min-h-screen bg-background">
+        <p className="font-heading text-2xl text-muted-foreground">Tour not found</p>
+        <Link to="/tours" className="btn-gold px-6 py-2 rounded-lg text-sm mt-4 inline-block">Back to Tours</Link>
+      </div>
+    );
+  }
 
-  const subtotal = tour.pricePerPerson * persons;
+  const pricePerPerson = Number(tour.pricePerPerson || 0);
+  const subtotal = pricePerPerson * persons;
   const convenienceFee = Math.round(subtotal * 0.02);
   const total = subtotal + convenienceFee;
-
-  const handleInitiateBooking = () => {
-    if (!isAuthenticated) { toast.error('Please login to book'); navigate('/login'); return; }
-    if (!travelDate) { toast.error('Please select travel date'); return; }
-    const tempId = `VVS-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
-    setBookingId(tempId);
-    setShowPayment(true);
-  };
-
-  const handlePaymentConfirm = async (transactionId: string) => {
-    if (!user) return;
-    const res = await createBooking({
-      bookingType: 'tour',
-      itemId: tour?._id,
-      itemName: tour.name,
-      itemImage: tour.image,
-      partnerId: tour.partnerId,
-      partnerName: tour.partnerName,
-      checkIn: travelDate,
-      guests: persons,
-      totalAmount: total,
-      checkoutSubtotal: subtotal,
-      paymentOption: 'full_100',
-      paymentMethod: 'online',
-      paymentStatus: 'pending',
-      bookingStatus: 'confirmed',
-      upiTransactionId: transactionId,
-      additionalInfo: `UPI Txn: ${transactionId}`,
-    } as any);
-
-    if (!res.success) {
-      toast.error(res.error || 'Booking failed');
-      return;
-    }
-    setShowPayment(false);
-    setBooked(true);
-    toast.success('Booking confirmed! Payment verification pending.');
-  };
-
+  const advanceAmount = total > 0 ? Math.round(total * 0.3) : 0;
+  const balanceAmount = Math.max(0, total - advanceAmount);
+  const phoneDigits = companyPhone.replace(/\D/g, '');
+  const whatsappDigits = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
   const allImages = [tour.image, ...(tour.images || [])].filter(Boolean);
   const tourDescription = truncate(tour.description || `${tour.name} guided Vrindavan tour package with booking support from Vrindavan Sarthi Enterprises.`);
+  const whatsappMessage = [
+    'Radhe Radhe, I want to confirm a tour booking.',
+    `Tour: ${tour.name}`,
+    travelDate ? `Travel date: ${travelDate}` : '',
+    `Persons: ${persons}`,
+    tour.destination ? `Destination: ${tour.destination}` : '',
+    tour.duration ? `Duration: ${tour.duration}` : '',
+    total > 0 ? `Estimated total: Rs. ${total.toLocaleString('en-IN')}` : '',
+    'Please confirm availability and payment amount.',
+  ].filter(Boolean).join('\n');
   const tourJsonLd = [
     {
       '@context': 'https://schema.org',
@@ -108,116 +81,124 @@ const TourDetail = () => {
       provider: { '@type': 'Organization', name: 'Vrindavan Sarthi Enterprises', url: absoluteUrl('/') },
       areaServed: ['Vrindavan', 'Mathura', 'Uttar Pradesh'],
       serviceType: 'Guided spiritual tour package',
-      offers: {
-        '@type': 'Offer',
-        url: absoluteUrl(`/tours/${tour._id}`),
-        priceCurrency: 'INR',
-        price: Number(tour.pricePerPerson || 0),
-        availability: 'https://schema.org/InStock',
-      },
+      offers: { '@type': 'Offer', url: absoluteUrl(`/tours/${tour._id}`), priceCurrency: 'INR', price: pricePerPerson, availability: 'https://schema.org/InStock' },
     },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'TouristTrip',
-      name: tour.name,
-      description: tourDescription,
-      itinerary: tour.itinerary || tour.highlights?.join(', ') || undefined,
-      touristType: 'Pilgrims and devotional travelers',
-    },
+    { '@context': 'https://schema.org', '@type': 'TouristTrip', name: tour.name, description: tourDescription, itinerary: tour.itinerary || tour.highlights?.join(', ') || undefined },
   ];
 
   return (
-    <div className="pt-20 pb-8 min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 relative overflow-hidden">
-      <SEO
-        title={`${tour.name} Tour Package`}
-        description={tourDescription}
-        image={allImages[0]}
-        canonicalPath={`/tours/${tour._id}`}
-        jsonLd={tourJsonLd}
-      />
-      <div className="container mx-auto px-4 max-w-6xl relative">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 mt-3 transition-colors">
+    <div className="pt-4 pb-10 min-h-screen bg-[linear-gradient(180deg,#fffdfa_0%,#f7faf8_52%,#f3f6f3_100%)]">
+      <SEO title={`${tour.name} Tour Package`} description={tourDescription} image={allImages[0]} canonicalPath={`/tours/${tour._id}`} jsonLd={tourJsonLd} />
+      <div className="container mx-auto px-4 max-w-6xl">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-4 mt-0 transition-colors">
           <ArrowLeft size={16} /> Back
         </button>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-4">
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_385px]">
+          <div className="space-y-5">
             <ImageCarousel images={allImages} alt={tour.name} />
-            <div className="glass-panel rounded-lg p-4 sm:p-5 metallic-border">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={14} className="text-brand-gold animate-float-slow" />
-                <span className="font-ui text-[11px] uppercase tracking-[0.2em] text-brand-gold">Sacred Journey</span>
+            <div className="rounded-lg border border-border/80 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] sm:p-6">
+              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Guided tour package</p>
+              <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h1 className="font-display text-3xl font-bold leading-tight text-foreground md:text-4xl">{tour.name}</h1>
+                  <p className="mt-2 font-body text-sm text-muted-foreground">{tour.destination || 'Vrindavan and nearby pilgrimage route'}</p>
+                </div>
+                <div className="rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 font-body text-sm">
+                  <p className="text-muted-foreground">Booking payment</p>
+                  <p className="font-bold text-foreground">After confirmation</p>
+                </div>
               </div>
-              <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground leading-tight">{tour.name}</h1>
-              <div className="flex flex-wrap items-center gap-4 mt-3">
-                <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><Clock size={15} className="text-brand-crimson" /> {tour.duration}</span>
-                <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><Users size={15} className="text-brand-gold" /> Max {tour.groupSize}</span>
-                {tour.cabType && <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><Car size={15} className="text-brand-saffron" /> {tour.cabType}</span>}
-                {tour.startPoint && <span className="flex items-center gap-1.5 font-body text-sm text-muted-foreground"><MapPin size={15} className="text-brand-green" /> {tour.startPoint}</span>}
+              <div className="mt-5 grid gap-3 border-t border-border pt-4 font-body text-sm sm:grid-cols-4">
+                <div className="border-l-2 border-brand-gold/60 pl-3"><p className="text-xs text-muted-foreground">Duration</p><p className="mt-1 font-semibold">{tour.duration || 'On request'}</p></div>
+                <div className="border-l-2 border-brand-gold/60 pl-3"><p className="text-xs text-muted-foreground">Group</p><p className="mt-1 font-semibold">Max {tour.groupSize || 'custom'}</p></div>
+                <div className="border-l-2 border-brand-gold/60 pl-3"><p className="text-xs text-muted-foreground">Cab</p><p className="mt-1 font-semibold">{tour.cabType || 'As required'}</p></div>
+                <div className="border-l-2 border-brand-gold/60 pl-3"><p className="text-xs text-muted-foreground">Advance</p><p className="mt-1 font-semibold">30% or full</p></div>
               </div>
             </div>
+
             {tour.placesCovered?.length > 0 && (
-              <div className="glass-panel rounded-lg p-4 sm:p-5">
-                <h3 className="font-display text-xl font-semibold text-foreground mb-3">Places Covered</h3>
-                <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-lg border border-border/80 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] sm:p-6">
+                <h3 className="font-display text-xl font-semibold text-foreground">Places Covered</h3>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
                   {tour.placesCovered.map((place: string) => (
-                    <span key={place} className="rounded-lg border border-brand-gold/20 bg-background/70 px-3 py-2 font-body text-sm text-foreground">{place}</span>
+                    <span key={place} className="rounded-lg border border-border bg-secondary/45 px-3 py-2 font-body text-sm text-foreground">{place}</span>
                   ))}
                 </div>
               </div>
             )}
+
             {tour.description && (
-              <div className="glass-panel rounded-lg p-4 sm:p-5">
-                <h3 className="font-display text-xl font-semibold text-foreground mb-3">About this Tour</h3>
+              <div className="rounded-lg border border-border/80 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] sm:p-6">
+                <h3 className="font-display text-xl font-semibold text-foreground">About this Tour</h3>
                 <p className="font-body text-sm text-muted-foreground leading-relaxed">{tour.description}</p>
               </div>
             )}
+
             {tour.itinerary && (
-              <div className="glass-panel rounded-lg p-4 sm:p-5">
-                <h3 className="font-display text-xl font-semibold text-foreground mb-3">Itinerary</h3>
+              <div className="rounded-lg border border-border/80 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] sm:p-6">
+                <h3 className="font-display text-xl font-semibold text-foreground">Itinerary</h3>
                 <p className="font-body text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{tour.itinerary}</p>
               </div>
             )}
+
             {tour.includes?.length > 0 && (
-              <div className="glass-panel rounded-lg p-4 sm:p-5">
-                <h3 className="font-display text-xl font-semibold text-foreground mb-3">What's Included</h3>
-                <div className="flex flex-wrap gap-2">
-                  {tour.includes.map((i: string) => (
-                    <span key={i} className="font-body text-sm bg-brand-green/10 text-brand-green px-3 py-1.5 rounded-lg border border-brand-green/20">✓ {i}</span>
+              <div className="rounded-lg border border-border/80 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] sm:p-6">
+                <h3 className="font-display text-xl font-semibold text-foreground">Included</h3>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {tour.includes.map((item: string) => (
+                    <span key={item} className="font-body text-sm bg-secondary px-3 py-1.5 rounded-lg border border-border text-secondary-foreground">{item}</span>
                   ))}
                 </div>
               </div>
             )}
+
+            <div className="rounded-lg border border-brand-gold/35 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] sm:p-6">
+              <p className="font-display text-xl font-semibold text-foreground">Simple booking flow</p>
+              <div className="mt-4 grid gap-3 font-body text-sm sm:grid-cols-3">
+                <div><p className="font-bold text-foreground">1. Confirm</p><p className="mt-1 text-muted-foreground">Share date, persons, pickup need, and tour preference.</p></div>
+                <div><p className="font-bold text-foreground">2. Pay</p><p className="mt-1 text-muted-foreground">After confirmation, pay 30% advance or the full amount.</p></div>
+                <div><p className="font-bold text-foreground">3. Visit</p><p className="mt-1 text-muted-foreground">Final pickup plan and support details are shared by the team.</p></div>
+              </div>
+            </div>
           </div>
-          <div className="lg:col-span-1">
-            <div className="glass-panel rounded-lg p-4 sm:p-5 sticky top-24 metallic-border">
-              {showPayment ? (
-                <UpiPayment amount={total} bookingId={bookingId} itemName={tour.name} onPaymentConfirm={handlePaymentConfirm} onCancel={() => setShowPayment(false)} />
-              ) : booked ? (
-                <div className="text-center py-5">
-                  <CheckCircle size={48} className="mx-auto mb-4 text-brand-saffron animate-float-slow" />
-                  <h3 className="font-display text-2xl font-semibold text-foreground mb-2">Booking Submitted!</h3>
-                  <p className="font-body text-sm text-muted-foreground mb-4">Payment verification pending.</p>
-                  <Link to="/bookings" className="btn-gold px-6 py-2.5 rounded-lg text-sm">View My Bookings</Link>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-4">
-                    <span className="font-display text-4xl font-bold text-shine">₹{tour.pricePerPerson?.toLocaleString('en-IN')}</span>
-                    <span className="font-body text-sm text-muted-foreground"> /person</span>
+
+          <div>
+            <div className="sticky top-24 rounded-lg border border-brand-gold/45 bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.12)] sm:p-6">
+              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Booking desk</p>
+              <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Confirm by call or WhatsApp</h2>
+              <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">Our team confirms date, pickup plan, vehicle, final amount, and payment link. Payment is collected only after confirmation.</p>
+
+              <div className="mt-5 space-y-3">
+                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Travel Date</label><input type="date" value={travelDate} onChange={(e) => setTravelDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Number of Persons</label><input type="number" min={1} max={tour.groupSize || 50} value={persons} onChange={(e) => setPersons(Math.max(1, Number(e.target.value || 1)))} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+              </div>
+
+              <div className="mt-5 rounded-lg border border-border bg-[#f8faf8] p-4">
+                <div className="flex justify-between gap-3 font-body text-sm"><span className="text-muted-foreground">Estimated total</span><span className="font-bold text-foreground">{total > 0 ? `Rs. ${total.toLocaleString('en-IN')}` : 'On confirmation'}</span></div>
+                {total > 0 && (
+                  <div className="mt-2 space-y-1 font-body text-[11px] text-muted-foreground">
+                    <p>Base: Rs. {subtotal.toLocaleString('en-IN')}</p>
+                    <p>Service fee: Rs. {convenienceFee.toLocaleString('en-IN')}</p>
+                    <p>After confirmation: 30% advance Rs. {advanceAmount.toLocaleString('en-IN')} or full payment.</p>
+                    <p>Balance if advance paid: Rs. {balanceAmount.toLocaleString('en-IN')}</p>
                   </div>
-                  <div className="space-y-4">
-                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Travel Date</label><input type="date" value={travelDate} onChange={(e) => setTravelDate(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                    <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Number of Persons</label><input type="number" min={1} max={tour.groupSize || 20} value={persons} onChange={(e) => setPersons(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background/70 backdrop-blur font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                  </div>
-                  <div className="border-t border-brand-gold/20 mt-4 pt-4 space-y-2">
-                    <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">₹{tour.pricePerPerson} × {persons} person(s)</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between font-body text-sm"><span className="text-muted-foreground">Convenience fee (2%)</span><span>₹{convenienceFee.toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between font-body text-sm font-semibold border-t border-brand-gold/20 pt-2"><span>Total</span><span className="text-brand-crimson font-display text-lg">₹{total.toLocaleString('en-IN')}</span></div>
-                  </div>
-                  <button onClick={handleInitiateBooking} className="metallic-gold w-full py-3 rounded-xl text-sm font-body font-semibold mt-4 tracking-wide">Pay & Book Tour</button>
-                  <p className="font-body text-[11px] text-muted-foreground text-center mt-3">Secure UPI - confirmed after admin verification</p>
-                </>
-              )}
+                )}
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                <a href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-body text-sm font-bold">
+                  <MessageCircle size={17} /> WhatsApp Booking
+                </a>
+                <a href={`tel:${phoneDigits}`} className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-5 py-3 font-body text-sm font-bold text-foreground hover:border-brand-gold/50">
+                  <Phone size={17} /> Call to Confirm
+                </a>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-4 font-body text-xs">
+                <div><p className="text-muted-foreground">Payment</p><p className="font-bold text-foreground">After confirmation</p></div>
+                <div><p className="text-muted-foreground">Advance</p><p className="font-bold text-foreground">30% or full</p></div>
+              </div>
             </div>
           </div>
         </div>
@@ -227,4 +208,3 @@ const TourDetail = () => {
 };
 
 export default TourDetail;
-
