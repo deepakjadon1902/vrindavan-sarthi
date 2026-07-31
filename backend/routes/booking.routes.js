@@ -212,7 +212,7 @@ const enqueueBookingNotifications = (booking, { invoice = false, partnerAlert = 
   if (invoice) {
     enqueueJob(`invoice:${booking.bookingId}`, async () => {
       await sendBookingInvoice(booking);
-      await Booking.updateOne({ _id: booking._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
+      await Booking.updateOne({ _id: booking._id }, { $set: { invoiceSentAt: new Date() } });
     });
   }
   if (partnerAlert) {
@@ -270,7 +270,6 @@ router.post('/cab', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'pickupLocation, dropLocation, pickupDate, pickupTime, and cabType are required' });
     }
     if (!Number.isFinite(passengers) || passengers < 1) return res.status(400).json({ success: false, message: 'Invalid number of passengers' });
-    if (!tollOption) return res.status(400).json({ success: false, message: 'Please choose Tolls Included or Tolls Excluded' });
     if (!upiTransactionId) return res.status(400).json({ success: false, message: 'UPI transaction ID is required for the 30% advance payment' });
 
     let rule = cabFareRuleId ? await CabFare.findOne({ _id: cabFareRuleId, status: 'active' }).lean() : null;
@@ -318,7 +317,7 @@ router.post('/cab', protect, async (req, res) => {
       cabFareBase: breakdown.base,
       cabFareExtra: breakdown.extra,
       cabFareTotal: breakdown.total,
-      tollOption,
+      ...(tollOption ? { tollOption } : {}),
 
       baseAmount: breakdown.total,
       taxPercent: 0,
@@ -329,9 +328,10 @@ router.post('/cab', protect, async (req, res) => {
       bookingStatus: 'pending',
       verificationStage: 'pending_admin',
       upiTransactionId,
-      additionalInfo: `30% advance submitted by UPI. Balance INR ${money.balanceAmount.toLocaleString('en-IN')} payable later. Tolls ${tollOption}.`,
+      additionalInfo: `30% advance submitted by UPI. Balance INR ${money.balanceAmount.toLocaleString('en-IN')} payable later.`,
     });
 
+    enqueueBookingNotifications(booking, { partnerAlert: true });
     res.status(201).json({ success: true, data: booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -930,13 +930,16 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
 
     const booking = await Booking.findByIdAndUpdate(req.params.id, {
       paymentStatus: 'paid',
-      bookingStatus: bookingExisting.bookingType === 'cab' ? 'pending' : 'confirmed',
+      bookingStatus: 'confirmed',
       verificationStage: 'verified',
       adminPaymentVerified: true,
       adminPaymentVerifiedAt: new Date(),
     }, { new: true });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
-    enqueueBookingNotifications(booking, { invoice: true, partnerAlert: false });
+    enqueueBookingNotifications(booking, {
+      invoice: !['cab', 'tour'].includes(String(booking.bookingType || '')),
+      partnerAlert: false,
+    });
     res.json({ success: true, data: booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
