@@ -425,6 +425,7 @@ import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail, prefetchDetail } from '@/lib/detailCache';
 import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
+import { PropertyTermsPreview, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
 
 type Hotel = {
   _id: string;
@@ -443,6 +444,7 @@ type Hotel = {
   checkOutTime?: string;
   taxEnabled?: boolean;
   taxPercent?: number;
+  propertyTerms?: PropertyTermsValue;
 };
 
 type RoomType = {
@@ -595,6 +597,8 @@ const HotelDetail = () => {
   };
 
   const mapEmbedSrc = getGoogleMapEmbedSrc(hotel?.googleMapLink);
+  const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
+  const showPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
   const hotelDescription = truncate(hotel?.description || `${hotel?.name || 'Verified hotel'} in ${hotel?.location || 'Vrindavan'} with room booking support from Vrindavan Sarthi Enterprises.`);
   const hotelJsonLd = hotel ? {
     '@context': 'https://schema.org',
@@ -750,6 +754,20 @@ const HotelDetail = () => {
                       </span>
                     ))}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {showPropertyTerms && (
+              <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                <div className="border-b border-border px-6 py-3.5 bg-muted/30">
+                  <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Property Terms & Booking Policies</h2>
+                  <p className="mt-1 font-body text-[12px] text-muted-foreground">
+                    Active version {propertyTerms.currentVersion}. These policies apply to rooms under this hotel.
+                  </p>
+                </div>
+                <div className="px-5 py-4">
+                  <PropertyTermsPreview terms={propertyTerms} />
                 </div>
               </div>
             )}

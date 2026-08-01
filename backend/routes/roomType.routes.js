@@ -98,6 +98,7 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
           partnerId: hotel.partnerId,
           nearestTemple: hotel.nearestTemple,
           googleMapLink: hotel.googleMapLink,
+          propertyTerms: hotel.propertyTerms,
         },
       };
 
