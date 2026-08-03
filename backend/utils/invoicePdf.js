@@ -1,5 +1,8 @@
-const COMPANY_NAME = 'Vrindavan Sarthi Enterprises';
-const COMPANY_ADDRESS = 'Raja wala mandir, Infront of Giriraj ji Maharaj, Goverdhan, Mathura, Uttar Pradesh 281502';
+const fs = require('fs');
+const path = require('path');
+
+const COMPANY_NAME = 'Vrindavan Sarthi';
+const COMPANY_ADDRESS = 'Raja Wala Mandir, In front of Giriraj Ji Maharaj, Govardhan, Mathura, Uttar Pradesh 281502';
 const COMPANY_PHONE = '+91 8679820256';
 const COMPANY_EMAIL = 'vrindavansarthi108@gmail.com';
 
@@ -25,6 +28,33 @@ const normalizeInvoiceText = (value) =>
     .replace(/\bTotalINR\b/gi, 'Total INR')
     .replace(/\bTotal\s+INR\b/gi, 'Total INR');
 const todayText = () => new Date().toLocaleDateString('en-IN');
+const logoPath = path.resolve(__dirname, '../../frontend/public/vrindasarthi logo.jpeg');
+
+const getJpegSize = (buffer) => {
+  if (!buffer || buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null;
+  let offset = 2;
+  while (offset < buffer.length) {
+    if (buffer[offset] !== 0xff) return null;
+    const marker = buffer[offset + 1];
+    const length = buffer.readUInt16BE(offset + 2);
+    if (marker >= 0xc0 && marker <= 0xc3) {
+      return { height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7) };
+    }
+    offset += 2 + length;
+  }
+  return null;
+};
+
+const loadLogo = () => {
+  try {
+    const data = fs.readFileSync(logoPath);
+    const size = getJpegSize(data);
+    if (!size) return null;
+    return { data, ...size };
+  } catch {
+    return null;
+  }
+};
 
 const escapePdfText = (value) =>
   normalizeInvoiceText(value)
@@ -98,6 +128,13 @@ class PdfCanvas {
     this.ops.push(`${x1} ${y1} m ${x2} ${y2} l S`);
   }
 
+  image(name, x, y, width, height) {
+    this.ops.push('q');
+    this.ops.push(`${width} 0 0 ${height} ${x} ${y} cm`);
+    this.ops.push(`/${name} Do`);
+    this.ops.push('Q');
+  }
+
   text(value, x, y, { size = 10, font = 'F1', color = COLORS.ink } = {}) {
     this.ops.push(`${rgb(color)} rg`);
     this.ops.push(`BT /${font} ${size} Tf ${x} ${y} Td (${escapePdfText(value)}) Tj ET`);
@@ -116,17 +153,20 @@ class PdfCanvas {
   }
 
   header() {
-    this.rect(0, PAGE.height - 96, PAGE.width, 96, COLORS.cream);
-    this.rect(0, PAGE.height - 96, 8, 96, COLORS.gold);
-    this.rect(24, 724, 42, 42, COLORS.white, COLORS.gold);
-    this.text('VS', 37, 740, { size: 14, font: 'F2', color: COLORS.crimson });
-    this.centeredText(COMPANY_NAME, 738, { size: 20, font: 'F2', color: COLORS.crimson });
-    this.wrapped(COMPANY_ADDRESS, 176, 720, 270, { size: 8.5, color: COLORS.muted, lineHeight: 10 });
-    this.centeredText(`Phone: ${COMPANY_PHONE}`, 696, { size: 8.5, color: COLORS.muted });
-    this.centeredText(`Email: ${COMPANY_EMAIL}`, 684, { size: 8.5, color: COLORS.muted });
-    this.wrapped(this.documentLabel, 408, 730, 160, { size: 15, font: 'F2', color: COLORS.ink, lineHeight: 17 });
-    this.text(`Generated: ${todayText()}`, 462, 712, { size: 8.5, color: COLORS.muted });
-    this.y = 656;
+    this.rect(0, PAGE.height - 92, PAGE.width, 92, COLORS.cream);
+    this.rect(0, PAGE.height - 92, 8, 92, COLORS.gold);
+    this.rect(28, 716, 52, 52, COLORS.white, COLORS.gold);
+    if (PdfCanvas.hasLogo) {
+      this.image('Logo', 31, 719, 46, 46);
+    } else {
+      this.text('VS', 45, 738, { size: 14, font: 'F2', color: COLORS.crimson });
+    }
+    this.text(COMPANY_NAME, 98, 746, { size: 20, font: 'F2', color: COLORS.crimson });
+    this.wrapped(COMPANY_ADDRESS, 100, 727, 360, { size: 8.5, color: COLORS.muted, lineHeight: 10 });
+    this.text(`Phone: ${COMPANY_PHONE}`, 100, 703, { size: 8.5, color: COLORS.muted });
+    this.text(`Email: ${COMPANY_EMAIL}`, 100, 691, { size: 8.5, color: COLORS.muted });
+    this.text(`Generated: ${todayText()}`, 476, 746, { size: 8.5, color: COLORS.muted });
+    this.y = 658;
   }
 
   footer() {
@@ -169,12 +209,17 @@ class PdfCanvas {
     const filtered = rows.filter(([, value]) => isFilled(value));
     const width = 250;
     const x = PAGE.width - PAGE.margin - width;
+    const height = this.summaryBox(title, filtered, totalLabel, totalAmount, x, this.y, width);
+    this.y -= height + 18;
+  }
+
+  summaryBox(title, rows = [], totalLabel = 'Grand Total', totalAmount = 0, x = PAGE.margin, y = this.y, width = 250) {
+    const filtered = rows.filter(([, value]) => isFilled(value));
     const rowHeight = 22;
     const height = 44 + filtered.length * rowHeight + 34;
-    this.ensure(height);
-    this.rect(x, this.y - height, width, height, COLORS.cream, COLORS.border);
-    this.text(title.toUpperCase(), x + 14, this.y - 20, { size: 9, font: 'F2', color: COLORS.crimson });
-    let cursor = this.y - 42;
+    this.rect(x, y - height, width, height, COLORS.cream, COLORS.border);
+    this.text(title.toUpperCase(), x + 14, y - 20, { size: 9, font: 'F2', color: COLORS.crimson });
+    let cursor = y - 42;
     filtered.forEach(([label, value]) => {
       this.text(label, x + 14, cursor, { size: 9, color: COLORS.muted });
       const val = clean(value);
@@ -186,7 +231,7 @@ class PdfCanvas {
     this.text(label, x + 14, cursor - 10, { size: 11, font: 'F2', color: COLORS.ink });
     const total = Number(totalAmount || 0).toLocaleString('en-IN');
     this.text(total, x + width - 14 - Math.min(130, textWidth(total, 12)), cursor - 10, { size: 12, font: 'F2', color: COLORS.crimson });
-    this.y -= height + 18;
+    return height;
   }
 
   note(text) {
@@ -198,7 +243,27 @@ class PdfCanvas {
     this.wrapped(text, PAGE.margin + 14, this.y - 18, PAGE.width - PAGE.margin * 2 - 28, { size: 9, color: COLORS.muted, lineHeight });
     this.y -= height + 12;
   }
+
+  compactSection(title, rows = [], x = PAGE.margin, width = PAGE.width - PAGE.margin * 2) {
+    const filtered = rows.filter(([, value]) => isFilled(value));
+    if (!filtered.length) return;
+    const rowHeight = 17;
+    const height = 28 + filtered.length * rowHeight;
+    this.ensure(height + 8);
+    this.rect(x, this.y - height, width, height, COLORS.white, COLORS.border);
+    this.text(title.toUpperCase(), x + 12, this.y - 17, { size: 8.5, font: 'F2', color: COLORS.crimson });
+    let cursor = this.y - 36;
+    filtered.forEach(([label, value]) => {
+      this.text(label, x + 12, cursor, { size: 8.5, color: COLORS.muted });
+      const lines = wrapText(value, width - 126, 8.8);
+      this.wrapped(lines.join(' '), x + 122, cursor, width - 136, { size: 8.8, color: COLORS.ink, lineHeight: 10 });
+      cursor -= rowHeight;
+    });
+    this.y -= height + 12;
+  }
 }
+
+PdfCanvas.hasLogo = false;
 
 const splitRows = (rows = []) => {
   const result = {
@@ -227,24 +292,32 @@ const splitRows = (rows = []) => {
 };
 
 const buildPdf = ({ title = `${COMPANY_NAME} Invoice`, documentLabel, lines = [], sections = [], totalLabel = 'Grand Total', totalAmount = 0 } = {}) => {
+  const logo = loadLogo();
+  PdfCanvas.hasLogo = Boolean(logo);
   const canvas = new PdfCanvas(documentLabel || title);
   const allRows = (Array.isArray(sections) ? sections : []).flatMap((section) => Array.isArray(section?.rows) ? section.rows : []);
   const grouped = splitRows(allRows);
   const invoiceId = grouped.invoice.find(([label]) => /^(Booking|Order|Invoice) ID$/.test(label))?.[1] || title.replace(/^Invoice\s*/i, '');
 
   canvas.title(title, invoiceId ? `Reference: ${invoiceId}` : 'Booking and payment document');
-  canvas.summary('Payment Summary', grouped.payment, totalLabel, totalAmount);
-  canvas.section('Invoice Information', grouped.invoice);
-  canvas.section('Customer Details', grouped.customer);
-  canvas.section('Service / Item Details', grouped.service);
-  canvas.section('Travel / Delivery Details', grouped.fulfilment);
-  canvas.section('Payment Details', grouped.payment);
+  const topY = canvas.y + 8;
+  const summaryWidth = 250;
+  const gutter = 18;
+  const leftWidth = PAGE.width - PAGE.margin * 2 - summaryWidth - gutter;
+  const summaryX = PAGE.width - PAGE.margin - summaryWidth;
+  const summaryHeight = canvas.summaryBox('Payment Summary', grouped.payment, totalLabel, totalAmount, summaryX, topY, summaryWidth);
+  canvas.y = topY;
+  canvas.compactSection('Invoice Information', grouped.invoice, PAGE.margin, leftWidth);
+  canvas.compactSection('Customer Details', grouped.customer, PAGE.margin, leftWidth);
+  canvas.compactSection('Service / Item Details', grouped.service, PAGE.margin, leftWidth);
+  canvas.compactSection('Travel / Delivery Details', grouped.fulfilment, PAGE.margin, leftWidth);
+  canvas.y = Math.min(canvas.y, topY - summaryHeight) - 12;
 
   if (grouped.notes.length) {
-    canvas.section('Additional Notes', grouped.notes);
+    canvas.compactSection('Additional Notes', grouped.notes);
   }
   lines.filter(isFilled).forEach((line) => canvas.note(line));
-  canvas.note(`For any inquiry, booking help, payment issue, order support, or cancellation assistance, contact Vrindavan Sarthi Enterprises support at ${COMPANY_PHONE} or ${COMPANY_EMAIL}. Please share the invoice reference number shown above for faster support.`);
+  canvas.note(`For booking help, payment issues, order support, or cancellation assistance, contact Vrindavan Sarthi at ${COMPANY_PHONE} or ${COMPANY_EMAIL}. Share the invoice reference number for faster support.`);
 
   const pageStreams = canvas.finish();
   const objects = [];
@@ -255,29 +328,49 @@ const buildPdf = ({ title = `${COMPANY_NAME} Invoice`, documentLabel, lines = []
   objects.push(null);
   objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
   objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
+  let logoObjectNo = null;
+  if (logo) {
+    logoObjectNo = objects.length + 1;
+    objects.push({
+      binary: true,
+      data: logo.data,
+      header: `<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logo.data.length} >>`,
+    });
+  }
 
   pageStreams.forEach((stream) => {
     const pageNo = objects.length + 1;
     const contentNo = pageNo + 1;
     pageObjectNumbers.push(pageNo);
-    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE.width} ${PAGE.height}] /Resources << /Font << /F1 ${fontRegularObjectNo} 0 R /F2 ${fontBoldObjectNo} 0 R >> >> /Contents ${contentNo} 0 R >>`);
+    const xObjects = logoObjectNo ? `/XObject << /Logo ${logoObjectNo} 0 R >> ` : '';
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE.width} ${PAGE.height}] /Resources << /Font << /F1 ${fontRegularObjectNo} 0 R /F2 ${fontBoldObjectNo} 0 R >> ${xObjects}>> /Contents ${contentNo} 0 R >>`);
     objects.push(`<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}\nendstream`);
   });
   objects[1] = `<< /Type /Pages /Kids [${pageObjectNumbers.map((n) => `${n} 0 R`).join(' ')}] /Count ${pageObjectNumbers.length} >>`;
 
-  let pdf = '%PDF-1.4\n';
+  const chunks = [Buffer.from('%PDF-1.4\n', 'utf8')];
+  const byteLength = () => chunks.reduce((sum, chunk) => sum + chunk.length, 0);
   const offsets = [0];
   objects.forEach((obj, i) => {
-    offsets.push(Buffer.byteLength(pdf, 'utf8'));
-    pdf += `${i + 1} 0 obj\n${obj}\nendobj\n`;
+    offsets.push(byteLength());
+    chunks.push(Buffer.from(`${i + 1} 0 obj\n`, 'utf8'));
+    if (obj && typeof obj === 'object' && obj.binary) {
+      chunks.push(Buffer.from(`${obj.header}\nstream\n`, 'utf8'));
+      chunks.push(obj.data);
+      chunks.push(Buffer.from('\nendstream\n', 'utf8'));
+    } else {
+      chunks.push(Buffer.from(String(obj), 'utf8'));
+      chunks.push(Buffer.from('\n', 'utf8'));
+    }
+    chunks.push(Buffer.from('endobj\n', 'utf8'));
   });
-  const xrefStart = Buffer.byteLength(pdf, 'utf8');
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  const xrefStart = byteLength();
+  chunks.push(Buffer.from(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`, 'utf8'));
   for (let i = 1; i < offsets.length; i += 1) {
-    pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+    chunks.push(Buffer.from(`${String(offsets[i]).padStart(10, '0')} 00000 n \n`, 'utf8'));
   }
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
-  return Buffer.from(pdf, 'utf8');
+  chunks.push(Buffer.from(`trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`, 'utf8'));
+  return Buffer.concat(chunks);
 };
 
 module.exports = { buildPdf };

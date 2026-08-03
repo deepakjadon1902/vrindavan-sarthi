@@ -60,6 +60,43 @@ const normalizePropertyTermsInput = (body, user) => {
   };
 };
 
+const buildNormalizedPropertyTerms = (propertyTerms, user) => {
+  const holder = { propertyTerms };
+  normalizePropertyTermsInput(holder, user);
+  return holder.propertyTerms;
+};
+
+const getReusablePropertyTerms = async (user) => {
+  const owner = await User.findById(user?._id).select('defaultPropertyTerms').lean();
+  const saved = owner?.defaultPropertyTerms;
+  const sections = normalizeTermsSections(saved?.sections || {});
+  if (!hasAnyTermsText(sections)) return null;
+  return {
+    currentVersion: Number(saved?.currentVersion || 1),
+    isActive: typeof saved?.isActive === 'undefined' ? true : Boolean(saved.isActive),
+    sections,
+    publishedAt: saved?.publishedAt || new Date(),
+    history: Array.isArray(saved?.history) ? saved.history : [],
+  };
+};
+
+const saveReusablePropertyTerms = async (user, propertyTerms) => {
+  const sections = normalizeTermsSections(propertyTerms?.sections || propertyTerms || {});
+  if (!hasAnyTermsText(sections)) return;
+  const normalized = buildNormalizedPropertyTerms({ ...propertyTerms, sections }, user);
+  await User.updateOne({ _id: user._id }, { $set: { defaultPropertyTerms: normalized } });
+};
+
+const resolvePropertyTermsForHotel = async (incoming, user) => {
+  const normalized = typeof incoming === 'undefined' ? null : buildNormalizedPropertyTerms(incoming, user);
+  if (hasAnyTermsText(normalized?.sections)) {
+    await saveReusablePropertyTerms(user, normalized);
+    return normalized;
+  }
+  const reusable = await getReusablePropertyTerms(user);
+  return reusable ? buildNormalizedPropertyTerms(reusable, user) : normalized;
+};
+
 const applyPropertyTermsUpdate = (hotel, propertyTerms, user) => {
   if (typeof propertyTerms === 'undefined') return;
   const incoming = propertyTerms || {};
@@ -133,7 +170,7 @@ router.post('/hotels', protect, authorize('partner'), async (req, res) => {
     if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Hotel name and location are required' });
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
-    normalizePropertyTermsInput(body, req.user);
+    body.propertyTerms = await resolvePropertyTermsForHotel(body.propertyTerms, req.user);
     if (!hasAnyTermsText(body.propertyTerms?.sections)) {
       return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
     }
@@ -164,14 +201,18 @@ router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
     if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Hotel name and location are required' });
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
-    const propertyTerms = body.propertyTerms;
+    let propertyTerms = body.propertyTerms;
     delete body.propertyTerms;
-    if (typeof propertyTerms !== 'undefined' && !hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
-      return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
+    if (typeof propertyTerms !== 'undefined') {
+      propertyTerms = await resolvePropertyTermsForHotel(propertyTerms, req.user);
+      if (!hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
+        return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
+      }
     }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
     Object.assign(hotel, body);
     applyPropertyTermsUpdate(hotel, propertyTerms, req.user);
+    if (typeof propertyTerms !== 'undefined') await saveReusablePropertyTerms(req.user, propertyTerms);
     hotel.partnerSubmitted = true;
     hotel.approvalStatus = 'pending';
     hotel.status = 'inactive';

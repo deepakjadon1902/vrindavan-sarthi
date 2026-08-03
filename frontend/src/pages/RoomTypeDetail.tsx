@@ -975,45 +975,8 @@ const RoomTypeDetail = () => {
     : Array.isArray(roomType.roomAvailability)
       ? roomType.roomAvailability
       : [];
-  const availableRoomCount = roomAvailability.filter((room: any) => room?.status === 'available').length;
   const isFullyBookedSelectedDates = Boolean(checkIn && checkOut && availableCount !== null && availableCount <= 0);
   const isRequestedQuantityUnavailable = Boolean(checkIn && checkOut && availableCount !== null && roomQuantity > availableCount);
-  const selectedAvailabilityLabel =
-    typeof roomType.availabilityStatusLabel === 'string' && roomType.availabilityStatusLabel
-      ? roomType.availabilityStatusLabel
-      : availableCount !== null && availableCount > 0
-        ? `${availableCount} rooms available`
-        : 'Unavailable at this time';
-  const roomInventorySummary = checkIn && checkOut
-    ? roomAvailability.length > 0
-      ? `${availableRoomCount} of ${roomAvailability.length} rooms open for your stay`
-      : availabilityLoading
-        ? 'Checking room numbers...'
-        : 'Room number status will appear after availability loads.'
-    : 'Select check-in and check-out dates to see every room number.';
-  const getRoomStatusTone = (statusValue: unknown) => {
-    const status = String(statusValue || 'unavailable');
-    if (status === 'available') return {
-      row: 'border-green-100 bg-green-50/80',
-      badge: 'border-green-200 bg-white text-green-700',
-      dot: 'bg-green-500',
-    };
-    if (status === 'offline_booking') return {
-      row: 'border-amber-100 bg-amber-50/80',
-      badge: 'border-amber-200 bg-white text-amber-700',
-      dot: 'bg-amber-500',
-    };
-    if (status === 'closed') return {
-      row: 'border-gray-200 bg-gray-50',
-      badge: 'border-gray-200 bg-white text-gray-600',
-      dot: 'bg-gray-400',
-    };
-    return {
-      row: 'border-red-100 bg-red-50/80',
-      badge: 'border-red-200 bg-white text-red-700',
-      dot: 'bg-red-500',
-    };
-  };
 
   const loadAvailabilityCalendar = async (opts?: { from?: string; to?: string }) => {
     if (!id) return;
@@ -1426,18 +1389,6 @@ const RoomTypeDetail = () => {
 
                 {/* Availability strip */}
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  <p className="text-xs text-gray-500">
-                    {checkIn && checkOut
-                      ? (availableCount !== null ? selectedAvailabilityLabel : 'Checking availability...')
-                      : 'Select dates to check availability.'}
-                  </p>
-                  <p className="hidden">
-                    {checkIn && checkOut
-                      ? (availableCount !== null
-                          ? selectedAvailabilityLabel
-                          : 'Checking availability...')
-                      : 'Select dates to check availability.'}
-                  </p>
                   <button
                     type="button"
                     onClick={() => void loadAvailabilityCalendar()}
@@ -1446,51 +1397,6 @@ const RoomTypeDetail = () => {
                   >
                     {availabilityLoading ? 'Loading calendar...' : 'Refresh availability calendar'}
                   </button>
-
-                  <div className="mt-3 rounded-xl border border-gray-100 bg-white p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-start gap-2">
-                        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                          <BedDouble size={16} />
-                        </span>
-                        <div>
-                          <p className="text-xs font-semibold text-gray-900">Room inventory</p>
-                          <p className="text-[11px] leading-snug text-gray-500">{roomInventorySummary}</p>
-                        </div>
-                      </div>
-                      {checkIn && checkOut && roomAvailability.length > 0 && (
-                        <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">
-                          {availableRoomCount}/{roomAvailability.length}
-                        </span>
-                      )}
-                    </div>
-                    {checkIn && checkOut && roomAvailability.length > 0 ? (
-                      <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-1">
-                        {roomAvailability.map((room: any) => {
-                          const tone = getRoomStatusTone(room?.status);
-                          return (
-                            <div
-                              key={`${room?.displayLabel || 'room'}-${room?.status}-${room?.label}`}
-                              className={`flex min-h-14 items-center justify-between gap-3 rounded-lg border px-3 py-2 ${tone.row}`}
-                            >
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-gray-900">{room?.displayLabel || 'Room option'}</p>
-                                <p className="truncate text-[11px] text-gray-500">Room number shared at property desk</p>
-                              </div>
-                              <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone.badge}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
-                                {room?.label || 'Unavailable'}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-[11px] leading-relaxed text-gray-500">
-                        Room availability is checked once both dates are selected. Exact room numbers are handled by the property desk.
-                      </div>
-                    )}
-                  </div>
 
                   {showAvailability && (
                     <div className="mt-3 rounded-lg border border-gray-200 bg-white overflow-hidden">
@@ -1564,9 +1470,6 @@ const RoomTypeDetail = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Rooms</p>
-                      <p className="mt-0.5 text-[11px] text-gray-500">
-                        {availableCount !== null ? `${availableCount} available for selected dates` : `${totalCount || 1} listed by property`}
-                      </p>
                     </div>
                     <div className="flex items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
                       <button
@@ -1703,12 +1606,12 @@ const RoomTypeDetail = () => {
                   </div>
                   {taxEnabled && (
                     <div className="flex justify-between text-gray-500">
-                      <span>Hotel Taxes ({taxPercent}%)</span>
+                      <span>Hotel Taxes</span>
                       <span className="text-gray-700">Rs. {taxTotal.toLocaleString('en-IN')}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <span>Platform convenience fee (2%)</span>
+                    <span>Platform convenience fee</span>
                     <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">

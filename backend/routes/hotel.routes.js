@@ -1,5 +1,6 @@
 const express = require('express');
 const Hotel = require('../models/Hotel');
+const User = require('../models/User');
 const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
@@ -103,6 +104,43 @@ const normalizeTermsSections = (sections = {}) => {
 };
 
 const hasAnyTermsText = (sections = {}) => termsSectionKeys.some((key) => String(sections?.[key] || '').trim());
+
+const buildNormalizedPropertyTerms = (propertyTerms, user) => {
+  const holder = { propertyTerms };
+  normalizePropertyTermsInput(holder, user);
+  return holder.propertyTerms;
+};
+
+const getReusablePropertyTerms = async (user) => {
+  const owner = await User.findById(user?._id).select('defaultPropertyTerms').lean();
+  const saved = owner?.defaultPropertyTerms;
+  const sections = normalizeTermsSections(saved?.sections || {});
+  if (!hasAnyTermsText(sections)) return null;
+  return {
+    currentVersion: Number(saved?.currentVersion || 1),
+    isActive: typeof saved?.isActive === 'undefined' ? true : Boolean(saved.isActive),
+    sections,
+    publishedAt: saved?.publishedAt || new Date(),
+    history: Array.isArray(saved?.history) ? saved.history : [],
+  };
+};
+
+const saveReusablePropertyTerms = async (user, propertyTerms) => {
+  const sections = normalizeTermsSections(propertyTerms?.sections || propertyTerms || {});
+  if (!hasAnyTermsText(sections)) return;
+  const normalized = buildNormalizedPropertyTerms({ ...propertyTerms, sections }, user);
+  await User.updateOne({ _id: user._id }, { $set: { defaultPropertyTerms: normalized } });
+};
+
+const resolvePropertyTermsForHotel = async (incoming, user) => {
+  const normalized = typeof incoming === 'undefined' ? null : buildNormalizedPropertyTerms(incoming, user);
+  if (hasAnyTermsText(normalized?.sections)) {
+    await saveReusablePropertyTerms(user, normalized);
+    return normalized;
+  }
+  const reusable = await getReusablePropertyTerms(user);
+  return reusable ? buildNormalizedPropertyTerms(reusable, user) : normalized;
+};
 
 const termsEqual = (a = {}, b = {}) => termsSectionKeys.every((key) => String(a?.[key] || '') === String(b?.[key] || ''));
 
@@ -465,7 +503,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     body.approvalStatus = 'approved';
     body.status = body.status === 'inactive' ? 'inactive' : 'active';
-    normalizePropertyTermsInput(body, req.user);
+    body.propertyTerms = await resolvePropertyTermsForHotel(body.propertyTerms, req.user);
     if (!hasAnyTermsText(body.propertyTerms?.sections)) {
       return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
     }
@@ -483,16 +521,20 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
     validateHotelPayload(body);
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
-    const propertyTerms = body.propertyTerms;
+    let propertyTerms = body.propertyTerms;
     delete body.propertyTerms;
-    if (typeof propertyTerms !== 'undefined' && !hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
-      return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
+    if (typeof propertyTerms !== 'undefined') {
+      propertyTerms = await resolvePropertyTermsForHotel(propertyTerms, req.user);
+      if (!hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
+        return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
+      }
     }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
     const hotel = await Hotel.findById(req.params.id);
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
     Object.assign(hotel, body);
     applyPropertyTermsUpdate(hotel, propertyTerms, req.user);
+    if (typeof propertyTerms !== 'undefined') await saveReusablePropertyTerms(req.user, propertyTerms);
     await hotel.save();
     res.json({ success: true, data: hotel });
   } catch (err) { sendRouteError(res, err, 'admin.hotel.update'); }

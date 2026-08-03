@@ -1,6 +1,31 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const defaultPropertyTermsSectionsSchema = new mongoose.Schema(
+  {
+    generalTerms: { type: String, default: '' },
+    checkInRequirements: { type: String, default: '' },
+    checkOutRules: { type: String, default: '' },
+    cancellationPolicy: { type: String, default: '' },
+    guestPolicies: { type: String, default: '' },
+    idVerificationRequirements: { type: String, default: '' },
+    ageRestrictions: { type: String, default: '' },
+    propertyRules: { type: String, default: '' },
+    additionalInstructions: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
+const defaultPropertyTermsVersionSchema = new mongoose.Schema(
+  {
+    version: { type: Number, default: 1 },
+    isActive: { type: Boolean, default: true },
+    sections: { type: defaultPropertyTermsSectionsSchema, default: () => ({}) },
+    publishedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -46,6 +71,13 @@ const userSchema = new mongoose.Schema({
     paidAt: Date,
     paidByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     note: String,
+  },
+  defaultPropertyTerms: {
+    currentVersion: { type: Number, default: 1 },
+    isActive: { type: Boolean, default: true },
+    sections: { type: defaultPropertyTermsSectionsSchema, default: () => ({}) },
+    publishedAt: { type: Date, default: Date.now },
+    history: { type: [defaultPropertyTermsVersionSchema], default: [] },
   },
   partnerDocuments: [
     {

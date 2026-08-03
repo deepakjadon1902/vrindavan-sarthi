@@ -5,7 +5,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { PropertyTermsEditor, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
+import { PropertyTermsEditor, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
 
 interface Hotel {
   _id: string;
@@ -101,6 +101,11 @@ const ManageHotels = () => {
     setImagePreview('');
     setEditingId(null);
     setShowForm(false);
+  };
+
+  const reusablePropertyTerms = () => {
+    const saved = items.find((item) => hasPropertyTermsText(item.propertyTerms))?.propertyTerms;
+    return normalizePropertyTerms(saved);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,6 +235,7 @@ const ManageHotels = () => {
         <button
           onClick={() => {
             resetForm();
+            setForm((prev) => ({ ...prev, propertyTerms: reusablePropertyTerms() }));
             setShowForm(true);
           }}
           className="btn-crimson px-5 py-2.5 rounded-lg text-sm flex items-center gap-2"

@@ -106,7 +106,7 @@ const bookingRows = (booking) => {
     ['Room Details', hotelBooking ? booking.itemName : ''],
     ['Waitlisted', booking.isWaitlisted ? 'Yes' : ''],
     [hotelBooking ? 'Room Amount' : 'Base Amount', money(booking.baseAmount || booking.checkoutSubtotal)],
-    [hotelBooking ? 'Hotel GST / Hotel Taxes' : 'GST', Number(booking.taxAmount || 0) ? `${money(booking.taxAmount)} (${Number(booking.taxPercent || 0)}%)` : ''],
+    [hotelBooking ? 'Hotel GST / Hotel Taxes' : 'GST', Number(booking.taxAmount || 0) ? money(booking.taxAmount) : ''],
     [hotelBooking ? 'Platform Convenience Fee' : 'Convenience Fee', money(booking.convenienceFeeAmount)],
     [hotelBooking ? 'Total Payable' : 'Grand Total', money(booking.totalAmount)],
     [hotelBooking ? 'Advance Paid Online' : 'Advance Paid', money(booking.advanceAmount)],
