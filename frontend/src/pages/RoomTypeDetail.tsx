@@ -688,7 +688,7 @@ import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import { useSettingsStore } from '@/store/settingsStore';
 import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
-import { PropertyTermsPreview, hasPropertyTermsText, normalizePropertyTerms, propertyTermsFields } from '@/components/shared/PropertyTerms';
+import { hasPropertyTermsText, normalizePropertyTerms, propertyTermsFields } from '@/components/shared/PropertyTerms';
 
 const getLocalDateKey = (date = new Date()) => {
   const year = date.getFullYear();
@@ -1821,16 +1821,7 @@ const RoomTypeDetail = () => {
 
                 {mustAcceptPropertyTerms && (
                   <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 p-3">
-                    <div className="mb-3">
-                      <p className="font-body text-xs font-bold uppercase tracking-[0.12em] text-brand-crimson">Property terms</p>
-                      <p className="mt-1 font-body text-[11px] text-muted-foreground">
-                        Review the active terms for {hotel?.name}. These are saved with your booking after acceptance.
-                      </p>
-                    </div>
-                    <div className="max-h-56 overflow-y-auto pr-1">
-                      <PropertyTermsPreview terms={propertyTerms} />
-                    </div>
-                    <label className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-white px-3 py-2 font-body text-xs text-foreground">
+                    <label className="flex items-start gap-2 rounded-lg border border-border bg-white px-3 py-2 font-body text-xs text-foreground">
                       <input
                         type="checkbox"
                         checked={propertyTermsAccepted}
@@ -1838,7 +1829,7 @@ const RoomTypeDetail = () => {
                         className="mt-0.5"
                       />
                       <span>
-                        I have read and agree to the Terms & Conditions, Check-in Policies, Cancellation Policy, and other applicable property rules.
+                        I have read and agree to the hotel policies shown on this page, including Terms & Conditions, Check-in Policies, Cancellation Policy, and other property rules.
                       </span>
                     </label>
                   </div>

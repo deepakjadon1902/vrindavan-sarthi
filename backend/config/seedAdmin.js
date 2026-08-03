@@ -16,7 +16,7 @@ const seedAdminOnce = async () => {
   const email = normalizeEmail(getEnvString('ADMIN_EMAIL'));
   const password = getEnvString('ADMIN_PASSWORD');
   const name = getEnvString('ADMIN_NAME') || 'Admin';
-  const phone = getEnvString('ADMIN_PHONE') || '8218303066';
+  const phone = getEnvString('ADMIN_PHONE') || '8679820256';
   const legacyEmail = normalizeEmail(getEnvString('ADMIN_LEGACY_EMAIL'));
 
   if (!email || !password) {
@@ -123,5 +123,3 @@ const seedAdminOnce = async () => {
 };
 
 module.exports = { seedAdminOnce };
-
-

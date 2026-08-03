@@ -151,7 +151,7 @@
 //           </motion.p>
 //           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }} className="flex flex-col sm:flex-row items-center justify-center gap-4">
 //             <Link to="/hotels" className="btn-gold px-8 py-3.5 rounded-xl text-base font-semibold">Explore Now →</Link>
-//             <a href="https://wa.me/918218303066" target="_blank" rel="noreferrer" className="px-8 py-3.5 rounded-lg text-base font-body font-semibold border border-white/35 text-white hover:border-brand-gold hover:text-brand-gold transition-all inline-flex items-center gap-2">
+//             <a href="https://wa.me/918679820256" target="_blank" rel="noreferrer" className="px-8 py-3.5 rounded-lg text-base font-body font-semibold border border-white/35 text-white hover:border-brand-gold hover:text-brand-gold transition-all inline-flex items-center gap-2">
 //               <MessageCircle size={18} /> WhatsApp Now
 //             </a>
 //           </motion.div>
@@ -1194,5 +1194,3 @@ const Home = () => {
 };
 
 export default Home;
-
-

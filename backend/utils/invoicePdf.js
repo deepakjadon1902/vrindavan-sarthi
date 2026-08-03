@@ -1,6 +1,6 @@
 const COMPANY_NAME = 'Vrindavan Sarthi Enterprises';
 const COMPANY_ADDRESS = 'Raja wala mandir, Infront of Giriraj ji Maharaj, Goverdhan, Mathura, Uttar Pradesh 281502';
-const COMPANY_PHONE = '+91 8218303066';
+const COMPANY_PHONE = '+91 8679820256';
 const COMPANY_EMAIL = 'vrindavansarthi108@gmail.com';
 
 const PAGE = { width: 612, height: 792, margin: 42 };

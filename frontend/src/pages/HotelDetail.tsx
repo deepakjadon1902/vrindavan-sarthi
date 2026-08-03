@@ -462,26 +462,53 @@ type RoomType = {
   hotel?: Hotel;
 };
 
-const getGoogleMapEmbedSrc = (value?: string) => {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
+const getGoogleMapEmbedSrc = ({
+  mapValue,
+  hotelName,
+  location,
+  nearestTemple,
+}: {
+  mapValue?: string;
+  hotelName?: string;
+  location?: string;
+  nearestTemple?: string;
+}) => {
+  const makeEmbedSearchUrl = (query: string) =>
+    `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&z=16&ie=UTF8&iwloc=B&output=embed`;
+
+  const rawInput = String(mapValue || '').trim();
+  const genericMapText = /^(map|google map|google maps|location|hotel location)$/i;
+  const placeQuery = [
+    hotelName,
+    location,
+    nearestTemple ? `near ${nearestTemple}` : '',
+    'Vrindavan',
+    'Uttar Pradesh',
+    'India',
+  ]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(', ');
+  const raw = !rawInput || genericMapText.test(rawInput) ? placeQuery : rawInput;
+  if (!raw && !placeQuery) return '';
   if (raw.includes('/maps/embed')) return raw;
 
   const coordinateMatch = raw.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
   if (coordinateMatch) {
-    return `https://www.google.com/maps?q=${coordinateMatch[1]},${coordinateMatch[2]}&output=embed`;
+    return makeEmbedSearchUrl(`${coordinateMatch[1]},${coordinateMatch[2]}`);
   }
 
   try {
     const url = new URL(raw);
-    if (url.hostname.includes('google') || url.hostname.includes('goo.gl')) {
-      return `https://www.google.com/maps?q=${encodeURIComponent(raw)}&output=embed`;
+    if (url.hostname.includes('google') || url.hostname.includes('goo.gl') || url.hostname.includes('maps.app.goo.gl')) {
+      const queryFromUrl = url.searchParams.get('q') || url.searchParams.get('query') || '';
+      return makeEmbedSearchUrl(queryFromUrl || placeQuery || raw);
     }
   } catch {
-    return `https://www.google.com/maps?q=${encodeURIComponent(raw)}&output=embed`;
+    return makeEmbedSearchUrl(placeQuery ? `${placeQuery}, ${raw}` : raw);
   }
 
-  return '';
+  return makeEmbedSearchUrl(placeQuery || raw);
 };
 
 const sameId = (a?: string | null, b?: string | null) => String(a || '') === String(b || '');
@@ -596,7 +623,12 @@ const HotelDetail = () => {
     return Math.round(base + (base * percent) / 100);
   };
 
-  const mapEmbedSrc = getGoogleMapEmbedSrc(hotel?.googleMapLink);
+  const mapEmbedSrc = getGoogleMapEmbedSrc({
+    mapValue: hotel?.googleMapLink,
+    hotelName: hotel?.name,
+    location: hotel?.location,
+    nearestTemple: hotel?.nearestTemple,
+  });
   const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
   const showPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
   const hotelDescription = truncate(hotel?.description || `${hotel?.name || 'Verified hotel'} in ${hotel?.location || 'Vrindavan'} with room booking support from Vrindavan Sarthi Enterprises.`);

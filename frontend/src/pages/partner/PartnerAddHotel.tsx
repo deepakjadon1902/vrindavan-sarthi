@@ -134,7 +134,7 @@ const PartnerAddHotel = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    if (!form.name || !form.location || !form.googleMapLink || !form.nearestTemple) {
+    if (!form.name || !form.location || !form.nearestTemple) {
       toast.error('Fill required fields');
       return;
     }
@@ -144,7 +144,7 @@ const PartnerAddHotel = () => {
       location: form.location,
       rating: Number(form.rating || 0),
       description: form.description,
-      googleMapLink: form.googleMapLink,
+      googleMapLink: form.googleMapLink.trim() || form.location.trim(),
       nearestTemple: form.nearestTemple,
       checkInTime: form.checkInTime || '12:00',
       checkOutTime: form.checkOutTime || '11:00',
@@ -330,14 +330,15 @@ const PartnerAddHotel = () => {
                 />
               </div>
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Google Map Location/Link *</label>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Map Location / Google Link</label>
                 <input
-                  type="url"
-                  required
+                  type="text"
                   value={form.googleMapLink}
                   onChange={(e) => setForm({ ...form, googleMapLink: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="Leave blank to use the hotel location automatically"
                 />
+                <p className="font-body text-xs text-muted-foreground mt-1">If blank, the public map uses the Location field.</p>
               </div>
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Nearest Temple / Landmark *</label>

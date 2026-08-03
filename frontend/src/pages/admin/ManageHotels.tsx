@@ -152,7 +152,7 @@ const ManageHotels = () => {
       rating: Number(form.rating || 0),
       image: form.image || '/placeholder.svg',
       description: form.description,
-      googleMapLink: form.googleMapLink,
+      googleMapLink: form.googleMapLink.trim() || form.location.trim(),
       nearestTemple: form.nearestTemple,
       checkInTime: form.checkInTime || '12:00',
       checkOutTime: form.checkOutTime || '11:00',
@@ -327,15 +327,15 @@ const ManageHotels = () => {
                 <p className="font-body text-xs text-muted-foreground mt-1">Use 0 for Dharamshalas or no-commission properties.</p>
               </div>
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Google Map Location/Link</label>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Map Location / Google Link</label>
                 <input
-                  type="url"
-                  required
+                  type="text"
                   value={form.googleMapLink}
                   onChange={(e) => setForm({ ...form, googleMapLink: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                  placeholder="https://maps.google.com/..."
+                  placeholder="Leave blank to use the hotel location automatically"
                 />
+                <p className="font-body text-xs text-muted-foreground mt-1">If blank, the public map uses the Location field.</p>
               </div>
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Nearest Temple / Landmark</label>

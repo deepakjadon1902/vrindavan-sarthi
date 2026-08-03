@@ -9,9 +9,9 @@ const { normalizeImageFields } = require('../utils/imageFields');
 const router = express.Router();
 
 const normalizeRequiredLocationFields = (body) => {
-  const googleMapLink = String(body?.googleMapLink || '').trim();
+  const googleMapLink = String(body?.googleMapLink || body?.location || body?.fullAddress || '').trim();
   const nearestTemple = String(body?.nearestTemple || '').trim();
-  if (!googleMapLink) return 'Google Map Location/Link is required';
+  if (!googleMapLink) return 'Location is required for the map';
   if (!nearestTemple) return 'Nearest Temple / Landmark is required';
   body.googleMapLink = googleMapLink;
   body.nearestTemple = nearestTemple;
@@ -116,6 +116,7 @@ const applyPartnerHotelDefaults = (body, user) => {
   body.contactPhone = String(body?.contactPhone || businessPhone || '').trim();
   body.contactEmail = String(body?.contactEmail || businessEmail || '').trim();
   body.fullAddress = String(body?.fullAddress || businessAddress || body.location || '').trim();
+  body.googleMapLink = String(body?.googleMapLink || body.fullAddress || body.location || '').trim();
   body.businessName = businessName;
   return body;
 };

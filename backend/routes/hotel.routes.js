@@ -157,9 +157,9 @@ const applyPropertyTermsUpdate = (hotel, propertyTerms, user) => {
 };
 
 const normalizeRequiredLocationFields = (body) => {
-  const googleMapLink = String(body?.googleMapLink || '').trim();
+  const googleMapLink = String(body?.googleMapLink || body?.location || '').trim();
   const nearestTemple = String(body?.nearestTemple || '').trim();
-  if (!googleMapLink) return 'Google Map Location/Link is required';
+  if (!googleMapLink) return 'Location is required for the map';
   if (!nearestTemple) return 'Nearest Temple / Landmark is required';
   body.googleMapLink = googleMapLink;
   body.nearestTemple = nearestTemple;
@@ -168,12 +168,15 @@ const normalizeRequiredLocationFields = (body) => {
 
 const validateHotelPayload = (body, { partial = false } = {}) => {
   const errors = {};
-  const required = ['name', 'location', 'googleMapLink', 'nearestTemple'];
+  const required = ['name', 'location', 'nearestTemple'];
   for (const field of required) {
     if (!partial || typeof body?.[field] !== 'undefined') {
       if (!String(body?.[field] || '').trim()) errors[field] = `${field} is required`;
       else body[field] = String(body[field]).trim();
     }
+  }
+  if (!String(body?.googleMapLink || '').trim() && String(body?.location || '').trim()) {
+    body.googleMapLink = String(body.location).trim();
   }
 
   if (typeof body.rating !== 'undefined') {

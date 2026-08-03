@@ -3,7 +3,7 @@ export const SITE_NAME = 'Vrindavan Sarthi Enterprises';
 export const DEFAULT_DESCRIPTION =
   'Book verified hotels, Dharamshalas, family rooms and AC rooms in Vrindavan near temples. Compare availability, policies and prices with Vrindavan Sarthi.';
 export const DEFAULT_OG_IMAGE = '/vrindasarthi%20logo.jpeg';
-export const BRAND_PHONE = '+91 8218303066';
+export const BRAND_PHONE = '+91 8679820256';
 export const BRAND_EMAIL = 'vrindavansarthi108@gmail.com';
 
 export type BreadcrumbItem = {
@@ -436,5 +436,3 @@ export const getRouteMeta = (pathname: string) => {
     description: "The page you're looking for doesn't exist. Explore our tour packages, taxi services, and travel guides instead.",
   };
 };
-
-

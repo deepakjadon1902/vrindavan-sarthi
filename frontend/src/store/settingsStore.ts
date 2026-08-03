@@ -114,7 +114,7 @@ const normalizeBrandText = (value: string) =>
     .replaceAll('7351814747', COMPANY_PHONE)
     .replaceAll('+91 9876543210', COMPANY_PHONE)
     .replaceAll('9876543210', COMPANY_PHONE)
-    .replaceAll('+91 8218303066', COMPANY_PHONE);
+    .replaceAll('+91 8679820256', COMPANY_PHONE);
 const normalizeBrandValue = (value: string, fallback: string) => normalizeBrandText(value || fallback);
 
 const normalizeSettings = (raw: unknown): AppSettings => {
@@ -224,5 +224,3 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 );
-
-
