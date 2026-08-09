@@ -909,7 +909,7 @@ const Home = () => {
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}
                     meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
                     badge={roomType?.hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : undefined}
-                    ctaLabel={roomType?.hotel?.propertyType === 'dharamshala' ? 'Enquire' : 'Book Room'}
+                    ctaLabel={roomType?.hotel?.propertyType === 'dharamshala' ? 'WhatsApp / Call' : 'Book Room'}
                     onViewDetails={() => {
                       prefetchDetail('roomTypes', roomType._id, roomType);
                       navigate(`/room-types/${roomType._id}`);

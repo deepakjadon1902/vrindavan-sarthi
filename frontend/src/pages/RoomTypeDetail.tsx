@@ -1375,9 +1375,9 @@ const RoomTypeDetail = () => {
             ) : (
               <div className="premium-surface space-y-4 p-4 sm:p-5 lg:sticky lg:top-24">
 
-                {/* Price */}
+                {/* Price / enquiry status */}
                 <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">Price</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">{isDharamshala ? 'Booking Mode' : 'Price'}</p>
                   <p className={isDharamshala ? 'hidden' : 'text-3xl font-bold text-brand-crimson'}>
                     ₹{Number(roomType.pricePerNight || 0).toLocaleString('en-IN')}
                   </p>
@@ -1386,7 +1386,7 @@ const RoomTypeDetail = () => {
                   </p>
                   {isDharamshala && (
                     <p className="mt-2 rounded-lg border border-brand-green/20 bg-brand-green/5 px-3 py-2 text-xs font-semibold text-brand-green">
-                      No online booking fee. Book by WhatsApp or call.
+                      Booking is handled only by WhatsApp or call.
                     </p>
                   )}
                 </div>
@@ -1518,10 +1518,17 @@ const RoomTypeDetail = () => {
                       Capacity
                       <span className="block font-semibold text-gray-800">{maxAdultsForSelection} adults · {maxChildrenForSelection} children</span>
                     </div>
-                    <div className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">
-                      Room total
-                      <span className="block font-semibold">Rs. {baseTotal.toLocaleString('en-IN')}</span>
-                    </div>
+                    {isDharamshala ? (
+                      <div className="rounded-xl bg-brand-green/5 px-3 py-2 text-brand-green">
+                        Direct booking
+                        <span className="block font-semibold">WhatsApp or call</span>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">
+                        Room total
+                        <span className="block font-semibold">Rs. {baseTotal.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
                   </div>
                   <p className="mt-2 text-[11px] text-gray-400">
                     You can select up to {maxRoomQuantity} room(s) for this room type.
@@ -1535,7 +1542,7 @@ const RoomTypeDetail = () => {
 
                 {/* Your Details */}
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Your Details</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{isDharamshala ? 'Enquiry Details' : 'Your Details'}</p>
                   <input value={customerFullName} onChange={(e) => setCustomerFullName(e.target.value)} placeholder="Full Name" className={inputCls} />
                   <input value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="Mobile Number" className={inputCls} />
                   <input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="Email" className={inputCls} />

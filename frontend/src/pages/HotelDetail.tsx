@@ -419,13 +419,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BedDouble, CalendarDays, MapPin, ShieldCheck, Star, Clock, Church, PawPrint, Wifi, Check, IndianRupee, Users } from 'lucide-react';
+import { ArrowLeft, BedDouble, CalendarDays, MapPin, ShieldCheck, Star, Clock, Church, PawPrint, Wifi, Check, IndianRupee, Users, MessageCircle, Phone } from 'lucide-react';
 import ImageCarousel from '@/components/shared/ImageCarousel';
 import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail, prefetchDetail } from '@/lib/detailCache';
 import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { PropertyTermsPreview, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
+import { COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand';
 
 type Hotel = {
   _id: string;
@@ -633,6 +634,11 @@ const HotelDetail = () => {
   const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
   const showPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
   const propertyLabel = hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel';
+  const dharamshalaEnquiryText = encodeURIComponent([
+    'Radhe Radhe, I want to enquire for Dharamshala booking.',
+    `Property: ${hotel?.name || ''}`,
+    hotel?.location ? `Location: ${hotel.location}` : '',
+  ].filter(Boolean).join('\n'));
   const hotelDescription = truncate(hotel?.description || `${hotel?.name || `Verified ${propertyLabel.toLowerCase()}`} in ${hotel?.location || 'Braj'} with room booking support from Vrindavan Sarthi Enterprises.`);
   const hotelJsonLd = hotel ? {
     '@context': 'https://schema.org',
@@ -904,7 +910,7 @@ const HotelDetail = () => {
                                       : checkIn ? `Showing prices for ${checkIn}` : 'Select dates for live availability'}
                                   </p>
                                   {hotel?.propertyType === 'dharamshala' ? (
-                                    <div className="mt-3 font-heading text-2xl font-bold text-brand-crimson">Enquiry Only</div>
+                                    <div className="mt-3 font-heading text-2xl font-bold text-brand-crimson">WhatsApp / Call</div>
                                   ) : (
                                     <div className="mt-3 flex items-baseline gap-1 text-foreground">
                                       <IndianRupee size={18} className="text-brand-gold" />
@@ -945,13 +951,13 @@ const HotelDetail = () => {
 
                               <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 font-body text-xs text-amber-800">
                                 {hotel?.propertyType === 'dharamshala'
-                                  ? 'No online booking fee is collected for dharamshala enquiries.'
+                                  ? 'No price or online payment is shown for dharamshala enquiries. Book directly by WhatsApp or call.'
                                   : 'Property policies, cancellation rules, and terms are shown before payment.'}
                               </div>
 
                               <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#6f5529] px-4 py-3 font-body text-sm font-bold text-white transition-colors group-hover:bg-[#5f471f]">
                                 <Check size={16} />
-                                {hotel?.propertyType === 'dharamshala' ? 'Enquire' : 'Select Room'}
+                                {hotel?.propertyType === 'dharamshala' ? 'WhatsApp / Call' : 'Select Room'}
                               </span>
                             </div>
                           </button>
@@ -1043,16 +1049,37 @@ const HotelDetail = () => {
 
               {/* CTA */}
               <div className="px-5 pb-5 pt-4 border-t border-border">
-                <a
-                  href="#hotel-room-types"
-                  className="w-full inline-flex items-center justify-center gap-2 btn-gold px-4 py-3 rounded-xl text-[14px] font-semibold"
-                >
-                  <BedDouble size={16} />
-                  {hotel?.propertyType === 'dharamshala' ? 'View Dharamshala Rooms' : 'View Hotel Rooms'}
-                </a>
+                {hotel?.propertyType === 'dharamshala' ? (
+                  <div className="grid grid-cols-1 gap-2">
+                    <a
+                      href={`https://wa.me/91${COMPANY_PHONE_DIGITS}?text=${dharamshalaEnquiryText}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-2 btn-gold px-4 py-3 rounded-xl text-[14px] font-semibold"
+                    >
+                      <MessageCircle size={16} />
+                      WhatsApp Booking
+                    </a>
+                    <a
+                      href={`tel:${COMPANY_PHONE}`}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 font-body text-[14px] font-semibold text-foreground hover:border-brand-gold/50"
+                    >
+                      <Phone size={16} />
+                      Call Booking
+                    </a>
+                  </div>
+                ) : (
+                  <a
+                    href="#hotel-room-types"
+                    className="w-full inline-flex items-center justify-center gap-2 btn-gold px-4 py-3 rounded-xl text-[14px] font-semibold"
+                  >
+                    <BedDouble size={16} />
+                    View Hotel Rooms
+                  </a>
+                )}
                 <p className="mt-2.5 font-body text-[11px] text-muted-foreground text-center flex items-center justify-center gap-1.5">
                   <CalendarDays size={12} />
-                  {hotel?.propertyType === 'dharamshala' ? 'Dharamshala rooms are booked by WhatsApp or call enquiry.' : 'Book a specific room type from this hotel page.'}
+                  {hotel?.propertyType === 'dharamshala' ? 'No prices or online payment are shown for Dharamshala booking.' : 'Book a specific room type from this hotel page.'}
                 </p>
               </div>
 

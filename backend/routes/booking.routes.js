@@ -115,6 +115,20 @@ const getBillingModelForBookingType = (bookingType) => {
   return 'hotel_marketplace';
 };
 
+const findBookingHotel = async (bookingType, body) => {
+  const hotelId = String(body?.hotelId || '').trim();
+  const roomTypeId = String(body?.roomTypeId || '').trim();
+  const itemId = String(body?.itemId || '').trim();
+
+  if (hotelId) return Hotel.findById(hotelId).select('propertyType').lean();
+  if (bookingType === 'hotel' && itemId) return Hotel.findById(itemId).select('propertyType').lean();
+  if ((bookingType === 'room_type' || bookingType === 'room') && (roomTypeId || itemId)) {
+    const roomType = await RoomType.findById(roomTypeId || itemId).select('hotelId').lean();
+    if (roomType?.hotelId) return Hotel.findById(roomType.hotelId).select('propertyType').lean();
+  }
+  return null;
+};
+
 const buildMoneyFields = ({ subtotal, baseAmount, taxAmount = 0, paymentOption = 'advance_30', commissionPercent = 0, gatewayFeeAmount }) => {
   const checkoutSubtotal = Math.round(Math.max(0, Number(subtotal || 0)));
   const convenienceFeeAmount = calculateConvenienceFee(checkoutSubtotal);
@@ -661,6 +675,15 @@ router.post('/', protect, async (req, res) => {
   try {
     const partnerId = req.body?.partnerId || undefined;
     const bookingType = String(req.body?.bookingType || '').trim();
+    if (['hotel', 'room', 'room_type'].includes(bookingType)) {
+      const hotel = await findBookingHotel(bookingType, req.body);
+      if (String(hotel?.propertyType || '').trim().toLowerCase() === 'dharamshala') {
+        return res.status(400).json({
+          success: false,
+          message: 'Dharamshala bookings are enquiry-only. Please book by WhatsApp or call.',
+        });
+      }
+    }
     let paymentOption = getPaymentOption(req.body?.paymentOption || 'full_100', ['advance_30', 'full_100']);
     if ((bookingType === 'hotel' || bookingType === 'room') && !getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100'])) {
       return res.status(400).json({ success: false, message: 'Please select 30% advance or 100% full online payment' });
