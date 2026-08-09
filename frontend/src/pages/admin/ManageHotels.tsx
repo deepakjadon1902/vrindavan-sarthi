@@ -5,6 +5,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { LANDMARK_OPTIONS, OTHER_LANDMARK_OPTION } from '@/lib/landmarks';
 import { PropertyTermsEditor, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
 
 interface Hotel {
@@ -32,8 +33,6 @@ interface Hotel {
 }
 
 const ManageHotels = () => {
-  const landmarkOptions = ['Barshana Temple', 'Dwarikadhish', 'Janmbhoomi', 'Nandgaon', 'Barshana', 'Mathura'];
-  const otherLandmarkOption = 'Others';
   const token = useAuthStore((s) => s.token);
   const [items, setItems] = useState<Hotel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -152,7 +151,7 @@ const ManageHotels = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    const nearestTemple = form.nearestTemple === otherLandmarkOption ? '' : form.nearestTemple.trim();
+    const nearestTemple = form.nearestTemple === OTHER_LANDMARK_OPTION ? '' : form.nearestTemple.trim();
     if (!nearestTemple) {
       toast.error('Please select or enter nearest temple / landmark');
       return;
@@ -206,10 +205,10 @@ const ManageHotels = () => {
     }
   };
 
-  const nearestTempleSelectValue = form.nearestTemple && landmarkOptions.includes(form.nearestTemple)
+  const nearestTempleSelectValue = form.nearestTemple && LANDMARK_OPTIONS.includes(form.nearestTemple)
     ? form.nearestTemple
     : form.nearestTemple
-      ? otherLandmarkOption
+      ? OTHER_LANDMARK_OPTION
       : '';
 
   const handleDelete = async (id: string) => {
@@ -381,19 +380,19 @@ const ManageHotels = () => {
                 <select
                   required
                   value={nearestTempleSelectValue}
-                  onChange={(e) => setForm({ ...form, nearestTemple: e.target.value === otherLandmarkOption ? otherLandmarkOption : e.target.value })}
+                  onChange={(e) => setForm({ ...form, nearestTemple: e.target.value === OTHER_LANDMARK_OPTION ? OTHER_LANDMARK_OPTION : e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 >
                   <option value="">Select landmark</option>
-                  {landmarkOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-                  <option value={otherLandmarkOption}>{otherLandmarkOption}</option>
+                  {LANDMARK_OPTIONS.map((name) => <option key={name} value={name}>{name}</option>)}
+                  <option value={OTHER_LANDMARK_OPTION}>{OTHER_LANDMARK_OPTION}</option>
                 </select>
-                {nearestTempleSelectValue === otherLandmarkOption && (
+                {nearestTempleSelectValue === OTHER_LANDMARK_OPTION && (
                   <input
                     type="text"
                     required
-                    value={form.nearestTemple === otherLandmarkOption ? '' : form.nearestTemple}
-                    onChange={(e) => setForm({ ...form, nearestTemple: e.target.value.trimStart() || otherLandmarkOption })}
+                    value={form.nearestTemple === OTHER_LANDMARK_OPTION ? '' : form.nearestTemple}
+                    onChange={(e) => setForm({ ...form, nearestTemple: e.target.value.trimStart() || OTHER_LANDMARK_OPTION })}
                     className="mt-2 w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                     placeholder="Enter landmark manually"
                   />
