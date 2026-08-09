@@ -32,7 +32,8 @@ interface PartnerHotel {
 }
 
 const PartnerAddHotel = () => {
-  const landmarkOptions = ['Banke Bihari Temple', 'Prem Mandir', 'ISKCON Temple', 'Radha Raman Temple', 'Nidhivan', 'Govardhan'];
+  const landmarkOptions = ['Barshana Temple', 'Dwarikadhish', 'Janmbhoomi', 'Nandgaon', 'Barshana', 'Mathura'];
+  const otherLandmarkOption = 'Others';
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -142,7 +143,8 @@ const PartnerAddHotel = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    if (!form.name || !form.location || !form.nearestTemple) {
+    const nearestTemple = form.nearestTemple === otherLandmarkOption ? '' : form.nearestTemple.trim();
+    if (!form.name || !form.location || !nearestTemple) {
       toast.error('Fill required fields');
       return;
     }
@@ -154,7 +156,7 @@ const PartnerAddHotel = () => {
       rating: Number(form.rating || 0),
       description: form.description,
       googleMapLink: form.googleMapLink.trim() || form.location.trim(),
-      nearestTemple: form.nearestTemple,
+      nearestTemple,
       checkInTime: form.checkInTime || '12:00',
       checkOutTime: form.checkOutTime || '11:00',
       hotelGstin: form.hotelGstin.trim(),
@@ -231,6 +233,12 @@ const PartnerAddHotel = () => {
     if (status === 'rejected') return 'bg-destructive/10 text-destructive';
     return 'bg-brand-saffron/10 text-brand-saffron';
   };
+
+  const nearestTempleSelectValue = form.nearestTemple && landmarkOptions.includes(form.nearestTemple)
+    ? form.nearestTemple
+    : form.nearestTemple
+      ? otherLandmarkOption
+      : '';
 
   const filtered = useMemo(
     () =>
@@ -369,13 +377,24 @@ const PartnerAddHotel = () => {
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Nearest Temple / Landmark *</label>
                 <select
                   required
-                  value={form.nearestTemple}
-                  onChange={(e) => setForm({ ...form, nearestTemple: e.target.value })}
+                  value={nearestTempleSelectValue}
+                  onChange={(e) => setForm({ ...form, nearestTemple: e.target.value === otherLandmarkOption ? otherLandmarkOption : e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 >
                   <option value="">Select landmark</option>
                   {landmarkOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+                  <option value={otherLandmarkOption}>{otherLandmarkOption}</option>
                 </select>
+                {nearestTempleSelectValue === otherLandmarkOption && (
+                  <input
+                    type="text"
+                    required
+                    value={form.nearestTemple === otherLandmarkOption ? '' : form.nearestTemple}
+                    onChange={(e) => setForm({ ...form, nearestTemple: e.target.value.trimStart() || otherLandmarkOption })}
+                    className="mt-2 w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                    placeholder="Enter landmark manually"
+                  />
+                )}
               </div>
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Check-in Time *</label>
