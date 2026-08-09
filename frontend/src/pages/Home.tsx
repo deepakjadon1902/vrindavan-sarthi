@@ -1131,7 +1131,7 @@ const Home = () => {
                 <img
                   src={heroImg}
                   alt="Govardhan and Braj landscape"
-                  className="absolute inset-0 h-full w-full object-cover"
+                  className="absolute -top-[12%] left-0 h-[114%] w-full object-cover object-center"
                 />
                 <div className="absolute inset-0 bg-brand-black/76" />
                 <div className="relative max-w-2xl">

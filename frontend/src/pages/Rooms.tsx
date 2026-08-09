@@ -7,6 +7,7 @@ import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
+import { getBrajLocationName, sortBrajLocationNames, sortBrajLocationNamesForSearch } from '@/lib/brajLocations';
 
 const Rooms = () => {
   const navigate = useNavigate();
@@ -84,16 +85,27 @@ const Rooms = () => {
       const name = String(rt?.name || '').toLowerCase();
       const hotelName = String(rt?.hotel?.name || '').toLowerCase();
       const location = String(rt?.hotel?.location || '').toLowerCase();
-      return name.includes(q) || hotelName.includes(q) || location.includes(q);
+      const locationName = getBrajLocationName(rt?.hotel?.location, rt?.hotel?.nearestTemple, rt?.hotel?.name).toLowerCase();
+      return name.includes(q) || hotelName.includes(q) || location.includes(q) || locationName.includes(q);
     });
   }, [roomTypes, searchQuery]);
 
   const locationOptions = useMemo(
     () => Array.from(new Set(
-      roomTypes.map((rt: any) => String(rt?.hotel?.location || '').split(',')[0].trim()).filter(Boolean)
-    )).slice(0, 10),
+      roomTypes.map((rt: any) => getBrajLocationName(rt?.hotel?.location, rt?.hotel?.nearestTemple, rt?.hotel?.name)).filter(Boolean)
+    )).sort(sortBrajLocationNames).slice(0, 12),
     [roomTypes]
   );
+
+  const groupedByLocation = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const roomType of filtered) {
+      const locationName = getBrajLocationName(roomType?.hotel?.location, roomType?.hotel?.nearestTemple, roomType?.hotel?.name);
+      map.set(locationName, [...(map.get(locationName) || []), roomType]);
+    }
+    const sortLocations = sortBrajLocationNamesForSearch(searchQuery);
+    return Array.from(map.entries()).sort(([a], [b]) => sortLocations(a, b));
+  }, [filtered, searchQuery]);
 
   const getTaxInclusivePrice = (rt: any) => {
     const base = Number(rt?.pricePerNight || 0);
@@ -156,29 +168,60 @@ const Rooms = () => {
               <p className="font-body text-sm text-muted-foreground">Room types will appear here once hotels are approved and inventory is added.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              {filtered.map((rt: any) => (
-                <ListingCard
-                  key={rt._id}
-                  image={rt?.images?.[0] || rt?.hotel?.image}
-                  images={rt?.images?.length ? rt.images : rt?.hotel?.images}
-                  name={rt.name}
-                  location={`${rt?.hotel?.name || ''}${rt?.hotel?.location ? ` - ${rt.hotel.location}` : ''}`}
-                  price={rt?.hotel?.propertyType === 'dharamshala' ? undefined : getTaxInclusivePrice(rt)}
-                  priceLabel={rt?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
-                  rating={0}
-                  reviewCount={0}
-                  amenities={rt?.amenities || rt?.hotel?.amenities || []}
-                  meta={Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined}
-                  variant="compact"
-                  badge={rt?.hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : undefined}
-                  ctaLabel={rt?.hotel?.propertyType === 'dharamshala' ? 'Enquire' : 'Book Room'}
-                  onViewDetails={() => {
-                    prefetchDetail('roomTypes', rt._id, rt);
-                    navigate(`/room-types/${rt._id}`);
-                  }}
-                />
-              ))}
+            <div className="space-y-8">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-brand-gold/10 px-2 font-heading text-[13px] font-bold text-brand-gold">
+                  {filtered.length}
+                </span>
+                <p className="font-body text-[13px] font-medium text-muted-foreground">
+                  {filtered.length === 1 ? 'room type' : 'room types'} across {groupedByLocation.length} location{groupedByLocation.length === 1 ? '' : 's'}
+                </p>
+              </div>
+
+              {groupedByLocation.map(([locationName, locationRoomTypes]) => {
+                const dharamshalaCount = locationRoomTypes.filter((rt: any) => rt?.hotel?.propertyType === 'dharamshala').length;
+                const hotelRoomCount = locationRoomTypes.length - dharamshalaCount;
+                return (
+                  <section key={locationName} className="space-y-3">
+                    <div className="flex flex-col gap-2 border-b border-border/80 pb-3 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="font-ui text-[11px] font-bold uppercase tracking-[0.18em] text-brand-gold">Braj Location</p>
+                        <h2 className="font-heading text-2xl font-bold text-foreground">{locationName}</h2>
+                      </div>
+                      <p className="font-body text-xs font-semibold text-muted-foreground">
+                        {locationRoomTypes.length} room type{locationRoomTypes.length === 1 ? '' : 's'}
+                        {hotelRoomCount > 0 ? ` - ${hotelRoomCount} hotel room${hotelRoomCount === 1 ? '' : 's'}` : ''}
+                        {dharamshalaCount > 0 ? ` - ${dharamshalaCount} dharamshala room${dharamshalaCount === 1 ? '' : 's'}` : ''}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                      {locationRoomTypes.map((rt: any) => (
+                        <ListingCard
+                          key={rt._id}
+                          image={rt?.images?.[0] || rt?.hotel?.image}
+                          images={rt?.images?.length ? rt.images : rt?.hotel?.images}
+                          name={rt.name}
+                          location={`${rt?.hotel?.name || ''}${rt?.hotel?.location ? ` - ${rt.hotel.location}` : ''}`}
+                          price={rt?.hotel?.propertyType === 'dharamshala' ? undefined : getTaxInclusivePrice(rt)}
+                          priceLabel={rt?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                          rating={0}
+                          reviewCount={0}
+                          amenities={rt?.amenities || rt?.hotel?.amenities || []}
+                          meta={Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined}
+                          variant="compact"
+                          badge={rt?.hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel Room'}
+                          ctaLabel={rt?.hotel?.propertyType === 'dharamshala' ? 'Enquire' : 'Book Room'}
+                          onViewDetails={() => {
+                            prefetchDetail('roomTypes', rt._id, rt);
+                            navigate(`/room-types/${rt._id}`);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+
               {filtered.length === 0 && (
                 <div className="premium-focus-card col-span-full mx-auto max-w-md p-6 text-center">
                   <p className="font-heading text-xl font-bold text-foreground">No rooms found</p>

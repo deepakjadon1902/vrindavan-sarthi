@@ -11,6 +11,21 @@ const { normalizePublicImages, normalizePublicImageSet } = require('../utils/pub
 const router = express.Router();
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const getLocationSearchTerms = (value) => {
+  const q = String(value || '').trim();
+  if (!q) return [];
+  const lower = q.toLowerCase();
+  const terms = new Set([q]);
+  if (lower.includes('govardhan')) terms.add('goverdhan');
+  if (lower.includes('goverdhan')) terms.add('govardhan');
+  if (lower.includes('barsana')) terms.add('barshana');
+  if (lower.includes('barshana')) terms.add('barsana');
+  if (lower.includes('vrindavan')) terms.add('brindavan');
+  if (lower.includes('brindavan')) terms.add('vrindavan');
+  if (lower.includes('radha kund')) terms.add('radhakund');
+  if (lower.includes('radhakund')) terms.add('radha kund');
+  return Array.from(terms);
+};
 
 const memCache = new Map();
 const getMemCache = (key) => {
@@ -172,7 +187,7 @@ router.get('/', async (req, res) => {
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(300, Math.floor(limitRaw)) : 200;
     const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
     const q = String(req.query?.q || '').trim();
-    const searchRegex = q ? new RegExp(escapeRegex(q), 'i') : null;
+    const searchRegexes = q ? getLocationSearchTerms(q).map((term) => new RegExp(escapeRegex(term), 'i')) : [];
 
     // Fast path for Rooms page (no date filters): single aggregation instead of multiple round trips.
     if (!withAvailability) {
@@ -220,15 +235,15 @@ router.get('/', async (req, res) => {
           },
         },
         { $unwind: { path: '$hotel', preserveNullAndEmptyArrays: false } },
-        ...(searchRegex ? [{
+        ...(searchRegexes.length ? [{
           $match: {
-            $or: [
+            $or: searchRegexes.flatMap((searchRegex) => [
               { name: searchRegex },
               { description: searchRegex },
               { 'hotel.name': searchRegex },
               { 'hotel.location': searchRegex },
               { 'hotel.nearestTemple': searchRegex },
-            ],
+            ]),
           },
         }] : []),
         { $skip: skip },

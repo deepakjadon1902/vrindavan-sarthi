@@ -156,7 +156,7 @@
 
 // export default Hotels;
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, Hotel } from 'lucide-react';
 import { toast } from 'sonner';
@@ -165,6 +165,7 @@ import ListingCard from '@/components/shared/ListingCard';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
+import { getBrajLocationName, sortBrajLocationNames, sortBrajLocationNamesForSearch } from '@/lib/brajLocations';
 
 type HotelListItem = {
   _id: string;
@@ -175,6 +176,7 @@ type HotelListItem = {
   image: string;
   images?: string[];
   amenities?: string[];
+  nearestTemple?: string;
   reviewCount?: number;
   pricePerNight?: number;
   pricePerBed?: number;
@@ -241,12 +243,26 @@ const Hotels = () => {
   const filtered = hotels.filter((h) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
-    return h.name.toLowerCase().includes(q) || h.location.toLowerCase().includes(q);
+    const locationName = getBrajLocationName(h.location, h.nearestTemple, h.name).toLowerCase();
+    return h.name.toLowerCase().includes(q) || h.location.toLowerCase().includes(q) || locationName.includes(q);
   });
 
-  const locationOptions = Array.from(new Set(
-    hotels.map((h) => String(h.location || '').split(',')[0].trim()).filter(Boolean)
-  )).slice(0, 10);
+  const groupedByLocation = useMemo(() => {
+    const map = new Map<string, HotelListItem[]>();
+    for (const hotel of filtered) {
+      const locationName = getBrajLocationName(hotel.location, hotel.nearestTemple, hotel.name);
+      map.set(locationName, [...(map.get(locationName) || []), hotel]);
+    }
+    const sortLocations = sortBrajLocationNamesForSearch(searchQuery);
+    return Array.from(map.entries()).sort(([a], [b]) => sortLocations(a, b));
+  }, [filtered, searchQuery]);
+
+  const locationOptions = useMemo(
+    () => Array.from(new Set(
+      hotels.map((h) => getBrajLocationName(h.location, h.nearestTemple, h.name)).filter(Boolean)
+    )).sort(sortBrajLocationNames).slice(0, 12),
+    [hotels]
+  );
 
   const getHotelStartingPrice = (hotel: HotelListItem) => {
     const prices = [
@@ -371,7 +387,7 @@ const Hotels = () => {
                     {filtered.length}
                   </span>
                   <p className="font-body text-[13px] text-muted-foreground font-medium">
-                    {filtered.length === 1 ? 'hotel found' : 'hotels found'}
+                    {filtered.length === 1 ? 'stay found' : 'stays found'} across {groupedByLocation.length} location{groupedByLocation.length === 1 ? '' : 's'}
                   </p>
                   {searchQuery && (
                     <button
@@ -396,24 +412,45 @@ const Hotels = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-                {filtered.map((hotel) => (
-                  <ListingCard
-                    key={hotel._id}
-                    variant="hotel"
-                    image={hotel.image}
-                    images={hotel.images}
-                    name={hotel.name}
-                    badge={hotel.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel'}
-                    location={hotel.location}
-                    price={hotel.propertyType === 'dharamshala' ? undefined : getHotelStartingPrice(hotel)}
-                    priceLabel={hotel.taxEnabled ? '/night incl. GST' : '/night'}
-                    rating={Number(hotel.rating || 0)}
-                    reviewCount={Number(hotel.reviewCount || 0)}
-                    amenities={hotel.amenities || []}
-                    onViewDetails={() => void openHotel(hotel)}
-                  />
-                ))}
+              <div className="space-y-8">
+                {groupedByLocation.map(([locationName, locationHotels]) => {
+                  const hotelCount = locationHotels.filter((hotel) => hotel.propertyType !== 'dharamshala').length;
+                  const dharamshalaCount = locationHotels.length - hotelCount;
+                  return (
+                    <section key={locationName} className="space-y-3">
+                      <div className="flex flex-col gap-2 border-b border-border/80 pb-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                          <p className="font-ui text-[11px] font-bold uppercase tracking-[0.18em] text-brand-gold">Braj Location</p>
+                          <h2 className="font-heading text-2xl font-bold text-foreground">{locationName}</h2>
+                        </div>
+                        <p className="font-body text-xs font-semibold text-muted-foreground">
+                          {locationHotels.length} stay{locationHotels.length === 1 ? '' : 's'}
+                          {hotelCount > 0 ? ` - ${hotelCount} hotel${hotelCount === 1 ? '' : 's'}` : ''}
+                          {dharamshalaCount > 0 ? ` - ${dharamshalaCount} dharamshala${dharamshalaCount === 1 ? '' : 's'}` : ''}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                        {locationHotels.map((hotel) => (
+                          <ListingCard
+                            key={hotel._id}
+                            variant="hotel"
+                            image={hotel.image}
+                            images={hotel.images}
+                            name={hotel.name}
+                            badge={hotel.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel'}
+                            location={hotel.location}
+                            price={hotel.propertyType === 'dharamshala' ? undefined : getHotelStartingPrice(hotel)}
+                            priceLabel={hotel.taxEnabled ? '/night incl. GST' : '/night'}
+                            rating={Number(hotel.rating || 0)}
+                            reviewCount={Number(hotel.reviewCount || 0)}
+                            amenities={hotel.amenities || []}
+                            onViewDetails={() => void openHotel(hotel)}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
               </div>
 
               {filtered.length === 0 && (

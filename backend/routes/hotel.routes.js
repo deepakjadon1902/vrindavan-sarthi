@@ -13,6 +13,21 @@ const { normalizePublicImageSet, normalizePublicImages, stripLargeInlineImage } 
 const router = express.Router();
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const getLocationSearchTerms = (value) => {
+  const q = String(value || '').trim();
+  if (!q) return [];
+  const lower = q.toLowerCase();
+  const terms = new Set([q]);
+  if (lower.includes('govardhan')) terms.add('goverdhan');
+  if (lower.includes('goverdhan')) terms.add('govardhan');
+  if (lower.includes('barsana')) terms.add('barshana');
+  if (lower.includes('barshana')) terms.add('barsana');
+  if (lower.includes('vrindavan')) terms.add('brindavan');
+  if (lower.includes('brindavan')) terms.add('vrindavan');
+  if (lower.includes('radha kund')) terms.add('radhakund');
+  if (lower.includes('radhakund')) terms.add('radha kund');
+  return Array.from(terms);
+};
 
 const normalizePublicHotel = (hotel) => {
   if (!hotel) return hotel;
@@ -297,8 +312,8 @@ router.get('/', async (req, res) => {
     const q = String(req.query?.q || '').trim();
     const match = { status: 'active', approvalStatus: 'approved' };
     if (q) {
-      const search = new RegExp(escapeRegex(q), 'i');
-      match.$or = [{ name: search }, { location: search }, { nearestTemple: search }];
+      const searches = getLocationSearchTerms(q).map((term) => new RegExp(escapeRegex(term), 'i'));
+      match.$or = searches.flatMap((search) => [{ name: search }, { location: search }, { nearestTemple: search }]);
     }
 
     const hotels = await Hotel.aggregate([
