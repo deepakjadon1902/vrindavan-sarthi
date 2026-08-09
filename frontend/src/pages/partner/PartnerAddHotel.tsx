@@ -6,7 +6,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { LANDMARK_OPTIONS, OTHER_LANDMARK_OPTION } from '@/lib/landmarks';
+import { BRAJ_LANDMARK_PLACE_NAMES, OTHER_LANDMARK_OPTION, getLandmarkOptionsForPlace, getLandmarkPlaceForListing } from '@/lib/landmarks';
 import { PropertyTermsEditor, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
 
 interface PartnerHotel {
@@ -39,6 +39,7 @@ const PartnerAddHotel = () => {
   const getDefaultForm = () => ({
     name: user?.businessName || '',
     propertyType: 'hotel' as PartnerHotel['propertyType'],
+    place: getLandmarkPlaceForListing(undefined, user?.businessAddress),
     location: user?.businessAddress || '',
     rating: '',
     description: user?.businessDescription || '',
@@ -96,6 +97,7 @@ const PartnerAddHotel = () => {
     setForm({
       name: target.name || '',
       propertyType: target.propertyType || 'hotel',
+      place: getLandmarkPlaceForListing(target.nearestTemple, target.location),
       location: target.location || '',
       rating: String(target.rating ?? ''),
       description: target.description || '',
@@ -196,6 +198,7 @@ const PartnerAddHotel = () => {
     setForm({
       name: item.name || '',
       propertyType: item.propertyType || 'hotel',
+      place: getLandmarkPlaceForListing(item.nearestTemple, item.location),
       location: item.location || '',
       rating: String(item.rating ?? ''),
       description: item.description || '',
@@ -233,11 +236,22 @@ const PartnerAddHotel = () => {
     return 'bg-brand-saffron/10 text-brand-saffron';
   };
 
-  const nearestTempleSelectValue = form.nearestTemple && LANDMARK_OPTIONS.includes(form.nearestTemple)
+  const landmarkOptionsForPlace = getLandmarkOptionsForPlace(form.place);
+  const nearestTempleSelectValue = form.nearestTemple && landmarkOptionsForPlace.includes(form.nearestTemple)
     ? form.nearestTemple
     : form.nearestTemple
       ? OTHER_LANDMARK_OPTION
       : '';
+
+  const handlePlaceChange = (place: string) => {
+    const shouldUsePlaceAsLocation = !form.location.trim() || form.location.trim() === form.place;
+    setForm({
+      ...form,
+      place,
+      location: place && place !== OTHER_LANDMARK_OPTION && shouldUsePlaceAsLocation ? place : form.location,
+      nearestTemple: '',
+    });
+  };
 
   const filtered = useMemo(
     () =>
@@ -340,13 +354,27 @@ const PartnerAddHotel = () => {
                 )}
               </div>
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Location *</label>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Place *</label>
+                <select
+                  required
+                  value={form.place}
+                  onChange={(e) => handlePlaceChange(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                >
+                  <option value="">Select place</option>
+                  {BRAJ_LANDMARK_PLACE_NAMES.map((place) => <option key={place} value={place}>{place}</option>)}
+                  <option value={OTHER_LANDMARK_OPTION}>{OTHER_LANDMARK_OPTION}</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Location / Full Address *</label>
                 <input
                   type="text"
                   required
                   value={form.location}
                   onChange={(e) => setForm({ ...form, location: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="Area, road, or complete address"
                 />
               </div>
               <div>
@@ -373,15 +401,15 @@ const PartnerAddHotel = () => {
                 <p className="font-body text-xs text-muted-foreground mt-1">If blank, the public map uses the Location field.</p>
               </div>
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Nearest Temple / Landmark *</label>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Nearby Landmark / Temple *</label>
                 <select
                   required
                   value={nearestTempleSelectValue}
                   onChange={(e) => setForm({ ...form, nearestTemple: e.target.value === OTHER_LANDMARK_OPTION ? OTHER_LANDMARK_OPTION : e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 >
-                  <option value="">Select landmark</option>
-                  {LANDMARK_OPTIONS.map((name) => <option key={name} value={name}>{name}</option>)}
+                  <option value="">{form.place ? 'Select nearby landmark / temple' : 'Select place first'}</option>
+                  {landmarkOptionsForPlace.map((name) => <option key={name} value={name}>{name}</option>)}
                   <option value={OTHER_LANDMARK_OPTION}>{OTHER_LANDMARK_OPTION}</option>
                 </select>
                 {nearestTempleSelectValue === OTHER_LANDMARK_OPTION && (
