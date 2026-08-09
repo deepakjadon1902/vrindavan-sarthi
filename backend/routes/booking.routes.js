@@ -385,6 +385,12 @@ router.post('/room-type', protect, async (req, res) => {
 
     const hotel = await Hotel.findById(hotelId).lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    if (String(hotel.propertyType || '').trim().toLowerCase() === 'dharamshala') {
+      return res.status(400).json({
+        success: false,
+        message: 'Dharamshala rooms are enquiry-only. Please book by WhatsApp or call.',
+      });
+    }
     const acceptedTermsSnapshot = getActivePropertyTermsSnapshot(hotel, req.user._id);
     if (acceptedTermsSnapshot) {
       const accepted = Boolean(req.body?.propertyTermsAccepted);

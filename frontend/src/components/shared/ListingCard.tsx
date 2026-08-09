@@ -73,7 +73,7 @@ const ListingCard = ({
   const isHotelCard = variant === 'hotel';
   const isRoomCard = !isHotelCard && (ctaLabel.toLowerCase().includes('room') || priceLabel.toLowerCase().includes('night'));
   const isStayCard = isHotelCard || isRoomCard;
-  const typeLabel = isHotelCard ? 'Hotel' : isRoomCard ? 'Room' : badge || meta || 'Listing';
+  const typeLabel = badge || (isHotelCard ? 'Hotel' : isRoomCard ? 'Room' : meta || 'Listing');
 
   return (
     <div
@@ -172,7 +172,7 @@ const ListingCard = ({
           {name}
         </h3>
         <p className={`mt-1 inline-flex items-start gap-1.5 font-body text-xs leading-snug text-muted-foreground ${isStayCard ? 'line-clamp-1' : 'line-clamp-2'}`}>
-          {!isStayCard && <MapPin size={12} className="mt-0.5 shrink-0 text-brand-saffron" />} <span>{location || 'Vrindavan'}</span>
+          {!isStayCard && <MapPin size={12} className="mt-0.5 shrink-0 text-brand-saffron" />} <span>{location || 'Braj'}</span>
         </p>
 
         {(rating > 0 || reviewCount > 0) && (

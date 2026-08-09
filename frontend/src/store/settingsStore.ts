@@ -36,12 +36,12 @@ interface SettingsState {
 
 const defaultSettings: AppSettings = {
   siteName: COMPANY_NAME,
-  motto: 'Your Divine Guide to Vrindavan',
+  motto: 'Your Divine Guide to Braj',
   logoUrl: '',
   faviconUrl: '',
   metaTitle: COMPANY_NAME,
-  metaDescription: 'Your Divine Guide to Vrindavan',
-  metaKeywords: 'Vrindavan, hotels, rooms, cabs, tours, bookings, shop',
+  metaDescription: 'Your Divine Guide to Braj',
+  metaKeywords: 'Braj, Vrindavan, Mathura, Govardhan, Barsana, Gokul, hotels, rooms, cabs, tours, bookings, shop',
   ogImageUrl: '',
   upiId: '',
   upiName: COMPANY_NAME,
@@ -54,7 +54,7 @@ const defaultSettings: AppSettings = {
 By accessing and using Vrindavan Sarthi Enterprises ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.
 
 2. Services
-Vrindavan Sarthi Enterprises provides an online platform for booking hotels, rooms, cabs, and tour packages in Vrindavan. We act as an intermediary between users and service providers (hotels, cab drivers, tour operators).
+Vrindavan Sarthi Enterprises provides an online platform for booking hotels, rooms, cabs, and tour packages across Braj. We act as an intermediary between users and service providers (hotels, cab drivers, tour operators).
 
 3. User Accounts
 You must provide accurate and complete information when creating an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.

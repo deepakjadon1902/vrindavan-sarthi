@@ -119,7 +119,7 @@ const SEO = ({
     upsertMeta('meta[property="og:description"]', { property: 'og:description', content: computed.metaDescription });
     upsertMeta('meta[property="og:url"]', { property: 'og:url', content: computed.canonical });
     upsertMeta('meta[property="og:image"]', { property: 'og:image', content: computed.imageUrl });
-    upsertMeta('meta[property="og:image:alt"]', { property: 'og:image:alt', content: `${SITE_NAME} logo and Vrindavan travel services` });
+    upsertMeta('meta[property="og:image:alt"]', { property: 'og:image:alt', content: `${SITE_NAME} logo and Braj travel services` });
 
     upsertMeta('meta[name="twitter:card"]', { name: 'twitter:card', content: 'summary_large_image' });
     upsertMeta('meta[name="twitter:title"]', { name: 'twitter:title', content: computed.metaTitle });

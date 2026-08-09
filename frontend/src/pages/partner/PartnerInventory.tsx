@@ -7,7 +7,7 @@ import { publishAppEvent, subscribeAppEvent } from '@/lib/broadcast';
 import { clearSessionCache } from '@/lib/panelCache';
 import { getApiErrorMessage } from '@/lib/apiError';
 
-type Hotel = { _id: string; name: string; status?: string; approvalStatus?: string };
+type Hotel = { _id: string; name: string; propertyType?: 'hotel' | 'dharamshala'; status?: string; approvalStatus?: string };
 
 type RoomType = {
   _id: string;
@@ -81,7 +81,7 @@ const PartnerInventory = () => {
     const list = Array.isArray(data.hotels) ? data.hotels : [];
     setHotels(
       list
-        .map((h: any) => ({ _id: h._id, name: h.name, status: h.status, approvalStatus: h.approvalStatus }))
+        .map((h: any) => ({ _id: h._id, name: h.name, propertyType: h.propertyType || 'hotel', status: h.status, approvalStatus: h.approvalStatus }))
         .filter((h: any) => h._id && h.name)
     );
   };
@@ -213,9 +213,12 @@ const PartnerInventory = () => {
 
   const submitRoomType = async () => {
     if (!token) return;
-    if (!selectedHotelId) return toast.error('Select a hotel first');
+    if (!selectedHotelId) return toast.error('Select a property first');
     if (!rtName.trim()) return toast.error('Room type name is required');
-    if (!rtPrice || rtPrice <= 0) return toast.error('Price per night is required');
+    const isDharamshala = selectedHotel?.propertyType === 'dharamshala';
+    if ((!isDharamshala && (!rtPrice || rtPrice <= 0)) || rtPrice < 0) {
+      return toast.error(isDharamshala ? 'Enter 0 or more for reference price' : 'Price per night is required');
+    }
 
     try {
       if (editingRoomTypeId) {
@@ -229,7 +232,7 @@ const PartnerInventory = () => {
               .map((a) => a.trim())
               .filter(Boolean),
             images: rtImages,
-            pricePerNight: rtPrice,
+            pricePerNight: isDharamshala ? Math.max(0, rtPrice) : rtPrice,
             maxAdults: rtMaxAdults,
             maxChildren: rtMaxChildren,
             petsAllowed: rtPetsAllowed,
@@ -251,7 +254,7 @@ const PartnerInventory = () => {
               .map((a) => a.trim())
               .filter(Boolean),
             images: rtImages,
-            pricePerNight: rtPrice,
+            pricePerNight: isDharamshala ? Math.max(0, rtPrice) : rtPrice,
             maxAdults: rtMaxAdults,
             maxChildren: rtMaxChildren,
             petsAllowed: rtPetsAllowed,
@@ -414,16 +417,16 @@ const PartnerInventory = () => {
 
       <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3 md:flex-row md:items-end">
         <div className="flex-1">
-          <label className="font-body text-xs text-muted-foreground">Hotel</label>
+          <label className="font-body text-xs text-muted-foreground">Property</label>
           <select
             value={selectedHotelId}
             onChange={(e) => setSelectedHotelId(e.target.value)}
             className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm"
           >
-            <option value="">Select hotel</option>
+            <option value="">Select property</option>
             {hotels.map((h) => (
               <option key={h._id} value={h._id}>
-                {h.name}
+                {h.name}{h.propertyType === 'dharamshala' ? ' - Dharamshala' : ' - Hotel'}
                 {h.approvalStatus ? ` • ${h.approvalStatus}` : ''}
                 {h.status ? ` • ${h.status}` : ''}
               </option>
@@ -433,6 +436,7 @@ const PartnerInventory = () => {
         {selectedHotel && (
           <div className="text-xs font-body text-muted-foreground">
             Selected: <span className="text-foreground font-medium">{selectedHotel.name}</span>
+            <span className="ml-1 capitalize">({selectedHotel.propertyType || 'hotel'})</span>
           </div>
         )}
       </div>
@@ -519,7 +523,7 @@ const PartnerInventory = () => {
                   <button onClick={() => setSelectedRoomTypeId(rt._id)} className="text-left flex-1">
                     <div className="font-body text-sm font-semibold text-foreground">{rt.name}</div>
                     <div className="font-body text-xs text-muted-foreground">
-                      ₹{Number(rt.pricePerNight || 0).toLocaleString('en-IN')} • Adults {rt.maxAdults} • Children {rt.maxChildren}
+                      {selectedHotel?.propertyType === 'dharamshala' ? 'Enquiry only' : `Rs. ${Number(rt.pricePerNight || 0).toLocaleString('en-IN')}`} - Adults {rt.maxAdults} - Children {rt.maxChildren}
                     </div>
                   </button>
                   <button onClick={() => editRoomType(rt)} className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit">

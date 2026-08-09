@@ -7,7 +7,7 @@ import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { useSettingsStore } from '@/store/settingsStore';
 
-type Hotel = { _id: string; name: string; status?: string; approvalStatus?: string; location?: string; partnerName?: string };
+type Hotel = { _id: string; name: string; propertyType?: 'hotel' | 'dharamshala'; status?: string; approvalStatus?: string; location?: string; partnerName?: string };
 
 type RoomType = {
   _id: string;
@@ -202,9 +202,12 @@ const AdminInventory = () => {
 
   const onSubmitRoomType = async () => {
     if (!token) return;
-    if (!selectedHotelId) return toast.error('Select a hotel first');
+    if (!selectedHotelId) return toast.error('Select a property first');
     if (!rtName.trim()) return toast.error('Room type name is required');
-    if (!Number.isFinite(rtPrice) || rtPrice <= 0) return toast.error('Price per night is required');
+    const isDharamshala = selectedHotel?.propertyType === 'dharamshala';
+    if (!Number.isFinite(rtPrice) || (!isDharamshala && rtPrice <= 0) || rtPrice < 0) {
+      return toast.error(isDharamshala ? 'Enter 0 or more for reference price' : 'Price per night is required');
+    }
 
     const payload = {
       name: rtName.trim(),
@@ -214,7 +217,7 @@ const AdminInventory = () => {
         .map((a) => a.trim())
         .filter(Boolean),
       images: rtImages,
-      pricePerNight: Number(rtPrice),
+      pricePerNight: isDharamshala ? Math.max(0, Number(rtPrice)) : Number(rtPrice),
       maxAdults: Number(rtMaxAdults || 1),
       maxChildren: Number(rtMaxChildren || 0),
       petsAllowed: Boolean(rtPetsAllowed),
@@ -392,8 +395,11 @@ const AdminInventory = () => {
     <div className="space-y-8">
       <div className="bg-card rounded-xl border border-border p-5">
         <h2 className="font-heading text-xl font-bold text-foreground">Inventory & Booking Engine</h2>
-        <p className="font-body text-xs text-muted-foreground mt-1">
+        <p className="hidden">
           Select a hotel → add room types → add room numbers → manage availability calendar.
+        </p>
+        <p className="font-body text-xs text-muted-foreground mt-1">
+          Select a property, add room types, add room numbers, then manage the availability calendar.
         </p>
       </div>
 
@@ -401,16 +407,16 @@ const AdminInventory = () => {
         {/* Hotel + Room Types */}
         <div className="bg-card rounded-xl border border-border p-5 space-y-5">
           <div>
-            <label className="font-body text-xs text-muted-foreground">Hotel</label>
+            <label className="font-body text-xs text-muted-foreground">Property</label>
             <select
               value={selectedHotelId}
               onChange={(e) => setSelectedHotelId(e.target.value)}
               className="mt-1 w-full px-4 py-3 rounded-xl border border-border bg-background font-body text-sm"
             >
-              <option value="">Select hotel</option>
+              <option value="">Select property</option>
               {hotels.map((h) => (
                 <option key={h._id} value={h._id}>
-                  {h.name}
+                  {h.name}{h.propertyType === 'dharamshala' ? ' - Dharamshala' : ' - Hotel'}
                   {h.approvalStatus ? ` • ${h.approvalStatus}` : ''}
                   {h.status ? ` • ${h.status}` : ''}
                 </option>
@@ -523,10 +529,12 @@ const AdminInventory = () => {
                         <div className="min-w-0">
                           <p className="font-body text-sm font-semibold text-foreground truncate">{rt.name}</p>
                           <p className="font-body text-xs text-muted-foreground truncate">
-                            ₹{Number(rt.pricePerNight || 0).toLocaleString('en-IN')} • Adults {rt.maxAdults} • Children {rt.maxChildren}
+                            {selectedHotel?.propertyType === 'dharamshala' ? 'Enquiry only' : `Rs. ${Number(rt.pricePerNight || 0).toLocaleString('en-IN')}`} - Adults {rt.maxAdults} - Children {rt.maxChildren}
                           </p>
                           <p className="font-body text-[11px] text-muted-foreground truncate">
-                            Customer pays ₹{priceWithTax(rt.pricePerNight).toLocaleString('en-IN')} / night incl. {taxPercent}% GST
+                            {selectedHotel?.propertyType === 'dharamshala'
+                              ? 'No online payment or platform booking fee for dharamshala enquiries'
+                              : `Customer pays Rs. ${priceWithTax(rt.pricePerNight).toLocaleString('en-IN')} / night incl. ${taxPercent}% GST`}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">

@@ -176,7 +176,7 @@ const AdminLayout = () => {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="panel-hero min-h-20 border-b border-brand-gold/20 flex items-center justify-between px-4 lg:px-8">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden p-2 text-foreground">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden p-2 text-white">
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <h1 className="font-heading text-2xl font-semibold text-white">

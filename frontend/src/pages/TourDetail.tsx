@@ -59,7 +59,7 @@ const TourDetail = () => {
   const phoneDigits = companyPhone.replace(/\D/g, '');
   const whatsappDigits = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
   const allImages = [tour.image, ...(tour.images || [])].filter(Boolean);
-  const tourDescription = truncate(tour.description || `${tour.name} guided Vrindavan tour package with booking support from Vrindavan Sarthi Enterprises.`);
+  const tourDescription = truncate(tour.description || `${tour.name} guided Braj tour package with booking support from Vrindavan Sarthi Enterprises.`);
   const whatsappMessage = [
     'Radhe Radhe, I want to confirm a tour booking.',
     `Tour: ${tour.name}`,
@@ -79,7 +79,7 @@ const TourDetail = () => {
       description: tourDescription,
       image: allImages.map(absoluteAssetUrl).filter(Boolean),
       provider: { '@type': 'Organization', name: 'Vrindavan Sarthi Enterprises', url: absoluteUrl('/') },
-      areaServed: ['Vrindavan', 'Mathura', 'Uttar Pradesh'],
+      areaServed: ['Braj', 'Vrindavan', 'Mathura', 'Govardhan', 'Barsana', 'Gokul', 'Nandgaon'],
       serviceType: 'Guided spiritual tour package',
       offers: { '@type': 'Offer', url: absoluteUrl(`/tours/${tour._id}`), priceCurrency: 'INR', price: pricePerPerson, availability: 'https://schema.org/InStock' },
     },
@@ -102,7 +102,7 @@ const TourDetail = () => {
               <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h1 className="font-display text-3xl font-bold leading-tight text-foreground md:text-4xl">{tour.name}</h1>
-                  <p className="mt-2 font-body text-sm text-muted-foreground">{tour.destination || 'Vrindavan and nearby pilgrimage route'}</p>
+                  <p className="mt-2 font-body text-sm text-muted-foreground">{tour.destination || 'Braj and nearby pilgrimage route'}</p>
                 </div>
                 <div className="rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 font-body text-sm">
                   <p className="text-muted-foreground">Booking payment</p>

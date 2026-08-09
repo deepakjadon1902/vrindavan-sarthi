@@ -82,7 +82,7 @@ const Cabs = () => {
         <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle
             label="Transportation"
-            title="Book a Cab in Vrindavan"
+            title="Book a Cab Across Braj"
             subtitle="Reliable local and outstation cab services"
           />
           <div className="premium-toolbar mx-auto max-w-xl p-2">

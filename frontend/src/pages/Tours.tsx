@@ -106,7 +106,7 @@ const Tours = () => {
     <div className="pt-16">
       <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
-          <SectionTitle label="Spiritual Journeys" title="Explore Tour Packages" subtitle="Guided tours to experience the divine essence of Vrindavan" />
+          <SectionTitle label="Spiritual Journeys" title="Explore Tour Packages" subtitle="Guided tours to experience the divine essence of Braj" />
           <div className="premium-toolbar mx-auto grid max-w-5xl gap-2 p-2 sm:grid-cols-2 lg:grid-cols-5">
             <div className="relative sm:col-span-2 lg:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />

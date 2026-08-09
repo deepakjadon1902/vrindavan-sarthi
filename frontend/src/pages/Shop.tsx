@@ -43,7 +43,7 @@ const Shop = () => {
         <div className="text-center mb-3">
           <p className="font-ui text-[11px] uppercase tracking-[0.3em] text-brand-gold mb-2"> Divine Shop </p>
           <h1 className="font-display text-4xl font-bold text-shine">Sacred Souvenirs</h1>
-          <p className="font-body text-sm text-muted-foreground mt-3 max-w-xl mx-auto">Hand-picked pooja items, devotional books, and blessed memorabilia from the holy land of Vrindavan</p>
+          <p className="font-body text-sm text-muted-foreground mt-3 max-w-xl mx-auto">Hand-picked pooja items, devotional books, and blessed memorabilia from the holy land of Braj</p>
         </div>
 
           <div className="premium-toolbar mb-3 flex flex-col gap-2 p-2 sm:flex-row">
@@ -74,7 +74,7 @@ const Shop = () => {
           <div className="premium-surface p-12 text-center">
             <ShoppingBag size={48} className="mx-auto mb-4 text-brand-gold/70" />
             <p className="font-display text-2xl text-foreground mb-2">No Products Found</p>
-            <p className="font-body text-sm text-muted-foreground">Check back soon for new arrivals from Vrindavan.</p>
+            <p className="font-body text-sm text-muted-foreground">Check back soon for new arrivals from Braj.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

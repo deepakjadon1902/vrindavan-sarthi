@@ -34,7 +34,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-6 lg:px-8 lg:py-8">
         <div className="mb-5 grid gap-2 rounded-lg border border-brand-gold/25 bg-white/5 p-2.5 md:grid-cols-3">
           <a href={`tel:${COMPANY_PHONE}`} className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
-            <Phone size={18} className="text-brand-gold" /> Call for Vrindavan booking
+            <Phone size={18} className="text-brand-gold" /> Call for Braj booking
           </a>
           <a href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <MessageCircle size={18} className="text-brand-gold" /> WhatsApp enquiry

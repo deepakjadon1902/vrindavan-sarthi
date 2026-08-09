@@ -10,6 +10,7 @@ import { PropertyTermsEditor, hasPropertyTermsText, normalizePropertyTerms, type
 interface Hotel {
   _id: string;
   name: string;
+  propertyType?: 'hotel' | 'dharamshala';
   location: string;
   rating: number;
   image?: string;
@@ -43,6 +44,7 @@ const ManageHotels = () => {
 
   const [form, setForm] = useState({
     name: '',
+    propertyType: 'hotel' as Hotel['propertyType'],
     location: '',
     rating: '',
     description: '',
@@ -82,6 +84,7 @@ const ManageHotels = () => {
   const resetForm = () => {
     setForm({
       name: '',
+      propertyType: 'hotel',
       location: '',
       rating: '',
       description: '',
@@ -123,6 +126,7 @@ const ManageHotels = () => {
   const handleEdit = (hotel: Hotel) => {
     setForm({
       name: hotel.name || '',
+      propertyType: hotel.propertyType || 'hotel',
       location: hotel.location || '',
       rating: String(hotel.rating ?? ''),
       description: hotel.description || '',
@@ -153,6 +157,7 @@ const ManageHotels = () => {
       partnerSubmitted?: boolean;
     } = {
       name: form.name,
+      propertyType: form.propertyType,
       location: form.location,
       rating: Number(form.rating || 0),
       image: form.image || '/placeholder.svg',
@@ -169,9 +174,9 @@ const ManageHotels = () => {
       status: form.status,
       approvalStatus: 'approved',
       partnerSubmitted: false,
-      taxEnabled: form.taxEnabled,
-      taxPercent: Number(form.taxPercent || 12),
-      platform_commission_percentage: Number(form.platform_commission_percentage || 0),
+      taxEnabled: form.propertyType === 'dharamshala' ? false : form.taxEnabled,
+      taxPercent: form.propertyType === 'dharamshala' ? 0 : Number(form.taxPercent || 12),
+      platform_commission_percentage: form.propertyType === 'dharamshala' ? 0 : Number(form.platform_commission_percentage || 0),
       propertyTerms: form.propertyTerms,
     };
     if (editingId && payload.image === '/placeholder.svg') delete payload.image;
@@ -294,6 +299,22 @@ const ManageHotels = () => {
                 />
               </div>
               <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Listing Type</label>
+                <select
+                  value={form.propertyType}
+                  onChange={(e) => setForm({
+                    ...form,
+                    propertyType: e.target.value as Hotel['propertyType'],
+                    taxEnabled: e.target.value === 'dharamshala' ? false : form.taxEnabled,
+                    platform_commission_percentage: e.target.value === 'dharamshala' ? '0' : form.platform_commission_percentage,
+                  })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                >
+                  <option value="hotel">Hotel</option>
+                  <option value="dharamshala">Dharamshala</option>
+                </select>
+              </div>
+              <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Location</label>
                 <input
                   type="text"
@@ -404,13 +425,14 @@ const ManageHotels = () => {
                 <input
                   type="checkbox"
                   checked={form.taxEnabled}
+                  disabled={form.propertyType === 'dharamshala'}
                   onChange={(e) => setForm({ ...form, taxEnabled: e.target.checked })}
                   className="mt-1"
                 />
                 <span>
                   Apply GST to this hotel
                   <span className="block text-xs text-muted-foreground mt-1">
-                    Leave unchecked to keep this hotel GST-free. Only admin controls this setting.
+                    Dharamshala listings are GST-free and booked by WhatsApp or call enquiry.
                   </span>
                 </span>
               </label>
@@ -530,6 +552,7 @@ const ManageHotels = () => {
                       {hotel.platform_commission_percentage ?? 0}%
                     </td>
                     <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">
+                      <span className="block font-medium text-foreground capitalize">{hotel.propertyType || 'hotel'}</span>
                       {hotel.partnerName || 'Admin'}
                     </td>
                     <td className="px-4 py-3 text-right">

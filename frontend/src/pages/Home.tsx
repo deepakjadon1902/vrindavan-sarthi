@@ -457,7 +457,7 @@ import { prefetchDetail } from '@/lib/detailCache';
 import { COMPANY_PHONE_DIGITS } from '@/lib/brand';
 import { useSettingsStore } from '@/store/settingsStore';
 
-import heroImg from '@/assets/images/hero-vrindavan.jpg';
+const heroImg = '/backgrounds/braj-govardhan-hero.jpeg';
 
 const services = [
   {
@@ -470,7 +470,7 @@ const services = [
   {
     icon: CarTaxiFront,
     title: 'Private Cab Support',
-    desc: 'Fixed route-wise cab booking for Mathura, Govardhan, Barsana, Gokul, airport transfers, and local darshan.',
+    desc: 'Fixed route-wise cab booking for Braj, Govardhan, Barsana, Gokul, airport transfers, and local darshan.',
     link: '/cabs',
     cta: 'View cabs',
   },
@@ -483,7 +483,7 @@ const services = [
   },
   {
     icon: ShoppingBag,
-    title: 'Sacred Vrindavan Shop',
+    title: 'Sacred Braj Shop',
     desc: 'Order devotional products, souvenirs, and pooja essentials with tracking and admin-verified payments.',
     link: '/shop',
     cta: 'Visit shop',
@@ -508,13 +508,13 @@ const stats = [
 ];
 
 const testimonials = [
-  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'Vrindavan Sarthi Enterprises made our family trip to Vrindavan absolutely seamless. The hotel was right next to Banke Bihari Temple!' },
+  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'Vrindavan Sarthi Enterprises made our family trip across Braj absolutely seamless. The hotel was right next to Banke Bihari Temple!' },
   { name: 'Rajesh Kumar', location: 'Mumbai', rating: 5, text: 'The guided temple tour was incredible. Our guide knew every story, every detail. A truly divine experience.' },
   { name: 'Anita Devi', location: 'Jaipur', rating: 4, text: 'Booked a cab and hotel through this platform. Everything was smooth and the prices were very reasonable.' },
 ];
 
 const whyUs = [
-  { icon: MapPin, title: 'Sacred Location', desc: 'Properties handpicked near the most sacred sites of Vrindavan' },
+  { icon: MapPin, title: 'Sacred Location', desc: 'Properties handpicked near the most sacred sites of Braj' },
   { icon: Shield, title: 'Verified Listings', desc: 'Every hotel, room, and cab is personally verified for quality' },
   { icon: Clock, title: 'Easy Booking', desc: 'Book in under 2 minutes with instant confirmation' },
   { icon: Users, title: '24/7 Support', desc: 'Our team is always available to help during your sacred journey' },
@@ -675,14 +675,14 @@ const Home = () => {
 
       {/* ===== HERO ===== */}
       <section className="relative flex items-center justify-center overflow-hidden pb-6 pt-20 sm:pb-8 lg:min-h-[560px] lg:pt-20 xl:min-h-[590px]">
-        <img src={heroImg} alt="Vrindavan temples at sunset" className="absolute inset-0 w-full h-full object-cover" width={1920} height={1080} />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/72 via-black/45 to-brand-black/90" />
+        <img src={heroImg} alt="Govardhan hill and Braj landscape at sunset" className="absolute inset-0 w-full h-full object-cover object-center" width={1600} height={897} />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/34 via-black/16 to-brand-black/86" />
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
           <motion.p
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
             className="font-body text-[11px] sm:text-xs tracking-[0.24em] uppercase text-black mb-2"
           >
-             Vrindavan, Mathura, UP 
+             Braj Mandal, Uttar Pradesh
           </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }}
@@ -694,13 +694,13 @@ const Home = () => {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
             className="font-heading italic text-xl md:text-2xl text-white mb-2"
           >
-            Trusted Hotel, Dharamshala & Room Booking in Vrindavan
+            Trusted Hotel, Dharamshala & Room Booking Across Braj
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
             className="font-body text-white text-xs md:text-sm tracking-wide mb-6"
           >
-            Verified stays near temples, family rooms, AC rooms, and budget Dharamshalas in one simple platform
+            Verified stays near temples in Govardhan, Barsana, Gokul, Mathura, Vrindavan, and the wider Braj region
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }}
@@ -757,7 +757,7 @@ const Home = () => {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
-                  placeholder="Search temple area, hotel, cab route, or tour..."
+                  placeholder="Search Braj location, hotel, cab route, or tour..."
                   className="h-12 w-full rounded-lg border border-border bg-white pl-10 pr-3 font-body text-sm text-foreground outline-none transition focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/35"
                 />
               </label>
@@ -804,7 +804,7 @@ const Home = () => {
         <div className="container mx-auto px-4">
           <SectionTitle
             label="Travel Desk"
-            title="Plan The Complete Vrindavan Journey"
+            title="Plan The Complete Braj Journey"
             subtitle="Useful booking paths, verified information, and local support arranged around how travellers actually decide."
           />
           <div className={serviceGridClass}>
@@ -840,7 +840,7 @@ const Home = () => {
         <div className="container mx-auto px-4 relative">
           <SectionTitle
             label="Featured Stays"
-            title="Handpicked Hotels in Vrindavan"
+            title="Handpicked Hotels & Dharamshalas in Braj"
             subtitle="Comfortable and affordable stays near the most sacred temples"
           />
           {hotels.length > 0 ? (
@@ -853,8 +853,9 @@ const Home = () => {
                     image={hotel.image}
                     images={hotel.images}
                     name={hotel.name}
+                    badge={hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel'}
                     location={hotel.location}
-                    price={getHotelStartingPrice(hotel)}
+                    price={hotel?.propertyType === 'dharamshala' ? undefined : getHotelStartingPrice(hotel)}
                     priceLabel={hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}
@@ -889,7 +890,7 @@ const Home = () => {
           <SectionTitle
             label="Room Options"
             title="Browse Rooms"
-            subtitle="Choose comfortable room types from verified Vrindavan hotels"
+            subtitle="Choose comfortable room types from verified Braj hotels and dharamshalas"
           />
           {roomTypes.length > 0 ? (
             <>
@@ -901,13 +902,14 @@ const Home = () => {
                     images={roomType?.images?.length ? roomType.images : roomType?.hotel?.images}
                     name={roomType.name}
                     location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` - ${roomType.hotel.location}` : ''}`}
-                    price={getRoomPrice(roomType)}
+                    price={roomType?.hotel?.propertyType === 'dharamshala' ? undefined : getRoomPrice(roomType)}
                     priceLabel={roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={0}
                     reviewCount={0}
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}
                     meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
-                    ctaLabel="Book Room"
+                    badge={roomType?.hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : undefined}
+                    ctaLabel={roomType?.hotel?.propertyType === 'dharamshala' ? 'Enquire' : 'Book Room'}
                     onViewDetails={() => {
                       prefetchDetail('roomTypes', roomType._id, roomType);
                       navigate(`/room-types/${roomType._id}`);
@@ -989,7 +991,7 @@ const Home = () => {
           <SectionTitle
             label="Spiritual Journeys"
             title="Popular Tour Packages"
-            subtitle="Experience the divine essence of Vrindavan with our guided tours"
+            subtitle="Experience the divine essence of Braj with our guided tours"
           />
           {tours.length > 0 ? (
             <>
@@ -1037,8 +1039,8 @@ const Home = () => {
           <div className="container mx-auto px-4 relative">
             <SectionTitle
               label="Divine Shop"
-              title="Sacred Souvenirs from Vrindavan"
-              subtitle="Take a piece of Vrindavan's blessings home with you"
+              title="Sacred Souvenirs from Braj"
+              subtitle="Take a piece of Braj's blessings home with you"
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {featuredProducts.map((p) => (
@@ -1086,7 +1088,7 @@ const Home = () => {
         <img src="/backgrounds/temple-interior.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
         <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
-          <SectionTitle label="Why Choose Us" title="Your Trusted Companion in Vrindavan" />
+          <SectionTitle label="Why Choose Us" title="Your Trusted Companion in Braj" />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {whyUs.map((item) => (
               <div
@@ -1128,7 +1130,7 @@ const Home = () => {
               <div className="relative min-h-[320px] overflow-hidden p-6 sm:p-8 lg:p-10">
                 <img
                   src={heroImg}
-                  alt="Vrindavan temple view"
+                  alt="Govardhan and Braj landscape"
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 <div className="absolute inset-0 bg-brand-black/76" />
@@ -1137,10 +1139,10 @@ const Home = () => {
                     Our Dream
                   </p>
                   <h2 className="mb-4 font-heading text-2xl font-bold leading-tight text-white sm:text-3xl lg:text-4xl">
-                    To make every Vrindavan visit feel guided, honest, and cared for.
+                    To make every Braj visit feel guided, honest, and cared for.
                   </h2>
                   <p className="font-body text-[14px] leading-7 text-white sm:text-[15px]">
-                    Vrindavan Sarthi Enterprises was created to bring hotels, rooms, cabs, tours{shopEnabled ? ', and sacred products' : ''} into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
+                    Vrindavan Sarthi Enterprises was created to bring hotels, dharamshalas, rooms, cabs, tours{shopEnabled ? ', and sacred products' : ''} across Braj into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Link to="/about" className="btn-gold inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold">

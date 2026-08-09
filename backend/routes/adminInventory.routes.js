@@ -55,7 +55,7 @@ router.get('/hotels', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const hotels = await Hotel.find({})
       .sort({ createdAt: -1 })
-      .select('_id name location status approvalStatus partnerId partnerName partnerEmail partnerPhone')
+      .select('_id name propertyType location status approvalStatus partnerId partnerName partnerEmail partnerPhone')
       .lean();
     res.json({ success: true, data: hotels });
   } catch (err) {
@@ -87,7 +87,10 @@ router.post('/hotels/:hotelId/room-types', async (req, res) => {
     const name = normalizeString(req.body?.name);
     const pricePerNight = Number(req.body?.pricePerNight || 0);
     if (!name) return res.status(400).json({ success: false, message: 'Room type name is required' });
-    if (!Number.isFinite(pricePerNight) || pricePerNight <= 0) return res.status(400).json({ success: false, message: 'Valid pricePerNight is required' });
+    const isDharamshala = String(hotel.propertyType || '').trim().toLowerCase() === 'dharamshala';
+    if (!Number.isFinite(pricePerNight) || (!isDharamshala && pricePerNight <= 0) || pricePerNight < 0) {
+      return res.status(400).json({ success: false, message: isDharamshala ? 'Valid pricePerNight is required' : 'Price per night is required' });
+    }
 
     const body = { ...req.body };
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/room-types', multi: ['images'], tags: ['roomType', 'admin'] });
@@ -101,7 +104,7 @@ router.post('/hotels/:hotelId/room-types', async (req, res) => {
       description: normalizeString(req.body?.description),
       images: normalizeStringArray(body?.images),
       amenities: normalizeStringArray(req.body?.amenities),
-      pricePerNight,
+      pricePerNight: isDharamshala ? Math.max(0, pricePerNight) : pricePerNight,
       maxAdults: Math.max(1, Number(req.body?.maxAdults || 1)),
       maxChildren: Math.max(0, Number(req.body?.maxChildren || 0)),
       petsAllowed: Boolean(req.body?.petsAllowed),
@@ -127,9 +130,13 @@ router.put('/room-types/:roomTypeId', async (req, res) => {
     if (typeof req.body?.images !== 'undefined') roomType.images = normalizeStringArray(body?.images);
     if (typeof req.body?.amenities !== 'undefined') roomType.amenities = normalizeStringArray(req.body?.amenities);
     if (typeof req.body?.pricePerNight !== 'undefined') {
+      const hotel = await Hotel.findById(roomType.hotelId).select('propertyType');
+      const isDharamshala = String(hotel?.propertyType || '').trim().toLowerCase() === 'dharamshala';
       const pricePerNight = Number(req.body?.pricePerNight || 0);
-      if (!Number.isFinite(pricePerNight) || pricePerNight <= 0) return res.status(400).json({ success: false, message: 'Valid pricePerNight is required' });
-      roomType.pricePerNight = pricePerNight;
+      if (!Number.isFinite(pricePerNight) || (!isDharamshala && pricePerNight <= 0) || pricePerNight < 0) {
+        return res.status(400).json({ success: false, message: isDharamshala ? 'Valid pricePerNight is required' : 'Price per night is required' });
+      }
+      roomType.pricePerNight = isDharamshala ? Math.max(0, pricePerNight) : pricePerNight;
     }
     if (typeof req.body?.maxAdults !== 'undefined') roomType.maxAdults = Math.max(1, Number(req.body?.maxAdults || 1));
     if (typeof req.body?.maxChildren !== 'undefined') roomType.maxChildren = Math.max(0, Number(req.body?.maxChildren || 0));

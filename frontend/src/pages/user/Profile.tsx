@@ -446,7 +446,7 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
                     </div>
                     <div>
                       <p className="font-body text-sm font-medium text-foreground">Browse Hotels</p>
-                      <p className="font-body text-[10px] text-muted-foreground">Explore stays in Vrindavan</p>
+                      <p className="font-body text-[10px] text-muted-foreground">Explore stays across Braj</p>
                     </div>
                   </Link>
                   <Link to="/my-orders" className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors group">

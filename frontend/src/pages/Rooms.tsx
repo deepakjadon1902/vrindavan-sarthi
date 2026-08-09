@@ -20,28 +20,33 @@ const Rooms = () => {
 
   useEffect(() => {
     const load = async () => {
+      const q = searchQuery.trim();
       // Optimistically show cache while revalidating.
-      try {
-        const cached = localStorage.getItem('vvs_room_types');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) setRoomTypes(parsed);
+      if (!q) {
+        try {
+          const cached = localStorage.getItem('vvs_room_types');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) setRoomTypes(parsed);
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
 
       // Retry a few times (backend may be restarting).
       let lastErr: any = null;
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
-          const res = await api.get('/room-types');
+          const res = await api.get('/room-types', q ? { params: { q } } : undefined);
           const data = Array.isArray(res.data?.data) ? res.data.data : [];
           setRoomTypes(data);
-          try {
-            localStorage.setItem('vvs_room_types', JSON.stringify(data));
-          } catch {
-            // ignore
+          if (!q) {
+            try {
+              localStorage.setItem('vvs_room_types', JSON.stringify(data));
+            } catch {
+              // ignore
+            }
           }
           return;
         } catch (e: any) {
@@ -61,15 +66,16 @@ const Rooms = () => {
       setRoomTypes([]);
     };
 
-    void load();
+    const timer = window.setTimeout(() => void load(), 180);
     const unsub = subscribeAppEvent('listing:changed', () => void load());
     const onFocus = () => void load();
     window.addEventListener('focus', onFocus);
     return () => {
+      window.clearTimeout(timer);
       unsub();
       window.removeEventListener('focus', onFocus);
     };
-  }, []);
+  }, [searchQuery]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -81,6 +87,13 @@ const Rooms = () => {
       return name.includes(q) || hotelName.includes(q) || location.includes(q);
     });
   }, [roomTypes, searchQuery]);
+
+  const locationOptions = useMemo(
+    () => Array.from(new Set(
+      roomTypes.map((rt: any) => String(rt?.hotel?.location || '').split(',')[0].trim()).filter(Boolean)
+    )).slice(0, 10),
+    [roomTypes]
+  );
 
   const getTaxInclusivePrice = (rt: any) => {
     const base = Number(rt?.pricePerNight || 0);
@@ -94,7 +107,7 @@ const Rooms = () => {
     <div className="pt-16">
       <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
-          <SectionTitle label="Room Options" title="Browse Rooms" subtitle="Choose a room type, then book from the hotel page" />
+          <SectionTitle label="Room Options" title="Browse Rooms Across Braj" subtitle="Filter room types by property or location like Govardhan, Barsana, Mathura, Gokul, and Vrindavan" />
           <div className="premium-toolbar mx-auto grid max-w-4xl grid-cols-1 gap-3 p-2 transition-transform duration-200 hover:-translate-y-0.5">
             <div className="relative md:col-span-3">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
@@ -102,11 +115,36 @@ const Rooms = () => {
                 type="text"
                 placeholder="Search by room type, hotel, or location..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchQuery(value);
+                  setSearchParams(value.trim() ? { q: value } : {}, { replace: true });
+                }}
                 className="premium-field w-full pl-12 pr-4"
               />
             </div>
           </div>
+          {locationOptions.length > 0 && (
+            <div className="mx-auto mt-3 flex max-w-4xl flex-wrap justify-center gap-2">
+              {locationOptions.map((loc) => (
+                <button
+                  key={loc}
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery(loc);
+                    setSearchParams({ q: loc });
+                  }}
+                  className={`rounded-full border px-3 py-1.5 font-body text-[12px] font-semibold transition-colors ${
+                    searchQuery.toLowerCase() === loc.toLowerCase()
+                      ? 'border-brand-gold bg-brand-gold text-brand-black'
+                      : 'border-border bg-card text-muted-foreground hover:border-brand-gold/60 hover:text-foreground'
+                  }`}
+                >
+                  {loc}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -126,14 +164,15 @@ const Rooms = () => {
                   images={rt?.images?.length ? rt.images : rt?.hotel?.images}
                   name={rt.name}
                   location={`${rt?.hotel?.name || ''}${rt?.hotel?.location ? ` - ${rt.hotel.location}` : ''}`}
-                  price={getTaxInclusivePrice(rt)}
+                  price={rt?.hotel?.propertyType === 'dharamshala' ? undefined : getTaxInclusivePrice(rt)}
                   priceLabel={rt?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                   rating={0}
                   reviewCount={0}
                   amenities={rt?.amenities || rt?.hotel?.amenities || []}
                   meta={Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined}
                   variant="compact"
-                  ctaLabel="Book Room"
+                  badge={rt?.hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : undefined}
+                  ctaLabel={rt?.hotel?.propertyType === 'dharamshala' ? 'Enquire' : 'Book Room'}
                   onViewDetails={() => {
                     prefetchDetail('roomTypes', rt._id, rt);
                     navigate(`/room-types/${rt._id}`);

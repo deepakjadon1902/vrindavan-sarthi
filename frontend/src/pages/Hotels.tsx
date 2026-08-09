@@ -169,6 +169,7 @@ import { prefetchDetail } from '@/lib/detailCache';
 type HotelListItem = {
   _id: string;
   name: string;
+  propertyType?: 'hotel' | 'dharamshala';
   location: string;
   rating: number;
   image: string;
@@ -197,45 +198,55 @@ const Hotels = () => {
 
   useEffect(() => {
     const load = async () => {
+      const q = searchQuery.trim();
       // Show cached list instantly (if present) for perceived speed, then revalidate from API.
-      try {
-        const cached = localStorage.getItem('vvs_hotels');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) setHotels(parsed);
-        }
-      } catch {
-        // ignore
-      }
-      try {
-        const res = await api.get('/hotels');
-        const data = Array.isArray(res.data?.data) ? (res.data.data as HotelListItem[]) : [];
-        setHotels(data);
+      if (!q) {
         try {
-          localStorage.setItem('vvs_hotels', JSON.stringify(data));
+          const cached = localStorage.getItem('vvs_hotels');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) setHotels(parsed);
+          }
         } catch {
           // ignore
+        }
+      }
+      try {
+        const res = await api.get('/hotels', q ? { params: { q } } : undefined);
+        const data = Array.isArray(res.data?.data) ? (res.data.data as HotelListItem[]) : [];
+        setHotels(data);
+        if (!q) {
+          try {
+            localStorage.setItem('vvs_hotels', JSON.stringify(data));
+          } catch {
+            // ignore
+          }
         }
       } catch {
         setHotels([]);
       }
     };
 
-    void load();
+    const timer = window.setTimeout(() => void load(), 180);
     const unsub = subscribeAppEvent('listing:changed', () => void load());
     const onFocus = () => void load();
     window.addEventListener('focus', onFocus);
     return () => {
+      window.clearTimeout(timer);
       unsub();
       window.removeEventListener('focus', onFocus);
     };
-  }, []);
+  }, [searchQuery]);
 
   const filtered = hotels.filter((h) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
     return h.name.toLowerCase().includes(q) || h.location.toLowerCase().includes(q);
   });
+
+  const locationOptions = Array.from(new Set(
+    hotels.map((h) => String(h.location || '').split(',')[0].trim()).filter(Boolean)
+  )).slice(0, 10);
 
   const getHotelStartingPrice = (hotel: HotelListItem) => {
     const prices = [
@@ -290,9 +301,9 @@ const Hotels = () => {
       <section className="section-cream relative overflow-hidden py-4 lg:py-5">
         <div className="container mx-auto px-4 sm:px-6 relative">
           <SectionTitle
-            label="Stays in Vrindavan"
-            title="Find Your Perfect Hotel"
-            subtitle="Comfortable, verified stays near the most sacred sites"
+            label="Stays Across Braj"
+            title="Find Hotels & Dharamshalas Across Braj"
+            subtitle="Search by Braj locations like Govardhan, Barsana, Mathura, Gokul, and Vrindavan"
           />
 
           <div className="premium-toolbar mx-auto mt-4 max-w-2xl p-2">
@@ -305,11 +316,36 @@ const Hotels = () => {
                 type="text"
                 placeholder="Search by hotel name or location..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchQuery(value);
+                  setSearchParams(value.trim() ? { q: value } : {}, { replace: true });
+                }}
                 className="premium-field w-full pl-12 pr-5"
               />
             </div>
           </div>
+          {locationOptions.length > 0 && (
+            <div className="mx-auto mt-3 flex max-w-2xl flex-wrap justify-center gap-2">
+              {locationOptions.map((loc) => (
+                <button
+                  key={loc}
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery(loc);
+                    setSearchParams({ q: loc });
+                  }}
+                  className={`rounded-full border px-3 py-1.5 font-body text-[12px] font-semibold transition-colors ${
+                    searchQuery.toLowerCase() === loc.toLowerCase()
+                      ? 'border-brand-gold bg-brand-gold text-brand-black'
+                      : 'border-border bg-card text-muted-foreground hover:border-brand-gold/60 hover:text-foreground'
+                  }`}
+                >
+                  {loc}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -368,8 +404,9 @@ const Hotels = () => {
                     image={hotel.image}
                     images={hotel.images}
                     name={hotel.name}
+                    badge={hotel.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel'}
                     location={hotel.location}
-                    price={getHotelStartingPrice(hotel)}
+                    price={hotel.propertyType === 'dharamshala' ? undefined : getHotelStartingPrice(hotel)}
                     priceLabel={hotel.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}

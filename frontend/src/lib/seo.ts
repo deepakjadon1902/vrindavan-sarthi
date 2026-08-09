@@ -1,7 +1,7 @@
 export const SITE_ORIGIN = 'https://vrindavansarthi.in';
 export const SITE_NAME = 'Vrindavan Sarthi Enterprises';
 export const DEFAULT_DESCRIPTION =
-  'Book verified hotels, Dharamshalas, family rooms and AC rooms in Vrindavan near temples. Compare availability, policies and prices with Vrindavan Sarthi.';
+  'Book verified hotels, Dharamshalas, family rooms and AC rooms across Braj locations including Vrindavan, Mathura, Govardhan, Barsana, Gokul and Nandgaon.';
 export const DEFAULT_OG_IMAGE = '/vrindasarthi%20logo.jpeg';
 export const BRAND_PHONE = '+91 8679820256';
 export const BRAND_EMAIL = 'vrindavansarthi108@gmail.com';
@@ -85,7 +85,7 @@ export const buildOrganizationJsonLd = (logoUrl?: string, email = BRAND_EMAIL, p
     postalCode: '281502',
     addressCountry: 'IN',
   },
-  areaServed: ['Vrindavan', 'Mathura', 'Uttar Pradesh'],
+  areaServed: ['Braj', 'Vrindavan', 'Mathura', 'Govardhan', 'Barsana', 'Gokul', 'Nandgaon'],
   contactPoint: [
     {
       '@type': 'ContactPoint',
@@ -128,29 +128,29 @@ export const buildFaqJsonLd = (items: Array<{ question: string; answer: string }
 
 export const publicRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
   '/': {
-    title: 'Vrindavan Hotel, Dharamshala & Room Booking | Vrindavan Sarthi',
+    title: 'Braj Hotel, Dharamshala & Room Booking | Vrindavan Sarthi',
     description: DEFAULT_DESCRIPTION,
     image: '/backgrounds/hero-vrindavan.jpg',
   },
   '/hotels': {
-    title: 'Hotels & Dharamshalas in Vrindavan Near Temples',
-    description: 'Find verified Vrindavan hotels and Dharamshalas near Banke Bihari Temple, ISKCON, Prem Mandir and other sacred places.',
+    title: 'Hotels & Dharamshalas Across Braj',
+    description: 'Find verified hotels and Dharamshalas in Braj locations like Vrindavan, Mathura, Govardhan, Barsana, Gokul and Nandgaon.',
   },
   '/rooms': {
-    title: 'Rooms in Vrindavan | AC, Family & Budget Room Booking',
-    description: 'Browse verified Vrindavan rooms with live room options, amenities, transparent prices, hotel policies and simple booking support.',
+    title: 'Rooms Across Braj | AC, Family & Budget Room Options',
+    description: 'Browse verified room options across Braj with amenities, policies, location filters and simple booking support.',
   },
   '/cabs': {
-    title: 'Taxi Service in Vrindavan | Local, Outstation & Airport Transfers',
-    description: 'Book clean and reliable taxi services in Vrindavan for local sightseeing, airport transfers, temple visits, Mathura tours, and complete Braj travel.',
+    title: 'Taxi Service Across Braj | Local, Outstation & Airport Transfers',
+    description: 'Book clean and reliable taxi services for Braj sightseeing, airport transfers, temple visits, Mathura tours, and complete pilgrimage travel.',
   },
   '/tours': {
-    title: 'Vrindavan Tour Packages | Spiritual & Braj Yatra Packages',
-    description: 'Explore affordable Vrindavan tour packages including Mathura, Govardhan, Barsana, Gokul, Nandgaon, temple darshan, and personalized Braj Yatra experiences.',
+    title: 'Braj Tour Packages | Spiritual Yatra Packages',
+    description: 'Explore affordable Braj tour packages including Vrindavan, Mathura, Govardhan, Barsana, Gokul, Nandgaon, temple darshan, and personalized Yatra experiences.',
   },
   '/shop': {
-    title: 'Sacred Vrindavan Shop',
-    description: 'Shop pooja items, devotional books, souvenirs, and sacred products from Vrindavan.',
+    title: 'Sacred Braj Shop',
+    description: 'Shop pooja items, devotional books, souvenirs, and sacred products from Braj.',
   },
   '/track-order': {
     title: 'Track Your Order',
@@ -414,19 +414,19 @@ export const getRouteMeta = (pathname: string) => {
   const path = normalizePathname(pathname);
   if (routeMeta[path]) return routeMeta[path];
   if (path.startsWith('/hotels/')) {
-    return { title: 'Vrindavan Hotel Details', description: 'View verified hotel details, room options, amenities, location, and booking information in Vrindavan.' };
+    return { title: 'Braj Property Details', description: 'View verified hotel or Dharamshala details, room options, amenities, location, and booking information across Braj.' };
   }
   if (path.startsWith('/room-types/')) {
-    return { title: 'Vrindavan Room Details', description: 'View room details, amenities, availability, pricing, and booking options for a verified Vrindavan stay.' };
+    return { title: 'Braj Room Details', description: 'View room details, amenities, availability, pricing, and booking options for a verified Braj stay.' };
   }
   if (path.startsWith('/cabs/')) {
-    return { title: 'Vrindavan Cab Details', description: 'View cab details, routes, capacity, fare information, and booking options for Vrindavan travel.' };
+    return { title: 'Braj Cab Details', description: 'View cab details, routes, capacity, fare information, and booking options for Braj travel.' };
   }
   if (path.startsWith('/tours/')) {
-    return { title: 'Vrindavan Tour Details', description: 'View itinerary, inclusions, duration, price, and booking options for a Vrindavan tour package.' };
+    return { title: 'Braj Tour Details', description: 'View itinerary, inclusions, duration, price, and booking options for a Braj tour package.' };
   }
   if (path.startsWith('/shop/')) {
-    return { title: 'Vrindavan Product Details', description: 'View product details, price, availability, and ordering options from the Vrindavan Sarthi Enterprises shop.' };
+    return { title: 'Braj Product Details', description: 'View product details, price, availability, and ordering options from the Vrindavan Sarthi Enterprises shop.' };
   }
   if (path.startsWith('/bookings/')) {
     return { title: 'Booking Details | Reservation & Payment Status', description: 'View your booking summary, customer details, payment status, cancellation status, and travel reservation information.' };

@@ -2,12 +2,12 @@ const mongoose = require('mongoose');
 
 const settingsSchema = new mongoose.Schema({
   siteName: { type: String, default: 'Vrindavan Sarthi Enterprises' },
-  motto: { type: String, default: 'Your Divine Guide to Vrindavan' },
+  motto: { type: String, default: 'Your Divine Guide to Braj' },
   logoUrl: { type: String, default: '' },
   faviconUrl: { type: String, default: '' },
   metaTitle: { type: String, default: 'Vrindavan Sarthi Enterprises' },
-  metaDescription: { type: String, default: 'Your Divine Guide to Vrindavan' },
-  metaKeywords: { type: String, default: 'Vrindavan, hotels, rooms, cabs, tours, bookings, shop' },
+  metaDescription: { type: String, default: 'Your Divine Guide to Braj' },
+  metaKeywords: { type: String, default: 'Braj, Vrindavan, Mathura, Govardhan, Barsana, Gokul, hotels, rooms, cabs, tours, bookings, shop' },
   ogImageUrl: { type: String, default: '' },
   upiId: { type: String, default: '' },
   upiName: { type: String, default: 'Vrindavan Sarthi Enterprises' },

@@ -12,6 +12,7 @@ const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImageSet, normalizePublicImages, stripLargeInlineImage } = require('../utils/publicImages');
 const router = express.Router();
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const normalizePublicHotel = (hotel) => {
   if (!hotel) return hotel;
@@ -43,11 +44,17 @@ const normalizeHotelTaxControls = (body) => {
     const p = Number(body.platform_commission_percentage);
     body.platform_commission_percentage = Number.isFinite(p) && p >= 0 ? Math.min(100, p) : 10;
   }
+  if (String(body.propertyType || '').trim().toLowerCase() === 'dharamshala') {
+    body.taxEnabled = false;
+    body.taxPercent = 0;
+    body.platform_commission_percentage = 0;
+  }
   return body;
 };
 
 const publicHotelListProjection = {
   name: 1,
+  propertyType: 1,
   location: 1,
   rating: 1,
   amenities: 1,
@@ -223,6 +230,11 @@ const validateHotelPayload = (body, { partial = false } = {}) => {
     else body.rating = rating;
   }
 
+  if (typeof body.propertyType !== 'undefined') {
+    const propertyType = String(body.propertyType || '').trim().toLowerCase();
+    body.propertyType = propertyType === 'dharamshala' ? 'dharamshala' : 'hotel';
+  }
+
   if (typeof body.amenities !== 'undefined') {
     body.amenities = Array.isArray(body.amenities)
       ? body.amenities.map((a) => String(a || '').trim()).filter(Boolean)
@@ -282,9 +294,15 @@ router.get('/', async (req, res) => {
     const checkIn = parseDateOnlyToUTC(String(req.query?.checkIn || ''));
     const checkOut = parseDateOnlyToUTC(String(req.query?.checkOut || ''));
     const withAvailability = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
+    const q = String(req.query?.q || '').trim();
+    const match = { status: 'active', approvalStatus: 'approved' };
+    if (q) {
+      const search = new RegExp(escapeRegex(q), 'i');
+      match.$or = [{ name: search }, { location: search }, { nearestTemple: search }];
+    }
 
     const hotels = await Hotel.aggregate([
-      { $match: { status: 'active', approvalStatus: 'approved' } },
+      { $match: match },
       { $sort: { createdAt: -1 } },
       { $project: publicHotelListProjection },
     ]).option({ maxTimeMS: 7000 });
@@ -391,7 +409,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
-      .select('name location rating image status approvalStatus partnerName taxEnabled taxPercent platform_commission_percentage hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image status approvalStatus partnerName taxEnabled taxPercent platform_commission_percentage hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
       .lean();
 
     for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';

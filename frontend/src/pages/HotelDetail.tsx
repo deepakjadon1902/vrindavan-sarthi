@@ -430,6 +430,7 @@ import { PropertyTermsPreview, hasPropertyTermsText, normalizePropertyTerms, typ
 type Hotel = {
   _id: string;
   name: string;
+  propertyType?: 'hotel' | 'dharamshala';
   location?: string;
   rating?: number;
   image?: string;
@@ -631,7 +632,8 @@ const HotelDetail = () => {
   });
   const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
   const showPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
-  const hotelDescription = truncate(hotel?.description || `${hotel?.name || 'Verified hotel'} in ${hotel?.location || 'Vrindavan'} with room booking support from Vrindavan Sarthi Enterprises.`);
+  const propertyLabel = hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel';
+  const hotelDescription = truncate(hotel?.description || `${hotel?.name || `Verified ${propertyLabel.toLowerCase()}`} in ${hotel?.location || 'Braj'} with room booking support from Vrindavan Sarthi Enterprises.`);
   const hotelJsonLd = hotel ? {
     '@context': 'https://schema.org',
     '@type': 'LodgingBusiness',
@@ -642,8 +644,8 @@ const HotelDetail = () => {
     image: allImages.map(absoluteAssetUrl).filter(Boolean),
     address: {
       '@type': 'PostalAddress',
-      streetAddress: hotel.location || hotel.nearestTemple || 'Vrindavan',
-      addressLocality: 'Vrindavan',
+      streetAddress: hotel.location || hotel.nearestTemple || 'Braj',
+      addressLocality: 'Braj',
       addressRegion: 'Uttar Pradesh',
       addressCountry: 'IN',
     },
@@ -679,7 +681,7 @@ const HotelDetail = () => {
     <div className="pt-4 pb-8 min-h-screen bg-background">
       {hotel && (
         <SEO
-          title={`${hotel.name} Hotel in ${hotel.location || 'Vrindavan'}`}
+          title={`${hotel.name} ${propertyLabel} in ${hotel.location || 'Braj'}`}
           description={hotelDescription}
           image={allImages[0]}
           canonicalPath={`/hotels/${hotel._id}`}
@@ -719,7 +721,7 @@ const HotelDetail = () => {
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3">
                   <span className="flex items-center gap-1.5 font-body text-[13px] text-muted-foreground">
                     <MapPin size={14} className="text-brand-crimson shrink-0" />
-                    {hotel?.location || 'Vrindavan'}
+                    {hotel?.location || 'Braj'}
                   </span>
                   <div className="flex items-center gap-1.5">
                     <div className="flex items-center gap-0.5">
@@ -760,7 +762,7 @@ const HotelDetail = () => {
             {hotel?.description && (
               <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
                 <div className="border-b border-border px-6 py-3.5 bg-muted/30">
-                  <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">About this Hotel</h2>
+                  <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">About this {propertyLabel}</h2>
                 </div>
                 <div className="px-5 py-4">
                   <p className="font-body text-[14px] text-muted-foreground leading-relaxed">{hotel.description}</p>
@@ -811,7 +813,7 @@ const HotelDetail = () => {
                   <div>
                     <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Room Types</h2>
                     <p className="font-body text-[13px] text-foreground font-semibold mt-0.5">
-                      Choose from the rooms listed under this hotel
+                      Choose from the rooms listed under this {propertyLabel.toLowerCase()}
                     </p>
                   </div>
                   {/* Date Pickers */}
@@ -897,13 +899,19 @@ const HotelDetail = () => {
                               <div className="flex items-end justify-between gap-3">
                                 <div>
                                   <p className="font-body text-[11px] font-semibold text-brand-green">
-                                    {checkIn ? `Showing prices for ${checkIn}` : 'Select dates for live availability'}
+                                    {hotel?.propertyType === 'dharamshala'
+                                      ? 'WhatsApp or call enquiry'
+                                      : checkIn ? `Showing prices for ${checkIn}` : 'Select dates for live availability'}
                                   </p>
-                                  <div className="mt-3 flex items-baseline gap-1 text-foreground">
-                                    <IndianRupee size={18} className="text-brand-gold" />
-                                    <span className="font-heading text-3xl font-bold">{getTaxInclusivePrice(rt).toLocaleString('en-IN')}</span>
-                                    <span className="font-body text-sm text-muted-foreground">/night</span>
-                                  </div>
+                                  {hotel?.propertyType === 'dharamshala' ? (
+                                    <div className="mt-3 font-heading text-2xl font-bold text-brand-crimson">Enquiry Only</div>
+                                  ) : (
+                                    <div className="mt-3 flex items-baseline gap-1 text-foreground">
+                                      <IndianRupee size={18} className="text-brand-gold" />
+                                      <span className="font-heading text-3xl font-bold">{getTaxInclusivePrice(rt).toLocaleString('en-IN')}</span>
+                                      <span className="font-body text-sm text-muted-foreground">/night</span>
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="rounded-full bg-muted px-4 py-2 text-center font-body text-xs font-semibold text-foreground">
                                   {availabilityText || 'Rooms listed'}
@@ -936,12 +944,14 @@ const HotelDetail = () => {
                               )}
 
                               <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 font-body text-xs text-amber-800">
-                                Property policies, cancellation rules, and terms are shown before payment.
+                                {hotel?.propertyType === 'dharamshala'
+                                  ? 'No online booking fee is collected for dharamshala enquiries.'
+                                  : 'Property policies, cancellation rules, and terms are shown before payment.'}
                               </div>
 
                               <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#6f5529] px-4 py-3 font-body text-sm font-bold text-white transition-colors group-hover:bg-[#5f471f]">
                                 <Check size={16} />
-                                Select Room
+                                {hotel?.propertyType === 'dharamshala' ? 'Enquire' : 'Select Room'}
                               </span>
                             </div>
                           </button>
@@ -961,7 +971,7 @@ const HotelDetail = () => {
 
               {/* Sidebar Header */}
               <div className="border-b border-border px-5 py-4 bg-muted/30">
-                <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Hotel Details</h2>
+                <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{propertyLabel} Details</h2>
               </div>
 
               {/* Details Table */}
@@ -971,7 +981,7 @@ const HotelDetail = () => {
                     <MapPin size={13} className="text-brand-crimson mt-0.5 shrink-0" />
                     <p className="font-body text-[12px] font-semibold text-muted-foreground">Location</p>
                   </div>
-                  <p className="font-body text-[13px] font-medium text-foreground text-right">{hotel?.location || 'Vrindavan'}</p>
+                  <p className="font-body text-[13px] font-medium text-foreground text-right">{hotel?.location || 'Braj'}</p>
                 </div>
 
                 {typeof hotel?.checkInTime === 'string' && hotel.checkInTime && (
@@ -1038,11 +1048,11 @@ const HotelDetail = () => {
                   className="w-full inline-flex items-center justify-center gap-2 btn-gold px-4 py-3 rounded-xl text-[14px] font-semibold"
                 >
                   <BedDouble size={16} />
-                  View Hotel Rooms
+                  {hotel?.propertyType === 'dharamshala' ? 'View Dharamshala Rooms' : 'View Hotel Rooms'}
                 </a>
                 <p className="mt-2.5 font-body text-[11px] text-muted-foreground text-center flex items-center justify-center gap-1.5">
                   <CalendarDays size={12} />
-                  Book a specific room type from this hotel page.
+                  {hotel?.propertyType === 'dharamshala' ? 'Dharamshala rooms are booked by WhatsApp or call enquiry.' : 'Book a specific room type from this hotel page.'}
                 </p>
               </div>
 

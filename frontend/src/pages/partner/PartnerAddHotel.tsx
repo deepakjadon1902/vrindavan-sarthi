@@ -11,6 +11,7 @@ import { PropertyTermsEditor, hasPropertyTermsText, normalizePropertyTerms, type
 interface PartnerHotel {
   _id: string;
   name: string;
+  propertyType?: 'hotel' | 'dharamshala';
   location: string;
   rating?: number;
   image?: string;
@@ -37,6 +38,7 @@ const PartnerAddHotel = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const getDefaultForm = () => ({
     name: user?.businessName || '',
+    propertyType: 'hotel' as PartnerHotel['propertyType'],
     location: user?.businessAddress || '',
     rating: '',
     description: user?.businessDescription || '',
@@ -93,6 +95,7 @@ const PartnerAddHotel = () => {
 
     setForm({
       name: target.name || '',
+      propertyType: target.propertyType || 'hotel',
       location: target.location || '',
       rating: String(target.rating ?? ''),
       description: target.description || '',
@@ -146,6 +149,7 @@ const PartnerAddHotel = () => {
 
     const payload = {
       name: form.name,
+      propertyType: form.propertyType,
       location: form.location,
       rating: Number(form.rating || 0),
       description: form.description,
@@ -173,12 +177,12 @@ const PartnerAddHotel = () => {
         const res = await api.put(`/partner/hotels/${editingId}`, payload, withAuth(token));
         const updated = res.data?.data as PartnerHotel;
         setItems((prev) => prev.map((h) => (h._id === editingId ? updated : h)));
-        toast.success('Hotel resubmitted for approval');
+        toast.success('Listing resubmitted for approval');
       } else {
         const res = await api.post('/partner/hotels', payload, withAuth(token));
         const created = res.data?.data as PartnerHotel;
         setItems((prev) => [created, ...prev]);
-        toast.success('Hotel submitted for admin approval');
+        toast.success('Listing submitted for admin approval');
       }
       publishAppEvent('listing:changed');
       resetForm();
@@ -190,6 +194,7 @@ const PartnerAddHotel = () => {
   const handleEdit = (item: PartnerHotel) => {
     setForm({
       name: item.name || '',
+      propertyType: item.propertyType || 'hotel',
       location: item.location || '',
       rating: String(item.rating ?? ''),
       description: item.description || '',
@@ -242,9 +247,9 @@ const PartnerAddHotel = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-heading text-xl font-bold text-foreground">My Hotels</h2>
+        <h2 className="font-heading text-xl font-bold text-foreground">My Hotel / Dharamshala</h2>
         <p className="font-body text-xs text-muted-foreground">
-          Submit one hotel for approval. Add unlimited room types and room numbers from Inventory after the hotel exists.
+          Submit one hotel or dharamshala for approval. Add room types and room numbers from Inventory after the listing exists.
         </p>
         {user?.partnerStatus && (
           <p className="font-body text-xs text-muted-foreground mt-1">Partner status: {user.partnerStatus}</p>
@@ -255,7 +260,7 @@ const PartnerAddHotel = () => {
         <div className="bg-brand-saffron/10 border border-brand-saffron/30 rounded-xl p-4">
           <p className="font-body text-sm font-medium text-foreground">Admin verification required</p>
           <p className="font-body text-xs text-muted-foreground mt-1">
-            Your partner account is {user?.partnerStatus || 'pending'}. You can submit hotels after admin verifies your legal documents.
+            Your partner account is {user?.partnerStatus || 'pending'}. You can submit listings after admin verifies your legal documents.
           </p>
         </div>
       )}
@@ -280,21 +285,21 @@ const PartnerAddHotel = () => {
           }}
           className="btn-gold px-5 py-2.5 rounded-lg text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus size={16} /> {hasHotel ? 'Hotel Already Listed' : 'Submit Hotel'}
+            <Plus size={16} /> {hasHotel ? 'Listing Already Submitted' : 'Submit Listing'}
         </button>
       </div>
 
       {hasHotel && (
         <div className="bg-brand-green/10 border border-brand-green/25 rounded-xl p-4">
-          <p className="font-body text-sm font-medium text-foreground">One hotel listing is active for your partner account.</p>
-          <p className="font-body text-xs text-muted-foreground mt-1">Use Inventory to add multiple room types and room numbers for this hotel.</p>
+          <p className="font-body text-sm font-medium text-foreground">One stay listing is active for your partner account.</p>
+          <p className="font-body text-xs text-muted-foreground mt-1">Use Inventory to add multiple room types and room numbers for this listing.</p>
         </div>
       )}
 
       {showForm && (
         <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-lg font-semibold">{editingId ? 'Edit & Resubmit' : 'Submit New Hotel'}</h3>
+            <h3 className="font-heading text-lg font-semibold">{editingId ? 'Edit & Resubmit' : 'Submit New Listing'}</h3>
             <button onClick={resetForm} className="text-muted-foreground hover:text-foreground">
               <X size={20} />
             </button>
@@ -303,7 +308,7 @@ const PartnerAddHotel = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Hotel Name *</label>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Property Name *</label>
                 <input
                   type="text"
                   required
@@ -311,6 +316,21 @@ const PartnerAddHotel = () => {
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 />
+              </div>
+              <div>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Listing Type *</label>
+                <select
+                  required
+                  value={form.propertyType}
+                  onChange={(e) => setForm({ ...form, propertyType: e.target.value as PartnerHotel['propertyType'] })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                >
+                  <option value="hotel">Hotel</option>
+                  <option value="dharamshala">Dharamshala</option>
+                </select>
+                {form.propertyType === 'dharamshala' && (
+                  <p className="font-body text-xs text-muted-foreground mt-1">Dharamshala bookings are enquiry-only by WhatsApp or call, with no platform booking fee.</p>
+                )}
               </div>
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Location *</label>
@@ -378,7 +398,7 @@ const PartnerAddHotel = () => {
                 />
               </div>
               <div>
-                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Hotel GSTIN</label>
+                <label className="font-body text-sm font-medium text-foreground mb-1.5 block">GSTIN</label>
                 <input
                   type="text"
                   value={form.hotelGstin}
@@ -475,8 +495,8 @@ const PartnerAddHotel = () => {
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
-          <p className="font-heading text-xl text-foreground mb-2">No hotel submissions</p>
-          <p className="font-body text-sm text-muted-foreground">Submit your first hotel to get started.</p>
+          <p className="font-heading text-xl text-foreground mb-2">No listing submissions</p>
+          <p className="font-body text-sm text-muted-foreground">Submit your first hotel or dharamshala to get started.</p>
         </div>
       ) : (
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
@@ -484,6 +504,7 @@ const PartnerAddHotel = () => {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Name</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">Type</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Location</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Status</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden md:table-cell">Admin</th>
@@ -494,6 +515,7 @@ const PartnerAddHotel = () => {
               {filtered.map((h) => (
                 <tr key={h._id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{h.name}</td>
+                  <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell capitalize">{h.propertyType || 'hotel'}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground">{h.location}</td>
                   <td className="px-4 py-3">
                     <span className={`font-body text-xs px-2 py-1 rounded-full ${statusBadge(h.approvalStatus)}`}>

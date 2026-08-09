@@ -26,7 +26,7 @@ const BrandingMetadata = () => {
 
   useEffect(() => {
     const title = settings.metaTitle?.trim() || settings.siteName || 'Vrindavan Sarthi Enterprises';
-    const description = settings.metaDescription?.trim() || settings.motto || 'Your Divine Guide to Vrindavan';
+    const description = settings.metaDescription?.trim() || settings.motto || 'Your Divine Guide to Braj';
     const keywords = settings.metaKeywords?.trim() || '';
 
     document.title = title;

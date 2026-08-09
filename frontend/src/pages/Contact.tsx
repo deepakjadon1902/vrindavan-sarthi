@@ -31,7 +31,7 @@ const Contact = () => {
     <div className="pt-16">
       <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-4">
-          <SectionTitle label="Reach Out" title="Get In Touch" subtitle="We're here to help you plan your perfect Vrindavan journey" />
+          <SectionTitle label="Reach Out" title="Get In Touch" subtitle="We're here to help you plan your perfect Braj journey" />
         </div>
       </section>
 

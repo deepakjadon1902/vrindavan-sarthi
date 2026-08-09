@@ -161,7 +161,7 @@ const CabDetail = () => {
   const phoneDigits = companyPhone.replace(/\D/g, '');
   const whatsappDigits = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
   const selectedRouteLabel = pickup && dropoff ? `${pickup} to ${dropoff}` : 'Route not selected';
-  const cabDescription = truncate(cab.description || `${cab.vehicleName} ${cab.vehicleType} cab booking for Vrindavan and nearby pilgrimage routes.`);
+  const cabDescription = truncate(cab.description || `${cab.vehicleName} ${cab.vehicleType} cab booking for Braj and nearby pilgrimage routes.`);
   const whatsappMessage = [
     'Radhe Radhe, I want to confirm a cab booking.',
     `Cab: ${cab.vehicleName}`,
@@ -181,14 +181,14 @@ const CabDetail = () => {
     description: cabDescription,
     image: allImages.map(absoluteAssetUrl).filter(Boolean),
     provider: { '@type': 'Organization', name: 'Vrindavan Sarthi Enterprises', url: absoluteUrl('/') },
-    areaServed: cab.routes?.length ? cab.routes : ['Vrindavan', 'Mathura'],
+    areaServed: cab.routes?.length ? cab.routes : ['Braj', 'Vrindavan', 'Mathura', 'Govardhan', 'Barsana'],
     serviceType: 'Cab booking',
     offers: { '@type': 'Offer', url: absoluteUrl(`/cabs/${cab._id}`), priceCurrency: 'INR', availability: 'https://schema.org/InStock' },
   };
 
   return (
     <div className="braj-page pt-4 pb-10 min-h-screen">
-      <SEO title={`${cab.vehicleName} Cab Booking in Vrindavan`} description={cabDescription} image={allImages[0]} canonicalPath={`/cabs/${cab._id}`} jsonLd={cabJsonLd} />
+      <SEO title={`${cab.vehicleName} Cab Booking Across Braj`} description={cabDescription} image={allImages[0]} canonicalPath={`/cabs/${cab._id}`} jsonLd={cabJsonLd} />
       <div className="container mx-auto px-4 max-w-6xl">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-4 mt-0 transition-colors">
           <ArrowLeft size={16} /> Back

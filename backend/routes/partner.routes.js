@@ -155,6 +155,12 @@ const applyPartnerHotelDefaults = (body, user) => {
   body.fullAddress = String(body?.fullAddress || businessAddress || body.location || '').trim();
   body.googleMapLink = String(body?.googleMapLink || body.fullAddress || body.location || '').trim();
   body.businessName = businessName;
+  body.propertyType = String(body?.propertyType || '').trim().toLowerCase() === 'dharamshala' ? 'dharamshala' : 'hotel';
+  if (body.propertyType === 'dharamshala') {
+    body.taxEnabled = false;
+    body.taxPercent = 0;
+    body.platform_commission_percentage = 0;
+  }
   return body;
 };
 
@@ -164,10 +170,10 @@ router.post('/hotels', protect, authorize('partner'), async (req, res) => {
     const body = { ...req.body };
     const existingHotel = await Hotel.findOne({ partnerId: req.user._id }).select('_id name').lean();
     if (existingHotel) {
-      return res.status(409).json({ success: false, message: 'Only one hotel can be listed per partner. Add unlimited room types and room numbers from Inventory.' });
+      return res.status(409).json({ success: false, message: 'Only one hotel or dharamshala can be listed per partner. Add unlimited room types and room numbers from Inventory.' });
     }
     applyPartnerHotelDefaults(body, req.user);
-    if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Hotel name and location are required' });
+    if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Property name and location are required' });
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     body.propertyTerms = await resolvePropertyTermsForHotel(body.propertyTerms, req.user);
@@ -198,7 +204,7 @@ router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
 
     const body = { ...req.body };
     applyPartnerHotelDefaults(body, req.user);
-    if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Hotel name and location are required' });
+    if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Property name and location are required' });
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     let propertyTerms = body.propertyTerms;
@@ -300,7 +306,7 @@ router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerId: req.user._id })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent platform_commission_percentage propertyTerms createdAt updatedAt')
       .lean();
 
     hotelQuery.limit(limit);
@@ -326,7 +332,7 @@ router.get('/requests', protect, authorize('admin'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerSubmitted: true })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed platform_commission_percentage propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent platform_commission_percentage propertyTerms createdAt updatedAt')
       .lean();
     hotelQuery.limit(limit);
 
