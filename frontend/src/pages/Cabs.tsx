@@ -27,7 +27,7 @@ const Cabs = () => {
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [cabs, setCabs] = useState<CabListItem[]>([]);
   const phoneDigits = companyPhone.replace(/\D/g, '');
-  const whatsappDigits = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+  const whatsappDigits = phoneDigits;
 
   useEffect(() => {
     setSearchQuery(searchParams.get('q') || '');

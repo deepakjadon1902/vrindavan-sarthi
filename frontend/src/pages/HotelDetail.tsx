@@ -1052,7 +1052,7 @@ const HotelDetail = () => {
                 {hotel?.propertyType === 'dharamshala' ? (
                   <div className="grid grid-cols-1 gap-2">
                     <a
-                      href={`https://wa.me/91${COMPANY_PHONE_DIGITS}?text=${dharamshalaEnquiryText}`}
+                      href={`https://wa.me/${COMPANY_PHONE_DIGITS}?text=${dharamshalaEnquiryText}`}
                       target="_blank"
                       rel="noreferrer"
                       className="w-full inline-flex items-center justify-center gap-2 btn-gold px-4 py-3 rounded-xl text-[14px] font-semibold"

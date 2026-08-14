@@ -19,8 +19,71 @@ const DOCUMENT_TYPES = [
 
 type DocumentType = (typeof DOCUMENT_TYPES)[number]['value'];
 
+const ALLOWED_DOCUMENT_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 1600;
+
 const getDocumentLabel = (value?: string) =>
   DOCUMENT_TYPES.find((item) => item.value === value)?.label || 'Other Government / Legal Document';
+
+const getFileMimeType = (file: File) => {
+  const browserType = String(file.type || '').toLowerCase();
+  if (browserType) return browserType;
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.webp')) return 'image/webp';
+  if (name.endsWith('.doc')) return 'application/msword';
+  if (name.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  return 'application/octet-stream';
+};
+
+const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.readAsDataURL(file);
+  });
+
+const optimizeImageDocument = (file: File) =>
+  new Promise<{ data: string; name: string; mimeType: string }>((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      const ratio = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * ratio));
+      const height = Math.max(1, Math.round(image.height * ratio));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Image optimization failed'));
+        return;
+      }
+      ctx.drawImage(image, 0, 0, width, height);
+      URL.revokeObjectURL(objectUrl);
+      const data = canvas.toDataURL('image/webp', 0.72);
+      const baseName = file.name.replace(/\.[^.]+$/, '') || 'legal-document';
+      resolve({ data, name: `${baseName}.webp`, mimeType: 'image/webp' });
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Image optimization failed'));
+    };
+    image.src = objectUrl;
+  });
 
 const Register = () => {
   const [role, setRole] = useState<'user' | 'partner'>('user');
@@ -69,26 +132,40 @@ const Register = () => {
 
   const update = (field: string, value: string) => setFormData({ ...formData, [field]: value });
 
-  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const data = String(reader.result || '');
-        if (!data) return;
+    for (const file of Array.from(files)) {
+      const mimeType = getFileMimeType(file);
+      if (!ALLOWED_DOCUMENT_TYPES.has(mimeType.toLowerCase())) {
+        toast.error(`${file.name}: upload only PNG, JPG, WEBP, PDF, DOC, or DOCX legal documents.`);
+        continue;
+      }
+      if (file.size > MAX_DOCUMENT_BYTES) {
+        toast.error(`${file.name}: file must be 10 MB or smaller.`);
+        continue;
+      }
+      try {
+        const prepared = mimeType.startsWith('image/')
+          ? await optimizeImageDocument(file)
+          : { data: await readFileAsDataUrl(file), name: file.name, mimeType };
+        if (!prepared.data) continue;
         setDocuments((prev) => [
           ...prev,
           {
-            data,
-            name: file.name,
+            data: prepared.data,
+            name: prepared.name,
             type: selectedDocumentType,
-            mimeType: file.type || 'application/octet-stream',
+            mimeType: prepared.mimeType,
           },
         ]);
-      };
-      reader.readAsDataURL(file);
-    });
+        if (mimeType.startsWith('image/')) {
+          toast.success(`${file.name} optimized to ${prepared.name}`);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : `${file.name}: upload failed`);
+      }
+    }
     e.target.value = '';
   };
 
@@ -237,6 +314,9 @@ const Register = () => {
                 </div>
                 <div>
                   <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Government / Legal Documents *</label>
+                  <p className="mb-2 rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-3 py-2 font-body text-xs font-semibold text-foreground">
+                    Upload only clear legal documents in PNG, JPG, WEBP, PDF, DOC, or DOCX format. Image documents are automatically optimized to small WebP files before storage.
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
                     <select value={selectedDocumentType} onChange={(e) => setSelectedDocumentType(e.target.value as DocumentType)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50">
                       {DOCUMENT_TYPES.map((docType) => (
@@ -245,7 +325,7 @@ const Register = () => {
                     </select>
                     <label className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-border bg-card font-body text-sm hover:bg-muted cursor-pointer">
                       <FileText size={16} /> Upload
-                      <input type="file" accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={handleDocumentUpload} className="sr-only" />
+                      <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={handleDocumentUpload} className="sr-only" />
                     </label>
                   </div>
                   <p className="font-body text-xs text-muted-foreground mt-1">{documents.length} document(s) selected for admin verification.</p>

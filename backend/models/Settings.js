@@ -11,7 +11,7 @@ const settingsSchema = new mongoose.Schema({
   ogImageUrl: { type: String, default: '' },
   upiId: { type: String, default: '' },
   upiName: { type: String, default: 'Vrindavan Sarthi Enterprises' },
-  adminPhone: { type: String, default: '+91 8679820256' },
+  adminPhone: { type: String, default: '8679820256' },
   adminEmail: { type: String, default: 'vrindavansarthi108@gmail.com' },
   termsOfService: { type: String, default: '' },
   privacyPolicy: { type: String, default: '' },

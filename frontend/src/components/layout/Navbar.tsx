@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, ChevronDown, Hotel, MessageCircle } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown, Hotel, MessageCircle, Building2, BedDouble, CarTaxiFront, MapPinned, ShoppingBag, PackageSearch } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { APP_LOGO_URL, COMPANY_NAME, COMPANY_PHONE_DIGITS } from '@/lib/brand';
 
 const navLinks = [
-  { name: 'Hotels', path: '/hotels' },
-  { name: 'Rooms', path: '/rooms' },
-  { name: 'Cabs', path: '/cabs' },
-  { name: 'Tours', path: '/tours' },
-  { name: 'Shop', path: '/shop' },
-  { name: 'Track Order', path: '/track-order' },
+  { name: 'Hotel/Dharamshala', path: '/hotels', icon: Building2 },
+  { name: 'Rooms', path: '/rooms', icon: BedDouble },
+  { name: 'Taxi & Cab', path: '/cabs', icon: CarTaxiFront },
+  { name: 'Tour Packages', path: '/tours', icon: MapPinned },
+  { name: 'Shopping', path: '/shop', icon: ShoppingBag },
+  { name: 'Track Order', path: '/track-order', icon: PackageSearch },
 ];
 
 const Navbar = () => {
@@ -45,33 +45,49 @@ const Navbar = () => {
     navigate('/');
   };
 
-  const navBg = 'nav-dark';
+  const isHome = location.pathname === '/';
+  const navBg = isHome && !scrolled
+    ? 'border-transparent bg-white/0 shadow-none backdrop-blur-0'
+    : 'nav-dark';
 
   return (
     <>
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navBg} ${scrolled ? 'border-brand-gold/40' : ''}`}>
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-5 xl:px-7">
-          <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-3 xl:h-[4.75rem] xl:grid-cols-[minmax(250px,0.9fr)_auto_minmax(300px,0.9fr)] xl:gap-4">
-            <Link to="/" className="group flex min-w-0 items-center gap-2.5 xl:max-w-[88px]" aria-label={COMPANY_NAME}>
+          <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-3 xl:h-[4.75rem] xl:grid-cols-[minmax(170px,0.45fr)_auto_minmax(160px,0.35fr)] xl:gap-4">
+            <Link to="/" className="group flex min-w-0 items-center gap-2.5 xl:max-w-[124px]" aria-label={COMPANY_NAME}>
               <img
                 src={APP_LOGO_URL}
                 alt={COMPANY_NAME}
-                className="h-11 w-11 shrink-0 rounded-full border border-brand-gold/40 object-cover shadow-[0_10px_22px_hsl(39_92%_56%_/_0.22)] transition-transform duration-300 group-hover:scale-105 xl:h-12 xl:w-12"
+                className="h-12 w-12 shrink-0 rounded-full border border-brand-gold/45 object-cover shadow-[0_10px_22px_hsl(39_92%_56%_/_0.22)] transition-transform duration-300 group-hover:scale-105 xl:h-[4.15rem] xl:w-[4.15rem]"
               />
             </Link>
 
-            <div className="hidden items-center justify-center gap-0.5 rounded-full border border-white/15 bg-white/10 px-1.5 py-1 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.12),0_14px_35px_hsl(222_42%_10%_/_0.18)] backdrop-blur-xl xl:flex">
-              {visibleNavLinks.map((link) => (
+            <div className={`hidden items-center justify-center gap-1 rounded-full px-2 py-1.5 xl:flex ${
+              isHome && !scrolled
+                ? 'border border-black/10 bg-white/12 text-brand-black shadow-none backdrop-blur-[2px]'
+                : 'border border-white/15 bg-white/10 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.12),0_14px_35px_hsl(222_42%_10%_/_0.18)] backdrop-blur-xl'
+            }`}>
+              {visibleNavLinks.map((link) => {
+                const Icon = link.icon;
+                const active = location.pathname === link.path;
+                return (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`relative whitespace-nowrap rounded-full px-3 py-2 font-body text-[13px] font-semibold tracking-wide transition-all duration-300 ${
-                    location.pathname === link.path ? 'bg-brand-gold text-brand-black shadow-[0_8px_20px_hsl(39_92%_56%_/_0.25)]' : 'text-white/90 hover:bg-white/10 hover:text-brand-gold'
+                  className={`relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 font-body text-[12px] font-semibold tracking-wide transition-all duration-300 ${
+                    active
+                      ? 'bg-brand-gold text-brand-black shadow-[0_8px_20px_hsl(39_92%_56%_/_0.25)]'
+                      : isHome && !scrolled
+                        ? 'text-brand-black hover:bg-white/25 hover:text-brand-crimson'
+                        : 'text-white/90 hover:bg-white/10 hover:text-brand-gold'
                   }`}
                 >
+                  <Icon size={15} />
                   {link.name}
                 </Link>
-              ))}
+                );
+              })}
             </div>
 
             <div className="hidden min-w-0 items-center justify-end gap-2 xl:flex">
@@ -166,7 +182,7 @@ const Navbar = () => {
                 </motion.div>
               ))}
               <div className="my-3 h-px bg-brand-gold/20" />
-              <a href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-center">
+              <a href={`https://wa.me/${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-center">
                 <MessageCircle size={18} /> WhatsApp Enquiry
               </a>
               {isAuthenticated && user ? (

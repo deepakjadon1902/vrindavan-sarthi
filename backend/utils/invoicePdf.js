@@ -3,7 +3,7 @@ const path = require('path');
 
 const COMPANY_NAME = 'Vrindavan Sarthi';
 const COMPANY_ADDRESS = 'Raja Wala Mandir, In front of Giriraj Ji Maharaj, Govardhan, Mathura, Uttar Pradesh 281502';
-const COMPANY_PHONE = '+91 8679820256';
+const COMPANY_PHONE = '8679820256';
 const COMPANY_EMAIL = 'vrindavansarthi108@gmail.com';
 
 const PAGE = { width: 612, height: 792, margin: 42 };

@@ -36,7 +36,7 @@ const Footer = () => {
           <a href={`tel:${COMPANY_PHONE}`} className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <Phone size={18} className="text-brand-gold" /> Call for Braj booking
           </a>
-          <a href={`https://wa.me/91${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
+          <a href={`https://wa.me/${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <MessageCircle size={18} className="text-brand-gold" /> WhatsApp enquiry
           </a>
           <div className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80">

@@ -38,7 +38,7 @@ type PartnerUser = {
 type DocumentViewer = {
   doc: PartnerDocument;
   url: string;
-  kind: 'image' | 'pdf' | 'file';
+  kind: 'image' | 'pdf' | 'office' | 'file';
   index: number;
 };
 
@@ -107,8 +107,14 @@ const getDocumentKind = (doc: PartnerDocument, url: string) => {
   const cleanUrl = url.split('?')[0] || '';
   if (mime.startsWith('image/') || /^data:image\//i.test(url) || /\.(png|jpe?g|webp|gif)$/i.test(cleanUrl)) return 'image';
   if (mime === 'application/pdf' || /^data:application\/pdf/i.test(url) || /\.pdf$/i.test(cleanUrl)) return 'pdf';
+  if (mime.includes('word') || /\.(docx?|rtf)$/i.test(cleanUrl)) return 'office';
   return 'file';
 };
+
+const getOfficeViewerUrl = (url: string) =>
+  /^https?:\/\//i.test(url)
+    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
+    : '';
 
 const ManagePartners = () => {
   const token = useAuthStore((s) => s.token);
@@ -331,8 +337,14 @@ const ManagePartners = () => {
                         {kind === 'image' ? (
                           <img src={url} alt={doc.name || 'Document'} className="w-full h-32 object-cover border-b border-border" />
                         ) : kind === 'pdf' ? (
-                          <div className="h-32 border-b border-border bg-muted/30">
-                            <iframe src={url} title={doc.name || `Document ${index + 1}`} className="w-full h-full" />
+                          <div className="flex h-32 flex-col items-center justify-center border-b border-border bg-muted/30 text-center">
+                            <FileText size={32} className="text-brand-crimson" />
+                            <span className="mt-2 font-body text-xs font-semibold text-foreground">PDF document</span>
+                          </div>
+                        ) : kind === 'office' ? (
+                          <div className="flex h-32 flex-col items-center justify-center border-b border-border bg-muted/30 text-center">
+                            <FileText size={32} className="text-primary" />
+                            <span className="mt-2 font-body text-xs font-semibold text-foreground">Word document</span>
                           </div>
                         ) : (
                           <div className="h-32 flex items-center justify-center border-b border-border">
@@ -406,17 +418,32 @@ const ManagePartners = () => {
               {viewer.kind === 'image' ? (
                 <img src={viewer.url} alt={viewer.doc.name || 'Legal document'} className="mx-auto max-h-none max-w-full rounded-lg bg-background object-contain shadow-sm" />
               ) : viewer.kind === 'pdf' ? (
-                <iframe src={viewer.url} title={viewer.doc.name || 'Legal document'} className="h-[78vh] min-h-[560px] w-full rounded-lg border border-border bg-background" />
+                <object data={viewer.url} type="application/pdf" className="h-[78vh] min-h-[560px] w-full rounded-lg border border-border bg-background">
+                  <div className="mx-auto max-w-xl rounded-xl border border-border bg-background p-8 text-center">
+                    <FileText size={42} className="mx-auto mb-3 text-muted-foreground" />
+                    <p className="font-body text-sm font-medium text-foreground">PDF preview is not available in this browser.</p>
+                    <a href={viewer.url} target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 font-body text-sm hover:bg-muted">
+                      <Eye size={15} /> Open PDF
+                    </a>
+                  </div>
+                </object>
+              ) : viewer.kind === 'office' && getOfficeViewerUrl(viewer.url) ? (
+                <iframe src={getOfficeViewerUrl(viewer.url)} title={viewer.doc.name || 'Legal document'} className="h-[78vh] min-h-[560px] w-full rounded-lg border border-border bg-background" />
               ) : (
                 <div className="mx-auto max-w-xl rounded-xl border border-border bg-background p-8 text-center">
                   <FileText size={42} className="mx-auto mb-3 text-muted-foreground" />
                   <p className="font-body text-sm font-medium text-foreground">Preview is not available for this file type.</p>
                   <p className="font-body text-xs text-muted-foreground mt-2">
-                    Download the document to inspect it.
+                    Download or open the document to inspect it.
                   </p>
-                  <a href={viewer.url} download={viewer.doc.name || `partner-document-${viewer.index + 1}`} className="mt-5 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 font-body text-sm hover:bg-muted">
-                    <Download size={15} /> Download Document
-                  </a>
+                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    <a href={viewer.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 font-body text-sm hover:bg-muted">
+                      <Eye size={15} /> Open Document
+                    </a>
+                    <a href={viewer.url} download={viewer.doc.name || `partner-document-${viewer.index + 1}`} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 font-body text-sm hover:bg-muted">
+                      <Download size={15} /> Download Document
+                    </a>
+                  </div>
                 </div>
               )}
             </div>

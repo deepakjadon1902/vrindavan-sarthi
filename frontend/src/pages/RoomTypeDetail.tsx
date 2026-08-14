@@ -1775,7 +1775,7 @@ const RoomTypeDetail = () => {
                 {isDharamshala ? (
                   <div className="grid grid-cols-1 gap-2">
                     <a
-                      href={`https://wa.me/91${COMPANY_PHONE_DIGITS}?text=${dharamshalaEnquiryText}`}
+                      href={`https://wa.me/${COMPANY_PHONE_DIGITS}?text=${dharamshalaEnquiryText}`}
                       target="_blank"
                       rel="noreferrer"
                       className="btn-gold inline-flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold"

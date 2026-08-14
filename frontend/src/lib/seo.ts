@@ -1,9 +1,9 @@
 export const SITE_ORIGIN = 'https://vrindavansarthi.in';
 export const SITE_NAME = 'Vrindavan Sarthi Enterprises';
 export const DEFAULT_DESCRIPTION =
-  'Book verified hotels, Dharamshalas, family rooms and AC rooms across Braj locations including Vrindavan, Mathura, Govardhan, Barsana, Gokul and Nandgaon.';
+  'वृंदावन सारथी पर गोवर्धन, बरसाना, गोकुल, मथुरा, वृंदावन और पूरे ब्रज क्षेत्र में मंदिरों के पास सत्यापित होटल, धर्मशाला और कमरे बुक करें।';
 export const DEFAULT_OG_IMAGE = '/vrindasarthi%20logo.jpeg';
-export const BRAND_PHONE = '+91 8679820256';
+export const BRAND_PHONE = '8679820256';
 export const BRAND_EMAIL = 'vrindavansarthi108@gmail.com';
 
 export type BreadcrumbItem = {
@@ -128,9 +128,9 @@ export const buildFaqJsonLd = (items: Array<{ question: string; answer: string }
 
 export const publicRouteMeta: Record<string, { title: string; description: string; image?: string }> = {
   '/': {
-    title: 'Braj Hotel, Dharamshala & Room Booking | Vrindavan Sarthi',
+    title: 'ब्रज होटल, धर्मशाला और कमरा बुकिंग | वृंदावन सारथी',
     description: DEFAULT_DESCRIPTION,
-    image: '/backgrounds/hero-vrindavan.jpg',
+    image: '/backgrounds/braj-govardhan-hero.jpeg',
   },
   '/hotels': {
     title: 'Hotels & Dharamshalas Across Braj',

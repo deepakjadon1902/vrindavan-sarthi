@@ -35,7 +35,7 @@ const Tours = () => {
   const [duration, setDuration] = useState('all');
   const [tours, setTours] = useState<TourListItem[]>([]);
   const phoneDigits = companyPhone.replace(/\D/g, '');
-  const whatsappDigits = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+  const whatsappDigits = phoneDigits;
 
   useEffect(() => {
     setSearchQuery(searchParams.get('q') || '');

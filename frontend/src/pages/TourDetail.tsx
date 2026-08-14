@@ -57,7 +57,7 @@ const TourDetail = () => {
   const advanceAmount = total > 0 ? Math.round(total * 0.3) : 0;
   const balanceAmount = Math.max(0, total - advanceAmount);
   const phoneDigits = companyPhone.replace(/\D/g, '');
-  const whatsappDigits = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+  const whatsappDigits = phoneDigits;
   const allImages = [tour.image, ...(tour.images || [])].filter(Boolean);
   const tourDescription = truncate(tour.description || `${tour.name} guided Braj tour package with booking support from Vrindavan Sarthi Enterprises.`);
   const whatsappMessage = [

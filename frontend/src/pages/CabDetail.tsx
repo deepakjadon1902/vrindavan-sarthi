@@ -159,7 +159,7 @@ const CabDetail = () => {
   const advanceAmount = checkoutTotal > 0 ? Math.round(checkoutTotal * 0.3) : 0;
   const balanceAmount = checkoutTotal > 0 ? Math.max(0, checkoutTotal - advanceAmount) : 0;
   const phoneDigits = companyPhone.replace(/\D/g, '');
-  const whatsappDigits = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+  const whatsappDigits = phoneDigits;
   const selectedRouteLabel = pickup && dropoff ? `${pickup} to ${dropoff}` : 'Route not selected';
   const cabDescription = truncate(cab.description || `${cab.vehicleName} ${cab.vehicleType} cab booking for Braj and nearby pilgrimage routes.`);
   const whatsappMessage = [

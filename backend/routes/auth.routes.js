@@ -24,12 +24,22 @@ const getDocumentPayload = (item) => {
   return {
     data: String(item.data || item.url || '').trim(),
     name: String(item.name || 'document').trim() || 'document',
-    type: String(item.documentType || item.category || 'other').trim(),
-    mimeType: String(item.mimeType || item.type || '').trim(),
+    type: String(item.documentType || item.category || item.type || 'other').trim(),
+    mimeType: String(item.mimeType || item.fileType || '').trim(),
   };
 };
 
 const DOCUMENT_TYPES = ['aadhar_card', 'gstin_registration', 'property_registry_document', 'business_license', 'pan_card', 'other'];
+const ALLOWED_DOCUMENT_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+const MAX_PARTNER_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const safeFileName = (value) => {
   const parsed = path.parse(String(value || 'document'));
   const base = String(parsed.name || 'document').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'document';
@@ -48,12 +58,30 @@ const extensionForMime = (mimeType) => {
   return '';
 };
 
+const mimeForFileName = (fileName) => {
+  const ext = path.extname(String(fileName || '')).toLowerCase();
+  if (ext === '.pdf') return 'application/pdf';
+  if (ext === '.png') return 'image/png';
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.doc') return 'application/msword';
+  if (ext === '.docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  return '';
+};
+
 const storePartnerDocument = async (doc, index) => {
   const data = String(doc.data || '').trim();
   const originalName = safeFileName(doc.name || `document-${index + 1}`);
   const mimeFromDataUri = data.match(/^data:([^;]+);base64,/i)?.[1] || '';
-  const mimeType = doc.mimeType || mimeFromDataUri || 'application/octet-stream';
+  const mimeType = doc.mimeType || mimeFromDataUri || mimeForFileName(originalName) || 'application/octet-stream';
   const category = DOCUMENT_TYPES.includes(doc.type) ? doc.type : 'other';
+  const normalizedMime = String(mimeType || '').toLowerCase();
+
+  if (!ALLOWED_DOCUMENT_MIME_TYPES.has(normalizedMime)) {
+    const err = new Error('Upload only PNG, JPG, WEBP, PDF, DOC, or DOCX legal documents.');
+    err.statusCode = 400;
+    throw err;
+  }
 
   if (!data.startsWith('data:')) {
     return {
@@ -71,12 +99,17 @@ const storePartnerDocument = async (doc, index) => {
   const b64 = data.split(',')[1] || '';
   const buffer = Buffer.from(b64, 'base64');
   if (!buffer.length) return null;
+  if (buffer.length > MAX_PARTNER_DOCUMENT_BYTES) {
+    const err = new Error('Each legal document must be 10 MB or smaller.');
+    err.statusCode = 400;
+    throw err;
+  }
 
   if (isCloudinaryEnabled()) {
     const url = await uploadDataUri(data, {
       folder: 'vrindavan-sarthi/partner-documents',
       tags: ['partner', 'document', category],
-      resourceType: 'auto',
+      resourceType: normalizedMime.startsWith('image/') ? 'image' : 'raw',
     });
     if (url) {
       return {
@@ -451,7 +484,7 @@ router.post('/login', async (req, res) => {
     const { password: _, ...userData } = user.toObject();
     res.json({ success: true, token, user: userData });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message });
   }
 });
 
@@ -481,7 +514,7 @@ router.put('/me', protect, async (req, res) => {
     const user = await User.findByIdAndUpdate(req.user._id, body, { new: true }).select('-password');
     res.json({ success: true, user });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message });
   }
 });
 
@@ -525,7 +558,7 @@ router.post('/me/partner-verification', protect, async (req, res) => {
     const safe = await User.findById(user._id).select('-password');
     res.json({ success: true, user: safe });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.message });
   }
 });
 
