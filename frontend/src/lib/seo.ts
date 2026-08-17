@@ -172,6 +172,10 @@ export const publicRouteMeta: Record<string, { title: string; description: strin
     title: 'Privacy Policy | Vrindavan Sarthi Enterprises',
     description: 'Read how Vrindavan Sarthi Enterprises collects, stores, and protects your personal information.',
   },
+  '/cancellation-policy': {
+    title: 'Cancellation Policy | Vrindavan Sarthi Enterprises',
+    description: 'Review Vrindavan Sarthi cancellation rules, 12% standard cancellation charge, refund review process, and service-wise policy for hotels, rooms, cabs, tours, Dharamshala enquiries, and shop orders.',
+  },
   '/one-day-tour': {
     title: 'One Day Vrindavan Tour Package | Same Day Braj Darshan',
     description: 'Experience the best one-day Vrindavan and Mathura sightseeing tour with temples, local attractions, and comfortable transportation.',
@@ -390,6 +394,7 @@ export const indexablePublicPaths = new Set([
   '/contact',
   '/terms',
   '/privacy',
+  '/cancellation-policy',
 ]);
 
 export const noIndexRoutePrefixes = [

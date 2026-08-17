@@ -15,6 +15,7 @@ const labels: Record<string, string> = {
   contact: 'Contact',
   terms: 'Terms',
   privacy: 'Privacy',
+  'cancellation-policy': 'Cancellation Policy',
   'track-order': 'Track Order',
 };
 

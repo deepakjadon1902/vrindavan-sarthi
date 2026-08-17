@@ -24,6 +24,7 @@ const Footer = () => {
       { name: 'Contact Us', path: '/contact' },
       { name: 'Terms of Service', path: '/terms' },
       { name: 'Privacy Policy', path: '/privacy' },
+      { name: 'Cancellation Policy', path: '/cancellation-policy' },
     ],
   };
 

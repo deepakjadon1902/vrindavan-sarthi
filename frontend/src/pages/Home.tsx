@@ -253,7 +253,7 @@ const Home = () => {
             initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }}
             className="mb-3 font-heading text-5xl font-bold leading-none text-brand-black drop-shadow-[0_2px_16px_hsl(0_0%_100%_/_0.62)] sm:text-6xl md:text-7xl lg:text-8xl"
           >
-            वृंदावन सारथी
+            Vrindavan Sarthi
           </motion.h1>
           <motion.h2
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
@@ -328,15 +328,15 @@ const Home = () => {
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 px-3 pb-3 pt-1">
-              <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-gold/20 bg-brand-black/72 px-3.5 py-3">
+              <div className="flex flex-wrap gap-2">
                 {quickLocations.map((location) => (
-                  <button key={location.value} type="button" onClick={() => setPlannerQuery(location.value)} className="rounded-full border border-white/12 px-2.5 py-1 font-body text-[11px] font-bold text-white/78 hover:border-brand-gold/45 hover:text-brand-gold">
+                  <button key={location.value} type="button" onClick={() => setPlannerQuery(location.value)} className="inline-flex min-h-8 items-center rounded-full border border-white/55 bg-white/10 px-3.5 py-1 font-body text-[12px] font-extrabold text-white shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.16)] transition hover:border-brand-gold hover:bg-brand-gold/18 hover:text-white">
                     {location.label}
                   </button>
                 ))}
               </div>
-              <a href={`https://wa.me/${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-body text-xs font-bold text-brand-gold hover:bg-white/10">
+              <a href={`https://wa.me/${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-brand-gold/45 bg-brand-gold/12 px-3.5 py-1 font-body text-xs font-extrabold text-white transition hover:bg-brand-gold/20">
                 <MessageCircle size={14} /> व्हाट्सऐप सहायता
               </a>
             </div>

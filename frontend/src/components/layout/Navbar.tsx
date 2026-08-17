@@ -75,7 +75,7 @@ const Navbar = () => {
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 font-body text-[12px] font-semibold tracking-wide transition-all duration-300 ${
+                  className={`relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 font-body text-[13px] font-bold tracking-wide transition-all duration-300 ${
                     active
                       ? 'bg-brand-gold text-brand-black shadow-[0_8px_20px_hsl(39_92%_56%_/_0.25)]'
                       : isHome && !scrolled
@@ -93,15 +93,19 @@ const Navbar = () => {
             <div className="hidden min-w-0 items-center justify-end gap-2 xl:flex">
               {isAuthenticated && user ? (
                 <>
-                  <Link to="/bookings" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">My Bookings</Link>
-                  {shopEnabled && <Link to="/my-orders" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">My Orders</Link>}
+                  <Link to="/bookings" className={`whitespace-nowrap font-body text-[13px] font-bold transition-colors ${isHome && !scrolled ? 'text-brand-black hover:text-brand-crimson' : 'text-white/90 hover:text-brand-gold'}`}>My Bookings</Link>
+                  {shopEnabled && <Link to="/my-orders" className={`whitespace-nowrap font-body text-[13px] font-bold transition-colors ${isHome && !scrolled ? 'text-brand-black hover:text-brand-crimson' : 'text-white/90 hover:text-brand-gold'}`}>My Orders</Link>}
                   <div className="relative">
                     <button
                       onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1 font-body text-[13px] text-white transition-colors hover:border-brand-gold/35 hover:text-brand-gold"
+                      className={`flex items-center gap-2 rounded-full px-2 py-1 font-body text-[13px] font-bold transition-colors ${
+                        isHome && !scrolled
+                          ? 'border border-brand-black/15 bg-white/20 text-brand-black hover:border-brand-black/35 hover:bg-white/35'
+                          : 'border border-white/10 bg-white/5 text-white hover:border-brand-gold/35 hover:text-brand-gold'
+                      }`}
                     >
-                      <div className="w-7 h-7 rounded-full bg-brand-gold/20 flex items-center justify-center">
-                        <span className="text-brand-gold text-xs font-bold">{user.name.charAt(0)}</span>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center ${isHome && !scrolled ? 'bg-brand-gold text-brand-black' : 'bg-brand-gold/20 text-brand-gold'}`}>
+                        <span className="text-xs font-bold">{user.name.charAt(0)}</span>
                       </div>
                       <span className="max-w-[100px] truncate">{user.name.split(' ')[0]}</span>
                       <ChevronDown size={14} />
@@ -139,8 +143,8 @@ const Navbar = () => {
                 </>
               ) : (
                 <>
-                  <Link to="/bookings" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">My Bookings</Link>
-                  <Link to="/login" className="whitespace-nowrap font-body text-[13px] font-semibold text-white/90 transition-colors hover:text-brand-gold">Login</Link>
+                  <Link to="/bookings" className={`whitespace-nowrap font-body text-[13px] font-bold transition-colors ${isHome && !scrolled ? 'text-brand-black hover:text-brand-crimson' : 'text-white/90 hover:text-brand-gold'}`}>My Bookings</Link>
+                  <Link to="/login" className={`whitespace-nowrap font-body text-[13px] font-bold transition-colors ${isHome && !scrolled ? 'text-brand-black hover:text-brand-crimson' : 'text-white/90 hover:text-brand-gold'}`}>Login</Link>
                   <Link to="/contact" className="btn-gold inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2 text-[13px]">
                     <MessageCircle size={15} /> Enquire
                   </Link>
