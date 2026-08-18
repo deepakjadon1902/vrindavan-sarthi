@@ -53,17 +53,17 @@ const Navbar = () => {
   return (
     <>
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navBg} ${scrolled ? 'border-brand-gold/40' : ''}`}>
-        <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-5 xl:px-7">
-          <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-3 xl:h-[4.75rem] xl:grid-cols-[minmax(170px,0.45fr)_auto_minmax(160px,0.35fr)] xl:gap-4">
-            <Link to="/" className="group flex min-w-0 items-center gap-2.5 xl:max-w-[124px]" aria-label={COMPANY_NAME}>
+        <div className="mx-auto w-full max-w-[1440px] px-3 sm:px-5 xl:px-5 2xl:px-7">
+          <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-3 xl:h-[4.75rem] xl:grid-cols-[88px_minmax(0,1fr)_auto] xl:gap-3 2xl:grid-cols-[110px_minmax(0,1fr)_auto] 2xl:gap-5">
+            <Link to="/" className="group flex min-w-0 items-center gap-2.5" aria-label={COMPANY_NAME}>
               <img
                 src={APP_LOGO_URL}
                 alt={COMPANY_NAME}
-                className="h-12 w-12 shrink-0 rounded-full border border-brand-gold/45 object-cover shadow-[0_10px_22px_hsl(39_92%_56%_/_0.22)] transition-transform duration-300 group-hover:scale-105 xl:h-[4.15rem] xl:w-[4.15rem]"
+                className="h-12 w-12 shrink-0 rounded-full border border-brand-gold/45 object-cover shadow-[0_10px_22px_hsl(39_92%_56%_/_0.22)] transition-transform duration-300 group-hover:scale-105 xl:h-14 xl:w-14 2xl:h-[4.15rem] 2xl:w-[4.15rem]"
               />
             </Link>
 
-            <div className={`hidden items-center justify-center gap-1 rounded-full px-2 py-1.5 xl:flex ${
+            <div className={`hidden min-w-0 items-center justify-center gap-1 rounded-full px-1.5 py-1.5 xl:flex 2xl:gap-1.5 2xl:px-2 ${
               isHome && !scrolled
                 ? 'border border-black/10 bg-white/12 text-brand-black shadow-none backdrop-blur-[2px]'
                 : 'border border-white/15 bg-white/10 shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.12),0_14px_35px_hsl(222_42%_10%_/_0.18)] backdrop-blur-xl'
@@ -75,7 +75,7 @@ const Navbar = () => {
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 font-body text-[13px] font-bold tracking-wide transition-all duration-300 ${
+                  className={`relative inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-2 font-body text-[12px] font-bold tracking-wide transition-all duration-300 2xl:px-3.5 2xl:text-[13px] ${
                     active
                       ? 'bg-brand-gold text-brand-black shadow-[0_8px_20px_hsl(39_92%_56%_/_0.25)]'
                       : isHome && !scrolled
@@ -90,15 +90,15 @@ const Navbar = () => {
               })}
             </div>
 
-            <div className="hidden min-w-0 items-center justify-end gap-2 xl:flex">
+            <div className="hidden shrink-0 items-center justify-end gap-2 xl:flex 2xl:gap-2.5">
               {isAuthenticated && user ? (
                 <>
-                  <Link to="/bookings" className={`whitespace-nowrap font-body text-[13px] font-bold transition-colors ${isHome && !scrolled ? 'text-brand-black hover:text-brand-crimson' : 'text-white/90 hover:text-brand-gold'}`}>My Bookings</Link>
-                  {shopEnabled && <Link to="/my-orders" className={`whitespace-nowrap font-body text-[13px] font-bold transition-colors ${isHome && !scrolled ? 'text-brand-black hover:text-brand-crimson' : 'text-white/90 hover:text-brand-gold'}`}>My Orders</Link>}
+                  <Link to="/bookings" className={`whitespace-nowrap rounded-full px-2.5 py-2 font-body text-[12px] font-bold transition-colors 2xl:px-3 2xl:text-[13px] ${isHome && !scrolled ? 'text-brand-black hover:bg-white/20 hover:text-brand-crimson' : 'text-white/90 hover:bg-white/10 hover:text-brand-gold'}`}>My Bookings</Link>
+                  {shopEnabled && <Link to="/my-orders" className={`whitespace-nowrap rounded-full px-2.5 py-2 font-body text-[12px] font-bold transition-colors 2xl:px-3 2xl:text-[13px] ${isHome && !scrolled ? 'text-brand-black hover:bg-white/20 hover:text-brand-crimson' : 'text-white/90 hover:bg-white/10 hover:text-brand-gold'}`}>My Orders</Link>}
                   <div className="relative">
                     <button
                       onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className={`flex items-center gap-2 rounded-full px-2 py-1 font-body text-[13px] font-bold transition-colors ${
+                      className={`flex min-h-10 items-center gap-2 rounded-full px-2 py-1 font-body text-[12px] font-bold transition-colors 2xl:text-[13px] ${
                         isHome && !scrolled
                           ? 'border border-brand-black/15 bg-white/20 text-brand-black hover:border-brand-black/35 hover:bg-white/35'
                           : 'border border-white/10 bg-white/5 text-white hover:border-brand-gold/35 hover:text-brand-gold'
@@ -143,12 +143,12 @@ const Navbar = () => {
                 </>
               ) : (
                 <>
-                  <Link to="/bookings" className={`whitespace-nowrap font-body text-[13px] font-bold transition-colors ${isHome && !scrolled ? 'text-brand-black hover:text-brand-crimson' : 'text-white/90 hover:text-brand-gold'}`}>My Bookings</Link>
-                  <Link to="/login" className={`whitespace-nowrap font-body text-[13px] font-bold transition-colors ${isHome && !scrolled ? 'text-brand-black hover:text-brand-crimson' : 'text-white/90 hover:text-brand-gold'}`}>Login</Link>
-                  <Link to="/contact" className="btn-gold inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2 text-[13px]">
+                  <Link to="/bookings" className={`whitespace-nowrap rounded-full px-2.5 py-2 font-body text-[12px] font-bold transition-colors 2xl:px-3 2xl:text-[13px] ${isHome && !scrolled ? 'text-brand-black hover:bg-white/20 hover:text-brand-crimson' : 'text-white/90 hover:bg-white/10 hover:text-brand-gold'}`}>My Bookings</Link>
+                  <Link to="/login" className={`whitespace-nowrap rounded-full px-2.5 py-2 font-body text-[12px] font-bold transition-colors 2xl:px-3 2xl:text-[13px] ${isHome && !scrolled ? 'text-brand-black hover:bg-white/20 hover:text-brand-crimson' : 'text-white/90 hover:bg-white/10 hover:text-brand-gold'}`}>Login</Link>
+                  <Link to="/contact" className="btn-gold inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-[12px] 2xl:px-4 2xl:text-[13px]">
                     <MessageCircle size={15} /> Enquire
                   </Link>
-                  <Link to="/register" className="btn-crimson whitespace-nowrap rounded-lg px-4 py-2 text-[13px]">Sign Up</Link>
+                  <Link to="/register" className="btn-crimson inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-lg px-3 py-2 text-[12px] 2xl:px-4 2xl:text-[13px]">Sign Up</Link>
                 </>
               )}
             </div>
