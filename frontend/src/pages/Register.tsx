@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
@@ -105,7 +105,11 @@ const Register = () => {
   const { register, isLoading } = useAuthStore();
   const settings = useSettingsStore((s) => s.settings);
   const navigate = useNavigate();
-
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('role') === 'partner') setRole('partner');
+  }, [searchParams]);
 
   const handleGoogle = () => {
     const base = import.meta.env.VITE_API_BASE_URL || '/api';

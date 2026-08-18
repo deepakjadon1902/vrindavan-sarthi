@@ -16,6 +16,7 @@ const Footer = () => {
     account: [
       { name: 'Login', path: '/login' },
       { name: 'Register', path: '/register' },
+      { name: 'Become Partner', path: '/register?role=partner' },
       { name: 'My Bookings', path: '/bookings' },
       { name: 'Profile', path: '/profile' },
     ],
