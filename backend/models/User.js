@@ -95,6 +95,13 @@ const userSchema = new mongoose.Schema({
       uploadedAt: Date,
     },
   ],
+  partnerPolicyConsent: {
+    accepted: { type: Boolean, default: false },
+    acceptedAt: Date,
+    termsVersion: { type: String, default: '' },
+    privacyVersion: { type: String, default: '' },
+    source: { type: String, default: '' },
+  },
 
   // Password reset via email OTP
   passwordResetOtpHash: { type: String, select: false },

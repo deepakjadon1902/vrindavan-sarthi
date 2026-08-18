@@ -69,4 +69,10 @@ export interface RegisterData {
   businessEmail?: string;
   businessDescription?: string;
   documents?: PartnerDocumentUpload[];
+  partnerPolicyConsent?: {
+    accepted: boolean;
+    termsVersion: string;
+    privacyVersion: string;
+    source: 'partner_registration';
+  };
 }

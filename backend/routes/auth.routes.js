@@ -444,20 +444,31 @@ router.post('/register', async (req, res) => {
     if (exists) return res.status(400).json({ success: false, message: 'Email already registered' });
 
     let partnerDocuments = [];
+    let partnerPolicyConsent = undefined;
     if (role === 'partner') {
+      if (req.body?.partnerPolicyConsent?.accepted !== true) {
+        return res.status(400).json({ success: false, message: 'Please accept the owner terms, conditions, and privacy policy to register as a partner' });
+      }
       const docsInput = Array.isArray(req.body?.documents) ? req.body.documents : [];
       if (!docsInput.length) {
         return res.status(400).json({ success: false, message: 'Government/legal documents are required for partner registration' });
       }
       partnerDocuments = await normalizePartnerDocuments(docsInput, { max: 10 });
       if (!partnerDocuments.length) return res.status(400).json({ success: false, message: 'No valid partner documents provided' });
+      partnerPolicyConsent = {
+        accepted: true,
+        acceptedAt: new Date(),
+        termsVersion: String(req.body?.partnerPolicyConsent?.termsVersion || 'owner-partner-terms-v1'),
+        privacyVersion: String(req.body?.partnerPolicyConsent?.privacyVersion || 'privacy-policy-v1'),
+        source: 'partner_registration',
+      };
     }
 
     const user = await User.create({
       name, email: normalizedEmail, phone, password,
       address: { street, city, state, pin },
       role: role || 'user',
-      ...(role === 'partner' ? { businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription, partnerDocuments, partnerStatus: 'pending' } : {}),
+      ...(role === 'partner' ? { businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription, partnerDocuments, partnerPolicyConsent, partnerStatus: 'pending' } : {}),
     });
 
     const token = generateToken(user._id);

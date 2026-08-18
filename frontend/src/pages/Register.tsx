@@ -5,7 +5,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
 import { APP_LOGO_URL } from '@/lib/brand';
-import { Building2, FileText, UserRound } from 'lucide-react';
+import { Building2, CheckCircle2, ExternalLink, FileText, ShieldCheck, UserRound } from 'lucide-react';
 import type { PartnerDocumentUpload } from '@/types/auth.types';
 
 const DOCUMENT_TYPES = [
@@ -30,6 +30,14 @@ const ALLOWED_DOCUMENT_TYPES = new Set([
 ]);
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 1600;
+const PARTNER_TERMS_VERSION = 'owner-partner-terms-v1';
+const PRIVACY_POLICY_VERSION = 'privacy-policy-v1';
+
+const partnerCommitments = [
+  'I will list only genuine, lawful, and owner-authorized services.',
+  'I will keep prices, availability, images, policies, and guest rules accurate.',
+  'I will honor confirmed bookings, admin verification decisions, payouts, cancellations, and customer-support processes.',
+];
 
 const getDocumentLabel = (value?: string) =>
   DOCUMENT_TYPES.find((item) => item.value === value)?.label || 'Other Government / Legal Document';
@@ -89,6 +97,7 @@ const Register = () => {
   const [role, setRole] = useState<'user' | 'partner'>('user');
   const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('aadhar_card');
   const [documents, setDocuments] = useState<PartnerDocumentUpload[]>([]);
+  const [partnerPoliciesAccepted, setPartnerPoliciesAccepted] = useState(false);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', street: '', city: '', state: '', pin: '', password: '', confirmPassword: '',
     businessName: '', gstNumber: '', businessType: '', businessAddress: '', businessPhone: '', businessEmail: '', businessDescription: '',
@@ -109,6 +118,7 @@ const Register = () => {
     if (formData.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     if (role === 'partner' && !formData.businessName) { toast.error('Business name is required for partners'); return; }
     if (role === 'partner' && documents.length === 0) { toast.error('Upload at least one government/legal document'); return; }
+    if (role === 'partner' && !partnerPoliciesAccepted) { toast.error('Please accept the owner terms and privacy policy to continue'); return; }
 
     const result = await register({
       name: formData.name, email: formData.email, phone: formData.phone,
@@ -120,6 +130,12 @@ const Register = () => {
         businessPhone: formData.businessPhone, businessEmail: formData.businessEmail,
         businessDescription: formData.businessDescription,
         documents,
+        partnerPolicyConsent: {
+          accepted: true,
+          termsVersion: PARTNER_TERMS_VERSION,
+          privacyVersion: PRIVACY_POLICY_VERSION,
+          source: 'partner_registration',
+        },
       } : {}),
     });
     if (result.success) {
@@ -131,6 +147,7 @@ const Register = () => {
   };
 
   const update = (field: string, value: string) => setFormData({ ...formData, [field]: value });
+  const canSubmit = !isLoading && (role !== 'partner' || partnerPoliciesAccepted);
 
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -358,7 +375,62 @@ const Register = () => {
                 <input type="password" required value={formData.confirmPassword} onChange={(e) => update('confirmPassword', e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="••••••••" />
               </div>
             </div>
-            <button type="submit" disabled={isLoading} className={`w-full py-3.5 rounded-xl text-sm mt-2 disabled:opacity-50 ${role === 'partner' ? 'bg-brand-gold text-foreground font-semibold hover:bg-brand-gold/90' : 'btn-crimson'}`}>
+            {role === 'partner' && (
+              <div className={`overflow-hidden rounded-2xl border transition-all ${partnerPoliciesAccepted ? 'border-brand-green/40 bg-brand-green/5' : 'border-brand-gold/35 bg-gradient-to-b from-white to-brand-cream/70 shadow-[0_16px_44px_hsl(39_92%_56%_/_0.12)]'}`}>
+                <div className="border-b border-border/70 bg-white/75 px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${partnerPoliciesAccepted ? 'bg-brand-green/12 text-brand-green' : 'bg-brand-gold/15 text-brand-gold'}`}>
+                      <ShieldCheck size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Owner Agreement</p>
+                      <h3 className="font-heading text-lg font-semibold leading-tight text-foreground">Partner terms & privacy acknowledgement</h3>
+                      <p className="mt-1 font-body text-xs leading-5 text-muted-foreground">
+                        Required for owner verification, marketplace listing access, booking handling, and partner payouts.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 px-4 py-4">
+                  <div className="grid gap-2">
+                    {partnerCommitments.map((item) => (
+                      <div key={item} className="flex gap-2 rounded-xl border border-border/70 bg-white/70 px-3 py-2">
+                        <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-brand-gold" />
+                        <p className="font-body text-xs leading-5 text-foreground/80">{item}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Link to="/terms" target="_blank" rel="noreferrer" className="inline-flex items-center justify-between rounded-xl border border-border bg-white px-3 py-2.5 font-body text-xs font-bold text-foreground hover:border-brand-gold/50 hover:text-brand-crimson">
+                      Terms & Conditions
+                      <ExternalLink size={14} />
+                    </Link>
+                    <Link to="/privacy" target="_blank" rel="noreferrer" className="inline-flex items-center justify-between rounded-xl border border-border bg-white px-3 py-2.5 font-body text-xs font-bold text-foreground hover:border-brand-gold/50 hover:text-brand-crimson">
+                      Privacy Policy
+                      <ExternalLink size={14} />
+                    </Link>
+                  </div>
+
+                  <label className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition-colors ${partnerPoliciesAccepted ? 'border-brand-green/35 bg-white' : 'border-brand-gold/35 bg-brand-gold/8 hover:bg-brand-gold/12'}`}>
+                    <input
+                      type="checkbox"
+                      checked={partnerPoliciesAccepted}
+                      onChange={(e) => setPartnerPoliciesAccepted(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-border accent-[hsl(var(--brand-gold))]"
+                    />
+                    <span className="font-body text-xs leading-5 text-foreground">
+                      I confirm that I am authorized to register this partner account and I agree to follow the owner Terms & Conditions, Privacy Policy, listing standards, booking rules, payout process, and admin verification decisions of {settings.siteName}.
+                      <span className="mt-1 block font-semibold text-muted-foreground">
+                        Acceptance version: {PARTNER_TERMS_VERSION} / {PRIVACY_POLICY_VERSION}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
+            <button type="submit" disabled={!canSubmit} className={`w-full py-3.5 rounded-xl text-sm mt-2 disabled:cursor-not-allowed disabled:opacity-50 ${role === 'partner' ? 'bg-brand-gold text-foreground font-semibold hover:bg-brand-gold/90' : 'btn-crimson'}`}>
               {isLoading ? 'Creating Account...' : role === 'partner' ? 'Register as Partner' : 'Create Account'}
             </button>
           </form>
