@@ -46,8 +46,8 @@ const services = [
 ];
 
 const plannerServices = [
-  { key: 'hotels', label: 'धर्मशालाएं', path: '/hotels', icon: BedDouble, hint: 'अभी बुक करें' },
-  { key: 'rooms', label: 'होटल', path: '/rooms', icon: Building2, hint: 'अभी बुक करें' },
+  { key: 'hotels', label: 'धर्मशालाएं', path: '/hotels', type: 'dharamshala', icon: BedDouble, hint: 'अभी बुक करें' },
+  { key: 'rooms', label: 'होटल', path: '/hotels', type: 'hotel', icon: Building2, hint: 'अभी बुक करें' },
   { key: 'cabs', label: 'टैक्सी और कैब', path: '/cabs', icon: CarTaxiFront, hint: 'अभी बुक करें' },
   { key: 'tours', label: 'यात्रा पैकेज', path: '/tours', icon: Gift, hint: 'देखें' },
   { key: 'shop', label: 'खरीदारी', path: '/shop', icon: ShoppingBag, hint: 'अभी खरीदें' },
@@ -96,6 +96,10 @@ const Home = () => {
   const shopEnabled = useSettingsStore((s) => s.settings.shopEnabled);
   const [plannerService, setPlannerService] = useState<PlannerServiceKey>('hotels');
   const [plannerQuery, setPlannerQuery] = useState('');
+  const [plannerCheckIn, setPlannerCheckIn] = useState('');
+  const [plannerCheckOut, setPlannerCheckOut] = useState('');
+  const [plannerGuests, setPlannerGuests] = useState(1);
+  const [plannerRooms, setPlannerRooms] = useState(1);
   const [hotels, setHotels] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [cabs, setCabs] = useState<any[]>([]);
@@ -110,9 +114,21 @@ const Home = () => {
   const featuredProducts = shopEnabled ? products.filter(p => p.inStock).slice(0, 4) : [];
   const activePlanner = visiblePlannerServices.find((item) => item.key === plannerService) || visiblePlannerServices[0];
 
-  const runPlannerSearch = () => {
+  const buildPlannerUrl = (service = activePlanner) => {
     const query = plannerQuery.trim();
-    navigate(query && plannerService !== 'shop' ? `${activePlanner.path}?q=${encodeURIComponent(query)}` : activePlanner.path);
+    const params = new URLSearchParams();
+    if ('type' in service && service.type) params.set('type', service.type);
+    if (query && service.key !== 'shop') params.set('q', query);
+    if (plannerCheckIn && service.key !== 'shop') params.set('checkIn', plannerCheckIn);
+    if (plannerCheckOut && service.key !== 'shop') params.set('checkOut', plannerCheckOut);
+    if (plannerGuests > 1 && service.key !== 'shop') params.set('guests', String(plannerGuests));
+    if (plannerRooms > 1 && (service.key === 'hotels' || service.key === 'rooms')) params.set('rooms', String(plannerRooms));
+    const qs = params.toString();
+    return `${service.path}${qs ? `?${qs}` : ''}`;
+  };
+
+  const runPlannerSearch = () => {
+    navigate(buildPlannerUrl());
   };
 
   useEffect(() => {
@@ -281,7 +297,10 @@ const Home = () => {
                   <button
                     key={item.key}
                     type="button"
-                    onClick={() => setPlannerService(item.key)}
+                    onClick={() => {
+                      setPlannerService(item.key);
+                      navigate(buildPlannerUrl(item));
+                    }}
                     className={`min-h-[76px] border-r border-white/12 px-3 py-3 text-center transition-all last:border-r-0 ${
                       active
                         ? 'bg-black/28 text-brand-gold'
@@ -310,15 +329,57 @@ const Home = () => {
                   className="h-14 w-full bg-white pl-11 pr-3 font-body text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-gold/35"
                 />
               </label>
-              <button type="button" onClick={runPlannerSearch} className="flex h-14 items-center gap-2 bg-white px-4 font-body text-[13px] font-semibold text-muted-foreground hover:text-foreground">
-                <CalendarDays size={16} /> आगमन
-              </button>
-              <button type="button" onClick={runPlannerSearch} className="flex h-14 items-center gap-2 bg-white px-4 font-body text-[13px] font-semibold text-muted-foreground hover:text-foreground">
-                <CalendarDays size={16} /> प्रस्थान
-              </button>
-              <button type="button" onClick={runPlannerSearch} className="flex h-14 items-center gap-2 bg-white px-4 font-body text-[13px] font-semibold text-muted-foreground hover:text-foreground">
-                <UserRound size={16} /> अतिथि / कमरे
-              </button>
+              <label className="relative block bg-white">
+                <CalendarDays className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                <input
+                  type="date"
+                  value={plannerCheckIn}
+                  onChange={(e) => setPlannerCheckIn(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') runPlannerSearch();
+                  }}
+                  className="h-14 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
+                  aria-label="आगमन"
+                />
+              </label>
+              <label className="relative block bg-white">
+                <CalendarDays className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                <input
+                  type="date"
+                  value={plannerCheckOut}
+                  onChange={(e) => setPlannerCheckOut(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') runPlannerSearch();
+                  }}
+                  className="h-14 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
+                  aria-label="प्रस्थान"
+                />
+              </label>
+              <label className="relative grid h-14 grid-cols-2 gap-px bg-border/70">
+                <UserRound className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground" size={16} />
+                <input
+                  type="number"
+                  min={1}
+                  value={plannerGuests}
+                  onChange={(e) => setPlannerGuests(Math.max(1, Number(e.target.value || 1)))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') runPlannerSearch();
+                  }}
+                  className="min-w-0 bg-white pl-9 pr-2 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
+                  aria-label="अतिथि"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  value={plannerRooms}
+                  onChange={(e) => setPlannerRooms(Math.max(1, Number(e.target.value || 1)))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') runPlannerSearch();
+                  }}
+                  className="min-w-0 bg-white px-2 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
+                  aria-label="कमरे"
+                />
+              </label>
               <button
                 type="button"
                 onClick={runPlannerSearch}

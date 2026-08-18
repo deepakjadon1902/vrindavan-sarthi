@@ -52,7 +52,7 @@ const TourDetail = () => {
 
   const pricePerPerson = Number(tour.pricePerPerson || 0);
   const subtotal = pricePerPerson * persons;
-  const convenienceFee = Math.round(subtotal * 0.02);
+  const convenienceFee = Math.round(subtotal * 0.0445);
   const total = subtotal + convenienceFee;
   const advanceAmount = total > 0 ? Math.round(total * 0.3) : 0;
   const balanceAmount = Math.max(0, total - advanceAmount);

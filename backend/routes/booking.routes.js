@@ -100,7 +100,8 @@ const clampPercent = (value, fallback = 0, max = 100) => {
   return Math.min(max, n);
 };
 
-const calculateConvenienceFee = (subtotal) => Math.round((Math.max(0, Number(subtotal || 0)) * 2) / 100);
+const CONVENIENCE_FEE_PERCENT = 4.45;
+const calculateConvenienceFee = (amount) => Math.round((Math.max(0, Number(amount || 0)) * CONVENIENCE_FEE_PERCENT) / 100);
 const calculateGatewayFee = (amount) => Math.round((Math.max(0, Number(amount || 0)) * 2) / 100);
 
 const getPaymentOption = (value, allowed = ['advance_30', 'full_100']) => {
@@ -131,12 +132,12 @@ const findBookingHotel = async (bookingType, body) => {
 
 const buildMoneyFields = ({ subtotal, baseAmount, taxAmount = 0, paymentOption = 'advance_30', commissionPercent = 0, gatewayFeeAmount }) => {
   const checkoutSubtotal = Math.round(Math.max(0, Number(subtotal || 0)));
-  const convenienceFeeAmount = calculateConvenienceFee(checkoutSubtotal);
+  const roomAmount = Math.round(Math.max(0, Number(baseAmount ?? (checkoutSubtotal - Number(taxAmount || 0)))));
+  const convenienceFeeAmount = calculateConvenienceFee(roomAmount);
   const totalAmount = checkoutSubtotal + convenienceFeeAmount;
   const advancePercent = paymentOption === 'full_100' ? 100 : 30;
   const advanceAmount = Math.round(totalAmount * (advancePercent / 100));
   const balanceAmount = Math.max(0, totalAmount - advanceAmount);
-  const roomAmount = Math.round(Math.max(0, Number(baseAmount ?? (checkoutSubtotal - Number(taxAmount || 0)))));
   const hotelTaxAmount = Math.round(Math.max(0, Number(taxAmount || 0)));
   const grossForHotel = roomAmount + hotelTaxAmount;
   const platformCommissionPercent = clampPercent(commissionPercent, 0, 100);
@@ -158,7 +159,7 @@ const buildMoneyFields = ({ subtotal, baseAmount, taxAmount = 0, paymentOption =
     hotel_net_payout: partnerNetPayout,
     payout_status: 'pending',
     checkoutSubtotal,
-    convenienceFeePercent: 2,
+    convenienceFeePercent: CONVENIENCE_FEE_PERCENT,
     convenienceFeeAmount,
     totalAmount,
     paymentOption,

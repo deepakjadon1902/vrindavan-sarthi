@@ -197,7 +197,7 @@
 //   const taxPercent = taxEnabled ? Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? defaultHotelTaxPercent ?? 12))) : 0;
 //   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
 //   const subtotal = baseTotal + taxTotal;
-//   const convenienceFee = Math.round(subtotal * 0.02);
+//   const convenienceFee = Math.round(baseTotal * 0.0445);
 //   const total = subtotal + convenienceFee;
 //   const payableNow = paymentOption === 'full_100' ? total : paymentOption === 'advance_30' ? Math.round(total * 0.3) : 0;
 //   const balanceLater = Math.max(0, total - payableNow);
@@ -966,7 +966,7 @@ const RoomTypeDetail = () => {
   const taxPercent = taxEnabled ? Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? defaultHotelTaxPercent ?? 12))) : 0;
   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
   const subtotal = baseTotal + taxTotal;
-  const convenienceFee = isDharamshala ? 0 : Math.round(subtotal * 0.02);
+  const convenienceFee = isDharamshala ? 0 : Math.round(baseTotal * 0.0445);
   const total = subtotal + convenienceFee;
   const payableNow = paymentOption === 'full_100' ? total : paymentOption === 'advance_30' ? Math.round(total * 0.3) : 0;
   const balanceLater = Math.max(0, total - payableNow);

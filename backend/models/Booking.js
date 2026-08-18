@@ -102,7 +102,7 @@ const bookingSchema = new mongoose.Schema({
   taxPercent: { type: Number, default: 0 },
   taxAmount: { type: Number, default: 0 },
   hotel_gst_amount: { type: Number, default: 0 },
-  convenienceFeePercent: { type: Number, default: 2 },
+  convenienceFeePercent: { type: Number, default: 4.45 },
   convenienceFeeAmount: { type: Number, default: 0 },
   convenience_fee: { type: Number, default: 0 },
   checkoutSubtotal: { type: Number, default: 0 },

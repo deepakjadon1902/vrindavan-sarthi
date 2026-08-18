@@ -192,6 +192,7 @@ const Hotels = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
+  const propertyFilter = searchParams.get('type') === 'dharamshala' ? 'dharamshala' : searchParams.get('type') === 'hotel' ? 'hotel' : '';
   const [hotels, setHotels] = useState<HotelListItem[]>([]);
 
   useEffect(() => {
@@ -241,6 +242,7 @@ const Hotels = () => {
   }, [searchQuery]);
 
   const filtered = hotels.filter((h) => {
+    if (propertyFilter && String(h.propertyType || 'hotel') !== propertyFilter) return false;
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
     const locationName = getBrajLocationName(h.location, h.nearestTemple, h.name).toLowerCase();
@@ -335,7 +337,10 @@ const Hotels = () => {
                 onChange={(e) => {
                   const value = e.target.value;
                   setSearchQuery(value);
-                  setSearchParams(value.trim() ? { q: value } : {}, { replace: true });
+                  const next = new URLSearchParams();
+                  if (propertyFilter) next.set('type', propertyFilter);
+                  if (value.trim()) next.set('q', value);
+                  setSearchParams(next, { replace: true });
                 }}
                 className="premium-field w-full pl-12 pr-5"
               />
@@ -349,7 +354,10 @@ const Hotels = () => {
                   type="button"
                   onClick={() => {
                     setSearchQuery(loc);
-                    setSearchParams({ q: loc });
+                    const next = new URLSearchParams();
+                    if (propertyFilter) next.set('type', propertyFilter);
+                    next.set('q', loc);
+                    setSearchParams(next);
                   }}
                   className={`rounded-full border px-3 py-1.5 font-body text-[12px] font-semibold transition-colors ${
                     searchQuery.toLowerCase() === loc.toLowerCase()

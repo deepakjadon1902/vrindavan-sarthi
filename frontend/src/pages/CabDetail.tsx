@@ -154,7 +154,7 @@ const CabDetail = () => {
   }
 
   const allImages = [cab.image, ...(cab.images || [])].filter(Boolean);
-  const convenienceFee = typeof fare === 'number' ? Math.round(fare * 0.02) : 0;
+  const convenienceFee = typeof fare === 'number' ? Math.round(fare * 0.0445) : 0;
   const checkoutTotal = typeof fare === 'number' ? fare + convenienceFee : 0;
   const advanceAmount = checkoutTotal > 0 ? Math.round(checkoutTotal * 0.3) : 0;
   const balanceAmount = checkoutTotal > 0 ? Math.max(0, checkoutTotal - advanceAmount) : 0;
