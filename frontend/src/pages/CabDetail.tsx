@@ -264,7 +264,6 @@ const CabDetail = () => {
                       readOnly
                       className="w-full rounded-lg border border-border bg-muted px-4 py-2.5 font-body text-sm font-semibold text-foreground focus:outline-none"
                     />
-                    <p className="mt-1 font-body text-[11px] text-muted-foreground">Fixed from admin seat capacity.</p>
                   </div>
                   <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Vehicle</label><select value={selectedFareRuleId} onChange={(e) => { const next = vehicleOptions.find((option) => option.id === e.target.value); setSelectedFareRuleId(e.target.value); setCabType(next?.cabType || ''); }} disabled={!vehicleOptions.length} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 disabled:opacity-60"><option value="">Select vehicle</option>{vehicleOptions.map((vehicle) => <option key={vehicle.id || vehicle.cabType} value={vehicle.id}>{vehicle.cabType} - Rs. {vehicle.baseFare.toLocaleString('en-IN')}</option>)}</select></div>
                 </div>
