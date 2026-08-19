@@ -80,8 +80,17 @@ const generateBookingCode = () => {
   return `VVS-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
 };
 
-const getHotelTaxPercent = async (hotel) => {
+const PARTNER_COMMISSION_PERCENT = 10;
+const GST_THRESHOLD_AMOUNT = 7500;
+const LOW_GST_PERCENT = 5;
+const HIGH_GST_PERCENT = 18;
+
+const getHotelTaxPercent = async (hotel, roomType) => {
   if (!hotel?.taxEnabled) return 0;
+  if (String(hotel?.gstMode || '').trim().toLowerCase() === 'automatic') {
+    const pricePerNight = Number(roomType?.pricePerNight || 0);
+    return pricePerNight <= GST_THRESHOLD_AMOUNT ? LOW_GST_PERCENT : HIGH_GST_PERCENT;
+  }
   const hotelPercent = Number(hotel?.taxPercent);
   if (Number.isFinite(hotelPercent) && hotelPercent >= 0) return Math.min(50, hotelPercent);
   try {
@@ -121,11 +130,11 @@ const findBookingHotel = async (bookingType, body) => {
   const roomTypeId = String(body?.roomTypeId || '').trim();
   const itemId = String(body?.itemId || '').trim();
 
-  if (hotelId) return Hotel.findById(hotelId).select('propertyType').lean();
-  if (bookingType === 'hotel' && itemId) return Hotel.findById(itemId).select('propertyType').lean();
+  if (hotelId) return Hotel.findById(hotelId).select('propertyType partnerId platform_commission_percentage').lean();
+  if (bookingType === 'hotel' && itemId) return Hotel.findById(itemId).select('propertyType partnerId platform_commission_percentage').lean();
   if ((bookingType === 'room_type' || bookingType === 'room') && (roomTypeId || itemId)) {
     const roomType = await RoomType.findById(roomTypeId || itemId).select('hotelId').lean();
-    if (roomType?.hotelId) return Hotel.findById(roomType.hotelId).select('propertyType').lean();
+    if (roomType?.hotelId) return Hotel.findById(roomType.hotelId).select('propertyType partnerId platform_commission_percentage').lean();
   }
   return null;
 };
@@ -140,7 +149,7 @@ const buildMoneyFields = ({ subtotal, baseAmount, taxAmount = 0, paymentOption =
   const balanceAmount = Math.max(0, totalAmount - advanceAmount);
   const hotelTaxAmount = Math.round(Math.max(0, Number(taxAmount || 0)));
   const grossForHotel = roomAmount + hotelTaxAmount;
-  const platformCommissionPercent = clampPercent(commissionPercent, 0, 100);
+  const platformCommissionPercent = clampPercent(commissionPercent, PARTNER_COMMISSION_PERCENT, 100);
   const platformCommissionAmount = Math.round((roomAmount * platformCommissionPercent) / 100);
   const paymentGatewayFeeAmount = Math.max(0, Math.round(Number.isFinite(Number(gatewayFeeAmount)) ? Number(gatewayFeeAmount) : calculateGatewayFee(roomAmount)));
   const partnerNetPayout = Math.max(0, grossForHotel - platformCommissionAmount - paymentGatewayFeeAmount);
@@ -472,7 +481,7 @@ router.post('/room-type', protect, async (req, res) => {
     // Server-side subtotal calculation (includes admin-controlled GST).
     const nights = Math.max(1, daysToReserve.length);
     const baseAmount = Math.max(0, Number(roomType.pricePerNight || 0)) * nights * roomQuantity;
-    const taxPercent = await getHotelTaxPercent(hotel);
+    const taxPercent = await getHotelTaxPercent(hotel, roomType);
     const taxAmount = Math.round((baseAmount * taxPercent) / 100);
     const subtotal = Math.round(baseAmount + taxAmount);
     const paymentOption = getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']);
@@ -485,7 +494,7 @@ router.post('/room-type', protect, async (req, res) => {
       baseAmount,
       taxAmount,
       paymentOption,
-      commissionPercent: hotel.platform_commission_percentage,
+      commissionPercent: hotel.partnerId ? PARTNER_COMMISSION_PERCENT : hotel.platform_commission_percentage,
       gatewayFeeAmount: req.body?.paymentGatewayFeeAmount,
     });
 
@@ -695,7 +704,10 @@ router.post('/', protect, async (req, res) => {
     const subtotal = Number(req.body?.checkoutSubtotal ?? req.body?.totalAmount ?? 0);
     const baseAmount = Number(req.body?.baseAmount ?? subtotal);
     const taxAmount = Number(req.body?.taxAmount ?? 0);
-    const commissionPercent = clampPercent(req.body?.platformCommissionPercent, 0, 100);
+    const isPartnerBooking = Boolean(req.body?.partnerId || hotel?.partnerId);
+    const commissionPercent = isPartnerBooking
+      ? PARTNER_COMMISSION_PERCENT
+      : clampPercent(req.body?.platformCommissionPercent, 0, 100);
     const money = buildMoneyFields({ subtotal, baseAmount, taxAmount, paymentOption, commissionPercent, gatewayFeeAmount: req.body?.paymentGatewayFeeAmount });
 
     const payload = {

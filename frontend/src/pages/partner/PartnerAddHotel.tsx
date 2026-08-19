@@ -24,6 +24,9 @@ interface PartnerHotel {
   checkInTime?: string;
   checkOutTime?: string;
   hotelGstin?: string;
+  taxEnabled?: boolean;
+  taxPercent?: number;
+  gstMode?: 'manual' | 'automatic';
   petsAllowed?: boolean;
   propertyTerms?: PropertyTermsValue;
   status: 'active' | 'inactive';
@@ -49,6 +52,9 @@ const PartnerAddHotel = () => {
     checkInTime: '12:00',
     checkOutTime: '11:00',
     hotelGstin: user?.gstNumber || '',
+    taxEnabled: Boolean(user?.gstNumber),
+    taxPercent: '12',
+    gstMode: 'automatic' as 'manual' | 'automatic',
     petsAllowed: false,
     propertyTerms: normalizePropertyTerms(),
     images: [] as string[],
@@ -107,6 +113,9 @@ const PartnerAddHotel = () => {
       checkInTime: target.checkInTime || '12:00',
       checkOutTime: target.checkOutTime || '11:00',
       hotelGstin: target.hotelGstin || user?.gstNumber || '',
+      taxEnabled: Boolean(target.taxEnabled),
+      taxPercent: String(target.taxPercent ?? 12),
+      gstMode: target.gstMode || 'automatic',
       petsAllowed: Boolean(target.petsAllowed),
       propertyTerms: normalizePropertyTerms(target.propertyTerms),
       images: [target.image, ...(target.images || [])].filter(Boolean) as string[],
@@ -161,6 +170,9 @@ const PartnerAddHotel = () => {
       checkInTime: form.checkInTime || '12:00',
       checkOutTime: form.checkOutTime || '11:00',
       hotelGstin: form.hotelGstin.trim(),
+      taxEnabled: form.propertyType === 'hotel' && Boolean(form.hotelGstin.trim()) && Boolean(form.taxEnabled),
+      taxPercent: form.gstMode === 'manual' ? Number(form.taxPercent || 12) : 0,
+      gstMode: form.gstMode,
       amenities: form.amenities
         .split(',')
         .map((a) => a.trim())
@@ -208,6 +220,9 @@ const PartnerAddHotel = () => {
       checkInTime: item.checkInTime || '12:00',
       checkOutTime: item.checkOutTime || '11:00',
       hotelGstin: item.hotelGstin || user?.gstNumber || '',
+      taxEnabled: Boolean(item.taxEnabled),
+      taxPercent: String(item.taxPercent ?? 12),
+      gstMode: item.gstMode || 'automatic',
       petsAllowed: Boolean(item.petsAllowed),
       propertyTerms: normalizePropertyTerms(item.propertyTerms),
       images: [item.image, ...(item.images || [])].filter(Boolean) as string[],
@@ -453,6 +468,57 @@ const PartnerAddHotel = () => {
                   placeholder="Optional, auto-filled from profile if available"
                 />
               </div>
+              {form.propertyType === 'hotel' && form.hotelGstin.trim() && (
+                <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
+                  <label className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={form.taxEnabled}
+                      onChange={(e) => setForm({ ...form, taxEnabled: e.target.checked })}
+                    />
+                    Take GST on this property
+                  </label>
+                  {form.taxEnabled && (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label className={`rounded-lg border px-3 py-2 font-body text-xs ${form.gstMode === 'automatic' ? 'border-brand-gold bg-white' : 'border-border bg-background'}`}>
+                        <input
+                          type="radio"
+                          name="gstMode"
+                          value="automatic"
+                          checked={form.gstMode === 'automatic'}
+                          onChange={() => setForm({ ...form, gstMode: 'automatic' })}
+                          className="mr-2"
+                        />
+                        Automatic: 5% up to Rs. 7,500, 18% above Rs. 7,500
+                      </label>
+                      <label className={`rounded-lg border px-3 py-2 font-body text-xs ${form.gstMode === 'manual' ? 'border-brand-gold bg-white' : 'border-border bg-background'}`}>
+                        <input
+                          type="radio"
+                          name="gstMode"
+                          value="manual"
+                          checked={form.gstMode === 'manual'}
+                          onChange={() => setForm({ ...form, gstMode: 'manual' })}
+                          className="mr-2"
+                        />
+                        Manual GST percentage
+                      </label>
+                      {form.gstMode === 'manual' && (
+                        <div>
+                          <label className="font-body text-xs font-medium text-foreground mb-1.5 block">GST Percent</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="50"
+                            value={form.taxPercent}
+                            onChange={(e) => setForm({ ...form, taxPercent: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

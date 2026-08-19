@@ -1,11 +1,11 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
 import { APP_LOGO_URL } from '@/lib/brand';
-import { Building2, CheckCircle2, ExternalLink, FileText, ShieldCheck, UserRound } from 'lucide-react';
+import { Building2, CheckCircle2, FileText, ShieldCheck, UserRound, X } from 'lucide-react';
 import type { PartnerDocumentUpload } from '@/types/auth.types';
 import PasswordInput from '@/components/shared/PasswordInput';
 
@@ -38,6 +38,7 @@ const partnerCommitments = [
   'I will list only genuine, lawful, and owner-authorized services.',
   'I will keep prices, availability, images, policies, and guest rules accurate.',
   'I will honor confirmed bookings, admin verification decisions, payouts, cancellations, and customer-support processes.',
+  'I agree that Vrindavan Sarthi Enterprises will deduct a 10% commission from every partner booking.',
 ];
 
 const getDocumentLabel = (value?: string) =>
@@ -99,6 +100,9 @@ const Register = () => {
   const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('aadhar_card');
   const [documents, setDocuments] = useState<PartnerDocumentUpload[]>([]);
   const [partnerPoliciesAccepted, setPartnerPoliciesAccepted] = useState(false);
+  const [policyModal, setPolicyModal] = useState<'terms' | 'privacy' | null>(null);
+  const [policiesRead, setPoliciesRead] = useState({ terms: false, privacy: false });
+  const policyContentRef = useRef<HTMLDivElement | null>(null);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', street: '', city: '', state: '', pin: '', password: '', confirmPassword: '',
     businessName: '', gstNumber: '', businessType: '', businessAddress: '', businessPhone: '', businessEmail: '', businessDescription: '',
@@ -112,6 +116,16 @@ const Register = () => {
     if (searchParams.get('role') === 'partner') setRole('partner');
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!policyModal) return;
+    window.setTimeout(() => {
+      const node = policyContentRef.current;
+      if (node && node.scrollHeight <= node.clientHeight + 8) {
+        setPoliciesRead((prev) => ({ ...prev, [policyModal]: true }));
+      }
+    }, 0);
+  }, [policyModal]);
+
   const handleGoogle = () => {
     const base = import.meta.env.VITE_API_BASE_URL || '/api';
     window.location.href = `${base}/auth/google`;
@@ -123,6 +137,7 @@ const Register = () => {
     if (formData.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     if (role === 'partner' && !formData.businessName) { toast.error('Business name is required for partners'); return; }
     if (role === 'partner' && documents.length === 0) { toast.error('Upload at least one government/legal document'); return; }
+    if (role === 'partner' && (!policiesRead.terms || !policiesRead.privacy)) { toast.error('Please open and read the terms and privacy policy first'); return; }
     if (role === 'partner' && !partnerPoliciesAccepted) { toast.error('Please accept the owner terms and privacy policy to continue'); return; }
 
     const result = await register({
@@ -152,7 +167,17 @@ const Register = () => {
   };
 
   const update = (field: string, value: string) => setFormData({ ...formData, [field]: value });
-  const canSubmit = !isLoading && (role !== 'partner' || partnerPoliciesAccepted);
+  const canAcceptPartnerPolicies = policiesRead.terms && policiesRead.privacy;
+  const canSubmit = !isLoading && (role !== 'partner' || (partnerPoliciesAccepted && canAcceptPartnerPolicies));
+
+  const openPolicy = (kind: 'terms' | 'privacy') => {
+    setPolicyModal(kind);
+  };
+
+  const handlePolicyScroll = (kind: 'terms' | 'privacy', element: HTMLDivElement) => {
+    const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 8;
+    if (atBottom) setPoliciesRead((prev) => ({ ...prev, [kind]: true }));
+  };
 
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -422,20 +447,21 @@ const Register = () => {
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Link to="/terms" target="_blank" rel="noreferrer" className="inline-flex items-center justify-between rounded-xl border border-border bg-white px-3 py-2.5 font-body text-xs font-bold text-foreground hover:border-brand-gold/50 hover:text-brand-crimson">
-                      Terms & Conditions
-                      <ExternalLink size={14} />
-                    </Link>
-                    <Link to="/privacy" target="_blank" rel="noreferrer" className="inline-flex items-center justify-between rounded-xl border border-border bg-white px-3 py-2.5 font-body text-xs font-bold text-foreground hover:border-brand-gold/50 hover:text-brand-crimson">
-                      Privacy Policy
-                      <ExternalLink size={14} />
-                    </Link>
+                    <button type="button" onClick={() => openPolicy('terms')} className="inline-flex items-center justify-between rounded-xl border border-border bg-white px-3 py-2.5 font-body text-xs font-bold text-foreground hover:border-brand-gold/50 hover:text-brand-crimson">
+                      <span>Terms & Conditions</span>
+                      {policiesRead.terms && <CheckCircle2 size={14} className="text-brand-green" />}
+                    </button>
+                    <button type="button" onClick={() => openPolicy('privacy')} className="inline-flex items-center justify-between rounded-xl border border-border bg-white px-3 py-2.5 font-body text-xs font-bold text-foreground hover:border-brand-gold/50 hover:text-brand-crimson">
+                      <span>Privacy Policy</span>
+                      {policiesRead.privacy && <CheckCircle2 size={14} className="text-brand-green" />}
+                    </button>
                   </div>
 
                   <label className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition-colors ${partnerPoliciesAccepted ? 'border-brand-green/35 bg-white' : 'border-brand-gold/35 bg-brand-gold/8 hover:bg-brand-gold/12'}`}>
                     <input
                       type="checkbox"
                       checked={partnerPoliciesAccepted}
+                      disabled={!canAcceptPartnerPolicies}
                       onChange={(e) => setPartnerPoliciesAccepted(e.target.checked)}
                       className="mt-1 h-4 w-4 rounded border-border accent-[hsl(var(--brand-gold))]"
                     />
@@ -444,6 +470,9 @@ const Register = () => {
                       <span className="mt-1 block font-semibold text-muted-foreground">
                         Acceptance version: {PARTNER_TERMS_VERSION} / {PRIVACY_POLICY_VERSION}
                       </span>
+                      {!canAcceptPartnerPolicies && (
+                        <span className="mt-1 block text-muted-foreground">Open and scroll both policy documents to enable this confirmation.</span>
+                      )}
                     </span>
                   </label>
                 </div>
@@ -460,6 +489,41 @@ const Register = () => {
           </p>
         </div>
       </div>
+      {policyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 py-6">
+          <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div>
+                <p className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Partner Review</p>
+                <h3 className="font-heading text-xl font-semibold text-foreground">{policyModal === 'terms' ? 'Terms & Conditions' : 'Privacy Policy'}</h3>
+              </div>
+              <button type="button" onClick={() => setPolicyModal(null)} className="rounded-lg border border-border p-2 text-muted-foreground hover:text-foreground">
+                <X size={16} />
+              </button>
+            </div>
+            <div
+              ref={policyContentRef}
+              className="max-h-[62vh] overflow-y-auto px-5 py-4 font-body text-sm leading-7 text-foreground"
+              onScroll={(e) => handlePolicyScroll(policyModal, e.currentTarget)}
+            >
+              {(policyModal === 'terms' ? settings.termsOfService : settings.privacyPolicy)
+                .split(/\n\n+/)
+                .filter(Boolean)
+                .map((section, index) => (
+                  <p key={index} className="mb-4 whitespace-pre-line">{section}</p>
+                ))}
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/30 px-5 py-4">
+              <p className="font-body text-xs text-muted-foreground">
+                {policiesRead[policyModal] ? 'Document read.' : 'Scroll to the bottom to mark this document as read.'}
+              </p>
+              <button type="button" onClick={() => setPolicyModal(null)} className="btn-crimson rounded-lg px-5 py-2 font-body text-sm">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

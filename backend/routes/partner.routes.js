@@ -159,8 +159,16 @@ const applyPartnerHotelDefaults = (body, user) => {
   if (body.propertyType === 'dharamshala') {
     body.taxEnabled = false;
     body.taxPercent = 0;
-    body.platform_commission_percentage = 0;
+    body.gstMode = 'manual';
+  } else {
+    const hasGstin = Boolean(String(body?.hotelGstin || user?.gstNumber || '').trim());
+    body.hotelGstin = String(body?.hotelGstin || user?.gstNumber || '').trim().toUpperCase();
+    body.taxEnabled = hasGstin && Boolean(body?.taxEnabled);
+    body.gstMode = String(body?.gstMode || '').trim().toLowerCase() === 'manual' ? 'manual' : 'automatic';
+    const p = Number(body?.taxPercent);
+    body.taxPercent = body.gstMode === 'manual' && Number.isFinite(p) && p >= 0 ? Math.min(50, p) : 0;
   }
+  body.platform_commission_percentage = 10;
   return body;
 };
 
@@ -306,7 +314,7 @@ router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerId: req.user._id })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent platform_commission_percentage propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage propertyTerms createdAt updatedAt')
       .lean();
 
     hotelQuery.limit(limit);
@@ -332,7 +340,7 @@ router.get('/requests', protect, authorize('admin'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerSubmitted: true })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent platform_commission_percentage propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage propertyTerms createdAt updatedAt')
       .lean();
     hotelQuery.limit(limit);
 

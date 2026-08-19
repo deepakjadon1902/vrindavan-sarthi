@@ -446,6 +446,7 @@ type Hotel = {
   checkOutTime?: string;
   taxEnabled?: boolean;
   taxPercent?: number;
+  gstMode?: 'manual' | 'automatic';
   propertyTerms?: PropertyTermsValue;
 };
 
@@ -621,7 +622,9 @@ const HotelDetail = () => {
     const base = Number(rt.pricePerNight || 0);
     const rtHotel = rt.hotel || hotel;
     if (!rtHotel?.taxEnabled) return base;
-    const percent = Math.min(50, Math.max(0, Number(rtHotel.taxPercent ?? 12)));
+    const percent = rtHotel.gstMode === 'automatic'
+      ? base <= 7500 ? 5 : 18
+      : Math.min(50, Math.max(0, Number(rtHotel.taxPercent ?? 12)));
     return Math.round(base + (base * percent) / 100);
   };
 

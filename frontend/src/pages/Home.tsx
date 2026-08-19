@@ -228,7 +228,9 @@ const Home = () => {
     const base = Number(roomType?.pricePerNight || 0);
     const hotel = roomType?.hotel || {};
     if (!hotel?.taxEnabled) return base;
-    const percent = Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? 12)));
+    const percent = hotel?.gstMode === 'automatic'
+      ? base <= 7500 ? 5 : 18
+      : Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? 12)));
     return Math.round(base + (base * percent) / 100);
   };
 
@@ -246,7 +248,9 @@ const Home = () => {
     if (!prices.length) return undefined;
     const base = Math.min(...prices);
     if (!hotel?.taxEnabled) return base;
-    const percent = Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? 12)));
+    const percent = hotel?.gstMode === 'automatic'
+      ? base <= 7500 ? 5 : 18
+      : Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? 12)));
     return Math.round(base + (base * percent) / 100);
   };
 

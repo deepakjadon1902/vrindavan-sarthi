@@ -963,7 +963,11 @@ const RoomTypeDetail = () => {
   const nights = checkIn && checkOut ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 1;
   const baseTotal = Number(roomType.pricePerNight || 0) * nights * roomQuantity;
   const taxEnabled = !isDharamshala && Boolean(hotel?.taxEnabled);
-  const taxPercent = taxEnabled ? Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? defaultHotelTaxPercent ?? 12))) : 0;
+  const taxPercent = taxEnabled
+    ? hotel?.gstMode === 'automatic'
+      ? Number(roomType.pricePerNight || 0) <= 7500 ? 5 : 18
+      : Math.min(50, Math.max(0, Number(hotel?.taxPercent ?? defaultHotelTaxPercent ?? 12)))
+    : 0;
   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
   const subtotal = baseTotal + taxTotal;
   const convenienceFee = isDharamshala ? 0 : Math.round(baseTotal * 0.0445);

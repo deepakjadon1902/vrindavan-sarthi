@@ -55,6 +55,9 @@ const normalizeHotelTaxControls = (body) => {
     const p = Number(body.taxPercent);
     body.taxPercent = Number.isFinite(p) && p >= 0 ? Math.min(50, p) : 12;
   }
+  if (typeof body.gstMode !== 'undefined') {
+    body.gstMode = String(body.gstMode || '').trim().toLowerCase() === 'manual' ? 'manual' : 'automatic';
+  }
   if (typeof body.platform_commission_percentage !== 'undefined') {
     const p = Number(body.platform_commission_percentage);
     body.platform_commission_percentage = Number.isFinite(p) && p >= 0 ? Math.min(100, p) : 10;
@@ -62,6 +65,7 @@ const normalizeHotelTaxControls = (body) => {
   if (String(body.propertyType || '').trim().toLowerCase() === 'dharamshala') {
     body.taxEnabled = false;
     body.taxPercent = 0;
+    body.gstMode = 'manual';
     body.platform_commission_percentage = 0;
   }
   return body;
@@ -81,6 +85,7 @@ const publicHotelListProjection = {
   priceSingleNonAC: 1,
   taxEnabled: 1,
   taxPercent: 1,
+  gstMode: 1,
   platform_commission_percentage: 1,
   hotelGstin: 1,
   googleMapLink: 1,
@@ -424,7 +429,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
-      .select('name propertyType location rating image status approvalStatus partnerName taxEnabled taxPercent platform_commission_percentage hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image status approvalStatus partnerName taxEnabled taxPercent gstMode platform_commission_percentage hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
       .lean();
 
     for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
@@ -510,6 +515,7 @@ router.get('/:id', async (req, res) => {
           petsAllowed: 1,
           taxEnabled: 1,
           taxPercent: 1,
+          gstMode: 1,
           hotelGstin: 1,
           googleMapLink: 1,
           nearestTemple: 1,
