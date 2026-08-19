@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
 import { APP_LOGO_URL } from '@/lib/brand';
+import PasswordInput from '@/components/shared/PasswordInput';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -55,13 +56,13 @@ const AdminLogin = () => {
             </div>
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Password</label>
-              <input
-                type="password"
+              <PasswordInput
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={setPassword}
+                autoComplete="current-password"
                 className="w-full px-4 py-3 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                placeholder="••••••••"
+                placeholder="Password"
               />
             </div>
             <button

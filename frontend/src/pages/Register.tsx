@@ -7,6 +7,7 @@ import templeImg from '@/assets/images/temple-about.jpg';
 import { APP_LOGO_URL } from '@/lib/brand';
 import { Building2, CheckCircle2, ExternalLink, FileText, ShieldCheck, UserRound } from 'lucide-react';
 import type { PartnerDocumentUpload } from '@/types/auth.types';
+import PasswordInput from '@/components/shared/PasswordInput';
 
 const DOCUMENT_TYPES = [
   { value: 'aadhar_card', label: 'Aadhaar Card' },
@@ -372,11 +373,25 @@ const Register = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Password *</label>
-                <input type="password" required value={formData.password} onChange={(e) => update('password', e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="••••••••" />
+                <PasswordInput
+                  required
+                  value={formData.password}
+                  onChange={(value) => update('password', value)}
+                  autoComplete="new-password"
+                  className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="Password"
+                />
               </div>
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Confirm Password *</label>
-                <input type="password" required value={formData.confirmPassword} onChange={(e) => update('confirmPassword', e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="••••••••" />
+                <PasswordInput
+                  required
+                  value={formData.confirmPassword}
+                  onChange={(value) => update('confirmPassword', value)}
+                  autoComplete="new-password"
+                  className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                  placeholder="Confirm password"
+                />
               </div>
             </div>
             {role === 'partner' && (

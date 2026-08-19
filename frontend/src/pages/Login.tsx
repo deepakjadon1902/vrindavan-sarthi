@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
+import PasswordInput from '@/components/shared/PasswordInput';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -103,7 +104,14 @@ const Login = () => {
             </div>
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Password</label>
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="............." />
+              <PasswordInput
+                required
+                value={password}
+                onChange={setPassword}
+                autoComplete="current-password"
+                className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                placeholder="............."
+              />
             </div>
             <div className="text-right">
               <Link to="/forgot-password" className="font-body text-xs text-brand-gold hover:underline">Forgot Password?</Link>
