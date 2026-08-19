@@ -253,20 +253,6 @@ const CabDetail = () => {
                 <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Date</label><input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                 <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Time</label><input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                 <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Route</label><select value={pickup && dropoff ? `${pickup}|||${dropoff}` : ''} onChange={(e) => { const [from, to] = e.target.value.split('|||'); setPickup(from || ''); setDropoff(to || ''); setCabType(''); setSelectedFareRuleId(''); }} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select route</option>{routeOptions.map((route) => <option key={route.key} value={route.key}>{route.label}</option>)}</select></div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Passengers</label>
-                    <input
-                      type="number"
-                      min={fixedPassengerCount}
-                      max={fixedPassengerCount}
-                      value={fixedPassengerCount}
-                      readOnly
-                      className="w-full rounded-lg border border-border bg-muted px-4 py-2.5 font-body text-sm font-semibold text-foreground focus:outline-none"
-                    />
-                  </div>
-                  <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Vehicle</label><select value={selectedFareRuleId} onChange={(e) => { const next = vehicleOptions.find((option) => option.id === e.target.value); setSelectedFareRuleId(e.target.value); setCabType(next?.cabType || ''); }} disabled={!vehicleOptions.length} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 disabled:opacity-60"><option value="">Select vehicle</option>{vehicleOptions.map((vehicle) => <option key={vehicle.id || vehicle.cabType} value={vehicle.id}>{vehicle.cabType} - Rs. {vehicle.baseFare.toLocaleString('en-IN')}</option>)}</select></div>
-                </div>
               </div>
 
               <div className="mt-5 rounded-lg border border-border bg-secondary/45 p-4">
