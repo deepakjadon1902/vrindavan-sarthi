@@ -140,6 +140,13 @@ const normalizeBankDetails = (body) => {
   return { data: { account_holder_name, bank_name, account_number, ifsc_code, verified: true, updatedAt: new Date() } };
 };
 
+const MIN_PAYOUT_THRESHOLD = 1000;
+const PAYOUT_CYCLE_DAYS = ['Monday', 'Wednesday'];
+const isPayoutCycleDay = (date = new Date()) => {
+  const day = date.getDay();
+  return day === 1 || day === 3;
+};
+
 const applyPartnerHotelDefaults = (body, user) => {
   const businessName = String(user?.businessName || '').trim();
   const businessAddress = String(user?.businessAddress || '').trim();
@@ -185,7 +192,7 @@ router.post('/hotels', protect, authorize('partner'), async (req, res) => {
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     body.propertyTerms = await resolvePropertyTermsForHotel(body.propertyTerms, req.user);
-    if (!hasAnyTermsText(body.propertyTerms?.sections)) {
+    if (body.propertyType !== 'dharamshala' && !hasAnyTermsText(body.propertyTerms?.sections)) {
       return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
     }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
@@ -219,7 +226,7 @@ router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
     delete body.propertyTerms;
     if (typeof propertyTerms !== 'undefined') {
       propertyTerms = await resolvePropertyTermsForHotel(propertyTerms, req.user);
-      if (!hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
+      if (body.propertyType !== 'dharamshala' && !hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
         return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
       }
     }
@@ -495,6 +502,13 @@ router.get('/payouts', protect, authorize('admin'), async (req, res) => {
           refunds: Math.round(Number(ledger.refunds || 0)),
           tdsTcs: Math.round(Number(ledger.tdsTcs || 0)),
           bookingCount: Number(ledger.bookingCount || 0),
+          minimumThreshold: MIN_PAYOUT_THRESHOLD,
+          eligibleForPayout: Math.round(Number(ledger.netPayableRemittanceBalance || 0)) >= MIN_PAYOUT_THRESHOLD,
+          rolloverAmount: Math.round(Number(ledger.netPayableRemittanceBalance || 0)) < MIN_PAYOUT_THRESHOLD
+            ? Math.round(Number(ledger.netPayableRemittanceBalance || 0))
+            : 0,
+          payoutCycleDays: PAYOUT_CYCLE_DAYS,
+          isPayoutCycleToday: isPayoutCycleDay(),
           isPaid: Boolean(partner.payoutSettlement?.isPaid),
           paidAt: partner.payoutSettlement?.paidAt || null,
           note: partner.payoutSettlement?.note || '',
@@ -509,6 +523,49 @@ router.put('/payouts/:partnerId/settled', protect, authorize('admin'), async (re
   try {
     const isPaid = Boolean(req.body?.isPaid);
     const note = String(req.body?.note || '').trim();
+    if (isPaid && !isPayoutCycleDay()) {
+      return res.status(400).json({ success: false, message: 'Payout release is allowed only on Monday and Wednesday cycles.' });
+    }
+    if (isPaid) {
+      const [ledger] = await Booking.aggregate([
+        {
+          $match: {
+            partnerId: new User.base.Types.ObjectId(req.params.partnerId),
+            paymentStatus: 'paid',
+            bookingStatus: 'checked_out',
+            payout_status: { $ne: 'settled' },
+          },
+        },
+        {
+          $group: {
+            _id: '$partnerId',
+            netPayable: {
+              $sum: {
+                $let: {
+                  vars: {
+                    net: {
+                      $subtract: [
+                        { $ifNull: ['$grossForHotel', { $add: ['$baseAmount', '$taxAmount'] }] },
+                        {
+                          $add: [
+                            { $multiply: ['$baseAmount', { $divide: [{ $ifNull: ['$platformCommissionPercent', 0] }, 100] }] },
+                            { $ifNull: ['$paymentGatewayFeeAmount', { $multiply: ['$baseAmount', 0.02] }] },
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                  in: { $cond: [{ $gt: ['$$net', 0] }, '$$net', 0] },
+                },
+              },
+            },
+          },
+        },
+      ]);
+      if (Math.round(Number(ledger?.netPayable || 0)) < MIN_PAYOUT_THRESHOLD) {
+        return res.status(400).json({ success: false, message: `Minimum payout threshold is Rs. ${MIN_PAYOUT_THRESHOLD}. Balance will roll over to the next cycle.` });
+      }
+    }
     const partner = await User.findOneAndUpdate(
       { _id: req.params.partnerId, role: 'partner' },
       {

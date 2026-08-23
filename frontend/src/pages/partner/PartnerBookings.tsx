@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
-import { ClipboardList, Calendar, User, Phone, Mail } from 'lucide-react';
+import { ClipboardList, Calendar, User, Phone, Mail, CheckCircle2, IndianRupee } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import BookingFormDetails from '@/components/BookingFormDetails';
@@ -14,12 +14,15 @@ const PartnerBookings = () => {
     partnerVerifyPayment,
     partnerRejectPayment,
     adminCancelBooking,
+    partnerCheckIn,
   } = useBookingStore();
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'settled'>('all');
   const [expandedBookingId, setExpandedBookingId] = useState<string>('');
   const [cancelBookingId, setCancelBookingId] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [cancelDetails, setCancelDetails] = useState('');
+  const [checkInBookingId, setCheckInBookingId] = useState('');
+  const [guestSignature, setGuestSignature] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -40,6 +43,12 @@ const PartnerBookings = () => {
 
   const needsPartnerVerify = (b: any) =>
     b.paymentMethod === 'online' && b.paymentStatus === 'pending' && b.verificationStage === 'pending_partner';
+  const needsCashBalance = (b: any) =>
+    b.paymentOption === 'advance_30' && Number(b.balanceAmount || 0) > 0 && !['cancelled', 'settled'].includes(String(b.bookingStatus || ''));
+  const canPartnerCheckIn = (b: any) =>
+    ['hotel', 'room', 'room_type'].includes(String(b.bookingType || '')) &&
+    b.paymentStatus === 'paid' &&
+    b.bookingStatus === 'confirmed';
 
   const handlePartnerVerify = async (id: string) => {
     const res = await partnerVerifyPayment(id);
@@ -64,6 +73,22 @@ const PartnerBookings = () => {
       setCancelDetails('');
     } else {
       toast.error(res.error || 'Cancel failed');
+    }
+  };
+
+  const handlePartnerCheckIn = async () => {
+    if (!checkInBookingId) return;
+    if (!guestSignature.trim()) return toast.error('Guest full name / digital signature is required');
+    const res = await partnerCheckIn(checkInBookingId, guestSignature.trim());
+    if (res.success) {
+      const checkedAt = res.data?.checkedInAt
+        ? new Date(res.data.checkedInAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+        : new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
+      toast.success(`Checked In: ${checkedAt}`);
+      setCheckInBookingId('');
+      setGuestSignature('');
+    } else {
+      toast.error(res.error || 'Check-in failed');
     }
   };
 
@@ -105,6 +130,34 @@ const PartnerBookings = () => {
                 <div className="flex gap-2">
                   <button onClick={handlePartnerCancel} className="rounded-lg bg-destructive px-3 py-2 font-body text-xs text-primary-foreground">Confirm Cancel</button>
                   <button onClick={() => { setCancelBookingId(''); setCancelReason(''); setCancelDetails(''); }} className="rounded-lg border border-border px-3 py-2 font-body text-xs">Close</button>
+                </div>
+              </div>
+            </div>
+          )}
+          {checkInBookingId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4">
+              <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-2xl">
+                <h3 className="font-heading text-xl font-semibold text-foreground">Mark Guest Checked-In</h3>
+                <p className="mt-1 font-body text-sm text-muted-foreground">
+                  Enter the guest full name as a digital signature. The system timestamp will be saved automatically.
+                </p>
+                <label className="mt-4 block">
+                  <span className="font-body text-xs font-semibold text-muted-foreground">Guest Full Name (Digital Signature)</span>
+                  <input
+                    value={guestSignature}
+                    onChange={(e) => setGuestSignature(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-body text-sm"
+                    placeholder="Guest full name"
+                    autoFocus
+                  />
+                </label>
+                <div className="mt-5 flex justify-end gap-2">
+                  <button onClick={() => { setCheckInBookingId(''); setGuestSignature(''); }} className="rounded-lg border border-border px-4 py-2 font-body text-xs">
+                    Cancel
+                  </button>
+                  <button onClick={handlePartnerCheckIn} className="rounded-lg bg-blue-600 px-4 py-2 font-body text-xs font-semibold text-white">
+                    Submit Check-In
+                  </button>
                 </div>
               </div>
             </div>
@@ -164,6 +217,20 @@ const PartnerBookings = () => {
                     <span>{new Date(b.createdAt).toLocaleDateString()}</span>
                   </div>
 
+                  {needsCashBalance(b) && (
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-brand-saffron/35 bg-brand-saffron/10 px-3 py-2 font-body text-sm font-extrabold text-foreground">
+                      <IndianRupee size={15} className="text-brand-saffron" />
+                      Collect 70% Balance in Cash: Rs. {Number(b.balanceAmount || 0).toLocaleString('en-IN')}
+                    </div>
+                  )}
+
+                  {b.checkedInAt && (
+                    <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 font-body text-xs text-blue-800">
+                      Checked In: {new Date(b.checkedInAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                      {b.guestDigitalSignature ? ` - Signed by ${b.guestDigitalSignature}` : ''}
+                    </div>
+                  )}
+
                   <button
                     onClick={() => setExpandedBookingId((current) => (current === b.id ? '' : b.id))}
                     className="mt-3 px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted"
@@ -183,6 +250,19 @@ const PartnerBookings = () => {
                       className="mt-3 px-3 py-1.5 rounded-lg text-xs font-body bg-destructive/10 text-destructive hover:bg-destructive/15"
                     >
                       Cancel Booking
+                    </button>
+                  )}
+
+                  {canPartnerCheckIn(b) && (
+                    <button
+                      onClick={() => {
+                        setCheckInBookingId(b.id);
+                        setGuestSignature(b.customerFullName || b.userName || '');
+                      }}
+                      className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 font-body text-xs font-semibold text-white hover:bg-blue-700"
+                    >
+                      <CheckCircle2 size={13} />
+                      Mark Guest Checked-In
                     </button>
                   )}
 

@@ -39,6 +39,10 @@ export interface Booking {
   paymentMethod: 'online' | 'doorstep';
   paymentStatus: 'pending' | 'paid' | 'failed';
   bookingStatus: 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled';
+  checkedInAt?: string;
+  checkedInByPartnerId?: string;
+  checkedInByPartnerName?: string;
+  guestDigitalSignature?: string;
   verificationStage?: 'pending_partner' | 'pending_admin' | 'verified' | 'rejected';
   partnerPaymentVerified?: boolean;
   adminPaymentVerified?: boolean;
@@ -170,6 +174,10 @@ const normalizeBooking = (b: unknown): Booking => {
     paymentMethod: (getString(obj, 'paymentMethod') as Booking['paymentMethod']) || 'online',
     paymentStatus: (getString(obj, 'paymentStatus') as Booking['paymentStatus']) || 'pending',
     bookingStatus: (getString(obj, 'bookingStatus') as Booking['bookingStatus']) || 'pending',
+    checkedInAt: getString(obj, 'checkedInAt') || undefined,
+    checkedInByPartnerId: getString(obj, 'checkedInByPartnerId') || undefined,
+    checkedInByPartnerName: getString(obj, 'checkedInByPartnerName') || undefined,
+    guestDigitalSignature: getString(obj, 'guestDigitalSignature') || undefined,
     verificationStage: (getString(obj, 'verificationStage') as Booking['verificationStage']) || undefined,
     partnerPaymentVerified: typeof obj.partnerPaymentVerified === 'boolean' ? obj.partnerPaymentVerified : undefined,
     adminPaymentVerified: typeof obj.adminPaymentVerified === 'boolean' ? obj.adminPaymentVerified : undefined,
@@ -256,6 +264,7 @@ interface BookingState {
   rejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerVerifyPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerRejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  partnerCheckIn: (id: string, guestDigitalSignature: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
 }
 
 export const useBookingStore = create<BookingState>()((set, get) => ({
@@ -481,6 +490,23 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
       return { success: true, data: updated };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Reject failed') };
+    }
+  },
+
+  partnerCheckIn: async (id, guestDigitalSignature) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/partner-check-in`, { guestDigitalSignature }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Check-in failed') };
     }
   },
 }));

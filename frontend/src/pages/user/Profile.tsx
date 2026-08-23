@@ -318,14 +318,7 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
                           <select value={form.businessType} onChange={(e) => setForm({ ...form, businessType: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 transition-all">
                             <option value="">Select type</option>
                             <option>Hotel</option>
-                            <option>Guest House</option>
                             <option>Dharamshala</option>
-                            <option>Resort</option>
-                            <option>Hostel</option>
-                            <option>Homestay</option>
-                            <option>Tour Operator</option>
-                            <option>Cab Service</option>
-                            <option>Other</option>
                           </select>
                         ) : (
                           <p className="font-body text-sm text-foreground font-medium">{user.businessType || '-'}</p>

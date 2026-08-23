@@ -25,10 +25,16 @@ const PartnerPayments = () => {
     .filter((b) => typeFilter === 'all' || b.bookingType === typeFilter);
 
   const getPrice = (b: Booking) => Number(b.checkoutSubtotal || b.totalAmount || 0);
+  const getGross = (b: Booking) => Number(b.grossForHotel || (Number(b.baseAmount || 0) + Number(b.taxAmount || 0)) || getPrice(b));
+  const getGatewayFee = (b: Booking) => Number(b.paymentGatewayFeeAmount || 0);
   const getCommissionAmount = (b: Booking) => Number(b.platformCommissionAmount || Math.round((getPrice(b) * Number(b.platformCommissionPercent || 0)) / 100));
   const getNetPayout = (b: Booking) => Number(b.partnerNetPayout ?? Math.max(0, getPrice(b) - getCommissionAmount(b)));
   const totalEarnings = bookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + getNetPayout(b), 0);
   const pendingAmount = bookings.filter(b => b.paymentStatus === 'pending').reduce((s, b) => s + getNetPayout(b), 0);
+  const payableBalance = bookings
+    .filter((b) => b.paymentStatus === 'paid' && b.bookingStatus === 'checked_out' && b.payout_status !== 'settled')
+    .reduce((s, b) => s + getNetPayout(b), 0);
+  const payoutEligible = payableBalance >= 1000;
 
   const paymentIcon = (s: string) => {
     if (s === 'paid') return <CheckCircle2 size={14} className="text-brand-green" />;
@@ -55,6 +61,22 @@ const PartnerPayments = () => {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-crimson/10 flex items-center justify-center"><CreditCard size={20} className="text-brand-crimson" /></div>
             <div><p className="font-body text-xs text-muted-foreground">Total Transactions</p><p className="font-heading text-xl font-bold text-foreground">{bookings.length}</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-body text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Payout Rule</p>
+            <p className="font-heading text-lg font-semibold text-foreground">Bi-weekly payout cycles: Monday and Wednesday</p>
+          </div>
+          <div className="rounded-lg border border-border bg-background px-4 py-2 text-right">
+            <p className="font-body text-xs text-muted-foreground">Eligible checked-out balance</p>
+            <p className="font-heading text-xl font-bold text-foreground">Rs. {payableBalance.toLocaleString('en-IN')}</p>
+            <p className={`font-body text-xs font-semibold ${payoutEligible ? 'text-brand-green' : 'text-brand-saffron'}`}>
+              {payoutEligible ? 'Eligible for next cycle' : 'Below Rs. 1,000 - rolls over'}
+            </p>
           </div>
         </div>
       </div>
@@ -115,18 +137,22 @@ const PartnerPayments = () => {
                   </p>
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-3 font-body text-xs">
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-2 rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-3 font-body text-xs">
                 <div>
-                  <span className="block text-muted-foreground">Price</span>
-                  <span className="font-semibold text-foreground">₹{getPrice(b).toLocaleString('en-IN')}</span>
+                  <span className="block text-muted-foreground">Gross Booking Amount</span>
+                  <span className="font-semibold text-foreground">Rs. {getGross(b).toLocaleString('en-IN')}</span>
                 </div>
                 <div>
-                  <span className="block text-muted-foreground">Vrindavan Sarthi Enterprises Commission ({Number(b.platformCommissionPercent || 0)}%)</span>
-                  <span className="font-semibold text-destructive">- ₹{getCommissionAmount(b).toLocaleString('en-IN')}</span>
+                  <span className="block text-muted-foreground">GST & Gateway Charges</span>
+                  <span className="font-semibold text-destructive">- Rs. {(Number(b.taxAmount || 0) + getGatewayFee(b)).toLocaleString('en-IN')}</span>
                 </div>
                 <div>
-                  <span className="block text-muted-foreground">Net Payout</span>
-                  <span className="font-semibold text-brand-green">₹{getNetPayout(b).toLocaleString('en-IN')}</span>
+                  <span className="block text-muted-foreground">Platform Commission ({Number(b.platformCommissionPercent || 0)}%)</span>
+                  <span className="font-semibold text-destructive">- Rs. {getCommissionAmount(b).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <span className="block text-muted-foreground">Net Payable to Partner</span>
+                  <span className="font-semibold text-brand-green">Rs. {getNetPayout(b).toLocaleString('en-IN')}</span>
                 </div>
               </div>
             </div>

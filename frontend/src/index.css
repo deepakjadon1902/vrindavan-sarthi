@@ -108,12 +108,15 @@
     font-size: 17px;
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   body {
     @apply bg-background text-foreground font-body antialiased;
     font-size: 1rem;
     line-height: 1.6;
-    text-rendering: geometricPrecision;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     background:
       linear-gradient(135deg, hsl(var(--brand-gold) / 0.055), transparent 34%),
       linear-gradient(225deg, hsl(var(--brand-green) / 0.055), transparent 36%),
@@ -148,6 +151,11 @@
   canvas,
   svg {
     max-width: 100%;
+    image-rendering: auto;
+  }
+
+  svg {
+    shape-rendering: geometricPrecision;
   }
 
   ::selection {
@@ -589,8 +597,20 @@
 
     .premium-tilt-card,
     .premium-tilt-card:hover,
-    .card-hover:hover {
+    .card-hover:hover,
+    .btn-gold:hover,
+    .btn-crimson:hover,
+    .premium-focus-card:hover,
+    .premium-icon-button:hover {
       transform: none;
+    }
+
+    .premium-depth-image,
+    svg,
+    img {
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
     }
   }
 

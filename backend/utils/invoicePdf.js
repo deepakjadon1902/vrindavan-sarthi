@@ -6,7 +6,7 @@ const COMPANY_ADDRESS = 'Raja Wala Mandir, In front of Giriraj Ji Maharaj, Govar
 const COMPANY_PHONE = '8679820256';
 const COMPANY_EMAIL = 'vrindavansarthi108@gmail.com';
 
-const PAGE = { width: 612, height: 792, margin: 42 };
+const PAGE = { width: 612, height: 792, margin: 34 };
 const COLORS = {
   ink: [31, 41, 55],
   muted: [107, 114, 128],
@@ -153,20 +153,19 @@ class PdfCanvas {
   }
 
   header() {
-    this.rect(0, PAGE.height - 92, PAGE.width, 92, COLORS.cream);
-    this.rect(0, PAGE.height - 92, 8, 92, COLORS.gold);
-    this.rect(28, 716, 52, 52, COLORS.white, COLORS.gold);
+    this.rect(0, PAGE.height - 78, PAGE.width, 78, COLORS.cream);
+    this.rect(0, PAGE.height - 78, 8, 78, COLORS.gold);
+    this.rect(24, 724, 42, 42, COLORS.white, COLORS.gold);
     if (PdfCanvas.hasLogo) {
-      this.image('Logo', 31, 719, 46, 46);
+      this.image('Logo', 27, 727, 36, 36);
     } else {
-      this.text('VS', 45, 738, { size: 14, font: 'F2', color: COLORS.crimson });
+      this.text('VS', 38, 742, { size: 12, font: 'F2', color: COLORS.crimson });
     }
-    this.text(COMPANY_NAME, 98, 746, { size: 20, font: 'F2', color: COLORS.crimson });
-    this.wrapped(COMPANY_ADDRESS, 100, 727, 360, { size: 8.5, color: COLORS.muted, lineHeight: 10 });
-    this.text(`Phone: ${COMPANY_PHONE}`, 100, 703, { size: 8.5, color: COLORS.muted });
-    this.text(`Email: ${COMPANY_EMAIL}`, 100, 691, { size: 8.5, color: COLORS.muted });
-    this.text(`Generated: ${todayText()}`, 476, 746, { size: 8.5, color: COLORS.muted });
-    this.y = 658;
+    this.text(COMPANY_NAME, 82, 750, { size: 17, font: 'F2', color: COLORS.crimson });
+    this.wrapped(COMPANY_ADDRESS, 84, 733, 370, { size: 7.8, color: COLORS.muted, lineHeight: 9 });
+    this.text(`Phone: ${COMPANY_PHONE} | Email: ${COMPANY_EMAIL}`, 84, 710, { size: 7.8, color: COLORS.muted });
+    this.text(`Generated: ${todayText()}`, 482, 750, { size: 8, color: COLORS.muted });
+    this.y = 676;
   }
 
   footer() {
@@ -180,7 +179,7 @@ class PdfCanvas {
     this.ensure(54);
     this.text(title, PAGE.margin, this.y, { size: 18, font: 'F2', color: COLORS.ink });
     if (subtitle) this.text(subtitle, PAGE.margin, this.y - 17, { size: 9, color: COLORS.muted });
-    this.y -= subtitle ? 42 : 30;
+    this.y -= subtitle ? 34 : 24;
   }
 
   section(title, rows = []) {
@@ -247,19 +246,19 @@ class PdfCanvas {
   compactSection(title, rows = [], x = PAGE.margin, width = PAGE.width - PAGE.margin * 2) {
     const filtered = rows.filter(([, value]) => isFilled(value));
     if (!filtered.length) return;
-    const rowHeight = 17;
-    const height = 28 + filtered.length * rowHeight;
+    const rowHeight = 15;
+    const height = 24 + filtered.length * rowHeight;
     this.ensure(height + 8);
     this.rect(x, this.y - height, width, height, COLORS.white, COLORS.border);
-    this.text(title.toUpperCase(), x + 12, this.y - 17, { size: 8.5, font: 'F2', color: COLORS.crimson });
-    let cursor = this.y - 36;
+    this.text(title.toUpperCase(), x + 10, this.y - 15, { size: 8, font: 'F2', color: COLORS.crimson });
+    let cursor = this.y - 31;
     filtered.forEach(([label, value]) => {
-      this.text(label, x + 12, cursor, { size: 8.5, color: COLORS.muted });
-      const lines = wrapText(value, width - 126, 8.8);
-      this.wrapped(lines.join(' '), x + 122, cursor, width - 136, { size: 8.8, color: COLORS.ink, lineHeight: 10 });
+      this.text(label, x + 10, cursor, { size: 8, color: COLORS.muted });
+      const lines = wrapText(value, width - 118, 8.2);
+      this.wrapped(lines.join(' '), x + 114, cursor, width - 124, { size: 8.2, color: COLORS.ink, lineHeight: 9 });
       cursor -= rowHeight;
     });
-    this.y -= height + 12;
+    this.y -= height + 8;
   }
 }
 
@@ -317,7 +316,7 @@ const buildPdf = ({ title = `${COMPANY_NAME} Invoice`, documentLabel, lines = []
     canvas.compactSection('Additional Notes', grouped.notes);
   }
   lines.filter(isFilled).forEach((line) => canvas.note(line));
-  canvas.note(`For booking help, payment issues, order support, or cancellation assistance, contact Vrindavan Sarthi at ${COMPANY_PHONE} or ${COMPANY_EMAIL}. Share the invoice reference number for faster support.`);
+  canvas.note(`Support: ${COMPANY_PHONE} | ${COMPANY_EMAIL}. Share the invoice reference number for faster help.`);
 
   const pageStreams = canvas.finish();
   const objects = [];

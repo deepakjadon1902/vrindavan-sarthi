@@ -9,10 +9,11 @@ import PasswordInput from '@/components/shared/PasswordInput';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isLoading } = useAuthStore();
+  const { login, isLoading, logout } = useAuthStore();
   const settings = useSettingsStore((s) => s.settings);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const isPartnerLogin = searchParams.get('role') === 'partner';
 
   useEffect(() => {
     const error = searchParams.get('error');
@@ -35,6 +36,11 @@ const Login = () => {
     const result = await login({ email, password });
     if (result.success) {
       const user = useAuthStore.getState().user;
+      if (isPartnerLogin && user?.role !== 'partner') {
+        logout();
+        toast.error('Please use a partner account to access Partner Login.');
+        return;
+      }
       if (user) {
         const displayName =
           user.role === 'partner'
@@ -80,9 +86,15 @@ const Login = () => {
             <h2 className="font-brand text-2xl text-brand-gold mt-2">{settings.siteName}</h2>
           </div>
 
-          <h1 className="font-heading text-3xl font-semibold text-foreground mb-2">Welcome Back</h1>
-          <p className="font-body text-muted-foreground mb-8">Sign in to continue your sacred journey</p>
+          <h1 className="font-heading text-3xl font-semibold text-foreground mb-2">
+            {isPartnerLogin ? 'Partner Login' : 'Welcome Back'}
+          </h1>
+          <p className="font-body text-muted-foreground mb-8">
+            {isPartnerLogin ? 'Sign in to manage your listings and bookings' : 'Sign in to continue your booking journey'}
+          </p>
 
+          {!isPartnerLogin && (
+            <>
           <button
             onClick={handleGoogle}
             className="w-full flex items-center justify-center gap-3 border border-border rounded-xl py-3 font-body text-sm hover:bg-muted transition-colors mb-6"
@@ -96,6 +108,9 @@ const Login = () => {
             <span className="font-body text-xs text-muted-foreground">OR</span>
             <div className="flex-1 h-px bg-border" />
           </div>
+
+            </>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -122,8 +137,10 @@ const Login = () => {
           </form>
 
           <p className="font-body text-sm text-muted-foreground text-center mt-6">
-            New to {settings.siteName}?{' '}
-            <Link to="/register" className="text-brand-gold font-semibold hover:underline">Register</Link>
+            {isPartnerLogin ? 'New partner?' : `New to ${settings.siteName}?`}{' '}
+            <Link to={isPartnerLogin ? '/register?role=partner' : '/register'} className="text-brand-gold font-semibold hover:underline">
+              {isPartnerLogin ? 'Register as Partner' : 'Register'}
+            </Link>
           </p>
         </div>
       </div>

@@ -291,6 +291,38 @@ const sendOtpEmail = async ({ to, otp }) => {
   await transport.sendMail({ from, to, subject, text });
 };
 
+const sendPartnerRegistrationAlert = async (user) => {
+  const to = 'vrindavansarthi108@gmail.com';
+  const timestamp = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  const rows = [
+    ['Partner Name', user.name],
+    ['Contact Number', user.businessPhone || user.phone],
+    ['Property Name', user.businessName],
+    ['Category', user.businessType || ''],
+    ['Timestamp', timestamp],
+  ];
+  const subject = `New partner registration: ${user.businessName || user.name}`;
+  const text = ['New partner registration completed', ...rows.map(([label, value]) => `${label}: ${value || '-'}`)].join('\n');
+
+  try {
+    if (canSendResend()) {
+      const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+      const from = String(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
+      await resendSendEmail({ apiKey, from, to, subject, text });
+      return;
+    }
+    if (!canSendEmail()) {
+      console.warn(`[VVS] SMTP not configured (${getMissingSmtpKeys().join(', ') || 'unknown missing keys'}). Partner registration alert skipped for ${user.email}.`);
+      return;
+    }
+    const transport = buildMailer();
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+    await transport.sendMail({ from, to, subject, text });
+  } catch (err) {
+    console.warn('[VVS] Partner registration alert failed:', err?.code || err?.name || err, err?.message || '');
+  }
+};
+
 const getFrontendBase = () =>
   process.env.FRONTEND_BASE_URL ||
   process.env.PUBLIC_SITE_URL ||
@@ -470,6 +502,10 @@ router.post('/register', async (req, res) => {
       role: role || 'user',
       ...(role === 'partner' ? { businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription, partnerDocuments, partnerPolicyConsent, partnerStatus: 'pending' } : {}),
     });
+
+    if (role === 'partner') {
+      void sendPartnerRegistrationAlert(user);
+    }
 
     const token = generateToken(user._id);
     const { password: _, ...userData } = user.toObject();

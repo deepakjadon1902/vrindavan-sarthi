@@ -291,6 +291,7 @@ const bookingDetailFields = [
   'base_amount hotel_gst_amount convenience_fee customer_total advance_paid balance_at_property commission_rate commission_amount payment_gateway_fee gross_for_hotel hotel_net_payout payout_status hotel_gstin hotel_invoice_number',
   'platformCommissionPercent platformCommissionAmount grossForHotel paymentGatewayFeeAmount partnerNetPayout',
   'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo',
+  'checkedInAt checkedInByPartnerId checkedInByPartnerName guestDigitalSignature',
   'acceptedPropertyTerms',
   'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount createdAt',
 ].join(' ');
@@ -302,6 +303,16 @@ const sanitizeCustomerBooking = (booking) => {
   delete plain.roomUnitIds;
   delete plain.roomNumber;
   delete plain.roomNumbers;
+  delete plain.platformCommissionPercent;
+  delete plain.platformCommissionAmount;
+  delete plain.commission_rate;
+  delete plain.commission_amount;
+  delete plain.grossForHotel;
+  delete plain.gross_for_hotel;
+  delete plain.paymentGatewayFeeAmount;
+  delete plain.payment_gateway_fee;
+  delete plain.partnerNetPayout;
+  delete plain.hotel_net_payout;
   return plain;
 };
 
@@ -759,9 +770,9 @@ router.get('/my', protect, async (req, res) => {
       for (const b of bookings) b.itemImage = stripLargeInlineImage(b.itemImage) || '/placeholder.svg';
     }
     // Redact customer-hidden operational details. Admin/partner APIs keep full data.
-    for (const b of bookings) {
-      delete b.roomUnitId;
-      delete b.roomNumber;
+    for (let i = 0; i < bookings.length; i += 1) {
+      bookings[i] = sanitizeCustomerBooking(bookings[i]);
+      const b = bookings[i];
       if (b.bookingType === 'cab' && b.bookingStatus !== 'confirmed') {
         b.assignedDriverPhone = '';
         b.assignedDriverEmail = '';
@@ -1093,6 +1104,41 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
     if (nextStatus === 'cancelled') booking.payout_status = 'cancelled';
     await booking.save();
     res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Partner: digital guest check-in with signature audit trail
+router.put('/:id/partner-check-in', protect, authorize('partner'), async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ _id: req.params.id, partnerId: req.user._id });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (!['hotel', 'room', 'room_type'].includes(String(booking.bookingType || ''))) {
+      return res.status(400).json({ success: false, message: 'Check-in is only available for lodging bookings' });
+    }
+    if (booking.bookingStatus === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Cancelled booking cannot be checked in' });
+    }
+    if (booking.paymentStatus !== 'paid') {
+      return res.status(400).json({ success: false, message: 'Payment must be verified before check-in' });
+    }
+
+    const guestDigitalSignature = normalize(req.body?.guestDigitalSignature || req.body?.guestFullName);
+    if (!guestDigitalSignature) {
+      return res.status(400).json({ success: false, message: 'Guest full name / digital signature is required' });
+    }
+
+    const checkedInAt = new Date();
+    booking.bookingStatus = 'checked_in';
+    booking.payout_status = 'checked_in';
+    booking.checkedInAt = checkedInAt;
+    booking.checkedInByPartnerId = req.user._id;
+    booking.checkedInByPartnerName = req.user.name;
+    booking.guestDigitalSignature = guestDigitalSignature;
+    await booking.save();
+
+    res.json({ success: true, data: booking, message: `Checked In: ${checkedInAt.toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}` });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

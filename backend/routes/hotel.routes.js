@@ -29,11 +29,27 @@ const getLocationSearchTerms = (value) => {
   return Array.from(terms);
 };
 
+const redactCommissionFields = (value) => {
+  if (!value || typeof value !== 'object') return value;
+  delete value.platform_commission_percentage;
+  delete value.platformCommissionPercent;
+  delete value.platformCommissionAmount;
+  delete value.commission_rate;
+  delete value.commission_amount;
+  delete value.grossForHotel;
+  delete value.gross_for_hotel;
+  delete value.paymentGatewayFeeAmount;
+  delete value.payment_gateway_fee;
+  delete value.partnerNetPayout;
+  delete value.hotel_net_payout;
+  return value;
+};
+
 const normalizePublicHotel = (hotel) => {
   if (!hotel) return hotel;
   const imageSet = normalizePublicImageSet(hotel, { max: 4 });
   return {
-    ...hotel,
+    ...redactCommissionFields(hotel),
     ...imageSet,
   };
 };
@@ -86,7 +102,6 @@ const publicHotelListProjection = {
   taxEnabled: 1,
   taxPercent: 1,
   gstMode: 1,
-  platform_commission_percentage: 1,
   hotelGstin: 1,
   googleMapLink: 1,
   nearestTemple: 1,

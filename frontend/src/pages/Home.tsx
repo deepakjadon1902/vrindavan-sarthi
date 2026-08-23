@@ -46,11 +46,11 @@ const services = [
 ];
 
 const plannerServices = [
-  { key: 'hotels', label: 'धर्मशालाएं', path: '/hotels', type: 'dharamshala', icon: BedDouble, hint: 'अभी बुक करें' },
-  { key: 'rooms', label: 'होटल', path: '/hotels', type: 'hotel', icon: Building2, hint: 'अभी बुक करें' },
-  { key: 'cabs', label: 'टैक्सी और कैब', path: '/cabs', icon: CarTaxiFront, hint: 'अभी बुक करें' },
-  { key: 'tours', label: 'यात्रा पैकेज', path: '/tours', icon: Gift, hint: 'देखें' },
-  { key: 'shop', label: 'खरीदारी', path: '/shop', icon: ShoppingBag, hint: 'अभी खरीदें' },
+  { key: 'hotels', label: 'Dharamshalas', path: '/hotels', type: 'dharamshala', icon: BedDouble, hint: 'Book now' },
+  { key: 'rooms', label: 'Hotels', path: '/hotels', type: 'hotel', icon: Building2, hint: 'Book now' },
+  { key: 'cabs', label: 'Taxi & Cab', path: '/cabs', icon: CarTaxiFront, hint: 'Book now' },
+  { key: 'tours', label: 'Tour Packages', path: '/tours', icon: Gift, hint: 'View' },
+  { key: 'shop', label: 'Shopping', path: '/shop', icon: ShoppingBag, hint: 'Shop now' },
 ] as const;
 
 type PlannerServiceKey = (typeof plannerServices)[number]['key'];
@@ -63,18 +63,18 @@ const stats = [
 ];
 
 const trustItems = [
-  { icon: BadgeCheck, title: 'विश्वसनीय सेवाएं', desc: 'भरोसेमंद और सुरक्षित बुकिंग' },
-  { icon: MapPinned, title: 'विविध विकल्प', desc: 'धर्मशाला, होटल, टैक्सी और पैकेज' },
-  { icon: Headphones, title: '24x7 सहायता', desc: 'हमेशा आपके साथ' },
-  { icon: Landmark, title: 'ब्रज यात्रा को बनाएं', desc: 'आसान, सुखद और सरल' },
+  { icon: BadgeCheck, title: 'Trusted Services', desc: 'Reliable and secure booking' },
+  { icon: MapPinned, title: 'Many Choices', desc: 'Dharamshalas, hotels, taxis, and packages' },
+  { icon: Headphones, title: '24x7 Support', desc: 'Always here to help you' },
+  { icon: Landmark, title: 'Easy Braj Travel', desc: 'Simple, pleasant, and stress-free' },
 ];
 
 const quickLocations = [
-  { label: 'गोवर्धन', value: 'Govardhan' },
-  { label: 'बरसाना', value: 'Barsana' },
-  { label: 'गोकुल', value: 'Gokul' },
-  { label: 'मथुरा', value: 'Mathura' },
-  { label: 'वृंदावन', value: 'Vrindavan' },
+  { label: 'Govardhan', value: 'Govardhan' },
+  { label: 'Barsana', value: 'Barsana' },
+  { label: 'Gokul', value: 'Gokul' },
+  { label: 'Mathura', value: 'Mathura' },
+  { label: 'Vrindavan', value: 'Vrindavan' },
 ];
 
 const testimonials = [
@@ -259,7 +259,7 @@ const Home = () => {
 
       {/* ===== HERO ===== */}
       <section className="relative flex min-h-[760px] items-center justify-center overflow-hidden pb-7 pt-24 sm:min-h-[720px] lg:min-h-[690px] lg:pt-20">
-        <img src={heroImg} alt="गोवर्धन पर्वत और ब्रज का सूर्यास्त दृश्य" className="absolute inset-x-0 -top-[10%] h-[114%] w-full object-cover object-bottom" width={1600} height={897} />
+        <img src={heroImg} alt="Govardhan hill and Braj sunset view" className="absolute inset-x-0 -top-[10%] h-[114%] w-full object-cover object-bottom" width={1600} height={897} />
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-brand-black/82" />
         <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/30 to-transparent" />
         <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 text-center">
@@ -267,7 +267,7 @@ const Home = () => {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
             className="mb-2 font-body text-[11px] font-bold uppercase tracking-[0.24em] text-brand-black drop-shadow-[0_1px_10px_hsl(0_0%_100%_/_0.65)] sm:text-xs"
           >
-            ब्रज मंडल, उत्तर प्रदेश
+            Braj Mandal, Uttar Pradesh
           </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }}
@@ -279,13 +279,13 @@ const Home = () => {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
             className="mb-1 max-w-4xl font-heading text-2xl font-extrabold leading-tight text-brand-black drop-shadow-[0_2px_14px_hsl(0_0%_100%_/_0.85)] md:text-3xl"
           >
-            पूरे ब्रज में भरोसेमंद होटल, धर्मशाला और कमरा बुकिंग
+            Trusted hotel, dharamshala, and room booking across Braj
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
             className="mb-5 max-w-3xl font-body text-sm font-extrabold leading-6 text-brand-black drop-shadow-[0_2px_12px_hsl(0_0%_100%_/_0.82)] md:text-base"
           >
-            गोवर्धन, बरसाना, गोकुल, मथुरा, वृंदावन और पूरे ब्रज क्षेत्र में मंदिरों के पास सत्यापित ठहरने की सुविधा
+            Find verified stays near temples in Govardhan, Barsana, Gokul, Mathura, Vrindavan, and the wider Braj area.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 24 }}
@@ -329,7 +329,7 @@ const Home = () => {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
-                  placeholder="शहर, क्षेत्र या संपत्ति खोजें"
+                  placeholder="Search city, area, or property"
                   className="h-14 w-full bg-white pl-11 pr-3 font-body text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-gold/35"
                 />
               </label>
@@ -343,7 +343,7 @@ const Home = () => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
                   className="h-14 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
-                  aria-label="आगमन"
+                  aria-label="Check in"
                 />
               </label>
               <label className="relative block bg-white">
@@ -356,7 +356,7 @@ const Home = () => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
                   className="h-14 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
-                  aria-label="प्रस्थान"
+                  aria-label="Check out"
                 />
               </label>
               <label className="relative grid h-14 grid-cols-2 gap-px bg-border/70">
@@ -370,7 +370,7 @@ const Home = () => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
                   className="min-w-0 bg-white pl-9 pr-2 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
-                  aria-label="अतिथि"
+                  aria-label="Guests"
                 />
                 <input
                   type="number"
@@ -381,7 +381,7 @@ const Home = () => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
                   className="min-w-0 bg-white px-2 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
-                  aria-label="कमरे"
+                  aria-label="Rooms"
                 />
               </label>
               <button
@@ -389,7 +389,7 @@ const Home = () => {
                 onClick={runPlannerSearch}
                 className="h-14 bg-brand-saffron px-6 font-body text-sm font-extrabold text-white transition hover:bg-brand-crimson"
               >
-                खोजें
+                Search
               </button>
             </div>
 
@@ -402,7 +402,7 @@ const Home = () => {
                 ))}
               </div>
               <a href={`https://wa.me/${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-brand-gold/45 bg-brand-gold/12 px-3.5 py-1 font-body text-xs font-extrabold text-white transition hover:bg-brand-gold/20">
-                <MessageCircle size={14} /> व्हाट्सऐप सहायता
+                <MessageCircle size={14} /> WhatsApp Help
               </a>
             </div>
           </motion.div>

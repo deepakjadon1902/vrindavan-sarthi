@@ -283,7 +283,7 @@ router.get('/rooms/:roomUnitId/calendar', async (req, res) => {
       checkOut: { $gt: isValidDate(from) ? from : new Date('1970-01-01T00:00:00.000Z') },
     })
       .sort({ checkIn: 1 })
-      .select('bookingId bookingStatus paymentStatus checkIn checkOut customerFullName userName userPhone totalAdults totalChildren hasPet')
+      .select('bookingId bookingStatus paymentStatus verificationStage checkIn checkOut customerFullName userName customerMobile userPhone totalAdults totalChildren hasPet totalAmount advanceAmount balanceAmount paymentOption upiTransactionId')
       .lean();
 
     res.json({ success: true, data: { blocks, bookings } });

@@ -69,6 +69,17 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         )}
       </div>
 
+      {booking.checkedInAt && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <p className="font-body text-xs font-semibold text-blue-900 mb-3">Digital Check-In Audit</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Field label="Checked In" value={new Date(booking.checkedInAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })} valueClass="text-blue-900" />
+            <Field label="Guest Signature" value={booking.guestDigitalSignature} valueClass="text-blue-900" />
+            <Field label="Marked By" value={booking.checkedInByPartnerName} valueClass="text-blue-900" />
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border bg-background/70 p-4">
         <p className="font-body text-xs font-semibold text-foreground mb-3">Itinerary Parameters</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

@@ -46,6 +46,9 @@ const PartnerInventory = () => {
   const [selectedRoomUnitId, setSelectedRoomUnitId] = useState<string>('');
 
   const [calendar, setCalendar] = useState<any | null>(null);
+  const [matrixData, setMatrixData] = useState<Record<string, any>>({});
+  const [matrixLoading, setMatrixLoading] = useState(false);
+  const [selectedDayDetails, setSelectedDayDetails] = useState<any | null>(null);
 
   // Room type form
   const [rtName, setRtName] = useState('');
@@ -128,6 +131,45 @@ const PartnerInventory = () => {
     setCalendar(res.data?.data || null);
   };
 
+  const matrixDays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Array.from({ length: 14 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() + index);
+      return date.toISOString().slice(0, 10);
+    });
+  }, []);
+
+  const loadMatrix = async () => {
+    if (!token || rooms.length === 0) {
+      setMatrixData({});
+      return;
+    }
+    try {
+      setMatrixLoading(true);
+      const from = matrixDays[0];
+      const toDate = new Date(matrixDays[matrixDays.length - 1]);
+      toDate.setDate(toDate.getDate() + 1);
+      const to = toDate.toISOString().slice(0, 10);
+      const entries = await Promise.all(
+        rooms.map(async (room) => {
+          const res = await api.get(`/partner/inventory/rooms/${room._id}/calendar`, {
+            ...withAuth(token),
+            params: { from, to },
+          });
+          return [room._id, res.data?.data || null] as const;
+        })
+      );
+      setMatrixData(Object.fromEntries(entries));
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to load calendar matrix');
+      setMatrixData({});
+    } finally {
+      setMatrixLoading(false);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
@@ -173,6 +215,30 @@ const PartnerInventory = () => {
     void loadCalendar(selectedRoomUnitId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoomUnitId, token]);
+
+  useEffect(() => {
+    void loadMatrix();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms, token]);
+
+  const getRoomDayState = (roomId: string, date: string) => {
+    const data = matrixData[roomId] || {};
+    const dayStart = new Date(`${date}T00:00:00.000Z`).getTime();
+    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+    const booking = (data.bookings || []).find((bk: any) => {
+      const checkIn = new Date(bk.checkIn).getTime();
+      const checkOut = new Date(bk.checkOut).getTime();
+      return checkIn < dayEnd && checkOut > dayStart;
+    });
+    if (booking) return { status: 'booked', booking };
+    const block = (data.blocks || []).find((b: any) => {
+      const start = new Date(b.startDate).getTime();
+      const end = new Date(b.endDate).getTime();
+      return start < dayEnd && end > dayStart;
+    });
+    if (block) return { status: 'blocked', block };
+    return { status: 'available' };
+  };
 
   const resetRoomTypeForm = () => {
     setEditingRoomTypeId(null);
@@ -601,6 +667,87 @@ const PartnerInventory = () => {
       </div>
 
       {/* Calendar */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-heading text-base font-semibold">Inventory Calendar Matrix</h3>
+            <p className="font-body text-xs text-muted-foreground">Date-wise room occupancy for the next 14 days.</p>
+          </div>
+          <button onClick={loadMatrix} className="rounded-lg border border-border px-3 py-2 font-body text-xs hover:bg-muted">
+            {matrixLoading ? 'Refreshing...' : 'Refresh Matrix'}
+          </button>
+        </div>
+
+        {!selectedRoomType ? (
+          <p className="font-body text-sm text-muted-foreground">Select a room type to view the occupancy matrix.</p>
+        ) : rooms.length === 0 ? (
+          <p className="font-body text-sm text-muted-foreground">Add room numbers to view date-wise occupancy.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="min-w-[860px]">
+              <div className="grid gap-1" style={{ gridTemplateColumns: `110px repeat(${matrixDays.length}, minmax(44px, 1fr))` }}>
+                <div className="rounded-md bg-muted px-2 py-2 font-body text-xs font-bold text-muted-foreground">Room</div>
+                {matrixDays.map((date) => (
+                  <div key={date} className="rounded-md bg-muted px-1 py-2 text-center font-body text-[10px] font-bold text-muted-foreground">
+                    {new Date(`${date}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                  </div>
+                ))}
+                {rooms.map((room) => (
+                  <div key={room._id} className="contents">
+                    <div className="rounded-md border border-border bg-background px-2 py-2 font-body text-xs font-semibold text-foreground">
+                      {room.number}
+                    </div>
+                    {matrixDays.map((date) => {
+                      const state = getRoomDayState(room._id, date);
+                      const isBooked = state.status === 'booked';
+                      const isBlocked = state.status === 'blocked';
+                      return (
+                        <button
+                          key={`${room._id}-${date}`}
+                          type="button"
+                          onClick={() => {
+                            if (isBooked) setSelectedDayDetails({ room, date, booking: state.booking });
+                          }}
+                          className={`min-h-10 rounded-md border text-[10px] font-bold transition ${
+                            isBooked
+                              ? 'border-red-200 bg-red-100 text-red-700 hover:bg-red-200'
+                              : isBlocked
+                                ? 'border-amber-200 bg-amber-100 text-amber-700'
+                                : 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                          }`}
+                          title={isBooked ? 'Booked - click for details' : isBlocked ? 'Blocked' : 'Available'}
+                        >
+                          {isBooked ? 'Red' : isBlocked ? 'Hold' : 'Green'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedDayDetails && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4">
+            <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-2xl">
+              <h3 className="font-heading text-xl font-semibold text-foreground">Booking Details</h3>
+              <p className="font-body text-xs text-muted-foreground">Room {selectedDayDetails.room.number} - {selectedDayDetails.date}</p>
+              <div className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-border bg-background p-4 font-body text-sm">
+                <div><span className="text-muted-foreground">Customer:</span> {selectedDayDetails.booking.customerFullName || selectedDayDetails.booking.userName || '-'}</div>
+                <div><span className="text-muted-foreground">Contact:</span> {selectedDayDetails.booking.customerMobile || selectedDayDetails.booking.userPhone || '-'}</div>
+                <div><span className="text-muted-foreground">Remaining Cash Balance:</span> Rs. {Number(selectedDayDetails.booking.balanceAmount || 0).toLocaleString('en-IN')}</div>
+                <div><span className="text-muted-foreground">Payment Verification:</span> {selectedDayDetails.booking.verificationStage || selectedDayDetails.booking.paymentStatus || '-'}</div>
+                <div><span className="text-muted-foreground">Booking ID:</span> {selectedDayDetails.booking.bookingId}</div>
+              </div>
+              <div className="mt-5 text-right">
+                <button onClick={() => setSelectedDayDetails(null)} className="rounded-lg border border-border px-4 py-2 font-body text-xs hover:bg-muted">Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="bg-card border border-border rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-heading text-base font-semibold flex items-center gap-2">

@@ -33,6 +33,11 @@ type PayoutPartner = {
     refunds: number;
     tdsTcs: number;
     bookingCount: number;
+    minimumThreshold?: number;
+    eligibleForPayout?: boolean;
+    rolloverAmount?: number;
+    payoutCycleDays?: string[];
+    isPayoutCycleToday?: boolean;
     isPaid: boolean;
     paidAt?: string | null;
     note?: string;
@@ -132,7 +137,7 @@ const AdminPartnerPayouts = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="font-heading text-2xl font-bold text-foreground">Partner Payouts</h2>
-          <p className="font-body text-xs text-muted-foreground">Verified partner bank details for offline settlements.</p>
+          <p className="font-body text-xs text-muted-foreground">Verified partner bank details for offline settlements. Minimum payout: Rs. 1,000. Cycles: Monday and Wednesday.</p>
         </div>
         <button onClick={exportCsv} disabled={filtered.length === 0} className="btn-crimson px-5 py-2.5 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50">
           <Download size={16} /> Download CSV
@@ -162,7 +167,7 @@ const AdminPartnerPayouts = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  {['Partner', 'Business', 'Bank', 'Room Amount', 'Hotel GST', 'Convenience Fee', 'Commission', 'Gateway', 'Hotel Payout', 'Status', 'Action'].map((h) => (
+                  {['Partner', 'Business', 'Bank', 'Gross Booking', 'GST & Gateway', 'Commission', 'Net Payable', 'Eligibility', 'Status', 'Action'].map((h) => (
                     <th key={h} className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">{h}</th>
                   ))}
                 </tr>
@@ -181,12 +186,24 @@ const AdminPartnerPayouts = () => {
                       <p className="text-muted-foreground">{p.bankDetails?.account_number || '-'}</p>
                       <p className="text-muted-foreground">{p.bankDetails?.ifsc_code || '-'}</p>
                     </td>
-                    <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">{money(p.ledger?.hotelRoomAmount)}</td>
-                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.hotelGstCollected)}</td>
-                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.platformConvenienceFee)}</td>
+                    <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">{money(p.ledger?.grossForHotel)}</td>
+                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">
+                      <p>GST: {money(p.ledger?.hotelGstCollected)}</p>
+                      <p>Gateway: {money(p.ledger?.paymentGatewayCharges)}</p>
+                    </td>
                     <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.deductedPlatformCommission)}</td>
-                    <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.paymentGatewayCharges)}</td>
                     <td className="px-4 py-3 font-body text-sm font-semibold text-brand-green">{money(p.ledger?.netPayableRemittanceBalance)}</td>
+                    <td className="px-4 py-3 font-body text-xs">
+                      <span className={`rounded-full px-2 py-1 ${p.ledger?.eligibleForPayout ? 'bg-brand-green/10 text-brand-green' : 'bg-muted text-muted-foreground'}`}>
+                        {p.ledger?.eligibleForPayout ? 'Eligible' : 'Rollover'}
+                      </span>
+                      {!p.ledger?.eligibleForPayout && (
+                        <p className="mt-1 text-muted-foreground">Below Rs. {Number(p.ledger?.minimumThreshold || 1000).toLocaleString('en-IN')}</p>
+                      )}
+                      {!p.ledger?.isPayoutCycleToday && (
+                        <p className="mt-1 text-muted-foreground">Release only Mon/Wed</p>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-body text-xs">
                       <span className={`px-2 py-1 rounded-full ${p.ledger?.isPaid ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-saffron/10 text-brand-saffron'}`}>
                         {p.ledger?.isPaid ? 'Settled' : 'Pending'}
@@ -196,7 +213,8 @@ const AdminPartnerPayouts = () => {
                     <td className="px-4 py-3">
                       <button
                         onClick={() => void toggleSettled(p)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted"
+                        disabled={!p.ledger?.eligibleForPayout || !p.ledger?.isPayoutCycleToday}
+                        className="px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {p.ledger?.isPaid ? 'Mark Pending' : 'Mark as Paid'}
                       </button>

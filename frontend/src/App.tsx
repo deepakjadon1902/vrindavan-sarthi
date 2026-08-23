@@ -71,6 +71,7 @@ const PartnerPayments = lazy(() => import("@/pages/partner/PartnerPayments"));
 const PartnerBankDetails = lazy(() => import("@/pages/partner/PartnerBankDetails"));
 const PartnerProfileSettings = lazy(() => import("@/pages/partner/PartnerProfileSettings"));
 const PartnerCommunications = lazy(() => import("@/pages/partner/PartnerCommunications"));
+const PartnerTermsPdf = lazy(() => import("@/pages/partner/PartnerTermsPdf"));
 
 const queryClient = new QueryClient();
 
@@ -180,6 +181,7 @@ const App = () => {
                 <Route path="bookings" element={<PartnerBookings />} />
                 <Route path="payments" element={<PartnerPayments />} />
                 <Route path="bank-details" element={<PartnerBankDetails />} />
+                <Route path="terms" element={<PartnerTermsPdf />} />
                 <Route path="profile-settings" element={<PartnerProfileSettings />} />
                 <Route path="communications" element={<PartnerCommunications />} />
               </Route>

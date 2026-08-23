@@ -427,6 +427,7 @@ import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { PropertyTermsPreview, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
 import { COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand';
+import { getGoogleMapEmbedSrc, getGoogleMapNavigationUrl } from '@/lib/maps';
 
 type Hotel = {
   _id: string;
@@ -463,55 +464,6 @@ type RoomType = {
   totalCount?: number;
   availableCount?: number;
   hotel?: Hotel;
-};
-
-const getGoogleMapEmbedSrc = ({
-  mapValue,
-  hotelName,
-  location,
-  nearestTemple,
-}: {
-  mapValue?: string;
-  hotelName?: string;
-  location?: string;
-  nearestTemple?: string;
-}) => {
-  const makeEmbedSearchUrl = (query: string) =>
-    `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&z=16&ie=UTF8&iwloc=B&output=embed`;
-
-  const rawInput = String(mapValue || '').trim();
-  const genericMapText = /^(map|google map|google maps|location|hotel location)$/i;
-  const placeQuery = [
-    hotelName,
-    location,
-    nearestTemple ? `near ${nearestTemple}` : '',
-    'Vrindavan',
-    'Uttar Pradesh',
-    'India',
-  ]
-    .map((part) => String(part || '').trim())
-    .filter(Boolean)
-    .join(', ');
-  const raw = !rawInput || genericMapText.test(rawInput) ? placeQuery : rawInput;
-  if (!raw && !placeQuery) return '';
-  if (raw.includes('/maps/embed')) return raw;
-
-  const coordinateMatch = raw.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
-  if (coordinateMatch) {
-    return makeEmbedSearchUrl(`${coordinateMatch[1]},${coordinateMatch[2]}`);
-  }
-
-  try {
-    const url = new URL(raw);
-    if (url.hostname.includes('google') || url.hostname.includes('goo.gl') || url.hostname.includes('maps.app.goo.gl')) {
-      const queryFromUrl = url.searchParams.get('q') || url.searchParams.get('query') || '';
-      return makeEmbedSearchUrl(queryFromUrl || placeQuery || raw);
-    }
-  } catch {
-    return makeEmbedSearchUrl(placeQuery ? `${placeQuery}, ${raw}` : raw);
-  }
-
-  return makeEmbedSearchUrl(placeQuery || raw);
 };
 
 const sameId = (a?: string | null, b?: string | null) => String(a || '') === String(b || '');
@@ -630,7 +582,13 @@ const HotelDetail = () => {
 
   const mapEmbedSrc = getGoogleMapEmbedSrc({
     mapValue: hotel?.googleMapLink,
-    hotelName: hotel?.name,
+    name: hotel?.name,
+    location: hotel?.location,
+    nearestTemple: hotel?.nearestTemple,
+  });
+  const mapNavigationUrl = getGoogleMapNavigationUrl({
+    mapValue: hotel?.googleMapLink,
+    name: hotel?.name,
     location: hotel?.location,
     nearestTemple: hotel?.nearestTemple,
   });
@@ -1046,7 +1004,19 @@ const HotelDetail = () => {
                     className="h-44 w-full rounded-xl border border-border"
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
                   />
+                  {mapNavigationUrl && (
+                    <a
+                      href={mapNavigationUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 py-2 font-body text-xs font-bold text-foreground hover:border-brand-gold/50"
+                    >
+                      <MapPin size={13} />
+                      Open in Google Maps
+                    </a>
+                  )}
                 </div>
               )}
 
