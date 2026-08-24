@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import BookingFormDetails from '@/components/BookingFormDetails';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 const ManageBookings = () => {
   const token = useAuthStore((s) => s.token);
@@ -51,6 +52,7 @@ const ManageBookings = () => {
   const filtered = bookings
     .filter((b) => filter === 'all' || b.bookingStatus === filter)
     .filter((b) => typeFilter === 'all' || b.bookingType === typeFilter);
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [filter, typeFilter]);
 
   const statusColor = (s: string) => {
     if (s === 'confirmed') return 'bg-brand-green/10 text-brand-green';
@@ -63,6 +65,9 @@ const ManageBookings = () => {
 
   const verificationBadge = (b: any) => {
     if (b.paymentMethod !== 'online') return null;
+    if (b.paymentProvider === 'razorpay' && b.paymentStatus === 'pending') {
+      return <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">awaiting Razorpay</span>;
+    }
     const stage = b.verificationStage || 'pending_admin';
     if (stage === 'verified') return <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-green/10 text-brand-green">verified</span>;
     if (stage === 'rejected') return <span className="text-[10px] px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">rejected</span>;
@@ -72,6 +77,7 @@ const ManageBookings = () => {
 
   const canAdminVerify = (b: any) =>
     b.paymentMethod === 'online' &&
+    b.paymentProvider !== 'razorpay' &&
     b.paymentStatus === 'pending' &&
     (b.partnerId ? b.partnerPaymentVerified === true : true) &&
     b.verificationStage !== 'verified' &&
@@ -176,6 +182,7 @@ const ManageBookings = () => {
           <p className="font-body text-sm text-muted-foreground">Bookings will appear here when users make reservations.</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           {assignOpen && (
             <div className="p-4 border-b border-border bg-muted/20">
@@ -252,7 +259,7 @@ const ManageBookings = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((b) => (
+              {pageItems.map((b) => (
                 <Fragment key={b.id}>
                 <tr className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-xs text-brand-crimson font-medium">{b.bookingId}</td>
@@ -275,7 +282,7 @@ const ManageBookings = () => {
                     Rs. {Number(b.totalAmount || 0).toLocaleString('en-IN')}
                   </td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground">
-                    {b.paymentMethod === 'doorstep' ? 'Doorstep' : `UPI ${b.paymentStatus}`}
+                    {b.paymentMethod === 'doorstep' ? 'Doorstep' : `${b.paymentProvider === 'razorpay' ? 'Razorpay' : 'UPI'} ${b.paymentStatus}`}
                     <span className="ml-2 inline-flex">{verificationBadge(b)}</span>
                   </td>
                   <td className="px-4 py-3">
@@ -315,7 +322,9 @@ const ManageBookings = () => {
                         </div>
                       ) : (
                         <span className="font-body text-[11px] text-muted-foreground">
-                          {b.verificationStage === 'pending_partner' ? 'Waiting partner verification' : ''}
+                          {b.paymentProvider === 'razorpay' && b.paymentStatus === 'pending'
+                            ? 'Waiting Razorpay success/failure'
+                            : b.verificationStage === 'pending_partner' ? 'Waiting partner verification' : ''}
                         </span>
                       )
                     ) : (
@@ -364,6 +373,8 @@ const ManageBookings = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { getApiErrorMessage } from '@/lib/apiError';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 type PayoutPartner = {
   _id: string;
@@ -80,6 +81,7 @@ const AdminPartnerPayouts = () => {
         .some((v) => String(v || '').toLowerCase().includes(q))
     );
   }, [items, search]);
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [search]);
 
   const exportCsv = () => {
     const rows = [
@@ -173,7 +175,7 @@ const AdminPartnerPayouts = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {pageItems.map((p) => (
                   <tr key={p._id} className="border-b border-border last:border-0 hover:bg-muted/30">
                     <td className="px-4 py-3 font-body text-sm">
                       <p className="font-medium text-foreground">{p.name}</p>
@@ -223,6 +225,9 @@ const AdminPartnerPayouts = () => {
                 ))}
               </tbody>
             </table>
+            <div className="p-4">
+              <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+            </div>
           </div>
         )}
       </div>

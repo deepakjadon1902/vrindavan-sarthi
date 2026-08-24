@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { api, resolveBackendAssetUrl, withAuth } from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { useAuthStore } from '@/store/authStore';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 type PartnerStatus = 'pending' | 'approved' | 'rejected';
 
@@ -163,6 +164,7 @@ const ManagePartners = () => {
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [filter, partners, search]);
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [filter, search]);
 
   const updateStatus = async (partner: PartnerUser, partnerStatus: PartnerStatus) => {
     if (!token) return;
@@ -226,6 +228,7 @@ const ManagePartners = () => {
           <p className="font-body text-sm text-muted-foreground">New partner registrations will appear here.</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -238,7 +241,7 @@ const ManagePartners = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((partner) => (
+              {pageItems.map((partner) => (
                 <tr key={partner.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3">
                     <p className="font-body text-sm font-medium text-foreground">{partner.name}</p>
@@ -276,6 +279,8 @@ const ManagePartners = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+        </>
       )}
 
       {selected && (

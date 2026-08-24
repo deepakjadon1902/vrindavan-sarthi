@@ -677,11 +677,10 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint, Star, Landmark, BedDouble, Minus, Plus, Info, CheckCircle2, MessageCircle, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { api } from '@/lib/api';
+import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import ImageCarousel from '@/components/shared/ImageCarousel';
-import UpiPayment from '@/components/UpiPayment';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
@@ -690,6 +689,13 @@ import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { hasPropertyTermsText, normalizePropertyTerms, propertyTermsFields } from '@/components/shared/PropertyTerms';
 import { COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand';
+import { isDharamshalaType } from '@/lib/propertyTypes';
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
 
 const getLocalDateKey = (date = new Date()) => {
   const year = date.getFullYear();
@@ -697,6 +703,23 @@ const getLocalDateKey = (date = new Date()) => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const loadRazorpayCheckout = () =>
+  new Promise<void>((resolve, reject) => {
+    if (window.Razorpay) return resolve();
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Razorpay Checkout failed to load')), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Razorpay Checkout failed to load'));
+    document.body.appendChild(script);
+  });
 
 const getNextDateKey = (value: string) => {
   const [year, month, day] = value.split('-').map(Number);
@@ -717,7 +740,7 @@ const RoomTypeDetail = () => {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, token } = useAuthStore();
   const { createRoomTypeBooking } = useBookingStore();
   const defaultHotelTaxPercent = useSettingsStore((s) => s.settings.hotelTaxPercent);
 
@@ -743,7 +766,7 @@ const RoomTypeDetail = () => {
   const [hasPet, setHasPet] = useState(false);
   const [adultDetails, setAdultDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([{ name: '', age: '', gender: '' }]);
   const [childDetails, setChildDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([]);
-  const [showPayment, setShowPayment] = useState(false);
+  const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [paymentOption, setPaymentOption] = useState<'advance_30' | 'full_100' | ''>('');
   const [policyPopover, setPolicyPopover] = useState<'advance_30' | 'full_100' | null>(null);
   const [propertyTermsAccepted, setPropertyTermsAccepted] = useState(false);
@@ -837,7 +860,7 @@ const RoomTypeDetail = () => {
   const cancellationPolicyText = String(propertyTerms.sections.cancellationPolicy || '').trim();
   const checkInPolicyText = String(propertyTerms.sections.checkInRequirements || '').trim();
   const checkOutPolicyText = String(propertyTerms.sections.checkOutRules || '').trim();
-  const isDharamshala = hotel?.propertyType === 'dharamshala';
+  const isDharamshala = isDharamshalaType(hotel?.propertyType);
 
   useEffect(() => {
     setPropertyTermsAccepted(false);
@@ -1029,50 +1052,148 @@ const RoomTypeDetail = () => {
     return true;
   };
 
-  const handleInitiateBooking = () => {
+  const buildBookingPayload = () => {
+    const guestDetails = [
+      ...adultDetails.map((a) => ({ type: 'adult', name: a.name, age: Number(a.age || 0), gender: a.gender || null })),
+      ...childDetails.map((c) => ({ type: 'child', name: c.name, age: Number(c.age || 0), gender: c.gender || null })),
+    ];
+    return {
+      hotelId: hotel?._id,
+      roomTypeId: roomType?._id,
+      checkIn,
+      checkOut,
+      roomQuantity,
+      customerFullName,
+      customerMobile,
+      customerEmail,
+      arrivalMode,
+      vehicleNumber: arrivalMode === 'personal_vehicle' ? vehicleNumber : '',
+      arrivalTime,
+      totalAdults,
+      totalChildren,
+      hasPet,
+      guestDetails,
+      totalAmount: total,
+      paymentMethod: 'online',
+      paymentProvider: 'razorpay',
+      paymentOption,
+      propertyTermsAccepted,
+      acceptedPropertyTermsVersion: propertyTerms.currentVersion,
+      additionalInfo: 'Razorpay Checkout payment initiated.',
+    };
+  };
+
+  const startRazorpayPayment = async () => {
     const ok = validateBookingForm();
     if (!ok) return;
+    if (!token) { toast.error('Please login to book'); navigate('/login'); return; }
     if (availableCount !== null && roomQuantity > availableCount) {
       setShowAvailability(true);
       void loadAvailabilityCalendar();
       toast.error('Selected room count is not available for these dates. Please reduce rooms or choose other dates.');
       return;
     }
-    const tempId = `VVS-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
-    setBookingId(tempId);
-    setShowPayment(true);
-  };
 
-  const handleJoinWaitlist = () => {
-    const ok = validateBookingForm();
-    if (!ok) return;
-    const tempId = `VVS-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
-    setBookingId(tempId);
-    setShowPayment(true);
-  };
+    setIsStartingPayment(true);
+    let pendingRazorpayBookingId = '';
+    try {
+      await loadRazorpayCheckout();
+      const bookingResult = await createRoomTypeBooking(buildBookingPayload());
+      if (!bookingResult.success || !bookingResult.data?.id) {
+        toast.error(bookingResult.error || 'Booking failed');
+        return;
+      }
 
-  const handlePaymentConfirm = async (transactionId: string) => {
-    const guestDetails = [
-      ...adultDetails.map((a) => ({ type: 'adult', name: a.name, age: Number(a.age || 0), gender: a.gender || null })),
-      ...childDetails.map((c) => ({ type: 'child', name: c.name, age: Number(c.age || 0), gender: c.gender || null })),
-    ];
-    const res = await createRoomTypeBooking({
-      hotelId: hotel?._id, roomTypeId: roomType?._id, checkIn, checkOut,
-      roomQuantity,
-      customerFullName, customerMobile, customerEmail, arrivalMode,
-      vehicleNumber: arrivalMode === 'personal_vehicle' ? vehicleNumber : '',
-      arrivalTime, totalAdults, totalChildren, hasPet, guestDetails,
-      totalAmount: total, paymentMethod: 'online', paymentOption,
-      propertyTermsAccepted,
-      acceptedPropertyTermsVersion: propertyTerms.currentVersion,
-      upiTransactionId: transactionId, additionalInfo: `UPI Txn: ${transactionId}`,
-    });
-    if (!res.success) { toast.error(res.error || 'Booking failed'); return; }
-    if (res.data?.bookingId) setBookingId(String(res.data.bookingId));
-    setIsWaitlistedBooking(Boolean(res.data?.isWaitlisted));
-    setShowPayment(false);
-    setBooked(true);
-    toast.success(res.data?.isWaitlisted ? 'Added to waitlist.' : 'Booking confirmed! Payment verification pending.');
+      const pendingBooking = bookingResult.data;
+      pendingRazorpayBookingId = pendingBooking.id;
+      setBookingId(String(pendingBooking.bookingId));
+      setIsWaitlistedBooking(Boolean(pendingBooking.isWaitlisted));
+
+      const markRazorpayAttemptFailed = async (status: 'failed' | 'cancelled' | 'dismissed' | 'verification_failed', razorpayPaymentId?: string) => {
+        try {
+          await api.post('/payments/razorpay/fail', {
+            bookingId: pendingBooking.id,
+            razorpay_payment_id: razorpayPaymentId,
+            status,
+          }, withAuth(token));
+        } catch {
+          // Webhook may still settle the final payment state.
+        }
+      };
+
+      const orderRes = await api.post('/payments/razorpay/orders', { bookingId: pendingBooking.id }, withAuth(token));
+      const data = orderRes.data?.data || {};
+      const order = data.order || {};
+      const keyId = String(data.keyId || '');
+      if (!window.Razorpay || !keyId || !order.id) throw new Error('Razorpay Checkout is not ready');
+
+      const rzp = new window.Razorpay({
+        key: keyId,
+        amount: order.amount,
+        currency: order.currency || 'INR',
+        name: 'Vrindavan Sarthi',
+        description: `${hotel.name} - ${roomType.name}`,
+        order_id: order.id,
+        image: '/logo.png',
+        prefill: {
+          name: customerFullName,
+          email: customerEmail,
+          contact: customerMobile,
+        },
+        notes: {
+          bookingId: pendingBooking.bookingId,
+          roomType: roomType.name,
+        },
+        theme: {
+          color: '#8a1f2d',
+        },
+        modal: {
+          ondismiss: async () => {
+            await markRazorpayAttemptFailed('dismissed');
+            setIsStartingPayment(false);
+            toast.message('Payment cancelled. Booking marked as failed.');
+          },
+        },
+        handler: async (response: any) => {
+          try {
+            const verifyRes = await api.post('/payments/razorpay/verify', {
+              bookingId: pendingBooking.id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }, withAuth(token));
+            const verified = verifyRes.data?.data || pendingBooking;
+            if (verified.bookingId) setBookingId(String(verified.bookingId));
+            setBooked(true);
+            toast.success(pendingBooking.isWaitlisted ? 'Payment verified. You are on the waitlist.' : 'Payment verified. Booking confirmed!');
+          } catch (err: any) {
+            await markRazorpayAttemptFailed('verification_failed', response?.razorpay_payment_id);
+            toast.error(err?.response?.data?.message || 'Payment verification failed');
+          } finally {
+            setIsStartingPayment(false);
+          }
+        },
+      });
+      (rzp as any).on?.('payment.failed', async (response: any) => {
+        await markRazorpayAttemptFailed('failed', response?.error?.metadata?.payment_id);
+        setIsStartingPayment(false);
+        toast.error(response?.error?.description || 'Razorpay payment failed');
+      });
+      rzp.open();
+    } catch (err: any) {
+      if (pendingRazorpayBookingId) {
+        try {
+          await api.post('/payments/razorpay/fail', {
+            bookingId: pendingRazorpayBookingId,
+            status: 'failed',
+          }, withAuth(token));
+        } catch {
+          // Keep the original startup error visible to the customer.
+        }
+      }
+      toast.error(err?.response?.data?.message || err?.message || 'Unable to start Razorpay payment');
+      setIsStartingPayment(false);
+    }
   };
 
   const images = Array.isArray(roomType.images) && roomType.images.length ? roomType.images : [hotel.image, ...(hotel.images || [])].filter(Boolean);
@@ -1361,21 +1482,13 @@ const RoomTypeDetail = () => {
                 </div>
                 <p className="text-lg font-bold text-gray-900">Booking Successful</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {isWaitlistedBooking ? 'You are on the waitlist.' : 'Your room booking is received and payment verification is pending.'}
+                  {isWaitlistedBooking ? 'Payment verified. You are on the waitlist.' : 'Your payment is verified and room booking is confirmed.'}
                 </p>
                 {bookingId && <p className="text-xs text-gray-400 mt-2">Booking ID: <span className="text-gray-700 font-medium">{bookingId}</span></p>}
                 <Link to="/bookings" className="btn-crimson inline-block mt-4 px-6 py-2.5 rounded-lg text-sm font-semibold">
                   View My Bookings
                 </Link>
               </div>
-            ) : showPayment ? (
-              <UpiPayment
-                amount={payableNow}
-                bookingId={bookingId}
-                itemName={`${hotel.name} - ${roomType.name}`}
-                onPaymentConfirm={handlePaymentConfirm}
-                onCancel={() => setShowPayment(false)}
-              />
             ) : (
               <div className="premium-surface space-y-4 p-4 sm:p-5 lg:sticky lg:top-24">
 
@@ -1797,11 +1910,11 @@ const RoomTypeDetail = () => {
                   </div>
                 ) : !isFullyBookedSelectedDates ? (
                   <button
-                    onClick={handleInitiateBooking}
-                    disabled={(mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
+                    onClick={startRazorpayPayment}
+                    disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
                     className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Pay &amp; Book Now
+                    {isStartingPayment ? 'Opening Razorpay...' : 'Pay Securely with Razorpay'}
                   </button>
                 ) : (
                   <div className="space-y-2">
@@ -1813,17 +1926,17 @@ const RoomTypeDetail = () => {
                       View availability &amp; change dates
                     </button>
                     <button
-                      onClick={handleJoinWaitlist}
-                      disabled={(mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
+                      onClick={startRazorpayPayment}
+                      disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
                       className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Join Waitlist for These Dates
+                      {isStartingPayment ? 'Opening Razorpay...' : 'Pay & Join Waitlist'}
                     </button>
                   </div>
                 )}
 
                 <p className="text-center text-[11px] text-gray-400">
-                  {isDharamshala ? 'Direct enquiry only - no online booking fee' : 'Secure UPI - instant confirmation after verification'}
+                  {isDharamshala ? 'Direct enquiry only - no online booking fee' : 'Official Razorpay Checkout - automatic server verification'}
                 </p>
               </div>
             )}

@@ -29,7 +29,7 @@ const propertyTermsVersionSchema = new mongoose.Schema(
 
 const hotelSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  propertyType: { type: String, enum: ['hotel', 'dharamshala'], default: 'hotel' },
+  propertyType: { type: String, enum: ['hotel', 'dharamshala', 'home_stay', 'guest_house'], default: 'hotel' },
   location: { type: String, required: true },
   // Deprecated: pricing is handled at RoomType level. Kept for backward compatibility.
   pricePerNight: { type: Number, default: 0 },

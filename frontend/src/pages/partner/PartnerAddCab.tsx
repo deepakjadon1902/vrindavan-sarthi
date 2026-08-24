@@ -6,6 +6,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 interface PartnerCab {
   _id: string;
@@ -250,9 +251,10 @@ const PartnerAddCab = () => {
         (c) =>
           c.vehicleName.toLowerCase().includes(search.toLowerCase()) ||
           c.driverName.toLowerCase().includes(search.toLowerCase())
-      ),
+      ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()),
     [items, search]
   );
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [search]);
 
   return (
     <div className="space-y-6">
@@ -492,6 +494,7 @@ const PartnerAddCab = () => {
           <p className="font-body text-sm text-muted-foreground">Submit your first cab to get started.</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -504,7 +507,7 @@ const PartnerAddCab = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
+              {pageItems.map((c) => (
                 <tr key={c._id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{c.vehicleName}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground">
@@ -556,6 +559,8 @@ const PartnerAddCab = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

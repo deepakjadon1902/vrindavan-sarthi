@@ -3,6 +3,7 @@ import { useBookingStore } from '@/store/bookingStore';
 import type { Booking } from '@/store/bookingStore';
 import { CreditCard, CheckCircle2, XCircle, Clock, IndianRupee, Eye } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 const PartnerPayments = () => {
   const { user } = useAuthStore();
@@ -23,6 +24,7 @@ const PartnerPayments = () => {
   const filtered = bookings
     .filter((b) => statusFilter === 'all' || b.paymentStatus === statusFilter)
     .filter((b) => typeFilter === 'all' || b.bookingType === typeFilter);
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [statusFilter, typeFilter]);
 
   const getPrice = (b: Booking) => Number(b.checkoutSubtotal || b.totalAmount || 0);
   const getGross = (b: Booking) => Number(b.grossForHotel || (Number(b.baseAmount || 0) + Number(b.taxAmount || 0)) || getPrice(b));
@@ -98,7 +100,7 @@ const PartnerPayments = () => {
 
       {selectedUpi && (
         <div className="bg-brand-cream border border-brand-gold/30 rounded-xl p-4 flex items-center justify-between">
-          <div><p className="font-body text-xs text-muted-foreground">User's UPI Transaction ID</p><p className="font-heading text-lg font-bold text-foreground">{selectedUpi}</p></div>
+          <div><p className="font-body text-xs text-muted-foreground">Payment Reference</p><p className="font-heading text-lg font-bold text-foreground">{selectedUpi}</p></div>
           <button onClick={() => setSelectedUpi(null)} className="px-3 py-1 rounded-lg text-xs border border-border font-body hover:bg-muted">Close</button>
         </div>
       )}
@@ -111,7 +113,7 @@ const PartnerPayments = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((b) => (
+          {pageItems.map((b) => (
             <div key={b.id} className="bg-card rounded-xl border border-border p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -121,9 +123,9 @@ const PartnerPayments = () => {
                   </div>
                   <p className="font-heading text-sm font-semibold text-foreground truncate">{b.itemName}</p>
                   <p className="font-body text-xs text-muted-foreground mt-1">{b.userName} • {b.userPhone}</p>
-                  {b.upiTransactionId && (
-                    <button onClick={() => setSelectedUpi(b.upiTransactionId!)} className="flex items-center gap-1 font-body text-xs text-brand-gold hover:underline mt-1">
-                      <Eye size={12} /> UPI Txn: {b.upiTransactionId.slice(0, 12)}...
+                  {(b.razorpayPaymentId || b.upiTransactionId) && (
+                    <button onClick={() => setSelectedUpi((b.razorpayPaymentId || b.upiTransactionId)!)} className="flex items-center gap-1 font-body text-xs text-brand-gold hover:underline mt-1">
+                      <Eye size={12} /> {b.razorpayPaymentId ? 'Razorpay' : 'UPI'} Ref: {(b.razorpayPaymentId || b.upiTransactionId || '').slice(0, 12)}...
                     </button>
                   )}
                 </div>
@@ -133,7 +135,7 @@ const PartnerPayments = () => {
                     {paymentIcon(b.paymentStatus)} {b.paymentStatus}
                   </span>
                   <p className="font-body text-[10px] text-muted-foreground mt-1">
-                    {b.paymentMethod === 'doorstep' ? 'Doorstep' : 'Online'} - {new Date(b.createdAt).toLocaleDateString()}
+                    {b.paymentMethod === 'doorstep' ? 'Doorstep' : b.paymentProvider === 'razorpay' ? 'Razorpay' : 'Online'} - {new Date(b.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -157,6 +159,7 @@ const PartnerPayments = () => {
               </div>
             </div>
           ))}
+          <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
         </div>
       )}
     </div>

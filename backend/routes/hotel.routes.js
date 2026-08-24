@@ -12,6 +12,7 @@ const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImageSet, normalizePublicImages, stripLargeInlineImage } = require('../utils/publicImages');
 const router = express.Router();
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
+const PROPERTY_TYPES = ['hotel', 'dharamshala', 'home_stay', 'guest_house'];
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const getLocationSearchTerms = (value) => {
   const q = String(value || '').trim();
@@ -267,7 +268,7 @@ const validateHotelPayload = (body, { partial = false } = {}) => {
 
   if (typeof body.propertyType !== 'undefined') {
     const propertyType = String(body.propertyType || '').trim().toLowerCase();
-    body.propertyType = propertyType === 'dharamshala' ? 'dharamshala' : 'hotel';
+    body.propertyType = PROPERTY_TYPES.includes(propertyType) ? propertyType : 'hotel';
   }
 
   if (typeof body.amenities !== 'undefined') {

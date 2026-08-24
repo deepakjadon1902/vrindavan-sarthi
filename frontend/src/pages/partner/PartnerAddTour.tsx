@@ -6,6 +6,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 interface PartnerTour {
   _id: string;
@@ -228,7 +229,13 @@ const PartnerAddTour = () => {
     return 'bg-brand-saffron/10 text-brand-saffron';
   };
 
-  const filtered = useMemo(() => items.filter((t) => t.name.toLowerCase().includes(search.toLowerCase())), [items, search]);
+  const filtered = useMemo(
+    () => items
+      .filter((t) => t.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()),
+    [items, search]
+  );
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [search]);
 
   return (
     <div className="space-y-6">
@@ -435,6 +442,7 @@ const PartnerAddTour = () => {
           <p className="font-body text-sm text-muted-foreground">Submit your first tour to get started.</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -448,7 +456,7 @@ const PartnerAddTour = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t) => (
+              {pageItems.map((t) => (
                 <tr key={t._id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{t.name}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground">{t.duration}</td>
@@ -499,6 +507,8 @@ const PartnerAddTour = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import axios from 'axios';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 type AdminUser = {
   id: string;
@@ -71,6 +72,7 @@ const ManageUsers = () => {
     () => [...users].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [users]
   );
+  const { page, setPage, pageItems } = useRecordPagination(sorted);
 
   const handleDelete = async (id: string) => {
     if (!token) return;
@@ -97,6 +99,7 @@ const ManageUsers = () => {
           <p className="font-body text-sm text-muted-foreground">Registered users will appear here.</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -110,7 +113,7 @@ const ManageUsers = () => {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((u) => (
+              {pageItems.map((u) => (
                 <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{u.name}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground">{u.email}</td>
@@ -140,6 +143,8 @@ const ManageUsers = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={sorted.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

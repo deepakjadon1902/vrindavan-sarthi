@@ -141,6 +141,13 @@ const bookingSchema = new mongoose.Schema({
   adminPaymentVerifiedAt: Date,
   additionalInfo: String,
   upiTransactionId: String,
+  paymentProvider: { type: String, enum: ['manual_upi', 'razorpay'], default: 'manual_upi', index: true },
+  razorpayOrderId: { type: String, index: true },
+  razorpayPaymentId: { type: String, index: true },
+  razorpaySignature: String,
+  razorpayStatus: String,
+  razorpayWebhookEventIds: [{ type: String }],
+  paidAt: Date,
   acceptedPropertyTerms: { type: acceptedPropertyTermsSchema, default: () => ({}) },
 
   // Waitlist (room_type bookings only): when no room unit could be assigned immediately.

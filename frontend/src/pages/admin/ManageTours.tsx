@@ -5,6 +5,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 interface Tour {
   _id: string;
@@ -28,6 +29,7 @@ interface Tour {
   status: 'active' | 'inactive';
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   partnerName?: string;
+  createdAt?: string;
 }
 
 const ManageTours = () => {
@@ -218,9 +220,12 @@ const ManageTours = () => {
   };
 
   const filtered = useMemo(
-    () => items.filter((i) => i.name.toLowerCase().includes(search.toLowerCase())),
+    () => items
+      .filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()),
     [items, search]
   );
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [search]);
 
   return (
     <div className="space-y-6">
@@ -478,6 +483,7 @@ const ManageTours = () => {
           <p className="font-body text-muted-foreground">No tours added yet</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -493,7 +499,7 @@ const ManageTours = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => (
+              {pageItems.map((item) => (
                 <tr key={item._id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3">
                     <div className="w-12 h-9 rounded overflow-hidden bg-muted">
@@ -560,6 +566,8 @@ const ManageTours = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

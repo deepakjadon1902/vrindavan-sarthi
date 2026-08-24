@@ -6,8 +6,10 @@ import { Plus, Trash2, Pencil, CalendarDays } from 'lucide-react';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { useSettingsStore } from '@/store/settingsStore';
+import { getPropertyTypeLabel, isDharamshalaType, type StayPropertyType } from '@/lib/propertyTypes';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
-type Hotel = { _id: string; name: string; propertyType?: 'hotel' | 'dharamshala'; status?: string; approvalStatus?: string; location?: string; partnerName?: string };
+type Hotel = { _id: string; name: string; propertyType?: StayPropertyType; status?: string; approvalStatus?: string; location?: string; partnerName?: string };
 
 type RoomType = {
   _id: string;
@@ -74,6 +76,8 @@ const AdminInventory = () => {
 
   const selectedHotel = useMemo(() => hotels.find((h) => h._id === selectedHotelId) || null, [hotels, selectedHotelId]);
   const selectedRoomType = useMemo(() => roomTypes.find((rt) => rt._id === selectedRoomTypeId) || null, [roomTypes, selectedRoomTypeId]);
+  const roomTypePages = useRecordPagination(roomTypes, [selectedHotelId]);
+  const roomPages = useRecordPagination(rooms, [selectedRoomTypeId]);
   const selectedRoomUnit = useMemo(() => rooms.find((r) => r._id === selectedRoomUnitId) || null, [rooms, selectedRoomUnitId]);
   const taxPercent = Math.min(50, Math.max(0, Number(hotelTaxPercent ?? 12)));
   const priceWithTax = (price: number) => Math.round(Number(price || 0) * (1 + taxPercent / 100));
@@ -204,7 +208,7 @@ const AdminInventory = () => {
     if (!token) return;
     if (!selectedHotelId) return toast.error('Select a property first');
     if (!rtName.trim()) return toast.error('Room type name is required');
-    const isDharamshala = selectedHotel?.propertyType === 'dharamshala';
+    const isDharamshala = isDharamshalaType(selectedHotel?.propertyType);
     if (!Number.isFinite(rtPrice) || (!isDharamshala && rtPrice <= 0) || rtPrice < 0) {
       return toast.error(isDharamshala ? 'Enter 0 or more for reference price' : 'Price per night is required');
     }
@@ -416,7 +420,7 @@ const AdminInventory = () => {
               <option value="">Select property</option>
               {hotels.map((h) => (
                 <option key={h._id} value={h._id}>
-                  {h.name}{h.propertyType === 'dharamshala' ? ' - Dharamshala' : ' - Hotel'}
+                  {h.name} - {getPropertyTypeLabel(h.propertyType)}
                   {h.approvalStatus ? ` • ${h.approvalStatus}` : ''}
                   {h.status ? ` • ${h.status}` : ''}
                 </option>
@@ -517,7 +521,7 @@ const AdminInventory = () => {
                 <p className="p-4 font-body text-xs text-muted-foreground">No room types yet.</p>
               ) : (
                 <div className="max-h-[320px] overflow-auto">
-                  {roomTypes.map((rt) => (
+                  {roomTypePages.pageItems.map((rt) => (
                     <button
                       key={rt._id}
                       onClick={() => setSelectedRoomTypeId(rt._id)}
@@ -529,10 +533,10 @@ const AdminInventory = () => {
                         <div className="min-w-0">
                           <p className="font-body text-sm font-semibold text-foreground truncate">{rt.name}</p>
                           <p className="font-body text-xs text-muted-foreground truncate">
-                            {selectedHotel?.propertyType === 'dharamshala' ? 'Enquiry only' : `Rs. ${Number(rt.pricePerNight || 0).toLocaleString('en-IN')}`} - Adults {rt.maxAdults} - Children {rt.maxChildren}
+                            {isDharamshalaType(selectedHotel?.propertyType) ? 'Enquiry only' : `Rs. ${Number(rt.pricePerNight || 0).toLocaleString('en-IN')}`} - Adults {rt.maxAdults} - Children {rt.maxChildren}
                           </p>
                           <p className="font-body text-[11px] text-muted-foreground truncate">
-                            {selectedHotel?.propertyType === 'dharamshala'
+                            {isDharamshalaType(selectedHotel?.propertyType)
                               ? 'No online payment or platform booking fee for dharamshala enquiries'
                               : `Customer pays Rs. ${priceWithTax(rt.pricePerNight).toLocaleString('en-IN')} / night incl. ${taxPercent}% GST`}
                           </p>
@@ -562,6 +566,9 @@ const AdminInventory = () => {
                       </div>
                     </button>
                   ))}
+                  <div className="p-3">
+                    <RecordPagination page={roomTypePages.page} total={roomTypes.length} onPageChange={roomTypePages.setPage} />
+                  </div>
                 </div>
               )}
             </div>
@@ -636,7 +643,7 @@ const AdminInventory = () => {
               <p className="p-4 font-body text-xs text-muted-foreground">No room numbers yet.</p>
             ) : (
               <div className="max-h-[320px] overflow-auto">
-                {rooms.map((r) => (
+                {roomPages.pageItems.map((r) => (
                   <button
                     key={r._id}
                     onClick={() => setSelectedRoomUnitId(r._id)}
@@ -675,6 +682,9 @@ const AdminInventory = () => {
                     </div>
                   </button>
                 ))}
+                <div className="p-3">
+                  <RecordPagination page={roomPages.page} total={rooms.length} onPageChange={roomPages.setPage} />
+                </div>
               </div>
             )}
           </div>

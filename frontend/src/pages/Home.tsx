@@ -11,6 +11,7 @@ import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 import { COMPANY_PHONE_DIGITS } from '@/lib/brand';
 import { useSettingsStore } from '@/store/settingsStore';
+import { getPropertyTypeLabel, isDharamshalaType } from '@/lib/propertyTypes';
 
 const heroImg = '/backgrounds/braj-govardhan-hero.jpeg';
 
@@ -18,7 +19,7 @@ const services = [
   {
     icon: Building2,
     title: 'Stay Near The Temples',
-    desc: 'Verified hotels, dharamshalas, and rooms close to Banke Bihari, ISKCON, and Prem Mandir.',
+    desc: 'Verified hotels, home stays, guest houses, dharamshalas, and rooms close to Banke Bihari, ISKCON, and Prem Mandir.',
     link: '/hotels',
     cta: 'Explore stays',
   },
@@ -48,6 +49,8 @@ const services = [
 const plannerServices = [
   { key: 'hotels', label: 'Dharamshalas', path: '/hotels', type: 'dharamshala', icon: BedDouble, hint: 'Book now' },
   { key: 'rooms', label: 'Hotels', path: '/hotels', type: 'hotel', icon: Building2, hint: 'Book now' },
+  { key: 'home_stays', label: 'Home Stays', path: '/hotels', type: 'home_stay', icon: Building2, hint: 'Book now' },
+  { key: 'guest_houses', label: 'Guest Houses', path: '/hotels', type: 'guest_house', icon: BedDouble, hint: 'Book now' },
   { key: 'cabs', label: 'Taxi & Cab', path: '/cabs', icon: CarTaxiFront, hint: 'Book now' },
   { key: 'tours', label: 'Tour Packages', path: '/tours', icon: Gift, hint: 'View' },
   { key: 'shop', label: 'Shopping', path: '/shop', icon: ShoppingBag, hint: 'Shop now' },
@@ -122,7 +125,7 @@ const Home = () => {
     if (plannerCheckIn && service.key !== 'shop') params.set('checkIn', plannerCheckIn);
     if (plannerCheckOut && service.key !== 'shop') params.set('checkOut', plannerCheckOut);
     if (plannerGuests > 1 && service.key !== 'shop') params.set('guests', String(plannerGuests));
-    if (plannerRooms > 1 && (service.key === 'hotels' || service.key === 'rooms')) params.set('rooms', String(plannerRooms));
+    if (plannerRooms > 1 && ['hotels', 'rooms', 'home_stays', 'guest_houses'].includes(service.key)) params.set('rooms', String(plannerRooms));
     const qs = params.toString();
     return `${service.path}${qs ? `?${qs}` : ''}`;
   };
@@ -279,7 +282,7 @@ const Home = () => {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
             className="mb-1 max-w-4xl font-heading text-2xl font-extrabold leading-tight text-brand-black drop-shadow-[0_2px_14px_hsl(0_0%_100%_/_0.85)] md:text-3xl"
           >
-            Trusted hotel, dharamshala, and room booking across Braj
+            Trusted hotel, home stay, guest house, dharamshala, and room booking across Braj
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
@@ -487,7 +490,7 @@ const Home = () => {
         <div className="container mx-auto px-4 relative">
           <SectionTitle
             label="Featured Stays"
-            title="Handpicked Hotels & Dharamshalas in Braj"
+            title="Handpicked Hotels, Home Stays & Dharamshalas in Braj"
             subtitle="Comfortable and affordable stays near the most sacred temples"
           />
           {hotels.length > 0 ? (
@@ -500,9 +503,9 @@ const Home = () => {
                     image={hotel.image}
                     images={hotel.images}
                     name={hotel.name}
-                    badge={hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel'}
+                    badge={getPropertyTypeLabel(hotel?.propertyType)}
                     location={hotel.location}
-                    price={hotel?.propertyType === 'dharamshala' ? undefined : getHotelStartingPrice(hotel)}
+                    price={isDharamshalaType(hotel?.propertyType) ? undefined : getHotelStartingPrice(hotel)}
                     priceLabel={hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}
@@ -537,7 +540,7 @@ const Home = () => {
           <SectionTitle
             label="Room Options"
             title="Browse Rooms"
-            subtitle="Choose comfortable room types from verified Braj hotels and dharamshalas"
+            subtitle="Choose comfortable room types from verified Braj hotels, home stays, guest houses, and dharamshalas"
           />
           {roomTypes.length > 0 ? (
             <>
@@ -549,14 +552,14 @@ const Home = () => {
                     images={roomType?.images?.length ? roomType.images : roomType?.hotel?.images}
                     name={roomType.name}
                     location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` - ${roomType.hotel.location}` : ''}`}
-                    price={roomType?.hotel?.propertyType === 'dharamshala' ? undefined : getRoomPrice(roomType)}
+                    price={isDharamshalaType(roomType?.hotel?.propertyType) ? undefined : getRoomPrice(roomType)}
                     priceLabel={roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={0}
                     reviewCount={0}
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}
                     meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
-                    badge={roomType?.hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : undefined}
-                    ctaLabel={roomType?.hotel?.propertyType === 'dharamshala' ? 'WhatsApp / Call' : 'Book Room'}
+                    badge={getPropertyTypeLabel(roomType?.hotel?.propertyType)}
+                    ctaLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? 'WhatsApp / Call' : 'Book Room'}
                     onViewDetails={() => {
                       prefetchDetail('roomTypes', roomType._id, roomType);
                       navigate(`/room-types/${roomType._id}`);
@@ -789,7 +792,7 @@ const Home = () => {
                     To make every Braj visit feel guided, honest, and cared for.
                   </h2>
                   <p className="font-body text-[14px] leading-7 text-white sm:text-[15px]">
-                    Vrindavan Sarthi Enterprises was created to bring hotels, dharamshalas, rooms, cabs, tours{shopEnabled ? ', and sacred products' : ''} across Braj into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
+                    Vrindavan Sarthi Enterprises was created to bring hotels, home stays, guest houses, dharamshalas, rooms, cabs, tours{shopEnabled ? ', and sacred products' : ''} across Braj into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Link to="/about" className="btn-gold inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold">

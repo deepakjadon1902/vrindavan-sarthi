@@ -5,6 +5,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 interface Cab {
   _id: string;
@@ -20,6 +21,7 @@ interface Cab {
   status: 'available' | 'on-trip' | 'inactive';
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   partnerName?: string;
+  createdAt?: string;
 }
 
 const ManageCabs = () => {
@@ -168,9 +170,10 @@ const ManageCabs = () => {
         (i) =>
           i.vehicleName.toLowerCase().includes(search.toLowerCase()) ||
           i.driverName.toLowerCase().includes(search.toLowerCase())
-      ),
+      ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()),
     [items, search]
   );
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [search]);
 
   return (
     <div className="space-y-6">
@@ -351,6 +354,7 @@ const ManageCabs = () => {
           <p className="font-body text-muted-foreground">No cabs added yet</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -365,7 +369,7 @@ const ManageCabs = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => (
+              {pageItems.map((item) => (
                 <tr key={item._id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3">
                     <div className="w-12 h-9 rounded overflow-hidden bg-muted">
@@ -437,6 +441,8 @@ const ManageCabs = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

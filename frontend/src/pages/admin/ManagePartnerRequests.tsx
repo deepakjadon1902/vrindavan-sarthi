@@ -6,6 +6,7 @@ import { api, withAuth } from '@/lib/api';
 import axios from 'axios';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getSessionCache, setSessionCache } from '@/lib/panelCache';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 const ManagePartnerRequests = () => {
   const token = useAuthStore((s) => s.token);
@@ -58,6 +59,7 @@ const ManagePartnerRequests = () => {
 
   const filteredByType = typeFilter === 'all' ? allItems : allItems.filter(i => i.itemType === typeFilter);
   const filtered = filter === 'all' ? filteredByType : filteredByType.filter(i => i.approvalStatus === filter);
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [filter, typeFilter]);
 
   const updateStatus = async (item: any, status: 'approved' | 'rejected', remarks: string = '') => {
     if (!token) return;
@@ -165,6 +167,7 @@ const ManagePartnerRequests = () => {
           <p className="font-body text-muted-foreground">No {filter === 'all' ? 'partner' : filter} requests</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead><tr className="border-b border-border bg-muted/50">
@@ -177,7 +180,7 @@ const ManagePartnerRequests = () => {
               <th className="text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
             </tr></thead>
             <tbody>
-              {filtered.map((item) => (
+              {pageItems.map((item) => (
                 <tr key={item.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3">{typeIcon(item.itemType)}</td>
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{getItemName(item)}</td>
@@ -201,6 +204,8 @@ const ManagePartnerRequests = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+        </>
       )}
 
       {viewItem && (

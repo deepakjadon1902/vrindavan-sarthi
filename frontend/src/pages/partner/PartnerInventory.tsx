@@ -6,8 +6,10 @@ import { Plus, Trash2, Pencil, CalendarDays } from 'lucide-react';
 import { publishAppEvent, subscribeAppEvent } from '@/lib/broadcast';
 import { clearSessionCache } from '@/lib/panelCache';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { getPropertyTypeLabel, isDharamshalaType, type StayPropertyType } from '@/lib/propertyTypes';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
-type Hotel = { _id: string; name: string; propertyType?: 'hotel' | 'dharamshala'; status?: string; approvalStatus?: string };
+type Hotel = { _id: string; name: string; propertyType?: StayPropertyType; status?: string; approvalStatus?: string };
 
 type RoomType = {
   _id: string;
@@ -76,6 +78,8 @@ const PartnerInventory = () => {
   const selectedHotel = useMemo(() => hotels.find((h) => h._id === selectedHotelId) || null, [hotels, selectedHotelId]);
   const selectedRoomType = useMemo(() => roomTypes.find((rt) => rt._id === selectedRoomTypeId) || null, [roomTypes, selectedRoomTypeId]);
   const selectedRoomUnit = useMemo(() => rooms.find((r) => r._id === selectedRoomUnitId) || null, [rooms, selectedRoomUnitId]);
+  const roomTypePages = useRecordPagination(roomTypes, [selectedHotelId]);
+  const roomPages = useRecordPagination(rooms, [selectedRoomTypeId]);
 
   const loadHotels = async () => {
     if (!token) return;
@@ -281,7 +285,7 @@ const PartnerInventory = () => {
     if (!token) return;
     if (!selectedHotelId) return toast.error('Select a property first');
     if (!rtName.trim()) return toast.error('Room type name is required');
-    const isDharamshala = selectedHotel?.propertyType === 'dharamshala';
+    const isDharamshala = isDharamshalaType(selectedHotel?.propertyType);
     if ((!isDharamshala && (!rtPrice || rtPrice <= 0)) || rtPrice < 0) {
       return toast.error(isDharamshala ? 'Enter 0 or more for reference price' : 'Price per night is required');
     }
@@ -492,7 +496,7 @@ const PartnerInventory = () => {
             <option value="">Select property</option>
             {hotels.map((h) => (
               <option key={h._id} value={h._id}>
-                {h.name}{h.propertyType === 'dharamshala' ? ' - Dharamshala' : ' - Hotel'}
+                {h.name} - {getPropertyTypeLabel(h.propertyType)}
                 {h.approvalStatus ? ` • ${h.approvalStatus}` : ''}
                 {h.status ? ` • ${h.status}` : ''}
               </option>
@@ -502,7 +506,7 @@ const PartnerInventory = () => {
         {selectedHotel && (
           <div className="text-xs font-body text-muted-foreground">
             Selected: <span className="text-foreground font-medium">{selectedHotel.name}</span>
-            <span className="ml-1 capitalize">({selectedHotel.propertyType || 'hotel'})</span>
+            <span className="ml-1">({getPropertyTypeLabel(selectedHotel.propertyType)})</span>
           </div>
         )}
       </div>
@@ -581,7 +585,7 @@ const PartnerInventory = () => {
             {roomTypes.length === 0 ? (
               <p className="font-body text-sm text-muted-foreground">No room types yet.</p>
             ) : (
-              roomTypes.map((rt) => (
+              roomTypePages.pageItems.map((rt) => (
                 <div
                   key={rt._id}
                   className={`p-3 rounded-lg border flex items-center justify-between gap-3 ${selectedRoomTypeId === rt._id ? 'border-brand-gold bg-brand-gold/5' : 'border-border bg-background'}`}
@@ -589,7 +593,7 @@ const PartnerInventory = () => {
                   <button onClick={() => setSelectedRoomTypeId(rt._id)} className="text-left flex-1">
                     <div className="font-body text-sm font-semibold text-foreground">{rt.name}</div>
                     <div className="font-body text-xs text-muted-foreground">
-                      {selectedHotel?.propertyType === 'dharamshala' ? 'Enquiry only' : `Rs. ${Number(rt.pricePerNight || 0).toLocaleString('en-IN')}`} - Adults {rt.maxAdults} - Children {rt.maxChildren}
+                      {isDharamshalaType(selectedHotel?.propertyType) ? 'Enquiry only' : `Rs. ${Number(rt.pricePerNight || 0).toLocaleString('en-IN')}`} - Adults {rt.maxAdults} - Children {rt.maxChildren}
                     </div>
                   </button>
                   <button onClick={() => editRoomType(rt)} className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit">
@@ -601,6 +605,7 @@ const PartnerInventory = () => {
                 </div>
               ))
             )}
+            <RecordPagination page={roomTypePages.page} total={roomTypes.length} onPageChange={roomTypePages.setPage} />
           </div>
         </div>
 
@@ -643,7 +648,7 @@ const PartnerInventory = () => {
               </button>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {rooms.map((r) => (
+                {roomPages.pageItems.map((r) => (
                   <div
                     key={r._id}
                     className={`px-3 py-2 rounded-lg border flex items-center gap-2 ${selectedRoomUnitId === r._id ? 'border-brand-gold bg-brand-gold/5' : 'border-border bg-background'}`}
@@ -659,6 +664,7 @@ const PartnerInventory = () => {
                     </button>
                   </div>
                 ))}
+                <RecordPagination page={roomPages.page} total={rooms.length} onPageChange={roomPages.setPage} />
                 {rooms.length === 0 && <p className="font-body text-sm text-muted-foreground">No rooms yet.</p>}
               </div>
             </>

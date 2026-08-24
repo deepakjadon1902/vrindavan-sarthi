@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 import { getBrajLocationName, sortBrajLocationNames, sortBrajLocationNamesForSearch } from '@/lib/brajLocations';
+import { getPropertyTypeLabel, isDharamshalaType } from '@/lib/propertyTypes';
 
 const Rooms = () => {
   const navigate = useNavigate();
@@ -181,7 +182,7 @@ const Rooms = () => {
               </div>
 
               {groupedByLocation.map(([locationName, locationRoomTypes]) => {
-                const dharamshalaCount = locationRoomTypes.filter((rt: any) => rt?.hotel?.propertyType === 'dharamshala').length;
+                const dharamshalaCount = locationRoomTypes.filter((rt: any) => isDharamshalaType(rt?.hotel?.propertyType)).length;
                 const hotelRoomCount = locationRoomTypes.length - dharamshalaCount;
                 return (
                   <section key={locationName} className="space-y-3">
@@ -204,15 +205,15 @@ const Rooms = () => {
                           images={rt?.images?.length ? rt.images : rt?.hotel?.images}
                           name={rt.name}
                           location={`${rt?.hotel?.name || ''}${rt?.hotel?.location ? ` - ${rt.hotel.location}` : ''}`}
-                          price={rt?.hotel?.propertyType === 'dharamshala' ? undefined : getTaxInclusivePrice(rt)}
+                          price={isDharamshalaType(rt?.hotel?.propertyType) ? undefined : getTaxInclusivePrice(rt)}
                           priceLabel={rt?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                           rating={0}
                           reviewCount={0}
                           amenities={rt?.amenities || rt?.hotel?.amenities || []}
                           meta={Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined}
                           variant="compact"
-                          badge={rt?.hotel?.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel Room'}
-                          ctaLabel={rt?.hotel?.propertyType === 'dharamshala' ? 'WhatsApp / Call' : 'Book Room'}
+                          badge={getPropertyTypeLabel(rt?.hotel?.propertyType)}
+                          ctaLabel={isDharamshalaType(rt?.hotel?.propertyType) ? 'WhatsApp / Call' : 'Book Room'}
                           onViewDetails={() => {
                             prefetchDetail('roomTypes', rt._id, rt);
                             navigate(`/room-types/${rt._id}`);

@@ -166,11 +166,12 @@ import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 import { getBrajLocationName, sortBrajLocationNames, sortBrajLocationNamesForSearch } from '@/lib/brajLocations';
+import { getPropertyTypeLabel, isDharamshalaType, type StayPropertyType } from '@/lib/propertyTypes';
 
 type HotelListItem = {
   _id: string;
   name: string;
-  propertyType?: 'hotel' | 'dharamshala';
+  propertyType?: StayPropertyType;
   location: string;
   rating: number;
   image: string;
@@ -193,7 +194,11 @@ const Hotels = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
-  const propertyFilter = searchParams.get('type') === 'dharamshala' ? 'dharamshala' : searchParams.get('type') === 'hotel' ? 'hotel' : '';
+  const typeParam = searchParams.get('type');
+  const propertyFilter: StayPropertyType | '' =
+    typeParam === 'dharamshala' || typeParam === 'hotel' || typeParam === 'home_stay' || typeParam === 'guest_house'
+      ? typeParam
+      : '';
   const [hotels, setHotels] = useState<HotelListItem[]>([]);
 
   useEffect(() => {
@@ -323,7 +328,7 @@ const Hotels = () => {
         <div className="container mx-auto px-4 sm:px-6 relative">
           <SectionTitle
             label="Stays Across Braj"
-            title="Find Hotels & Dharamshalas Across Braj"
+            title="Find Hotels, Home Stays & Dharamshalas Across Braj"
             subtitle="Search by Braj locations like Govardhan, Barsana, Mathura, Gokul, and Vrindavan"
           />
 
@@ -425,8 +430,10 @@ const Hotels = () => {
 
               <div className="space-y-8">
                 {groupedByLocation.map(([locationName, locationHotels]) => {
-                  const hotelCount = locationHotels.filter((hotel) => hotel.propertyType !== 'dharamshala').length;
-                  const dharamshalaCount = locationHotels.length - hotelCount;
+                  const hotelCount = locationHotels.filter((hotel) => (hotel.propertyType || 'hotel') === 'hotel').length;
+                  const homeStayCount = locationHotels.filter((hotel) => hotel.propertyType === 'home_stay').length;
+                  const guestHouseCount = locationHotels.filter((hotel) => hotel.propertyType === 'guest_house').length;
+                  const dharamshalaCount = locationHotels.filter((hotel) => isDharamshalaType(hotel.propertyType)).length;
                   return (
                     <section key={locationName} className="space-y-3">
                       <div className="flex flex-col gap-2 border-b border-border/80 pb-3 sm:flex-row sm:items-end sm:justify-between">
@@ -437,6 +444,8 @@ const Hotels = () => {
                         <p className="font-body text-xs font-semibold text-muted-foreground">
                           {locationHotels.length} stay{locationHotels.length === 1 ? '' : 's'}
                           {hotelCount > 0 ? ` - ${hotelCount} hotel${hotelCount === 1 ? '' : 's'}` : ''}
+                          {homeStayCount > 0 ? ` - ${homeStayCount} home stay${homeStayCount === 1 ? '' : 's'}` : ''}
+                          {guestHouseCount > 0 ? ` - ${guestHouseCount} guest house${guestHouseCount === 1 ? '' : 's'}` : ''}
                           {dharamshalaCount > 0 ? ` - ${dharamshalaCount} dharamshala${dharamshalaCount === 1 ? '' : 's'}` : ''}
                         </p>
                       </div>
@@ -448,9 +457,9 @@ const Hotels = () => {
                             image={hotel.image}
                             images={hotel.images}
                             name={hotel.name}
-                            badge={hotel.propertyType === 'dharamshala' ? 'Dharamshala' : 'Hotel'}
+                            badge={getPropertyTypeLabel(hotel.propertyType)}
                             location={hotel.location}
-                            price={hotel.propertyType === 'dharamshala' ? undefined : getHotelStartingPrice(hotel)}
+                            price={isDharamshalaType(hotel.propertyType) ? undefined : getHotelStartingPrice(hotel)}
                             priceLabel={hotel.taxEnabled ? '/night incl. GST' : '/night'}
                             rating={Number(hotel.rating || 0)}
                             reviewCount={Number(hotel.reviewCount || 0)}

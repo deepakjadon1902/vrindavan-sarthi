@@ -290,7 +290,7 @@ const bookingDetailFields = [
   'baseAmount taxPercent taxAmount checkoutSubtotal convenienceFeePercent convenienceFeeAmount totalAmount advanceAmount balanceAmount advancePercent paymentOption',
   'base_amount hotel_gst_amount convenience_fee customer_total advance_paid balance_at_property commission_rate commission_amount payment_gateway_fee gross_for_hotel hotel_net_payout payout_status hotel_gstin hotel_invoice_number',
   'platformCommissionPercent platformCommissionAmount grossForHotel paymentGatewayFeeAmount partnerNetPayout',
-  'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId additionalInfo',
+  'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId paymentProvider razorpayOrderId razorpayPaymentId razorpayStatus paidAt additionalInfo',
   'checkedInAt checkedInByPartnerId checkedInByPartnerName guestDigitalSignature',
   'acceptedPropertyTerms',
   'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount createdAt',
@@ -497,8 +497,11 @@ router.post('/room-type', protect, async (req, res) => {
     const subtotal = Math.round(baseAmount + taxAmount);
     const paymentOption = getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']);
     if (!paymentOption) return res.status(400).json({ success: false, message: 'Please select 30% advance or 100% full online payment' });
+    const paymentProvider = String(req.body?.paymentProvider || '').trim().toLowerCase() === 'razorpay' ? 'razorpay' : 'manual_upi';
     const upiTransactionId = String(req.body?.upiTransactionId || '').trim();
-    if (!upiTransactionId) return res.status(400).json({ success: false, message: 'UPI transaction ID is required for online payment' });
+    if (paymentProvider !== 'razorpay' && !upiTransactionId) {
+      return res.status(400).json({ success: false, message: 'UPI transaction ID is required for online payment' });
+    }
 
     const money = buildMoneyFields({
       subtotal,
@@ -573,6 +576,7 @@ router.post('/room-type', protect, async (req, res) => {
       partnerPaymentVerified: false,
       adminPaymentVerified: false,
       upiTransactionId,
+      paymentProvider,
       additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
       acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
     });
@@ -674,6 +678,7 @@ router.post('/room-type', protect, async (req, res) => {
         partnerPaymentVerified: false,
         adminPaymentVerified: false,
         upiTransactionId,
+        paymentProvider,
         additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
         acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
         isWaitlisted: true,
@@ -1042,6 +1047,9 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
   try {
     const bookingExisting = await Booking.findById(req.params.id);
     if (!bookingExisting) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (bookingExisting.paymentProvider === 'razorpay') {
+      return res.status(400).json({ success: false, message: 'Razorpay payments are verified automatically by server/webhook.' });
+    }
 
     if (bookingExisting.paymentMethod === 'online' && bookingExisting.partnerId && !bookingExisting.partnerPaymentVerified) {
       return res.status(400).json({ success: false, message: 'Partner verification required before admin verification' });
@@ -1068,6 +1076,11 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
 // Reject payment (admin)
 router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
   try {
+    const existing = await Booking.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (existing.paymentProvider === 'razorpay') {
+      return res.status(400).json({ success: false, message: 'Razorpay payments are updated automatically by server/webhook.' });
+    }
     const booking = await Booking.findByIdAndUpdate(
       req.params.id,
       {
@@ -1149,6 +1162,9 @@ router.put('/:id/partner-verify', protect, authorize('partner'), async (req, res
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (booking.paymentProvider === 'razorpay') {
+      return res.status(400).json({ success: false, message: 'Razorpay payments are updated automatically by server/webhook.' });
+    }
 
     if (!booking.partnerId || String(booking.partnerId) !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
@@ -1174,6 +1190,9 @@ router.put('/:id/partner-reject', protect, authorize('partner'), async (req, res
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (booking.paymentProvider === 'razorpay') {
+      return res.status(400).json({ success: false, message: 'Razorpay payments are updated automatically by server/webhook.' });
+    }
 
     if (!booking.partnerId || String(booking.partnerId) !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorized' });

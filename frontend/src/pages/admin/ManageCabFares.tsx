@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 type Fare = {
   _id: string;
@@ -64,9 +65,10 @@ const ManageCabFares = () => {
   }, [token]);
 
   const sorted = useMemo(
-    () => [...items].sort((a, b) => String(a.pickupLocation).localeCompare(String(b.pickupLocation))),
+    () => [...items].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()),
     [items]
   );
+  const { page, setPage, pageItems } = useRecordPagination(sorted);
 
   const startEdit = (f: Fare) => {
     setForm({
@@ -194,6 +196,7 @@ const ManageCabFares = () => {
           <p className="font-body text-sm text-muted-foreground">No fare rules yet.</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -206,7 +209,7 @@ const ManageCabFares = () => {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((f) => (
+              {pageItems.map((f) => (
                 <tr key={f._id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-sm text-foreground">{f.pickupLocation} → {f.dropLocation}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground">{f.cabType}</td>
@@ -229,6 +232,8 @@ const ManageCabFares = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={sorted.length} onPageChange={setPage} />
+        </>
       )}
 
       {deleteId && (

@@ -4,6 +4,7 @@ import { ClipboardList, Calendar, User, Phone, Mail, CheckCircle2, IndianRupee }
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import BookingFormDetails from '@/components/BookingFormDetails';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 const PartnerBookings = () => {
   const { user } = useAuthStore();
@@ -31,6 +32,7 @@ const PartnerBookings = () => {
 
   const bookings = [...partnerBookings].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const filtered = filter === 'all' ? bookings : bookings.filter((b) => b.bookingStatus === filter);
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [filter]);
 
   const statusColor = (s: string) => {
     if (s === 'confirmed') return 'bg-brand-green/10 text-brand-green';
@@ -42,7 +44,7 @@ const PartnerBookings = () => {
   };
 
   const needsPartnerVerify = (b: any) =>
-    b.paymentMethod === 'online' && b.paymentStatus === 'pending' && b.verificationStage === 'pending_partner';
+    b.paymentMethod === 'online' && b.paymentProvider !== 'razorpay' && b.paymentStatus === 'pending' && b.verificationStage === 'pending_partner';
   const needsCashBalance = (b: any) =>
     b.paymentOption === 'advance_30' && Number(b.balanceAmount || 0) > 0 && !['cancelled', 'settled'].includes(String(b.bookingStatus || ''));
   const canPartnerCheckIn = (b: any) =>
@@ -162,7 +164,7 @@ const PartnerBookings = () => {
               </div>
             </div>
           )}
-          {filtered.map((b) => (
+          {pageItems.map((b) => (
             <div key={b.id} className="bg-card rounded-xl border border-border p-5">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
@@ -213,7 +215,7 @@ const PartnerBookings = () => {
                     {b.totalAmount > 0 && (
                       <span className="font-semibold text-foreground">₹{b.totalAmount.toLocaleString('en-IN')}</span>
                     )}
-                    <span>{b.paymentMethod === 'doorstep' ? 'Pay at Doorstep' : `UPI ${b.paymentStatus}`}</span>
+                    <span>{b.paymentMethod === 'doorstep' ? 'Pay at Doorstep' : `${b.paymentProvider === 'razorpay' ? 'Razorpay' : 'UPI'} ${b.paymentStatus}`}</span>
                     <span>{new Date(b.createdAt).toLocaleDateString()}</span>
                   </div>
 
@@ -289,6 +291,7 @@ const PartnerBookings = () => {
               </div>
             </div>
           ))}
+          <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
         </div>
       )}
     </div>

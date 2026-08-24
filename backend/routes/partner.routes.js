@@ -7,6 +7,7 @@ const PartnerNotification = require('../models/PartnerNotification');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
 const router = express.Router();
+const PROPERTY_TYPES = ['hotel', 'dharamshala', 'home_stay', 'guest_house'];
 
 const normalizeRequiredLocationFields = (body) => {
   const googleMapLink = String(body?.googleMapLink || body?.location || body?.fullAddress || '').trim();
@@ -162,7 +163,8 @@ const applyPartnerHotelDefaults = (body, user) => {
   body.fullAddress = String(body?.fullAddress || businessAddress || body.location || '').trim();
   body.googleMapLink = String(body?.googleMapLink || body.fullAddress || body.location || '').trim();
   body.businessName = businessName;
-  body.propertyType = String(body?.propertyType || '').trim().toLowerCase() === 'dharamshala' ? 'dharamshala' : 'hotel';
+  const propertyType = String(body?.propertyType || '').trim().toLowerCase();
+  body.propertyType = PROPERTY_TYPES.includes(propertyType) ? propertyType : 'hotel';
   if (body.propertyType === 'dharamshala') {
     body.taxEnabled = false;
     body.taxPercent = 0;

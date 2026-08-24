@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Bell, Megaphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { useAuthStore } from '@/store/authStore';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 const PartnerCommunications = () => {
   const token = useAuthStore((s) => s.token);
@@ -31,12 +32,24 @@ const PartnerCommunications = () => {
     void run();
   }, [token]);
 
-  const renderItems = (items: any[]) => (
+  const sortedNotices = useMemo(
+    () => [...notices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [notices]
+  );
+  const sortedNotifications = useMemo(
+    () => [...notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [notifications]
+  );
+  const noticePages = useRecordPagination(sortedNotices);
+  const notificationPages = useRecordPagination(sortedNotifications);
+
+  const renderItems = (items: any[], page: number, setPage: (page: number) => void, total: number) => (
     <div className="space-y-3">
-      {items.length === 0 ? (
+      {total === 0 ? (
         <p className="font-body text-sm text-muted-foreground">{isLoading ? 'Loading...' : 'No items yet.'}</p>
       ) : (
-        items.map((item) => (
+        <>
+        {items.map((item) => (
           <div key={item._id} className="rounded-lg border border-border bg-background p-4">
             <div className="flex items-start justify-between gap-3">
               <p className="font-body text-sm font-semibold text-foreground">{item.title}</p>
@@ -44,7 +57,9 @@ const PartnerCommunications = () => {
             </div>
             <p className="font-body text-sm text-muted-foreground mt-2 whitespace-pre-line">{item.message}</p>
           </div>
-        ))
+        ))}
+        <RecordPagination page={page} total={total} onPageChange={setPage} />
+        </>
       )}
     </div>
   );
@@ -61,13 +76,13 @@ const PartnerCommunications = () => {
           <h3 className="font-heading text-base font-semibold text-foreground mb-4 flex items-center gap-2">
             <Megaphone size={16} className="text-brand-gold" /> Notices
           </h3>
-          {renderItems(notices)}
+          {renderItems(noticePages.pageItems, noticePages.page, noticePages.setPage, sortedNotices.length)}
         </section>
         <section className="bg-card rounded-xl border border-border p-5">
           <h3 className="font-heading text-base font-semibold text-foreground mb-4 flex items-center gap-2">
             <Bell size={16} className="text-brand-crimson" /> Notifications
           </h3>
-          {renderItems(notifications)}
+          {renderItems(notificationPages.pageItems, notificationPages.page, notificationPages.setPage, sortedNotifications.length)}
         </section>
       </div>
     </div>

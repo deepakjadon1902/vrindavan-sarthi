@@ -3,6 +3,7 @@ import { useProductStore } from '@/store/productStore';
 import { CreditCard, CheckCircle2, XCircle, Clock, IndianRupee, Eye } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 const AdminPayments = () => {
   const { adminBookings, fetchAllBookings, verifyPayment, rejectPayment, isLoading } = useBookingStore();
@@ -39,6 +40,8 @@ const AdminPayments = () => {
     paymentStatus: string;
     partnerName?: string;
     upiTxnId?: string;
+    paymentProvider?: string;
+    razorpayPaymentId?: string;
     date: string;
     source: 'booking' | 'order';
   };
@@ -56,6 +59,8 @@ const AdminPayments = () => {
       paymentStatus: b.paymentStatus,
       partnerName: b.partnerName,
       upiTxnId: b.upiTransactionId,
+      paymentProvider: b.paymentProvider,
+      razorpayPaymentId: b.razorpayPaymentId,
       date: b.createdAt,
       source: 'booking' as const,
     })),
@@ -78,6 +83,7 @@ const AdminPayments = () => {
   const filtered = unified
     .filter((p) => statusFilter === 'all' || p.paymentStatus === statusFilter)
     .filter((p) => typeFilter === 'all' || p.type === typeFilter);
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [statusFilter, typeFilter]);
 
   const totalRevenue = unified.filter((p) => p.paymentStatus === 'paid').reduce((s, p) => s + p.amount, 0);
   const pendingAmount = unified.filter((p) => p.paymentStatus === 'pending').reduce((s, p) => s + p.amount, 0);
@@ -153,7 +159,7 @@ const AdminPayments = () => {
 
       {selectedUpi && (
         <div className="bg-brand-cream border border-brand-gold/30 rounded-xl p-4 flex items-center justify-between">
-          <div><p className="font-body text-xs text-muted-foreground">User's UPI Transaction ID</p><p className="font-heading text-lg font-bold text-foreground">{selectedUpi}</p></div>
+          <div><p className="font-body text-xs text-muted-foreground">Payment Reference</p><p className="font-heading text-lg font-bold text-foreground">{selectedUpi}</p></div>
           <button onClick={() => setSelectedUpi(null)} className="px-3 py-1 rounded-lg text-xs border border-border font-body hover:bg-muted">Close</button>
         </div>
       )}
@@ -171,6 +177,7 @@ const AdminPayments = () => {
           <p className="font-body text-sm text-muted-foreground">Payment records will appear here.</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -180,7 +187,7 @@ const AdminPayments = () => {
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Item</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden sm:table-cell">User</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Amount</th>
-                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">UPI Txn ID</th>
+                <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Payment Ref</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground">Status</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Partner</th>
                 <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Date</th>
@@ -188,7 +195,7 @@ const AdminPayments = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => (
+              {pageItems.map((p) => (
                 <tr key={`${p.source}-${p.recordId}`} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-xs text-brand-crimson font-medium">{p.displayId}</td>
                   <td className="px-4 py-3"><span className="font-body text-xs bg-secondary px-2 py-0.5 rounded capitalize">{p.type}</span></td>
@@ -196,7 +203,11 @@ const AdminPayments = () => {
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{p.userName}</td>
                   <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">₹{p.amount.toLocaleString('en-IN')}</td>
                   <td className="px-4 py-3">
-                    {p.upiTxnId ? (
+                    {p.razorpayPaymentId ? (
+                      <button onClick={() => setSelectedUpi(p.razorpayPaymentId!)} className="flex items-center gap-1 font-body text-xs text-brand-gold hover:underline">
+                        <Eye size={12} /> Razorpay {p.razorpayPaymentId.slice(0, 8)}...
+                      </button>
+                    ) : p.upiTxnId ? (
                       <button onClick={() => setSelectedUpi(p.upiTxnId!)} className="flex items-center gap-1 font-body text-xs text-brand-gold hover:underline">
                         <Eye size={12} /> {p.upiTxnId.slice(0, 8)}...
                       </button>
@@ -206,11 +217,13 @@ const AdminPayments = () => {
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">{p.partnerName || 'Admin'}</td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">{new Date(p.date).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
-                    {p.paymentStatus === 'pending' ? (
+                    {p.paymentStatus === 'pending' && p.paymentProvider !== 'razorpay' ? (
                       <div className="flex gap-1">
                         <button onClick={() => handleVerify(p)} className="px-2 py-1 rounded bg-brand-green/10 text-brand-green font-body text-[10px] hover:bg-brand-green/20 transition-colors">Verify</button>
                         <button onClick={() => handleReject(p)} className="px-2 py-1 rounded bg-destructive/10 text-destructive font-body text-[10px] hover:bg-destructive/20 transition-colors">Reject</button>
                       </div>
+                    ) : p.paymentStatus === 'pending' && p.paymentProvider === 'razorpay' ? (
+                      <span className="font-body text-[10px] text-muted-foreground">Webhook controlled</span>
                     ) : <span className="font-body text-[10px] text-muted-foreground"></span>}
                   </td>
                 </tr>
@@ -218,6 +231,8 @@ const AdminPayments = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

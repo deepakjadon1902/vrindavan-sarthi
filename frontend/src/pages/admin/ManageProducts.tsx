@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useProductStore, type Product } from '@/store/productStore';
 import { Plus, Edit3, Trash2, ShoppingBag, Image, X } from 'lucide-react';
 import { toast } from 'sonner';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 const ManageProducts = () => {
   const {
@@ -27,6 +28,12 @@ const ManageProducts = () => {
   useEffect(() => {
     fetchAdminProducts();
   }, [fetchAdminProducts]);
+
+  const sortedProducts = useMemo(
+    () => [...products].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [products]
+  );
+  const { page, setPage, pageItems } = useRecordPagination(sortedProducts);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -174,8 +181,9 @@ const ManageProducts = () => {
           <p className="font-body text-sm text-muted-foreground">Add your first product to get started.</p>
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {products.map((p) => (
+          {pageItems.map((p) => (
             <div key={p.id} className="bg-card rounded-xl border border-border overflow-hidden">
               <div className="h-40 overflow-hidden">
                 <img src={p.images[0] || '/placeholder.svg'} alt={p.name} className="w-full h-full object-cover" />
@@ -202,6 +210,8 @@ const ManageProducts = () => {
             </div>
           ))}
         </div>
+        <RecordPagination page={page} total={sortedProducts.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

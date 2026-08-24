@@ -47,6 +47,11 @@ export interface Booking {
   partnerPaymentVerified?: boolean;
   adminPaymentVerified?: boolean;
   upiTransactionId?: string;
+  paymentProvider?: 'manual_upi' | 'razorpay';
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpayStatus?: string;
+  paidAt?: string;
   additionalInfo?: string;
   createdAt: string;
   // Inventory booking extras
@@ -182,6 +187,11 @@ const normalizeBooking = (b: unknown): Booking => {
     partnerPaymentVerified: typeof obj.partnerPaymentVerified === 'boolean' ? obj.partnerPaymentVerified : undefined,
     adminPaymentVerified: typeof obj.adminPaymentVerified === 'boolean' ? obj.adminPaymentVerified : undefined,
     upiTransactionId: getString(obj, 'upiTransactionId') || undefined,
+    paymentProvider: (getString(obj, 'paymentProvider') as Booking['paymentProvider']) || undefined,
+    razorpayOrderId: getString(obj, 'razorpayOrderId') || undefined,
+    razorpayPaymentId: getString(obj, 'razorpayPaymentId') || undefined,
+    razorpayStatus: getString(obj, 'razorpayStatus') || undefined,
+    paidAt: getString(obj, 'paidAt') || undefined,
     additionalInfo: getString(obj, 'additionalInfo') || undefined,
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
     hotelId: getString(obj, 'hotelId') || undefined,

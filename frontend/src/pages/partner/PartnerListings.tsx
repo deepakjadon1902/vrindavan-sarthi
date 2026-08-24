@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { publishAppEvent, subscribeAppEvent } from '@/lib/broadcast';
 import { clearSessionCache, getSessionCache, setSessionCache } from '@/lib/panelCache';
 import { getApiErrorMessage } from '@/lib/apiError';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 type ItemType = 'hotel' | 'cab';
 
@@ -60,6 +61,7 @@ const PartnerListings = () => {
   }, [token]);
 
   const filtered = filter === 'all' ? allItems : allItems.filter((i) => i.approvalStatus === filter);
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [filter]);
 
   const statusBadge = (status: string) => {
     if (status === 'approved') return 'bg-brand-green/10 text-brand-green';
@@ -139,7 +141,7 @@ const PartnerListings = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((item) => (
+          {pageItems.map((item) => (
             <div key={`${item.itemType}-${item.id}`} className="bg-card rounded-xl border border-border p-4 flex gap-3 items-center">
               <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
                 {typeIcon(item.itemType)}
@@ -195,6 +197,7 @@ const PartnerListings = () => {
               </div>
             </div>
           ))}
+          <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
         </div>
       )}
 

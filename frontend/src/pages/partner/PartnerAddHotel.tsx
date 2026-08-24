@@ -8,11 +8,13 @@ import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { BRAJ_LANDMARK_PLACE_NAMES, OTHER_LANDMARK_OPTION, getLandmarkOptionsForPlace, getLandmarkPlaceForListing } from '@/lib/landmarks';
 import { PropertyTermsEditor, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
+import { isDharamshalaType, propertyTypeOptions, type StayPropertyType } from '@/lib/propertyTypes';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 interface PartnerHotel {
   _id: string;
   name: string;
-  propertyType?: 'hotel' | 'dharamshala';
+  propertyType?: StayPropertyType;
   location: string;
   rating?: number;
   image?: string;
@@ -170,7 +172,7 @@ const PartnerAddHotel = () => {
       checkInTime: form.checkInTime || '12:00',
       checkOutTime: form.checkOutTime || '11:00',
       hotelGstin: form.hotelGstin.trim(),
-      taxEnabled: form.propertyType === 'hotel' && Boolean(form.hotelGstin.trim()) && Boolean(form.taxEnabled),
+      taxEnabled: !isDharamshalaType(form.propertyType) && Boolean(form.hotelGstin.trim()) && Boolean(form.taxEnabled),
       taxPercent: form.gstMode === 'manual' ? Number(form.taxPercent || 12) : 0,
       gstMode: form.gstMode,
       amenities: form.amenities
@@ -274,19 +276,20 @@ const PartnerAddHotel = () => {
         (h) =>
           h.name.toLowerCase().includes(search.toLowerCase()) ||
           h.location.toLowerCase().includes(search.toLowerCase())
-      ),
+      ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()),
     [items, search]
   );
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [search]);
   const isApproved = user?.partnerStatus === 'approved';
   const hasHotel = items.length > 0;
-  const isDharamshalaForm = form.propertyType === 'dharamshala';
+  const isDharamshalaForm = isDharamshalaType(form.propertyType);
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-heading text-xl font-bold text-foreground">My Hotel / Dharamshala</h2>
+        <h2 className="font-heading text-xl font-bold text-foreground">My Stay Listing</h2>
         <p className="font-body text-xs text-muted-foreground">
-          Submit one hotel or dharamshala for approval. Add room types and room numbers from Inventory after the listing exists.
+          Submit one hotel, home stay, guest house, or dharamshala for approval. Add room types and room numbers from Inventory after the listing exists.
         </p>
         {user?.partnerStatus && (
           <p className="font-body text-xs text-muted-foreground mt-1">Partner status: {user.partnerStatus}</p>
@@ -362,8 +365,7 @@ const PartnerAddHotel = () => {
                   onChange={(e) => setForm({ ...form, propertyType: e.target.value as PartnerHotel['propertyType'] })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 >
-                  <option value="hotel">Hotel</option>
-                  <option value="dharamshala">Dharamshala</option>
+                  {propertyTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
                 {isDharamshalaForm && (
                   <p className="font-body text-xs text-muted-foreground mt-1">Dharamshala onboarding is enquiry-first with fewer commercial fields.</p>
@@ -473,7 +475,7 @@ const PartnerAddHotel = () => {
                 />
               </div>
               )}
-              {form.propertyType === 'hotel' && form.hotelGstin.trim() && (
+              {!isDharamshalaForm && form.hotelGstin.trim() && (
                 <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
                   <label className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
                     <input
@@ -627,6 +629,7 @@ const PartnerAddHotel = () => {
           <p className="font-body text-sm text-muted-foreground">Submit your first hotel or dharamshala to get started.</p>
         </div>
       ) : (
+        <>
         <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -640,7 +643,7 @@ const PartnerAddHotel = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((h) => (
+              {pageItems.map((h) => (
                 <tr key={h._id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{h.name}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell capitalize">{h.propertyType || 'hotel'}</td>
@@ -691,6 +694,8 @@ const PartnerAddHotel = () => {
             </tbody>
           </table>
         </div>
+        <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

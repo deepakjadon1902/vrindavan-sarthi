@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 const AdminOrders = () => {
   const {
@@ -48,6 +49,7 @@ const AdminOrders = () => {
     () => orders.filter((o) => statusFilter === 'all' || o.orderStatus === statusFilter),
     [orders, statusFilter],
   );
+  const { page, setPage, pageItems } = useRecordPagination(filtered, [statusFilter]);
 
   const totalRevenue = orders
     .filter((o) => o.paymentStatus === 'paid')
@@ -381,7 +383,7 @@ const AdminOrders = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((o) => (
+          {pageItems.map((o) => (
             <div key={o.id} className="bg-card rounded-xl border border-border overflow-hidden">
 
               {/* ── Product header ── */}
@@ -528,6 +530,7 @@ const AdminOrders = () => {
               </div>
             </div>
           ))}
+          <RecordPagination page={page} total={filtered.length} onPageChange={setPage} />
         </div>
       )}
     </div>
