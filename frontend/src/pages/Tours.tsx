@@ -155,7 +155,7 @@ const Tours = () => {
               <p className="font-body text-sm text-muted-foreground">Tell us your travel date, group size, pickup point, and preferred Braj places.</p>
             </div>
             <a
-              href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Radhe Radhe, I want to book a tour package with Vrindavan Sarthi Enterprises.')}`}
+              href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Radhe Radhe, I want to book a tour package with Vrindavan Sarthi.')}`}
               target="_blank"
               rel="noreferrer"
               className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold"

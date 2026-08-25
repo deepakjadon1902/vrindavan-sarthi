@@ -87,15 +87,15 @@ const ListingCard = ({
           onViewDetails();
         }
       }}
-      className={`premium-tilt-card group min-w-0 overflow-hidden rounded-lg border bg-white transition-colors focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${onViewDetails ? 'cursor-pointer' : ''} ${
+      className={`premium-tilt-card group min-w-0 self-start overflow-hidden rounded-lg border bg-white transition-colors focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${onViewDetails ? 'cursor-pointer' : ''} ${
         isStayCard
           ? 'border-border shadow-[0_2px_12px_rgba(15,23,42,0.10)] hover:border-border hover:shadow-[0_10px_28px_rgba(15,23,42,0.16)]'
           : 'border-border/90 shadow-[0_10px_26px_rgba(15,23,42,0.07)] hover:border-brand-gold/45 hover:shadow-[0_18px_42px_rgba(15,23,42,0.13)]'
-      } ${variant === 'tour' ? 'h-auto' : 'h-full'}`}
+      } ${variant === 'tour' || isStayCard ? 'h-auto' : 'h-full'}`}
     >
       <div
         className={`relative overflow-hidden bg-muted ${
-          isStayCard ? 'aspect-[16/10] sm:aspect-[4/3]' : variant === 'tour' ? 'aspect-[16/11]' : 'aspect-[16/11]'
+          isStayCard ? 'aspect-[16/9] sm:aspect-[4/3]' : variant === 'tour' ? 'aspect-[16/11]' : 'aspect-[16/11]'
         }`}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
@@ -153,7 +153,7 @@ const ListingCard = ({
         )}
       </div>
 
-      <div className={`premium-depth-content flex flex-1 flex-col ${isStayCard ? 'p-3.5 sm:p-3' : 'p-3.5'}`}>
+      <div className={`premium-depth-content flex flex-col ${isStayCard ? 'p-3 sm:p-3' : 'flex-1 p-3.5'}`}>
         <div className="mb-1 flex min-h-5 items-center gap-1.5">
           <span className={`font-body text-[11px] ${isStayCard ? 'font-medium normal-case tracking-normal text-muted-foreground' : 'font-semibold uppercase tracking-[0.08em] text-muted-foreground'}`}>
             {typeLabel}{isRoomCard && meta ? ` - ${meta}` : ''}
@@ -200,7 +200,8 @@ const ListingCard = ({
           </div>
         )}
 
-        <div className={`${variant === 'tour' ? 'mt-3' : 'mt-auto'} ${isStayCard ? 'flex items-end justify-between gap-3 pt-3' : 'flex flex-col items-stretch gap-1.5 pt-2.5'}`}>
+        {((typeof price === 'number' && Number.isFinite(price) && price > 0) || !isStayCard) && (
+        <div className={`${variant === 'tour' || isStayCard ? 'mt-2' : 'mt-auto'} ${isStayCard ? 'flex items-end justify-between gap-3 pt-1' : 'flex flex-col items-stretch gap-1.5 pt-2.5'}`}>
           {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
             <div className="ml-auto text-right">
               <span className="font-body text-[11px] text-muted-foreground">Starting from</span>
@@ -220,6 +221,7 @@ const ListingCard = ({
             {ctaLabel} <ChevronRight size={13} />
           </button>
         </div>
+        )}
       </div>
     </div>
   );

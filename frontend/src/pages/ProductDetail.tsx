@@ -97,10 +97,10 @@ const ProductDetail = () => {
     '@type': 'Product',
     '@id': `${absoluteUrl(`/shop/${product.id}`)}#product`,
     name: product.name,
-    description: truncate(product.description || `${product.name} from Vrindavan Sarthi Enterprises shop.`),
+    description: truncate(product.description || `${product.name} from Vrindavan Sarthi shop.`),
     image: productImages.length ? productImages : [absoluteUrl('/placeholder.svg')],
     category: product.category,
-    brand: { '@type': 'Brand', name: 'Vrindavan Sarthi Enterprises' },
+    brand: { '@type': 'Brand', name: 'Vrindavan Sarthi' },
     offers: {
       '@type': 'Offer',
       url: absoluteUrl(`/shop/${product.id}`),
@@ -202,7 +202,7 @@ const ProductDetail = () => {
     <div className="pt-4 pb-8 min-h-screen bg-background">
       <SEO
         title={`${product.name} - ${product.category}`}
-        description={truncate(product.description || `Buy ${product.name} from the Vrindavan Sarthi Enterprises sacred shop.`)}
+        description={truncate(product.description || `Buy ${product.name} from the Vrindavan Sarthi sacred shop.`)}
         image={productImages[0]}
         canonicalPath={`/shop/${product.id}`}
         type="product"

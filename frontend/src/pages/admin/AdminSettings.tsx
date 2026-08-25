@@ -155,7 +155,7 @@ const AdminSettings = () => {
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Payee Name</label>
                 <input type="text" value={form.upiName} onChange={(e) => setForm({ ...form, upiName: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
-                  placeholder="Vrindavan Sarthi Enterprises" />
+                  placeholder="Vrindavan Sarthi" />
               </div>
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Default Hotel Taxes (%)</label>
@@ -176,7 +176,7 @@ const AdminSettings = () => {
               <div className="bg-muted rounded-xl p-6 text-center">
                 <p className="font-body text-sm text-muted-foreground mb-3">QR Code Preview (Sample ₹100)</p>
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${form.upiId}&pn=${form.upiName}&am=100&cu=INR&tn=Vrindavan Sarthi Enterprises Booking`)}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${form.upiId}&pn=${form.upiName}&am=100&cu=INR&tn=Vrindavan Sarthi Booking`)}`}
                   alt="UPI QR Preview"
                   className="mx-auto rounded-lg border border-border"
                 />

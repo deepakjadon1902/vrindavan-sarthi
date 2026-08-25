@@ -674,7 +674,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint, Star, Landmark, BedDouble, Minus, Plus, Info, CheckCircle2, MessageCircle, Phone } from 'lucide-react';
+import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint, Star, Landmark, BedDouble, Minus, Plus, MessageCircle, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { api, withAuth } from '@/lib/api';
@@ -687,7 +687,7 @@ import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import { useSettingsStore } from '@/store/settingsStore';
 import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
-import { hasPropertyTermsText, normalizePropertyTerms, propertyTermsFields } from '@/components/shared/PropertyTerms';
+import { hasPropertyTermsText, normalizePropertyTerms } from '@/components/shared/PropertyTerms';
 import { COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand';
 import { isDharamshalaType } from '@/lib/propertyTypes';
 
@@ -768,7 +768,6 @@ const RoomTypeDetail = () => {
   const [childDetails, setChildDetails] = useState<Array<{ name: string; age: string; gender?: string }>>([]);
   const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [paymentOption, setPaymentOption] = useState<'advance_30' | 'full_100' | ''>('');
-  const [policyPopover, setPolicyPopover] = useState<'advance_30' | 'full_100' | null>(null);
   const [propertyTermsAccepted, setPropertyTermsAccepted] = useState(false);
   const [bookingId, setBookingId] = useState('');
   const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
@@ -852,14 +851,6 @@ const RoomTypeDetail = () => {
   const uploader = roomType?.uploader || null;
   const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
   const mustAcceptPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
-  const visiblePropertyPolicies = propertyTerms.isActive
-    ? propertyTermsFields
-        .map((field) => ({ ...field, text: String(propertyTerms.sections[field.key] || '').trim() }))
-        .filter((field) => field.text)
-    : [];
-  const cancellationPolicyText = String(propertyTerms.sections.cancellationPolicy || '').trim();
-  const checkInPolicyText = String(propertyTerms.sections.checkInRequirements || '').trim();
-  const checkOutPolicyText = String(propertyTerms.sections.checkOutRules || '').trim();
   const isDharamshala = isDharamshalaType(hotel?.propertyType);
 
   useEffect(() => {
@@ -1042,7 +1033,7 @@ const RoomTypeDetail = () => {
       return false;
     }
     if (mustAcceptPropertyTerms && !propertyTermsAccepted) {
-      toast.error('Please read and accept the property terms and policies.');
+      toast.error("Please confirm that you accept this property's rules and booking policies.");
       return false;
     }
     const invalidAdult = adultDetails.some((a) => !a.name.trim() || !Number(a.age || 0));
@@ -1206,7 +1197,7 @@ const RoomTypeDetail = () => {
     customerFullName ? `Name: ${customerFullName}` : '',
     customerMobile ? `Mobile: ${customerMobile}` : '',
   ].filter(Boolean).join('\n'));
-  const roomDescription = truncate(roomType.description || `${roomType.name} at ${hotel.name}, ${hotel.location || 'Braj'}, with verified booking support from Vrindavan Sarthi Enterprises.`);
+  const roomDescription = truncate(roomType.description || `${roomType.name} at ${hotel.name}, ${hotel.location || 'Braj'}, with verified booking support from Vrindavan Sarthi.`);
   const roomJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'HotelRoom',
@@ -1381,48 +1372,6 @@ const RoomTypeDetail = () => {
               )}
             </div>
 
-            <div className="premium-surface p-4 sm:p-6">
-              <div className="flex items-center gap-2 border-b border-gray-100 pb-4">
-                <Info size={18} className="text-brand-gold" />
-                <h2 className="font-display text-2xl font-bold text-foreground">Hotel Policies</h2>
-              </div>
-              <div className="grid gap-3 py-4 sm:grid-cols-2">
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Check-in Time</p>
-                  <p className="mt-2 text-sm font-semibold text-gray-800">{hotel.checkInTime || '12:00'}</p>
-                </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Check-out Time</p>
-                  <p className="mt-2 text-sm font-semibold text-gray-800">{hotel.checkOutTime || '11:00'}</p>
-                </div>
-                {visiblePropertyPolicies.length > 0 ? (
-                  visiblePropertyPolicies.map((policy) => (
-                    <div
-                      key={policy.key}
-                      className={`rounded-xl border p-4 ${policy.key === 'cancellationPolicy' ? 'border-amber-100 bg-amber-50/70 sm:col-span-2' : 'border-gray-100 bg-white'}`}
-                    >
-                      <p className={`text-xs font-bold uppercase tracking-wider ${policy.key === 'cancellationPolicy' ? 'text-amber-800' : 'text-gray-400'}`}>
-                        {policy.label}
-                      </p>
-                      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">{policy.text}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 sm:col-span-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-amber-800">Property Policies</p>
-                    <p className="mt-2 text-sm leading-6 text-gray-600">
-                      This property has not published custom policy sections yet. Standard check-in, check-out, and booking verification rules apply.
-                    </p>
-                  </div>
-                )}
-              </div>
-              {visiblePropertyPolicies.length > 0 && (
-                <p className="rounded-xl border border-brand-green/20 bg-brand-green/5 px-4 py-3 text-xs font-semibold text-brand-green">
-                  These policies are active version {propertyTerms.currentVersion} and are saved with your booking after acceptance.
-                </p>
-              )}
-            </div>
-
             <div className="grid gap-4 md:grid-cols-2">
               <div className="premium-surface p-5">
                 <div className="mb-3 flex items-center gap-2">
@@ -1441,34 +1390,6 @@ const RoomTypeDetail = () => {
                 <p className="text-sm leading-6 text-gray-500">
                   Your booking confirmation is shown to you after payment verification. Exact room numbers remain visible only to the admin and the respective property partner.
                 </p>
-              </div>
-              <div className="premium-surface border-amber-100 bg-amber-50/50 p-5 md:col-span-2">
-                <div className="mb-3 flex items-center gap-2">
-                  <Info size={18} className="text-amber-700" />
-                  <h2 className="font-display text-xl font-bold text-foreground">Booking Policies</h2>
-                </div>
-                <ul className="grid gap-2 text-sm leading-6 text-gray-600 sm:grid-cols-2">
-                  <li className="flex gap-2">
-                    <CheckCircle2 size={14} className="mt-1 shrink-0 text-amber-700" />
-                    Check-in: {hotel.checkInTime || '12:00'} - Check-out: {hotel.checkOutTime || '11:00'}
-                  </li>
-                  {checkInPolicyText && (
-                    <li className="flex gap-2">
-                      <CheckCircle2 size={14} className="mt-1 shrink-0 text-amber-700" />
-                      {checkInPolicyText}
-                    </li>
-                  )}
-                  {checkOutPolicyText && (
-                    <li className="flex gap-2">
-                      <CheckCircle2 size={14} className="mt-1 shrink-0 text-amber-700" />
-                      {checkOutPolicyText}
-                    </li>
-                  )}
-                  <li className="flex gap-2 sm:col-span-2">
-                    <CheckCircle2 size={14} className="mt-1 shrink-0 text-amber-700" />
-                    {cancellationPolicyText || 'Cancellation and refund rules are shown from the property active terms before payment.'}
-                  </li>
-                </ul>
               </div>
             </div>
           </div>
@@ -1768,18 +1689,6 @@ const RoomTypeDetail = () => {
                   </div>
                 )}
 
-                <div className="hidden">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Info size={14} className="text-amber-700" />
-                    <p className="text-xs font-bold uppercase tracking-wider text-amber-800">Booking policies</p>
-                  </div>
-                  <ul className="space-y-1.5 text-xs leading-5 text-gray-600">
-                    <li className="flex gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-amber-700" />Check-in: {hotel.checkInTime || '12:00'} · Check-out: {hotel.checkOutTime || '11:00'}</li>
-                    {checkInPolicyText && <li className="flex gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-amber-700" />{checkInPolicyText}</li>}
-                    {checkOutPolicyText && <li className="flex gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-amber-700" />{checkOutPolicyText}</li>}
-                    <li className="flex gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-amber-700" />{cancellationPolicyText || 'Cancellation and refund rules are shown from the property active terms before payment.'}</li>
-                  </ul>
-                </div>
 
                 {/* Payment options */}
                 {!isDharamshala && (
@@ -1790,33 +1699,13 @@ const RoomTypeDetail = () => {
                     style={{ borderColor: paymentOption === 'advance_30' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
                     <input type="radio" name="roomPaymentOption" checked={paymentOption === 'advance_30'} onChange={() => setPaymentOption('advance_30')} className="mt-1 accent-[hsl(var(--brand-crimson))]" />
                     <span className="min-w-0 flex-1 text-sm">
-                      <span className="flex items-center gap-1.5 font-semibold text-gray-800">
-                        Pay 30% Advance Online
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setPolicyPopover((current) => current === 'advance_30' ? null : 'advance_30');
-                          }}
-                          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-amber-300 bg-white text-amber-800 shadow-sm"
-                          aria-label="Show 30% advance cancellation policy"
-                        >
-                          <Info size={12} />
-                        </button>
-                      </span>
+                      <span className="flex items-center gap-1.5 font-semibold text-gray-800">Pay 30% Advance Online</span>
                       <span className="block text-xs text-gray-400 mt-0.5">
                         Pay Rs. {Math.round(total * 0.3).toLocaleString('en-IN')} now · Balance Rs. {Math.max(0, total - Math.round(total * 0.3)).toLocaleString('en-IN')} at property.
                       </span>
                       <span className="inline-block mt-1.5 rounded-md bg-red-50 border border-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600">
                         30% advance is strictly non-refundable
                       </span>
-                      {policyPopover === 'advance_30' && (
-                        <span className="mt-3 block whitespace-pre-line rounded-lg border border-gray-200 bg-white p-3 text-xs leading-5 text-gray-600 shadow-lg">
-                          <strong className="block text-gray-800">Cancellation Policy:</strong>
-                          {cancellationPolicyText || 'No cancellations allowed under any circumstances. No refund will be issued for the 30% booking amount.'}
-                        </span>
-                      )}
                     </span>
                   </label>
 
@@ -1824,36 +1713,10 @@ const RoomTypeDetail = () => {
                     style={{ borderColor: paymentOption === 'full_100' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
                     <input type="radio" name="roomPaymentOption" checked={paymentOption === 'full_100'} onChange={() => setPaymentOption('full_100')} className="mt-1 accent-[hsl(var(--brand-crimson))]" />
                     <span className="min-w-0 flex-1 text-sm">
-                      <span className="flex items-center gap-1.5 font-semibold text-gray-800">
-                        Pay 100% Full Payment Online
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setPolicyPopover((current) => current === 'full_100' ? null : 'full_100');
-                          }}
-                          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-amber-300 bg-white text-amber-800 shadow-sm"
-                          aria-label="Show full payment cancellation policy"
-                        >
-                          <Info size={12} />
-                        </button>
-                      </span>
+                      <span className="flex items-center gap-1.5 font-semibold text-gray-800">Pay 100% Full Payment Online</span>
                       <span className="block text-xs text-gray-400 mt-0.5">
                         Pay Rs. {total.toLocaleString('en-IN')} now with no balance at property.
                       </span>
-                      {policyPopover === 'full_100' && (
-                        <span className="mt-3 block whitespace-pre-line rounded-lg border border-gray-200 bg-white p-3 text-xs leading-5 text-gray-600 shadow-lg">
-                          <strong className="block text-gray-800">Cancellation Policy:</strong>
-                          {cancellationPolicyText || (
-                            <>
-                              If you cancel at least 12 hours before check-in: 100% refund.
-                              <br />
-                              If you cancel less than 12 hours before check-in: No refund.
-                            </>
-                          )}
-                        </span>
-                      )}
                     </span>
                   </label>
 
@@ -1882,7 +1745,7 @@ const RoomTypeDetail = () => {
                         className="mt-0.5"
                       />
                       <span>
-                        I have read and agree to the hotel policies shown on this page, including Terms & Conditions, Check-in Policies, Cancellation Policy, and other property rules.
+                        I confirm that I have read and accepted this property's rules and booking policies shown on the hotel page.
                       </span>
                     </label>
                   </div>

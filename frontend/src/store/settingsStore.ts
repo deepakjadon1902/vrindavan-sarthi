@@ -51,10 +51,10 @@ const defaultSettings: AppSettings = {
   shopEnabled: true,
   trackOrderEnabled: true,
   termsOfService: `1. Acceptance of Terms
-By accessing and using Vrindavan Sarthi Enterprises ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.
+By accessing and using Vrindavan Sarthi ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.
 
 2. Services
-Vrindavan Sarthi Enterprises provides an online platform for booking hotels, rooms, cabs, and tour packages across Braj. We act as an intermediary between users and service providers (hotels, cab drivers, tour operators).
+Vrindavan Sarthi provides an online platform for booking hotels, rooms, cabs, and tour packages across Braj. We act as an intermediary between users and service providers (hotels, cab drivers, tour operators).
 
 3. User Accounts
 You must provide accurate and complete information when creating an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.
@@ -69,7 +69,7 @@ Cancellation policies vary by service provider. Refunds, if applicable, will be 
 Partners listing hotels, rooms, cabs, or tours must provide accurate information. All listings are subject to admin verification. Misrepresentation may result in removal from the platform.
 
 7. Limitation of Liability
-Vrindavan Sarthi Enterprises is not liable for the quality of services provided by third-party partners. We make every effort to verify listings but do not guarantee accuracy of all information.
+Vrindavan Sarthi is not liable for the quality of services provided by third-party partners. We make every effort to verify listings but do not guarantee accuracy of all information.
 
 8. Contact
 For questions about these Terms, contact us at vrindavansarthi108@gmail.com or visit our Contact page.`,
@@ -106,7 +106,7 @@ const getBoolean = (obj: Record<string, unknown>, key: string, fallback: boolean
 const normalizeBrandText = (value: string) =>
   value
     .replaceAll('VrindavanSarthi', COMPANY_NAME)
-    .replace(/Vrindavan Sarthi Enterprises(?: Enterprises)+/g, COMPANY_NAME)
+    .replace(/Vrindavan Sarthi Enterprises(?: Enterprises)*/g, COMPANY_NAME)
     .replace(/Vrindavan Sarthi(?! Enterprises)/g, COMPANY_NAME)
     .replaceAll('vrindavansarthi108@gmail.com', COMPANY_EMAIL)
     .replaceAll('sanjaysharma148@gmail.com', COMPANY_EMAIL)

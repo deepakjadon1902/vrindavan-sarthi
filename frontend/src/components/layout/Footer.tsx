@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { MapPin, MessageCircle, Phone } from 'lucide-react';
 import { useSettingsStore } from '@/store/settingsStore';
-import { APP_LOGO_URL, COMPANY_ADDRESS_LINE, COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand';
+import { APP_LOGO_URL, COMPANY_ADDRESS_LINE, COMPANY_MAP_URL, COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand';
 
 const Footer = () => {
   const { settings } = useSettingsStore();
@@ -40,9 +40,9 @@ const Footer = () => {
           <a href={`https://wa.me/${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <MessageCircle size={18} className="text-brand-gold" /> WhatsApp enquiry
           </a>
-          <div className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80">
+          <a href={COMPANY_MAP_URL} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md bg-white/5 px-4 py-3 text-sm text-white/80 hover:text-brand-gold transition-colors">
             <MapPin size={18} className="text-brand-gold" /> {COMPANY_ADDRESS_LINE}
-          </div>
+          </a>
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">

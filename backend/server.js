@@ -31,6 +31,9 @@ const cabFareRoutes = require('./routes/cabFare.routes');
 const contactRoutes = require('./routes/contact.routes');
 const reviewRoutes = require('./routes/review.routes');
 const seoRoutes = require('./routes/seo.routes');
+const Hotel = require('./models/Hotel');
+const Tour = require('./models/Tour');
+const Booking = require('./models/Booking');
 
 connectDB();
 
@@ -167,10 +170,38 @@ app.use('/api/admin/inventory', adminInventoryRoutes);
 app.get('/api/health', (req, res) =>
   res.json({
     status: 'ok',
-    message: 'Vrindavan Sarthi Enterprises API running',
+    message: 'Vrindavan Sarthi API running',
     dbReadyState: mongoose.connection.readyState,
   })
 );
+
+app.get('/api/public-stats', async (_req, res) => {
+  try {
+    const [happyPilgrims, hotelsListed, tourPackages] = await Promise.all([
+      Booking.distinct('userId', {
+        paymentStatus: 'paid',
+        bookingStatus: { $in: ['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'] },
+      }).then((ids) => ids.length),
+      Hotel.countDocuments({
+        status: 'active',
+        approvalStatus: 'approved',
+        propertyType: { $in: ['hotel', 'dharamshala', 'home_stay', 'guest_house'] },
+      }),
+      Tour.countDocuments({ status: 'active', approvalStatus: 'approved' }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        happyPilgrims,
+        hotelsListed,
+        tourPackages,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

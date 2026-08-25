@@ -53,17 +53,11 @@ const plannerServices = [
   { key: 'guest_houses', label: 'Guest Houses', path: '/hotels', type: 'guest_house', icon: BedDouble, hint: 'Book now' },
   { key: 'cabs', label: 'Taxi & Cab', path: '/cabs', icon: CarTaxiFront, hint: 'Book now' },
   { key: 'tours', label: 'Tour Packages', path: '/tours', icon: Gift, hint: 'View' },
-  { key: 'shop', label: 'Shopping', path: '/shop', icon: ShoppingBag, hint: 'Shop now' },
 ] as const;
 
 type PlannerServiceKey = (typeof plannerServices)[number]['key'];
 
-const stats = [
-  { label: 'Happy Pilgrims', value: '500+' },
-  { label: 'Hotels Listed', value: '50+' },
-  { label: 'Tour Packages', value: '30+' },
-  { label: 'Support Desk', value: '24/7' },
-];
+const fallbackStats = { happyPilgrims: 0, hotelsListed: 0, tourPackages: 0 };
 
 const trustItems = [
   { icon: BadgeCheck, title: 'Trusted Services', desc: 'Reliable and secure booking' },
@@ -81,7 +75,7 @@ const quickLocations = [
 ];
 
 const testimonials = [
-  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'Vrindavan Sarthi Enterprises made our family trip across Braj absolutely seamless. The hotel was right next to Banke Bihari Temple!' },
+  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'Vrindavan Sarthi made our family trip across Braj absolutely seamless. The hotel was right next to Banke Bihari Temple!' },
   { name: 'Rajesh Kumar', location: 'Mumbai', rating: 5, text: 'The guided temple tour was incredible. Our guide knew every story, every detail. A truly divine experience.' },
   { name: 'Anita Devi', location: 'Jaipur', rating: 4, text: 'Booked a cab and hotel through this platform. Everything was smooth and the prices were very reasonable.' },
 ];
@@ -107,24 +101,31 @@ const Home = () => {
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [cabs, setCabs] = useState<any[]>([]);
   const [tours, setTours] = useState<any[]>([]);
+  const [publicStats, setPublicStats] = useState(fallbackStats);
   const featuredLimit = 4;
 
   const visibleServices = shopEnabled ? services : services.filter((service) => service.link !== '/shop');
-  const visiblePlannerServices = shopEnabled ? plannerServices : plannerServices.filter((service) => service.key !== 'shop');
+  const visiblePlannerServices = plannerServices;
   const serviceGridClass = visibleServices.length >= 4
     ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4'
     : 'mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3';
   const featuredProducts = shopEnabled ? products.filter(p => p.inStock).slice(0, 4) : [];
   const activePlanner = visiblePlannerServices.find((item) => item.key === plannerService) || visiblePlannerServices[0];
+  const stats = [
+    { label: 'Happy Pilgrims', value: publicStats.happyPilgrims.toLocaleString('en-IN') },
+    { label: 'Hotels Listed', value: publicStats.hotelsListed.toLocaleString('en-IN') },
+    { label: 'Tour Packages', value: publicStats.tourPackages.toLocaleString('en-IN') },
+    { label: 'Support Desk', value: '24/7' },
+  ];
 
   const buildPlannerUrl = (service = activePlanner) => {
     const query = plannerQuery.trim();
     const params = new URLSearchParams();
     if ('type' in service && service.type) params.set('type', service.type);
-    if (query && service.key !== 'shop') params.set('q', query);
-    if (plannerCheckIn && service.key !== 'shop') params.set('checkIn', plannerCheckIn);
-    if (plannerCheckOut && service.key !== 'shop') params.set('checkOut', plannerCheckOut);
-    if (plannerGuests > 1 && service.key !== 'shop') params.set('guests', String(plannerGuests));
+    if (query) params.set('q', query);
+    if (plannerCheckIn) params.set('checkIn', plannerCheckIn);
+    if (plannerCheckOut) params.set('checkOut', plannerCheckOut);
+    if (plannerGuests > 1) params.set('guests', String(plannerGuests));
     if (plannerRooms > 1 && ['hotels', 'rooms', 'home_stays', 'guest_houses'].includes(service.key)) params.set('rooms', String(plannerRooms));
     const qs = params.toString();
     return `${service.path}${qs ? `?${qs}` : ''}`;
@@ -133,10 +134,6 @@ const Home = () => {
   const runPlannerSearch = () => {
     navigate(buildPlannerUrl());
   };
-
-  useEffect(() => {
-    if (!shopEnabled && plannerService === 'shop') setPlannerService('hotels');
-  }, [plannerService, shopEnabled]);
 
   useEffect(() => {
     const loadListings = async () => {
@@ -207,8 +204,23 @@ const Home = () => {
       } else setTours([]);
     };
 
+    const loadPublicStats = async () => {
+      try {
+        const res = await api.get('/public-stats');
+        const data = res.data?.data || {};
+        setPublicStats({
+          happyPilgrims: Math.max(0, Number(data.happyPilgrims || 0)),
+          hotelsListed: Math.max(0, Number(data.hotelsListed || 0)),
+          tourPackages: Math.max(0, Number(data.tourPackages || 0)),
+        });
+      } catch {
+        setPublicStats(fallbackStats);
+      }
+    };
+
     if (shopEnabled) void fetchProducts();
     void loadListings();
+    void loadPublicStats();
 
     const unsubListings = subscribeAppEvent('listing:changed', () => void loadListings());
     const unsubProducts = subscribeAppEvent('product:changed', () => {
@@ -216,6 +228,7 @@ const Home = () => {
     });
     const onFocus = () => {
       void loadListings();
+      void loadPublicStats();
       if (shopEnabled) void fetchProducts();
     };
     window.addEventListener('focus', onFocus);
@@ -261,32 +274,32 @@ const Home = () => {
     <div>
 
       {/* ===== HERO ===== */}
-      <section className="relative flex min-h-[760px] items-center justify-center overflow-hidden pb-7 pt-24 sm:min-h-[720px] lg:min-h-[690px] lg:pt-20">
+      <section className="relative flex min-h-[660px] items-center justify-center overflow-hidden pb-5 pt-20 sm:min-h-[720px] lg:min-h-[690px] lg:pt-20">
         <img src={heroImg} alt="Govardhan hill and Braj sunset view" className="absolute inset-x-0 -top-[10%] h-[114%] w-full object-cover object-bottom" width={1600} height={897} />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-brand-black/82" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-brand-black/68" />
         <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/30 to-transparent" />
         <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 text-center">
           <motion.p
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="mb-2 font-body text-[11px] font-bold uppercase tracking-[0.24em] text-brand-black drop-shadow-[0_1px_10px_hsl(0_0%_100%_/_0.65)] sm:text-xs"
+            className="mb-1.5 font-body text-[10px] font-bold uppercase tracking-[0.18em] text-brand-black drop-shadow-[0_1px_10px_hsl(0_0%_100%_/_0.65)] sm:text-xs"
           >
             Braj Mandal, Uttar Pradesh
           </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }}
-            className="mb-3 font-heading text-5xl font-bold leading-none text-brand-black drop-shadow-[0_2px_16px_hsl(0_0%_100%_/_0.62)] sm:text-6xl md:text-7xl lg:text-8xl"
+            className="mb-2 font-heading text-4xl font-bold leading-none text-brand-black drop-shadow-[0_2px_16px_hsl(0_0%_100%_/_0.62)] sm:text-6xl md:text-7xl lg:text-8xl"
           >
             Vrindavan Sarthi
           </motion.h1>
           <motion.h2
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-            className="mb-1 max-w-4xl font-heading text-2xl font-extrabold leading-tight text-brand-black drop-shadow-[0_2px_14px_hsl(0_0%_100%_/_0.85)] md:text-3xl"
+            className="mb-1 max-w-4xl font-heading text-lg font-extrabold leading-tight text-brand-black drop-shadow-[0_2px_14px_hsl(0_0%_100%_/_0.85)] sm:text-2xl md:text-3xl"
           >
             Trusted hotel, home stay, guest house, dharamshala, and room booking across Braj
           </motion.h2>
           <motion.p
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-            className="mb-5 max-w-3xl font-body text-sm font-extrabold leading-6 text-brand-black drop-shadow-[0_2px_12px_hsl(0_0%_100%_/_0.82)] md:text-base"
+            className="mb-3 max-w-3xl font-body text-xs font-extrabold leading-5 text-brand-black drop-shadow-[0_2px_12px_hsl(0_0%_100%_/_0.82)] sm:text-sm md:text-base"
           >
             Find verified stays near temples in Govardhan, Barsana, Gokul, Mathura, Vrindavan, and the wider Braj area.
           </motion.p>
@@ -294,9 +307,9 @@ const Home = () => {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.15 }}
-            className="travel-search-panel mt-3 w-full max-w-[930px] overflow-hidden rounded-lg border border-brand-gold/25 bg-brand-black/88 text-left shadow-2xl backdrop-blur-xl"
+            className="travel-search-panel mt-2 w-full max-w-[930px] overflow-hidden rounded-lg border border-brand-gold/25 bg-brand-black/72 text-left shadow-xl sm:bg-brand-black/82 sm:shadow-2xl"
           >
-            <div className={`grid ${visiblePlannerServices.length >= 5 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} border-b border-white/12`}>
+            <div className="grid grid-cols-2 border-b border-white/12 sm:grid-cols-3 lg:grid-cols-6">
               {visiblePlannerServices.map((item) => {
                 const Icon = item.icon;
                 const active = item.key === plannerService;
@@ -308,22 +321,22 @@ const Home = () => {
                       setPlannerService(item.key);
                       navigate(buildPlannerUrl(item));
                     }}
-                    className={`min-h-[76px] border-r border-white/12 px-3 py-3 text-center transition-all last:border-r-0 ${
+                    className={`min-h-[48px] border-r border-b border-white/12 bg-white/70 px-2 py-2 text-center text-brand-black transition-all last:border-r-0 sm:min-h-[64px] sm:px-3 sm:py-3 lg:border-b-0 ${['home_stays', 'guest_houses'].includes(item.key) ? 'hidden sm:block' : ''} ${
                       active
-                        ? 'bg-black/28 text-brand-gold'
-                        : 'text-white hover:bg-white/8 hover:text-brand-gold'
+                        ? 'bg-brand-gold text-brand-black'
+                        : 'hover:bg-white hover:text-brand-black'
                     }`}
                   >
-                    <span className="flex items-center justify-center gap-2 font-body text-[12px] font-extrabold uppercase tracking-[0.02em]">
-                      <Icon size={24} className={active ? 'text-brand-saffron' : 'text-brand-saffron'} /> {item.label}
+                    <span className="flex items-center justify-center gap-1.5 font-body text-[10px] font-extrabold uppercase tracking-normal sm:gap-2 sm:text-[12px]">
+                      <Icon size={16} className="text-brand-saffron" /> {item.label}
                     </span>
-                    <span className="mt-1 block font-body text-[11px] font-semibold text-white/80">{item.hint}</span>
+                    <span className="mt-0.5 block font-body text-[10px] font-semibold text-brand-black sm:mt-1 sm:text-[11px]">{item.hint}</span>
                   </button>
                 );
               })}
             </div>
 
-            <div className="grid gap-px bg-border/70 p-2.5 lg:grid-cols-[1.45fr_0.7fr_0.7fr_0.9fr_auto]">
+            <div className="grid gap-px bg-border/70 p-2 lg:grid-cols-[1.45fr_0.7fr_0.7fr_0.9fr_auto]">
               <label className="relative block bg-white">
                 <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
                 <input
@@ -333,7 +346,7 @@ const Home = () => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
                   placeholder="Search city, area, or property"
-                  className="h-14 w-full bg-white pl-11 pr-3 font-body text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-gold/35"
+                  className="h-11 w-full bg-white pl-11 pr-3 font-body text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-gold/35 sm:h-14"
                 />
               </label>
               <label className="relative block bg-white">
@@ -345,7 +358,7 @@ const Home = () => {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
-                  className="h-14 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
+                  className="h-11 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35 sm:h-14"
                   aria-label="Check in"
                 />
               </label>
@@ -358,11 +371,11 @@ const Home = () => {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
-                  className="h-14 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
+                  className="h-11 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35 sm:h-14"
                   aria-label="Check out"
                 />
               </label>
-              <label className="relative grid h-14 grid-cols-2 gap-px bg-border/70">
+              <label className="relative grid h-11 grid-cols-2 gap-px bg-border/70 sm:h-14">
                 <UserRound className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground" size={16} />
                 <input
                   type="number"
@@ -390,13 +403,13 @@ const Home = () => {
               <button
                 type="button"
                 onClick={runPlannerSearch}
-                className="h-14 bg-brand-saffron px-6 font-body text-sm font-extrabold text-white transition hover:bg-brand-crimson"
+                className="h-11 bg-brand-saffron px-6 font-body text-sm font-extrabold text-white transition hover:bg-brand-crimson sm:h-14"
               >
                 Search
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-gold/20 bg-brand-black/72 px-3.5 py-3">
+            <div className="hidden flex-wrap items-center justify-between gap-3 border-t border-brand-gold/20 bg-brand-black/72 px-3.5 py-3 sm:flex">
               <div className="flex flex-wrap gap-2">
                 {quickLocations.map((location) => (
                   <button key={location.value} type="button" onClick={() => setPlannerQuery(location.value)} className="inline-flex min-h-8 items-center rounded-full border border-white/55 bg-white/10 px-3.5 py-1 font-body text-[12px] font-extrabold text-white shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.16)] transition hover:border-brand-gold hover:bg-brand-gold/18 hover:text-white">
@@ -410,7 +423,7 @@ const Home = () => {
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.3 }} className="mt-4 grid w-full max-w-[930px] overflow-hidden rounded-lg border border-white/12 bg-brand-black/70 text-left backdrop-blur-lg sm:grid-cols-2 lg:grid-cols-4">
+          <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.3 }} className="mt-3 hidden w-full max-w-[930px] overflow-hidden rounded-lg border border-white/12 bg-brand-black/70 text-left sm:grid sm:grid-cols-2 lg:grid-cols-4">
             {trustItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -792,7 +805,7 @@ const Home = () => {
                     To make every Braj visit feel guided, honest, and cared for.
                   </h2>
                   <p className="font-body text-[14px] leading-7 text-white sm:text-[15px]">
-                    Vrindavan Sarthi Enterprises was created to bring hotels, home stays, guest houses, dharamshalas, rooms, cabs, tours{shopEnabled ? ', and sacred products' : ''} across Braj into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
+                    Vrindavan Sarthi was created to bring hotels, home stays, guest houses, dharamshalas, rooms, cabs, tours{shopEnabled ? ', and sacred products' : ''} across Braj into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Link to="/about" className="btn-gold inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold">

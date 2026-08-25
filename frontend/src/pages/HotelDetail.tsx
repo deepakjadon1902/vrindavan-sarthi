@@ -602,7 +602,7 @@ const HotelDetail = () => {
     `Property: ${hotel?.name || ''}`,
     hotel?.location ? `Location: ${hotel.location}` : '',
   ].filter(Boolean).join('\n'));
-  const hotelDescription = truncate(hotel?.description || `${hotel?.name || `Verified ${propertyLabel.toLowerCase()}`} in ${hotel?.location || 'Braj'} with room booking support from Vrindavan Sarthi Enterprises.`);
+  const hotelDescription = truncate(hotel?.description || `${hotel?.name || `Verified ${propertyLabel.toLowerCase()}`} in ${hotel?.location || 'Braj'} with room booking support from Vrindavan Sarthi.`);
   const hotelJsonLd = hotel ? {
     '@context': 'https://schema.org',
     '@type': 'LodgingBusiness',

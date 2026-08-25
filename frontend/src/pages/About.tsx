@@ -55,7 +55,7 @@ const About = () => {
               A practical bridge between pilgrims and trusted local services.
             </h2>
             <p className="mt-4 font-body text-sm leading-7 text-muted-foreground">
-              Vrindavan Sarthi Enterprises brings verified hotels, dharamshalas, room inventory, cabs, tours, and support workflows into one dependable platform. We care about clear information, reachable people, and fewer last-minute surprises.
+              Vrindavan Sarthi brings verified hotels, dharamshalas, room inventory, cabs, tours, and support workflows into one dependable platform. We care about clear information, reachable people, and fewer last-minute surprises.
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               {stats.map(([value, label]) => (

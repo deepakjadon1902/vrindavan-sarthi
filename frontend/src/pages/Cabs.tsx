@@ -117,7 +117,7 @@ const Cabs = () => {
               <p className="font-body text-sm text-muted-foreground">Share your pickup, drop, date, and passenger count on WhatsApp or call our travel desk.</p>
             </div>
             <a
-              href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Radhe Radhe, I want to book a cab with Vrindavan Sarthi Enterprises.')}`}
+              href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Radhe Radhe, I want to book a cab with Vrindavan Sarthi.')}`}
               target="_blank"
               rel="noreferrer"
               className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold"

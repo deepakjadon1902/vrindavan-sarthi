@@ -1,5 +1,4 @@
 import type { Booking } from '@/store/bookingStore';
-import { PropertyTermsPreview } from '@/components/shared/PropertyTerms';
 
 type Props = {
   booking: Booking;
@@ -38,7 +37,6 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
   const commissionAmount = Math.round((baseAmount * commissionRate) / 100);
   const gatewayFee = Number(booking.paymentGatewayFeeAmount || Math.round((baseAmount * 2) / 100));
   const netPayout = Math.max(0, grossForHotel - commissionAmount - gatewayFee);
-  const acceptedTerms = booking.acceptedPropertyTerms;
 
   return (
     <div className="mt-4 space-y-4">
@@ -138,24 +136,6 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
             <Field label="Cab type" value={booking.cabType} />
             <Field label="Cab fare" value={booking.cabFareTotal ? formatMoney(booking.cabFareTotal) : undefined} />
           </div>
-        </div>
-      )}
-
-      {acceptedTerms?.accepted && (
-        <div className="rounded-lg border border-border bg-background/70 p-4">
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-body text-xs font-semibold text-foreground">Accepted Property Terms Snapshot</p>
-            <span className="font-body text-[11px] text-muted-foreground">
-              v{acceptedTerms.version || 1} accepted {acceptedTerms.acceptedAt ? new Date(acceptedTerms.acceptedAt).toLocaleString('en-IN') : '-'}
-            </span>
-          </div>
-          <PropertyTermsPreview
-            terms={{
-              currentVersion: acceptedTerms.version || 1,
-              isActive: true,
-              sections: acceptedTerms.sections || {},
-            }}
-          />
         </div>
       )}
 

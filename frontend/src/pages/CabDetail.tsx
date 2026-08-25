@@ -180,7 +180,7 @@ const CabDetail = () => {
     name: `${cab.vehicleName} Cab Booking`,
     description: cabDescription,
     image: allImages.map(absoluteAssetUrl).filter(Boolean),
-    provider: { '@type': 'Organization', name: 'Vrindavan Sarthi Enterprises', url: absoluteUrl('/') },
+    provider: { '@type': 'Organization', name: 'Vrindavan Sarthi', url: absoluteUrl('/') },
     areaServed: cab.routes?.length ? cab.routes : ['Braj', 'Vrindavan', 'Mathura', 'Govardhan', 'Barsana'],
     serviceType: 'Cab booking',
     offers: { '@type': 'Offer', url: absoluteUrl(`/cabs/${cab._id}`), priceCurrency: 'INR', availability: 'https://schema.org/InStock' },

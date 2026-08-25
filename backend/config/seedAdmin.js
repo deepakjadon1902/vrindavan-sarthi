@@ -89,7 +89,7 @@ const seedAdminOnce = async () => {
     let settings = await Settings.findOne();
     if (!settings) settings = await Settings.create({});
 
-    const desiredSiteName = getEnvString('SITE_NAME') || 'Vrindavan Sarthi Enterprises';
+    const desiredSiteName = getEnvString('SITE_NAME') || 'Vrindavan Sarthi';
     const desiredMetaTitle = getEnvString('META_TITLE') || desiredSiteName;
     const desiredUpiName = getEnvString('UPI_NAME') || desiredSiteName;
 

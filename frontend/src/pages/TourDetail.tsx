@@ -59,7 +59,7 @@ const TourDetail = () => {
   const phoneDigits = companyPhone.replace(/\D/g, '');
   const whatsappDigits = phoneDigits;
   const allImages = [tour.image, ...(tour.images || [])].filter(Boolean);
-  const tourDescription = truncate(tour.description || `${tour.name} guided Braj tour package with booking support from Vrindavan Sarthi Enterprises.`);
+  const tourDescription = truncate(tour.description || `${tour.name} guided Braj tour package with booking support from Vrindavan Sarthi.`);
   const whatsappMessage = [
     'Radhe Radhe, I want to confirm a tour booking.',
     `Tour: ${tour.name}`,
@@ -78,7 +78,7 @@ const TourDetail = () => {
       name: tour.name,
       description: tourDescription,
       image: allImages.map(absoluteAssetUrl).filter(Boolean),
-      provider: { '@type': 'Organization', name: 'Vrindavan Sarthi Enterprises', url: absoluteUrl('/') },
+      provider: { '@type': 'Organization', name: 'Vrindavan Sarthi', url: absoluteUrl('/') },
       areaServed: ['Braj', 'Vrindavan', 'Mathura', 'Govardhan', 'Barsana', 'Gokul', 'Nandgaon'],
       serviceType: 'Guided spiritual tour package',
       offers: { '@type': 'Offer', url: absoluteUrl(`/tours/${tour._id}`), priceCurrency: 'INR', price: pricePerPerson, availability: 'https://schema.org/InStock' },

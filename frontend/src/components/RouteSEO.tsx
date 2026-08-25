@@ -4,8 +4,8 @@ import { buildFaqJsonLd, getRouteMeta, indexablePublicPaths, isNoIndexPath, norm
 
 const faqJsonLd = buildFaqJsonLd([
   {
-    question: 'Can I book hotels, rooms, cabs, and tours across Braj on Vrindavan Sarthi Enterprises?',
-    answer: 'Yes. Vrindavan Sarthi Enterprises helps pilgrims book verified hotels, room types, local cabs, guided tours, and devotional products across Braj.',
+    question: 'Can I book hotels, rooms, cabs, and tours across Braj on Vrindavan Sarthi?',
+    answer: 'Yes. Vrindavan Sarthi helps pilgrims book verified hotels, room types, local cabs, guided tours, and devotional products across Braj.',
   },
   {
     question: 'Are private account and booking pages indexed by Google?',
