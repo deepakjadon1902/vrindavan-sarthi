@@ -15,6 +15,8 @@ const settingsSchema = new mongoose.Schema({
   adminEmail: { type: String, default: 'vrindavansarthi108@gmail.com' },
   termsOfService: { type: String, default: '' },
   privacyPolicy: { type: String, default: '' },
+  partnerTerms: { type: String, default: '' },
+  partnerPolicies: { type: String, default: '' },
   hotelTaxPercent: { type: Number, default: 12 },
   shopEnabled: { type: Boolean, default: true },
   trackOrderEnabled: { type: Boolean, default: true },

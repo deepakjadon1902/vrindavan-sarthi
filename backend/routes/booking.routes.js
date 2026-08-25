@@ -130,11 +130,11 @@ const findBookingHotel = async (bookingType, body) => {
   const roomTypeId = String(body?.roomTypeId || '').trim();
   const itemId = String(body?.itemId || '').trim();
 
-  if (hotelId) return Hotel.findById(hotelId).select('propertyType partnerId platform_commission_percentage').lean();
-  if (bookingType === 'hotel' && itemId) return Hotel.findById(itemId).select('propertyType partnerId platform_commission_percentage').lean();
+  if (hotelId) return Hotel.findById(hotelId).select('propertyType partnerId partnerName partnerPhone platform_commission_percentage').lean();
+  if (bookingType === 'hotel' && itemId) return Hotel.findById(itemId).select('propertyType partnerId partnerName partnerPhone platform_commission_percentage').lean();
   if ((bookingType === 'room_type' || bookingType === 'room') && (roomTypeId || itemId)) {
     const roomType = await RoomType.findById(roomTypeId || itemId).select('hotelId').lean();
-    if (roomType?.hotelId) return Hotel.findById(roomType.hotelId).select('propertyType partnerId platform_commission_percentage').lean();
+    if (roomType?.hotelId) return Hotel.findById(roomType.hotelId).select('propertyType partnerId partnerName partnerPhone platform_commission_percentage').lean();
   }
   return null;
 };
@@ -280,7 +280,7 @@ const enqueueBookingNotifications = (booking, { invoice = false, partnerAlert = 
 };
 
 const bookingDetailFields = [
-  'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName',
+  'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName partnerPhone',
   'service_billing_model',
   'hotelId roomTypeId roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
@@ -299,6 +299,7 @@ const bookingDetailFields = [
 const sanitizeCustomerBooking = (booking) => {
   if (!booking) return booking;
   const plain = typeof booking.toObject === 'function' ? booking.toObject() : { ...booking };
+  if (plain.bookingStatus !== 'confirmed') plain.partnerPhone = '';
   delete plain.roomUnitId;
   delete plain.roomUnitIds;
   delete plain.roomNumber;
@@ -544,6 +545,7 @@ router.post('/room-type', protect, async (req, res) => {
 
       partnerId: hotel.partnerId,
       partnerName: hotel.partnerName,
+      partnerPhone: hotel.partnerPhone,
 
       hotelId: hotel._id,
       roomTypeId: roomType._id,
@@ -646,6 +648,7 @@ router.post('/room-type', protect, async (req, res) => {
 
         partnerId: hotel.partnerId,
         partnerName: hotel.partnerName,
+        partnerPhone: hotel.partnerPhone,
 
         hotelId: hotel._id,
         roomTypeId: roomType._id,
@@ -699,10 +702,10 @@ router.post('/room-type', protect, async (req, res) => {
 // Create booking (authenticated user)
 router.post('/', protect, async (req, res) => {
   try {
-    const partnerId = req.body?.partnerId || undefined;
     const bookingType = String(req.body?.bookingType || '').trim();
+    let hotel = null;
     if (['hotel', 'room', 'room_type'].includes(bookingType)) {
-      const hotel = await findBookingHotel(bookingType, req.body);
+      hotel = await findBookingHotel(bookingType, req.body);
       if (String(hotel?.propertyType || '').trim().toLowerCase() === 'dharamshala') {
         return res.status(400).json({
           success: false,
@@ -725,6 +728,7 @@ router.post('/', protect, async (req, res) => {
       ? PARTNER_COMMISSION_PERCENT
       : clampPercent(req.body?.platformCommissionPercent, 0, 100);
     const money = buildMoneyFields({ subtotal, baseAmount, taxAmount, paymentOption, commissionPercent, gatewayFeeAmount: req.body?.paymentGatewayFeeAmount });
+    const effectivePartnerId = req.body?.partnerId || hotel?.partnerId;
 
     const payload = {
       ...req.body,
@@ -739,7 +743,10 @@ router.post('/', protect, async (req, res) => {
       paymentMethod: 'online',
       bookingStatus: 'confirmed',
       paymentStatus: 'pending',
-      verificationStage: partnerId ? 'pending_partner' : 'pending_admin',
+      verificationStage: effectivePartnerId ? 'pending_partner' : 'pending_admin',
+      partnerId: effectivePartnerId,
+      partnerName: req.body?.partnerName || hotel?.partnerName,
+      partnerPhone: req.body?.partnerPhone || hotel?.partnerPhone,
       partnerPaymentVerified: false,
       adminPaymentVerified: false,
     };

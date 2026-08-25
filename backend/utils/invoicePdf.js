@@ -20,6 +20,7 @@ const COLORS = {
 };
 
 const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+const COMPANY_GSTIN = clean(process.env.COMPANY_GSTIN || process.env.VRINDAVAN_SARTHI_GSTIN || '');
 const isFilled = (value) => value !== undefined && value !== null && clean(value) !== '';
 const money = (value) => `INR ${Number(value || 0).toLocaleString('en-IN')}`;
 const normalizeInvoiceText = (value) =>
@@ -164,6 +165,7 @@ class PdfCanvas {
     this.text(COMPANY_NAME, 82, 750, { size: 17, font: 'F2', color: COLORS.crimson });
     this.wrapped(COMPANY_ADDRESS, 84, 733, 370, { size: 7.8, color: COLORS.muted, lineHeight: 9 });
     this.text(`Phone: ${COMPANY_PHONE} | Email: ${COMPANY_EMAIL}`, 84, 710, { size: 7.8, color: COLORS.muted });
+    if (COMPANY_GSTIN) this.text(`GSTIN: ${COMPANY_GSTIN}`, 482, 735, { size: 8, color: COLORS.muted });
     this.text(`Generated: ${todayText()}`, 482, 750, { size: 8, color: COLORS.muted });
     this.y = 676;
   }
@@ -316,9 +318,11 @@ const buildPdf = ({ title = `${COMPANY_NAME} Invoice`, documentLabel, lines = []
     canvas.compactSection('Additional Notes', grouped.notes);
   }
   lines.filter(isFilled).forEach((line) => canvas.note(line));
-  canvas.note(`Support: ${COMPANY_PHONE} | ${COMPANY_EMAIL}. Share the invoice reference number for faster help.`);
+  if (canvas.y > PAGE.margin + 110) {
+    canvas.note(`Support: ${COMPANY_PHONE} | ${COMPANY_EMAIL}. Share the invoice reference number for faster help.`);
+  }
 
-  const pageStreams = canvas.finish();
+  const pageStreams = canvas.finish().filter((stream) => /BT \//.test(stream));
   const objects = [];
   const pageObjectNumbers = [];
   const fontRegularObjectNo = 3;

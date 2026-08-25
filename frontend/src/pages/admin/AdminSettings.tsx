@@ -8,7 +8,7 @@ import axios from 'axios';
 
 const AdminSettings = () => {
   const { settings, saveSettings, refreshSettings } = useSettingsStore();
-  const [activeTab, setActiveTab] = useState<'payment' | 'features' | 'terms' | 'privacy' | 'security'>('payment');
+  const [activeTab, setActiveTab] = useState<'payment' | 'features' | 'terms' | 'privacy' | 'partnerPolicies' | 'security'>('payment');
 
   const [form, setForm] = useState({ ...settings });
   const [savingFeature, setSavingFeature] = useState<'shopEnabled' | 'trackOrderEnabled' | null>(null);
@@ -94,6 +94,7 @@ const AdminSettings = () => {
     { id: 'features' as const, label: 'Feature Visibility', icon: Eye },
     { id: 'terms' as const, label: 'Terms of Service', icon: FileText },
     { id: 'privacy' as const, label: 'Privacy Policy', icon: Shield },
+    { id: 'partnerPolicies' as const, label: 'Partner T&C', icon: FileText },
     { id: 'security' as const, label: 'Security', icon: Lock },
   ];
 
@@ -250,6 +251,33 @@ const AdminSettings = () => {
               onChange={(e) => setForm({ ...form, privacyPolicy: e.target.value })}
               className="w-full px-4 py-3 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-y leading-relaxed"
             />
+          </div>
+        )}
+
+        {activeTab === 'partnerPolicies' && (
+          <div className="space-y-5">
+            <div>
+              <h3 className="font-heading text-lg font-semibold text-foreground border-b border-border pb-3">Partner Terms, Conditions & Policies</h3>
+              <p className="mt-2 font-body text-xs text-muted-foreground">This content is shown inside the Partner Dashboard under Partner T&C.</p>
+            </div>
+            <div>
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Partner Terms & Conditions</label>
+              <textarea
+                rows={12}
+                value={form.partnerTerms}
+                onChange={(e) => setForm({ ...form, partnerTerms: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-y leading-relaxed"
+              />
+            </div>
+            <div>
+              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Partner Policies</label>
+              <textarea
+                rows={12}
+                value={form.partnerPolicies}
+                onChange={(e) => setForm({ ...form, partnerPolicies: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-y leading-relaxed"
+              />
+            </div>
           </div>
         )}
 

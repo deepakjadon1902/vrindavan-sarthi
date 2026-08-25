@@ -50,6 +50,7 @@ const bookingSchema = new mongoose.Schema({
   userPhone: String,
   partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   partnerName: String,
+  partnerPhone: String,
 
   // Hotel inventory booking (room-type based)
   hotelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel' },

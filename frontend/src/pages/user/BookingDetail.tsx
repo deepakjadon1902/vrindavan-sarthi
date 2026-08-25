@@ -356,10 +356,17 @@ const BookingDetail = () => {
                 </div>
               </div>
 
-              {booking.partnerName && (
+              {booking.bookingStatus === 'confirmed' && (booking.partnerName || booking.partnerPhone) && (
                 <div className="bg-card rounded-xl border border-border p-6">
-                  <h3 className="font-heading text-sm font-semibold text-foreground mb-2">Listed By</h3>
-                  <p className="font-body text-sm text-muted-foreground">{booking.partnerName}</p>
+                  <h3 className="font-heading text-sm font-semibold text-foreground mb-3">Partner Contact</h3>
+                  <div className="space-y-2 font-body text-sm">
+                    <p className="text-foreground">{booking.partnerName || '-'}</p>
+                    {booking.partnerPhone && (
+                      <a href={`tel:${booking.partnerPhone}`} className="inline-flex items-center gap-2 text-brand-crimson hover:underline">
+                        <Phone size={14} /> {booking.partnerPhone}
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
 

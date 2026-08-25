@@ -20,6 +20,8 @@ export interface AppSettings {
   adminEmail: string;
   termsOfService: string;
   privacyPolicy: string;
+  partnerTerms: string;
+  partnerPolicies: string;
   hotelTaxPercent: number;
   shopEnabled: boolean;
   trackOrderEnabled: boolean;
@@ -93,6 +95,28 @@ You have the right to access, update, or delete your personal information at any
 
 7. Contact Us
 For privacy-related inquiries, contact us at vrindavansarthi108@gmail.com or through our Contact page.`,
+  partnerTerms: `1. Listing Accuracy
+Partners must list only genuine, lawful, owner-authorized hotels, rooms, cabs, and services. Images, room inventory, amenities, maps, pricing, policies, and availability must remain accurate.
+
+2. Booking Handling
+Confirmed bookings must be honored. Partners must verify payment where required, support guest arrival, and keep check-in/check-out status updated.
+
+3. Tax, Invoice, and Compliance
+The property partner remains responsible for accommodation tax invoices, GST filing, licenses, and local compliance wherever applicable.
+
+4. Payouts
+Eligible payouts follow the platform ledger, minimum payout threshold, and scheduled settlement cycles.`,
+  partnerPolicies: `1. Guest Privacy
+Guest contact and identity details may be used only for servicing the booking and must not be misused or shared.
+
+2. Customer Support
+Partners must remain reachable on their registered phone number for confirmed booking coordination.
+
+3. Property Rules
+Partners must clearly publish check-in rules, ID requirements, cancellation policies, guest policies, and any property-specific restrictions.
+
+4. Platform Updates
+Admin may update partner policies from time to time. The latest published version is visible in the Partner Dashboard.`,
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -138,6 +162,8 @@ const normalizeSettings = (raw: unknown): AppSettings => {
     trackOrderEnabled: getBoolean(obj, 'trackOrderEnabled', defaultSettings.trackOrderEnabled),
     termsOfService: normalizeBrandValue(getString(obj, 'termsOfService'), defaultSettings.termsOfService),
     privacyPolicy: normalizeBrandValue(getString(obj, 'privacyPolicy'), defaultSettings.privacyPolicy),
+    partnerTerms: normalizeBrandValue(getString(obj, 'partnerTerms'), defaultSettings.partnerTerms),
+    partnerPolicies: normalizeBrandValue(getString(obj, 'partnerPolicies'), defaultSettings.partnerPolicies),
   };
 };
 

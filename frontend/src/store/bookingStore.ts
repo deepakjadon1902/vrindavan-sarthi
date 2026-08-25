@@ -16,6 +16,7 @@ export interface Booking {
   userPhone: string;
   partnerId?: string;
   partnerName?: string;
+  partnerPhone?: string;
   checkIn?: string;
   checkOut?: string;
   guests?: number;
@@ -156,6 +157,7 @@ const normalizeBooking = (b: unknown): Booking => {
     userPhone: getString(obj, 'userPhone'),
     partnerId: getString(obj, 'partnerId') || undefined,
     partnerName: getString(obj, 'partnerName') || undefined,
+    partnerPhone: getString(obj, 'partnerPhone') || undefined,
     checkIn: getString(obj, 'checkIn') || undefined,
     checkOut: getString(obj, 'checkOut') || undefined,
     guests: getNumber(obj, 'guests') || undefined,
