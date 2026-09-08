@@ -120,6 +120,8 @@ const allowedOrigins = new Set([
   ...splitOrigins(process.env.CORS_ORIGINS),
   'https://www.vrindavansarthi.in',
   'https://vrindavansarthi.in',
+  'https://www.vrindavansarthi.com',
+  'https://vrindavansarthi.com',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
   'http://localhost:8081',

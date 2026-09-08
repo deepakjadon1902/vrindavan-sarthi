@@ -8,6 +8,7 @@ import { APP_LOGO_URL } from '@/lib/brand';
 import { Building2, CheckCircle2, FileText, ShieldCheck, UserRound, X } from 'lucide-react';
 import type { PartnerDocumentUpload } from '@/types/auth.types';
 import PasswordInput from '@/components/shared/PasswordInput';
+import { startGoogleSignIn } from '@/lib/oauth';
 
 const DOCUMENT_TYPES = [
   { value: 'aadhar_card', label: 'Aadhaar Card' },
@@ -128,8 +129,7 @@ const Register = () => {
   }, [policyModal]);
 
   const handleGoogle = () => {
-    const base = import.meta.env.VITE_API_BASE_URL || '/api';
-    window.location.href = `${base}/auth/google`;
+    startGoogleSignIn('/');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

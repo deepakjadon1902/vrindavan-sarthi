@@ -14,6 +14,44 @@ const router = express.Router();
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
+const splitOrigins = (value) =>
+  String(value || '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+const allowedFrontendOrigins = new Set([
+  ...splitOrigins(process.env.FRONTEND_BASE_URL),
+  ...splitOrigins(process.env.PUBLIC_SITE_URL),
+  ...splitOrigins(process.env.CORS_ORIGINS),
+  'https://www.vrindavansarthi.in',
+  'https://vrindavansarthi.in',
+  'https://www.vrindavansarthi.com',
+  'https://vrindavansarthi.com',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'http://localhost:8081',
+  'http://127.0.0.1:8081',
+]);
+
+const getAllowedFrontendBase = (value) => {
+  try {
+    const origin = new URL(String(value || '')).origin;
+    return allowedFrontendOrigins.has(origin) ? origin : '';
+  } catch {
+    return '';
+  }
+};
+
+const decodeGoogleState = (state) => {
+  if (!state || typeof state !== 'string') return {};
+  try {
+    return JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+  } catch {
+    return {};
+  }
+};
+
 const getDocumentPayload = (item) => {
   if (typeof item === 'string') {
     return { data: item, name: 'document', type: '' };
@@ -328,6 +366,27 @@ const getFrontendBase = () =>
   process.env.PUBLIC_SITE_URL ||
   (process.env.NODE_ENV === 'production' ? 'https://www.vrindavansarthi.in' : 'http://localhost:8080');
 
+const getOAuthFrontendBase = (req, state = {}) => {
+  const queryOrigin = typeof req.query.origin === 'string' ? req.query.origin : '';
+  const stateOrigin = typeof state.frontendBase === 'string' ? state.frontendBase : '';
+  const headerOrigin = req.get('origin') || '';
+  const forwardedHost = req.get('x-forwarded-host') || '';
+  const forwardedProto = String(req.get('x-forwarded-proto') || 'https').split(',')[0].trim();
+  const forwardedOrigin = forwardedHost ? `${forwardedProto}://${String(forwardedHost).split(',')[0].trim()}` : '';
+
+  return (
+    getAllowedFrontendBase(queryOrigin) ||
+    getAllowedFrontendBase(stateOrigin) ||
+    getAllowedFrontendBase(headerOrigin) ||
+    getAllowedFrontendBase(forwardedOrigin) ||
+    getAllowedFrontendBase(getFrontendBase()) ||
+    getFrontendBase()
+  );
+};
+
+const getGoogleRedirectUri = (frontendBase) =>
+  `${String(frontendBase || '').replace(/\/+$/, '')}/api/auth/google/callback`;
+
 const redirectToLoginWithError = (res, error) => {
   const frontendBase = getFrontendBase();
   const url = new URL('/login', frontendBase);
@@ -339,11 +398,12 @@ const redirectToLoginWithError = (res, error) => {
 router.get('/google', async (req, res, next) => {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    const frontendBase = getOAuthFrontendBase(req);
+    const redirectUri = getGoogleRedirectUri(frontendBase) || process.env.GOOGLE_REDIRECT_URI;
     if (!clientId || !redirectUri) return redirectToLoginWithError(res, 'google_oauth_not_configured');
 
     const redirect = typeof req.query.redirect === 'string' ? req.query.redirect : '/';
-    const state = Buffer.from(JSON.stringify({ redirect })).toString('base64url');
+    const state = Buffer.from(JSON.stringify({ redirect, frontendBase, redirectUri })).toString('base64url');
 
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id', clientId);
@@ -365,9 +425,10 @@ router.get('/google/callback', async (req, res, next) => {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    const statePayload = decodeGoogleState(req.query.state);
+    const frontendBase = getOAuthFrontendBase(req, statePayload);
+    const redirectUri = getGoogleRedirectUri(frontendBase) || process.env.GOOGLE_REDIRECT_URI;
     if (!clientId || !clientSecret || !redirectUri) return redirectToLoginWithError(res, 'google_oauth_not_configured');
-    const frontendBase = getFrontendBase();
 
     const { code, error, state } = req.query;
     if (error) {
@@ -450,14 +511,7 @@ router.get('/google/callback', async (req, res, next) => {
     const redirectUrl = new URL('/auth/google/callback', frontendBase);
     redirectUrl.searchParams.set('token', token);
 
-    if (state && typeof state === 'string') {
-      try {
-        const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
-        if (decoded?.redirect) redirectUrl.searchParams.set('redirect', String(decoded.redirect));
-      } catch {
-        // ignore
-      }
-    }
+    if (statePayload?.redirect) redirectUrl.searchParams.set('redirect', String(statePayload.redirect));
 
     return res.redirect(redirectUrl.toString());
   } catch (err) {

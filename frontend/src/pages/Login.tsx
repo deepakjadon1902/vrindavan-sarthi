@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
 import PasswordInput from '@/components/shared/PasswordInput';
+import { startGoogleSignIn } from '@/lib/oauth';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -20,15 +21,14 @@ const Login = () => {
     if (!error) return;
     const message =
       error === 'google_oauth_not_configured'
-        ? 'Google sign-in is not configured. Please set GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI in backend/.env.'
+        ? 'Google sign-in is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in backend/.env.'
         : `Login error: ${error}`;
     toast.error(message);
     setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams]);
 
   const handleGoogle = () => {
-    const base = import.meta.env.VITE_API_BASE_URL || '/api';
-    window.location.href = `${base}/auth/google`;
+    startGoogleSignIn('/');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
