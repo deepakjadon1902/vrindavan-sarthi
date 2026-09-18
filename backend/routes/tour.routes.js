@@ -3,7 +3,13 @@ const Tour = require('../models/Tour');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImageSet, stripLargeInlineImage } = require('../utils/publicImages');
+const { rejectInvalidObjectId } = require('../utils/security');
 const router = express.Router();
+
+router.param('id', (req, res, next, value) => {
+  if (rejectInvalidObjectId(res, value, 'tour id')) return;
+  next();
+});
 
 const memCache = new Map();
 const getCache = (key) => {

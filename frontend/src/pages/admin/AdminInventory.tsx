@@ -6,7 +6,7 @@ import { Plus, Trash2, Pencil, CalendarDays } from 'lucide-react';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { useSettingsStore } from '@/store/settingsStore';
-import { getPropertyTypeLabel, isDharamshalaType, type StayPropertyType } from '@/lib/propertyTypes';
+import { getPropertyTypeLabel, type StayPropertyType } from '@/lib/propertyTypes';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 type Hotel = { _id: string; name: string; propertyType?: StayPropertyType; status?: string; approvalStatus?: string; location?: string; partnerName?: string };
@@ -208,9 +208,8 @@ const AdminInventory = () => {
     if (!token) return;
     if (!selectedHotelId) return toast.error('Select a property first');
     if (!rtName.trim()) return toast.error('Room type name is required');
-    const isDharamshala = isDharamshalaType(selectedHotel?.propertyType);
-    if (!Number.isFinite(rtPrice) || (!isDharamshala && rtPrice <= 0) || rtPrice < 0) {
-      return toast.error(isDharamshala ? 'Enter 0 or more for reference price' : 'Price per night is required');
+    if (!Number.isFinite(rtPrice) || rtPrice <= 0) {
+      return toast.error('Price per night is required');
     }
 
     const payload = {
@@ -221,7 +220,7 @@ const AdminInventory = () => {
         .map((a) => a.trim())
         .filter(Boolean),
       images: rtImages,
-      pricePerNight: isDharamshala ? Math.max(0, Number(rtPrice)) : Number(rtPrice),
+      pricePerNight: Number(rtPrice),
       maxAdults: Number(rtMaxAdults || 1),
       maxChildren: Number(rtMaxChildren || 0),
       petsAllowed: Boolean(rtPetsAllowed),
@@ -533,12 +532,10 @@ const AdminInventory = () => {
                         <div className="min-w-0">
                           <p className="font-body text-sm font-semibold text-foreground truncate">{rt.name}</p>
                           <p className="font-body text-xs text-muted-foreground truncate">
-                            {isDharamshalaType(selectedHotel?.propertyType) ? 'Enquiry only' : `Rs. ${Number(rt.pricePerNight || 0).toLocaleString('en-IN')}`} - Adults {rt.maxAdults} - Children {rt.maxChildren}
+                            Rs. {Number(rt.pricePerNight || 0).toLocaleString('en-IN')} - Adults {rt.maxAdults} - Children {rt.maxChildren}
                           </p>
                           <p className="font-body text-[11px] text-muted-foreground truncate">
-                            {isDharamshalaType(selectedHotel?.propertyType)
-                              ? 'No online payment or platform booking fee for dharamshala enquiries'
-                              : `Customer pays Rs. ${priceWithTax(rt.pricePerNight).toLocaleString('en-IN')} / night incl. ${taxPercent}% GST`}
+                            Customer pays Rs. {priceWithTax(rt.pricePerNight).toLocaleString('en-IN')} / night incl. {taxPercent}% GST
                           </p>
                         </div>
                         <div className="flex items-center gap-1">

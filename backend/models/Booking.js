@@ -55,6 +55,18 @@ const bookingSchema = new mongoose.Schema({
   // Hotel inventory booking (room-type based)
   hotelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel' },
   roomTypeId: { type: mongoose.Schema.Types.ObjectId, ref: 'RoomType' },
+  ratePlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'RatePlan' },
+  ratePlanName: String,
+  ratePlanCode: String,
+  ratePlanMealPlan: String,
+  nightlyBreakdown: [{
+    date: Date,
+    ratePlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'RatePlan' },
+    price: { type: Number, default: 0 },
+    quantity: { type: Number, default: 1 },
+    amount: { type: Number, default: 0 },
+    source: { type: String, default: '' },
+  }],
   roomUnitId: { type: mongoose.Schema.Types.ObjectId, ref: 'RoomUnit' },
   roomUnitIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'RoomUnit' }],
   roomNumber: String,
@@ -129,9 +141,12 @@ const bookingSchema = new mongoose.Schema({
   hotel_invoice_number: String,
   invoiceSentAt: Date,
   paymentMethod: { type: String, enum: ['online', 'doorstep'], default: 'online' },
-  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
-  bookingStatus: { type: String, enum: ['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'completed', 'settled'], default: 'pending' },
+  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'expired'], default: 'pending' },
+  bookingStatus: { type: String, enum: ['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'completed', 'settled', 'expired', 'payment_failed'], default: 'pending' },
+  paymentHoldExpiresAt: { type: Date, index: true },
+  confirmedAt: Date,
   checkedInAt: Date,
+  checkedOutAt: Date,
   checkedInByPartnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   checkedInByPartnerName: String,
   guestDigitalSignature: String,
@@ -149,6 +164,17 @@ const bookingSchema = new mongoose.Schema({
   razorpayStatus: String,
   razorpayWebhookEventIds: [{ type: String }],
   paidAt: Date,
+  paymentFailedAt: Date,
+  expiredAt: Date,
+  inventoryReleasedAt: Date,
+  statusHistory: [{
+    from: String,
+    to: String,
+    at: { type: Date, default: Date.now },
+    actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    actorRole: { type: String, enum: ['user', 'admin', 'partner', 'system'], default: 'system' },
+    reason: String,
+  }],
   acceptedPropertyTerms: { type: acceptedPropertyTermsSchema, default: () => ({}) },
 
   // Waitlist (room_type bookings only): when no room unit could be assigned immediately.
@@ -169,6 +195,18 @@ const bookingSchema = new mongoose.Schema({
   cancellationDeductionPercent: { type: Number, default: 12 },
   cancellationDeductionAmount: { type: Number, default: 0 },
   refundableAmount: { type: Number, default: 0 },
+  refundId: { type: String, index: true },
+  refundAmount: { type: Number, default: 0 },
+  refundStatus: { type: String, enum: ['not_required', 'pending', 'processed', 'failed'], default: 'not_required', index: true },
+  refundRequestedAt: Date,
+  refundProcessedAt: Date,
+  refundFailureReason: String,
+  refundReconciliationState: {
+    type: String,
+    enum: ['none', 'needs_refund_reconciliation'],
+    default: 'none',
+    index: true,
+  },
 }, { timestamps: true });
 
 bookingSchema.pre('save', function (next) {
@@ -181,9 +219,11 @@ bookingSchema.pre('save', function (next) {
 
 bookingSchema.index({ bookingType: 1, createdAt: -1 });
 bookingSchema.index({ hotelId: 1, roomTypeId: 1, roomUnitId: 1, checkIn: 1, checkOut: 1 });
+bookingSchema.index({ hotelId: 1, roomTypeId: 1, ratePlanId: 1, checkIn: 1, checkOut: 1 });
 bookingSchema.index({ createdAt: -1 });
 bookingSchema.index({ userId: 1, createdAt: -1 });
 bookingSchema.index({ partnerId: 1, createdAt: -1 });
 bookingSchema.index({ roomTypeId: 1, bookingStatus: 1, checkIn: 1, checkOut: 1 });
+bookingSchema.index({ bookingStatus: 1, paymentStatus: 1, paymentHoldExpiresAt: 1 });
 
 module.exports = mongoose.model('Booking', bookingSchema);

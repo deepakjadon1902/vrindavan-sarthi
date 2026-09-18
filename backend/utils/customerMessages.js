@@ -1,10 +1,8 @@
 const Booking = require('../models/Booking');
 const Order = require('../models/Order');
 const User = require('../models/User');
-const PartnerNotification = require('../models/PartnerNotification');
 const { sendEmail } = require('./email');
 const { buildPdf } = require('./invoicePdf');
-const { enqueueJob } = require('./jobQueue');
 
 const clean = (value) => String(value || '').trim();
 const money = (value) => `INR ${Number(value || 0).toLocaleString('en-IN')}`;
@@ -170,7 +168,7 @@ const sendBookingInvoice = async (booking) => {
   const documentTitle = hotelBooking ? 'BOOKING CONFIRMATION & PAYMENT RECEIPT' : 'TAX INVOICE';
   const filenamePrefix = hotelBooking ? 'booking-receipt' : 'tax-invoice';
   const rows = bookingRows(booking);
-  await sendEmail({
+  return sendEmail({
     to,
     subject: hotelBooking
       ? `Vrindavan Sarthi booking confirmation ${booking.bookingId}`
@@ -203,7 +201,7 @@ const sendOrderInvoice = async (order) => {
   const to = clean(order.userEmail);
   if (!to || order.invoiceSentAt) return;
   const rows = orderRows(order);
-  await sendEmail({
+  return sendEmail({
     to,
     subject: `${COMPANY_NAME} order invoice ${order.orderId}`,
     text: [`${COMPANY_NAME} order invoice`, ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'),
@@ -229,7 +227,7 @@ const sendOrderInvoice = async (order) => {
 const sendBookingCancellationEmail = async (booking, reason) => {
   const to = clean(booking.customerEmail || booking.userEmail);
   if (!to) return;
-  await sendEmail({
+  return sendEmail({
     to,
     subject: `Booking cancelled ${booking.bookingId}`,
     text: `Your ${COMPANY_NAME} booking ${booking.bookingId} has been cancelled.\nReason: ${reason}\nCancellation charge: ${money(booking.cancellationDeductionAmount)}\nRefundable amount: ${money(booking.refundableAmount)}`,
@@ -247,7 +245,7 @@ const sendBookingCancellationEmail = async (booking, reason) => {
 const sendOrderCancellationEmail = async (order, reason) => {
   const to = clean(order.userEmail);
   if (!to) return;
-  await sendEmail({
+  return sendEmail({
     to,
     subject: `Order cancelled ${order.orderId}`,
     text: `Your ${COMPANY_NAME} order ${order.orderId} has been cancelled.\nReason: ${reason}\nCancellation charge: ${money(order.cancellationDeductionAmount)}\nRefundable amount: ${money(order.refundableAmount)}`,
@@ -270,55 +268,25 @@ const adminEmails = async () => {
 const sendAdminAlert = async ({ subject, title, intro, rows }) => {
   const explicit = clean(process.env.ADMIN_NOTIFICATION_EMAIL);
   const recipients = explicit ? [explicit] : await adminEmails();
-  await Promise.allSettled(recipients.map((to) => sendEmail({ to, subject, text: [title, ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'), html: emailShell({ title, intro, rows }) })));
+  const results = await Promise.allSettled(recipients.map((to) => sendEmail({ to, subject, text: [title, ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'), html: emailShell({ title, intro, rows }) })));
+  return { provider: 'email', providerMessageId: results.find((result) => result.status === 'fulfilled')?.value?.providerMessageId };
 };
 
-const notifyBookingCreated = (booking) => {
-  enqueueJob(`admin-booking-alert:${booking.bookingId}`, async () => {
-    await PartnerNotification.create({
-      title: `New booking ${booking.bookingId}`,
-      message: `${booking.itemName} by ${booking.customerFullName || booking.userName}. Amount ${money(booking.totalAmount)}.`,
-      type: 'notification',
-      audience: 'admin',
-      entityType: 'booking',
-      entityId: String(booking._id),
-    });
-    if (booking.partnerId) {
-      await PartnerNotification.create({
-        title: `New booking ${booking.bookingId}`,
-        message: `${booking.itemName}. Please verify payment and booking details.`,
-        type: 'notification',
-        audience: 'partner',
-        partnerId: booking.partnerId,
-        entityType: 'booking',
-        entityId: String(booking._id),
-      });
-    }
-    await sendAdminAlert({
-      subject: `New booking ${booking.bookingId}`,
+const sendPartnerBookingAlert = async (booking) => {
+  if (!booking?.partnerId) return;
+  const partner = await User.findById(booking.partnerId).select('email businessEmail').lean();
+  const to = clean(partner?.businessEmail || partner?.email);
+  if (!to) return;
+  const rows = bookingRows(booking);
+  return sendEmail({
+    to,
+    subject: `New Vrindavan Sarthi Enterprises Booking ${booking.bookingId}`,
+    text: ['New booking received', ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'),
+    html: emailShell({
       title: 'New booking received',
-      intro: 'A customer has submitted a booking. Admin confirmation may be required.',
-      rows: bookingRows(booking),
-    });
-  });
-};
-
-const notifyOrderCreated = (order) => {
-  enqueueJob(`admin-order-alert:${order.orderId}`, async () => {
-    await PartnerNotification.create({
-      title: `New order ${order.orderId}`,
-      message: `${order.productName} by ${order.userName}. Amount ${money(order.totalAmount)}.`,
-      type: 'notification',
-      audience: 'admin',
-      entityType: 'order',
-      entityId: String(order._id),
-    });
-    await sendAdminAlert({
-      subject: `New order ${order.orderId}`,
-      title: 'New shop order received',
-      intro: 'A customer has submitted a product order. Admin confirmation may be required.',
-      rows: orderRows(order),
-    });
+      intro: 'A customer has submitted a booking for your property. Please review payment and booking details.',
+      rows,
+    }),
   });
 };
 
@@ -329,6 +297,6 @@ module.exports = {
   sendOrderInvoice,
   sendBookingCancellationEmail,
   sendOrderCancellationEmail,
-  notifyBookingCreated,
-  notifyOrderCreated,
+  sendAdminAlert,
+  sendPartnerBookingAlert,
 };

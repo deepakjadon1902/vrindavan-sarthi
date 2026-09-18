@@ -32,6 +32,8 @@ const tryAssignRoomUnitToBooking = async ({ booking }) => {
   });
   const blockedSet = new Set(blockedByBlocks.map(String));
 
+  const roomQuantity = Math.max(1, Math.floor(Number(booking.roomQuantity || 1)));
+  const selectedUnits = [];
   for (const unit of units) {
     if (blockedSet.has(String(unit._id))) continue;
 
@@ -58,12 +60,23 @@ const tryAssignRoomUnitToBooking = async ({ booking }) => {
       throw err;
     }
 
-    booking.roomUnitId = unit._id;
-    booking.roomNumber = String(unit.number);
+    selectedUnits.push(unit);
+    if (selectedUnits.length >= roomQuantity) break;
+  }
+
+  if (selectedUnits.length >= roomQuantity) {
+    booking.roomUnitIds = selectedUnits.map((unit) => unit._id);
+    booking.roomNumbers = selectedUnits.map((unit) => String(unit.number));
+    booking.roomUnitId = selectedUnits[0]._id;
+    booking.roomNumber = String(selectedUnits[0].number);
     booking.isWaitlisted = false;
     booking.waitlistAssignedAt = new Date();
     await booking.save();
     return { assigned: true, booking };
+  }
+
+  if (selectedUnits.length) {
+    await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
   }
 
   return { assigned: false };
@@ -76,7 +89,7 @@ const processRoomTypeWaitlist = async ({ roomTypeId, max = 25 }) => {
   const waitlisted = await Booking.find({
     bookingType: 'room_type',
     roomTypeId: rtId,
-    bookingStatus: { $ne: 'cancelled' },
+    bookingStatus: { $nin: ['cancelled', 'expired', 'payment_failed', 'checked_out'] },
     isWaitlisted: true,
   })
     .sort({ createdAt: 1 })

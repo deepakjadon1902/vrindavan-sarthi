@@ -72,10 +72,11 @@ const MyBookings = () => {
 
   const filtered =
     filter === 'All' ? bookings :
-    filter === 'Waitlist' ? bookings.filter(b => Boolean(b.isWaitlisted) && b.bookingStatus !== 'cancelled') :
+    filter === 'Waitlist' ? bookings.filter(b => Boolean(b.isWaitlisted) && !['cancelled', 'expired', 'payment_failed'].includes(b.bookingStatus)) :
     filter === 'Upcoming' ? bookings.filter(b => b.bookingStatus === 'confirmed') :
     filter === 'Pending' ? bookings.filter(b => b.bookingStatus === 'pending') :
     filter === 'Completed' ? bookings.filter(b => b.bookingStatus === 'completed') :
+    filter === 'Expired' ? bookings.filter(b => b.bookingStatus === 'expired' || b.bookingStatus === 'payment_failed') :
     bookings.filter(b => b.bookingStatus === 'cancelled');
 
   const stats = {
@@ -88,6 +89,7 @@ const MyBookings = () => {
   const statusBadge = (s: string) => {
     if (s === 'confirmed') return { cls: 'bg-brand-green/15 text-brand-green border-brand-green/30', icon: CheckCircle2 };
     if (s === 'cancelled') return { cls: 'bg-destructive/15 text-destructive border-destructive/30', icon: XCircle };
+    if (s === 'expired' || s === 'payment_failed') return { cls: 'bg-destructive/15 text-destructive border-destructive/30', icon: XCircle };
     if (s === 'completed') return { cls: 'bg-brand-gold/15 text-brand-gold border-brand-gold/30', icon: CheckCircle2 };
     return { cls: 'bg-muted text-muted-foreground border-border', icon: Clock };
   };
@@ -147,7 +149,7 @@ const MyBookings = () => {
 
           {/* Filters */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-            {['All', 'Upcoming', 'Pending', 'Waitlist', 'Completed', 'Cancelled'].map((tab) => (
+            {['All', 'Upcoming', 'Pending', 'Waitlist', 'Completed', 'Expired', 'Cancelled'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}

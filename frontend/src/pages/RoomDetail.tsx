@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, User, CheckCircle, BedDouble, Snowflake, Wifi, Bath } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
-import { useBookingStore } from '@/store/bookingStore';
 import UpiPayment from '@/components/UpiPayment';
 import ImageCarousel from '@/components/shared/ImageCarousel';
 import { api } from '@/lib/api';
@@ -29,7 +28,6 @@ const RoomDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
-  const { createBooking } = useBookingStore();
   const [room, setRoom] = useState<any>(() => getPrefetchedDetail('rooms', id) || getCachedListingItem('rooms', id) || null);
   const [isLoading, setIsLoading] = useState(true);
   const [checkIn, setCheckIn] = useState('');
@@ -105,30 +103,10 @@ const RoomDetail = () => {
 
   const handlePaymentConfirm = async (transactionId: string) => {
     if (!user) return;
-    const res = await createBooking({
-      bookingType: 'room',
-      itemId: room?._id,
-      itemName: `${room.name} - ${room.hotelName}`,
-      itemImage: room.image,
-      partnerId: room.partnerId,
-      partnerName: room.partnerName,
-      checkIn, checkOut,
-      guests: room.capacity,
-      totalAmount: total,
-      paymentMethod: 'online',
-      paymentStatus: 'pending',
-      bookingStatus: 'confirmed',
-      upiTransactionId: transactionId,
-      additionalInfo: `UPI Txn: ${transactionId}`,
-    } as any);
-
-    if (!res.success) {
-      toast.error(res.error || 'Booking failed');
-      return;
-    }
+    void transactionId;
     setShowPayment(false);
-    setBooked(true);
-    toast.success('Booking confirmed! Payment verification pending.');
+    toast.error('Please book from the room-type details page so room availability can be verified.');
+    navigate('/rooms');
   };
 
   const allImages = [room.image, ...(room.images || [])].filter(Boolean);

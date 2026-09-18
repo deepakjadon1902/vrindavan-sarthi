@@ -7,6 +7,7 @@ const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const User = require('../models/User');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const { normalizePublicImages, normalizePublicImageSet } = require('../utils/publicImages');
+const { rejectInvalidObjectId } = require('../utils/security');
 
 const router = express.Router();
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
@@ -26,6 +27,11 @@ const getLocationSearchTerms = (value) => {
   if (lower.includes('radhakund')) terms.add('radha kund');
   return Array.from(terms);
 };
+
+router.param('id', (req, res, next, value) => {
+  if (rejectInvalidObjectId(res, value, 'room type id')) return;
+  next();
+});
 
 const memCache = new Map();
 const getMemCache = (key) => {

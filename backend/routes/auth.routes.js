@@ -524,6 +524,11 @@ router.post('/register', async (req, res) => {
   try {
     const { name, email, phone, password, role, street, city, state, pin,
       businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription } = req.body;
+    const requestedRole = String(role || 'user').trim().toLowerCase();
+    const accountRole = requestedRole === 'partner' ? 'partner' : 'user';
+    if (requestedRole && !['user', 'partner'].includes(requestedRole)) {
+      return res.status(400).json({ success: false, message: 'Invalid account role' });
+    }
 
     const normalizedEmail = normalizeEmail(email);
     const exists = await User.findOne({ email: normalizedEmail });
@@ -531,7 +536,7 @@ router.post('/register', async (req, res) => {
 
     let partnerDocuments = [];
     let partnerPolicyConsent = undefined;
-    if (role === 'partner') {
+    if (accountRole === 'partner') {
       if (req.body?.partnerPolicyConsent?.accepted !== true) {
         return res.status(400).json({ success: false, message: 'Please accept the owner terms, conditions, and privacy policy to register as a partner' });
       }
@@ -553,11 +558,11 @@ router.post('/register', async (req, res) => {
     const user = await User.create({
       name, email: normalizedEmail, phone, password,
       address: { street, city, state, pin },
-      role: role || 'user',
-      ...(role === 'partner' ? { businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription, partnerDocuments, partnerPolicyConsent, partnerStatus: 'pending' } : {}),
+      role: accountRole,
+      ...(accountRole === 'partner' ? { businessName, gstNumber, businessType, businessAddress, businessPhone, businessEmail, businessDescription, partnerDocuments, partnerPolicyConsent, partnerStatus: 'pending' } : {}),
     });
 
-    if (role === 'partner') {
+    if (accountRole === 'partner') {
       void sendPartnerRegistrationAlert(user);
     }
 

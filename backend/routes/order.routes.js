@@ -3,13 +3,18 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Settings = require('../models/Settings');
 const { protect, authorize } = require('../middleware/auth');
-const { enqueueJob } = require('../utils/jobQueue');
+const { rejectInvalidObjectId } = require('../utils/security');
 const {
-  notifyOrderCreated,
-  sendOrderInvoice,
-  sendOrderCancellationEmail,
-} = require('../utils/customerMessages');
+  ensureOrderCancellationNotification,
+  ensureOrderCreatedNotifications,
+  ensureOrderInvoiceNotification,
+} = require('../utils/notificationDelivery');
 const router = express.Router();
+
+router.param('id', (req, res, next, value) => {
+  if (rejectInvalidObjectId(res, value, 'order id')) return;
+  next();
+});
 
 const allowedStatuses = ['pending', 'processing', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
 const SHIPPING_FEE = 49;
@@ -234,6 +239,7 @@ router.post('/', protect, async (req, res) => {
     const upiTransactionId = clean(req.body?.upiTransactionId);
 
     if (!productId) return res.status(400).json({ success: false, message: 'Product is required' });
+    if (rejectInvalidObjectId(res, productId, 'product id')) return;
     if (!Number.isFinite(quantity) || quantity < 1) return res.status(400).json({ success: false, message: 'Valid quantity is required' });
     if (!shippingAddress) return res.status(400).json({ success: false, message: 'Shipping address is required' });
     if (!upiTransactionId) return res.status(400).json({ success: false, message: 'UPI transaction ID is required' });
@@ -271,7 +277,7 @@ router.post('/', protect, async (req, res) => {
           orderStatus: 'pending',
           upiTransactionId,
         });
-        notifyOrderCreated(order);
+        await ensureOrderCreatedNotifications(order);
         return res.status(201).json({ success: true, data: order });
       } catch (err) {
         const isDup = err && err.code === 11000 && err.keyPattern && err.keyPattern.trackingId;
@@ -298,10 +304,7 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
       createdAt: new Date(),
     });
     await order.save();
-    enqueueJob(`order-invoice:${order.orderId}`, async () => {
-      await sendOrderInvoice(order);
-      await Order.updateOne({ _id: order._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
-    });
+    await ensureOrderInvoiceNotification(order);
     res.json({ success: true, data: order });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -324,7 +327,7 @@ router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
       createdAt: new Date(),
     });
     await order.save();
-    enqueueJob(`order-cancel-email:${order.orderId}:${Date.now()}`, () => sendOrderCancellationEmail(order, order.cancellationReason));
+    await ensureOrderCancellationNotification(order, order.cancellationReason);
     res.json({ success: true, data: order });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -355,7 +358,7 @@ router.put('/:id/cancel', protect, async (req, res) => {
       createdAt: new Date(),
     });
     await order.save();
-    enqueueJob(`order-cancel-email:${order.orderId}:${Date.now()}`, () => sendOrderCancellationEmail(order, reason));
+    await ensureOrderCancellationNotification(order, reason);
     res.json({ success: true, data: order, message: 'Order cancelled and customer notified.' });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

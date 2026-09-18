@@ -4,7 +4,13 @@ const Settings = require('../models/Settings');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImages } = require('../utils/publicImages');
+const { rejectInvalidObjectId } = require('../utils/security');
 const router = express.Router();
+
+router.param('id', (req, res, next, value) => {
+  if (rejectInvalidObjectId(res, value, 'product id')) return;
+  next();
+});
 
 const memCache = new Map();
 const getCache = (key) => {

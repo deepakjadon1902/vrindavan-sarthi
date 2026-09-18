@@ -5,22 +5,46 @@ const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
 const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
-const Settings = require('../models/Settings');
 const Cab = require('../models/Cab');
 const CabFare = require('../models/CabFare');
+const Tour = require('../models/Tour');
 const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
-const { processRoomTypeWaitlist } = require('../utils/waitlist');
-const { sendEmail } = require('../utils/email');
-const { sendSms } = require('../utils/sms');
-const { enqueueJob } = require('../utils/jobQueue');
 const {
-  bookingRows,
-  sendBookingInvoice,
-  sendBookingCancellationEmail,
-  notifyBookingCreated,
-} = require('../utils/customerMessages');
+  assertValidBookingTransition,
+  transitionBookingStatus,
+  getPaymentHoldExpiresAt,
+  releaseBookingInventory,
+  markBookingPaymentPaid,
+  markBookingPaymentFailed,
+  expirePendingBookings,
+  tryReserveRoomUnitsForBooking,
+} = require('../utils/reservationLifecycle');
+const {
+  LEGACY_GENERIC_BOOKING_TYPES,
+  normalizeBookingType,
+  isLodgingBookingType,
+  rejectInvalidObjectId,
+  pickAllowed,
+} = require('../utils/security');
+const { sendSms } = require('../utils/sms');
+const {
+  ensureBookingCancellationNotification,
+  ensureBookingCreatedNotifications,
+  ensureBookingInvoiceNotification,
+} = require('../utils/notificationDelivery');
+const {
+  getPaymentOption,
+  buildMoneyFields,
+} = require('../utils/pricing');
+const { createBookingQuote } = require('../utils/rateEngine');
+const {
+  buildModificationPreview,
+  createModification,
+  verifyModificationPayment,
+  executeBookingRefund,
+} = require('../utils/bookingModification');
 const router = express.Router();
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
@@ -80,44 +104,6 @@ const generateBookingCode = () => {
   return `VVS-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
 };
 
-const PARTNER_COMMISSION_PERCENT = 10;
-const GST_THRESHOLD_AMOUNT = 7500;
-const LOW_GST_PERCENT = 5;
-const HIGH_GST_PERCENT = 18;
-
-const getHotelTaxPercent = async (hotel, roomType) => {
-  if (!hotel?.taxEnabled) return 0;
-  if (String(hotel?.gstMode || '').trim().toLowerCase() === 'automatic') {
-    const pricePerNight = Number(roomType?.pricePerNight || 0);
-    return pricePerNight <= GST_THRESHOLD_AMOUNT ? LOW_GST_PERCENT : HIGH_GST_PERCENT;
-  }
-  const hotelPercent = Number(hotel?.taxPercent);
-  if (Number.isFinite(hotelPercent) && hotelPercent >= 0) return Math.min(50, hotelPercent);
-  try {
-    const s = await Settings.findOne().select('hotelTaxPercent').lean();
-    const p = Number(s?.hotelTaxPercent ?? 12);
-    if (!Number.isFinite(p) || p < 0) return 0;
-    return Math.min(50, p);
-  } catch {
-    return 12;
-  }
-};
-
-const clampPercent = (value, fallback = 0, max = 100) => {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n < 0) return fallback;
-  return Math.min(max, n);
-};
-
-const CONVENIENCE_FEE_PERCENT = 4.45;
-const calculateConvenienceFee = (amount) => Math.round((Math.max(0, Number(amount || 0)) * CONVENIENCE_FEE_PERCENT) / 100);
-const calculateGatewayFee = (amount) => Math.round((Math.max(0, Number(amount || 0)) * 2) / 100);
-
-const getPaymentOption = (value, allowed = ['advance_30', 'full_100']) => {
-  const option = String(value || '').trim();
-  return allowed.includes(option) ? option : '';
-};
-
 const getBillingModelForBookingType = (bookingType) => {
   if (bookingType === 'cab') return 'taxi_direct';
   if (bookingType === 'tour') return 'tour_direct';
@@ -137,50 +123,6 @@ const findBookingHotel = async (bookingType, body) => {
     if (roomType?.hotelId) return Hotel.findById(roomType.hotelId).select('propertyType partnerId partnerName partnerPhone platform_commission_percentage').lean();
   }
   return null;
-};
-
-const buildMoneyFields = ({ subtotal, baseAmount, taxAmount = 0, paymentOption = 'advance_30', commissionPercent = 0, gatewayFeeAmount }) => {
-  const checkoutSubtotal = Math.round(Math.max(0, Number(subtotal || 0)));
-  const roomAmount = Math.round(Math.max(0, Number(baseAmount ?? (checkoutSubtotal - Number(taxAmount || 0)))));
-  const convenienceFeeAmount = calculateConvenienceFee(roomAmount);
-  const totalAmount = checkoutSubtotal + convenienceFeeAmount;
-  const advancePercent = paymentOption === 'full_100' ? 100 : 30;
-  const advanceAmount = Math.round(totalAmount * (advancePercent / 100));
-  const balanceAmount = Math.max(0, totalAmount - advanceAmount);
-  const hotelTaxAmount = Math.round(Math.max(0, Number(taxAmount || 0)));
-  const grossForHotel = roomAmount + hotelTaxAmount;
-  const platformCommissionPercent = clampPercent(commissionPercent, PARTNER_COMMISSION_PERCENT, 100);
-  const platformCommissionAmount = Math.round((roomAmount * platformCommissionPercent) / 100);
-  const paymentGatewayFeeAmount = Math.max(0, Math.round(Number.isFinite(Number(gatewayFeeAmount)) ? Number(gatewayFeeAmount) : calculateGatewayFee(roomAmount)));
-  const partnerNetPayout = Math.max(0, grossForHotel - platformCommissionAmount - paymentGatewayFeeAmount);
-
-  return {
-    base_amount: roomAmount,
-    hotel_gst_amount: hotelTaxAmount,
-    convenience_fee: convenienceFeeAmount,
-    customer_total: totalAmount,
-    advance_paid: advanceAmount,
-    balance_at_property: balanceAmount,
-    commission_rate: platformCommissionPercent,
-    commission_amount: platformCommissionAmount,
-    payment_gateway_fee: paymentGatewayFeeAmount,
-    gross_for_hotel: grossForHotel,
-    hotel_net_payout: partnerNetPayout,
-    payout_status: 'pending',
-    checkoutSubtotal,
-    convenienceFeePercent: CONVENIENCE_FEE_PERCENT,
-    convenienceFeeAmount,
-    totalAmount,
-    paymentOption,
-    advancePercent,
-    advanceAmount,
-    balanceAmount,
-    platformCommissionPercent,
-    platformCommissionAmount,
-    grossForHotel,
-    paymentGatewayFeeAmount,
-    partnerNetPayout,
-  };
 };
 
 const normalize = (v) => String(v || '').trim();
@@ -219,70 +161,17 @@ const cancellationMoney = (totalAmount) => {
   };
 };
 
-const buildPartnerBookingHtml = (booking) => {
-  const rows = [
-    ['Booking ID', booking.bookingId],
-    ['Service', booking.itemName],
-    ['Customer', booking.customerFullName || booking.userName],
-    ['Mobile', booking.customerMobile || booking.userPhone],
-    ['Check-in', booking.checkIn ? new Date(booking.checkIn).toLocaleDateString('en-IN') : ''],
-    ['Check-out', booking.checkOut ? new Date(booking.checkOut).toLocaleDateString('en-IN') : ''],
-    ['Room', booking.roomNumber],
-    ['Guests', booking.guests],
-    ['Base Amount', `INR ${Number(booking.baseAmount || 0).toLocaleString('en-IN')}`],
-    ['Hotel GST', `INR ${Number(booking.taxAmount || 0).toLocaleString('en-IN')}`],
-    ['Convenience Fee', `INR ${Number(booking.convenienceFeeAmount || 0).toLocaleString('en-IN')}`],
-    ['Grand Total', `INR ${Number(booking.totalAmount || 0).toLocaleString('en-IN')}`],
-    ['Advance Online', `INR ${Number(booking.advanceAmount || 0).toLocaleString('en-IN')}`],
-    ['Balance to Collect at Property', `INR ${Number(booking.balanceAmount || 0).toLocaleString('en-IN')}`],
-  ].filter(([, value]) => typeof value !== 'undefined' && value !== null && value !== '');
-
-  return `
-    <div style="font-family:Arial,sans-serif;color:#222">
-      <h2>New booking received</h2>
-      <table cellpadding="8" cellspacing="0" style="border-collapse:collapse;border:1px solid #ddd">
-        ${rows.map(([label, value]) => `
-          <tr>
-            <td style="border:1px solid #ddd;background:#f7f7f7;font-weight:600">${label}</td>
-            <td style="border:1px solid #ddd">${value}</td>
-          </tr>
-        `).join('')}
-      </table>
-    </div>
-  `;
-};
-
-const sendPartnerBookingAlert = async (booking) => {
-  if (!booking?.partnerId) return;
-  const partner = await User.findById(booking.partnerId).select('email businessEmail name businessName').lean();
-  const to = normalize(partner?.businessEmail || partner?.email);
-  if (!to) return;
-  const rows = bookingRows(booking);
-  await sendEmail({
-    to,
-    subject: `New Vrindavan Sarthi Enterprises Booking ${booking.bookingId}`,
-    text: ['New booking received', ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'),
-    html: buildPartnerBookingHtml(booking),
-  });
-};
-
-const enqueueBookingNotifications = (booking, { invoice = false, partnerAlert = true } = {}) => {
+const enqueueBookingNotifications = async (booking, { invoice = false, partnerAlert = true } = {}) => {
   if (invoice) {
-    enqueueJob(`invoice:${booking.bookingId}`, async () => {
-      await sendBookingInvoice(booking);
-      await Booking.updateOne({ _id: booking._id }, { $set: { invoiceSentAt: new Date() } });
-    });
+    await ensureBookingInvoiceNotification(booking);
   }
-  if (partnerAlert) {
-    enqueueJob(`partner-alert:${booking.bookingId}`, () => sendPartnerBookingAlert(booking));
-  }
-  if (partnerAlert) notifyBookingCreated(booking);
+  await ensureBookingCreatedNotifications(booking, { partnerAlert });
 };
 
 const bookingDetailFields = [
   'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName partnerPhone',
   'service_billing_model',
-  'hotelId roomTypeId roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
+  'hotelId roomTypeId ratePlanId ratePlanName ratePlanCode ratePlanMealPlan nightlyBreakdown roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
   'assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail',
   'customerFullName customerMobile customerEmail arrivalMode vehicleNumber arrivalTime',
@@ -291,10 +180,15 @@ const bookingDetailFields = [
   'base_amount hotel_gst_amount convenience_fee customer_total advance_paid balance_at_property commission_rate commission_amount payment_gateway_fee gross_for_hotel hotel_net_payout payout_status hotel_gstin hotel_invoice_number',
   'platformCommissionPercent platformCommissionAmount grossForHotel paymentGatewayFeeAmount partnerNetPayout',
   'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId paymentProvider razorpayOrderId razorpayPaymentId razorpayStatus paidAt additionalInfo',
-  'checkedInAt checkedInByPartnerId checkedInByPartnerName guestDigitalSignature',
+  'paymentHoldExpiresAt confirmedAt checkedInAt checkedOutAt checkedInByPartnerId checkedInByPartnerName guestDigitalSignature paymentFailedAt expiredAt inventoryReleasedAt statusHistory',
   'acceptedPropertyTerms',
-  'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount createdAt',
+  'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount refundId refundAmount refundStatus refundRequestedAt refundProcessedAt refundFailureReason refundReconciliationState createdAt',
 ].join(' ');
+
+router.param('id', (req, res, next, id) => {
+  if (rejectInvalidObjectId(res, id, 'booking id')) return;
+  next();
+});
 
 const sanitizeCustomerBooking = (booking) => {
   if (!booking) return booking;
@@ -344,6 +238,7 @@ router.post('/cab', protect, async (req, res) => {
     }
     if (!Number.isFinite(passengers) || passengers < 1) return res.status(400).json({ success: false, message: 'Invalid number of passengers' });
     if (!upiTransactionId) return res.status(400).json({ success: false, message: 'UPI transaction ID is required for the 30% advance payment' });
+    if (cabFareRuleId && rejectInvalidObjectId(res, cabFareRuleId, 'cabFareRuleId')) return;
 
     let rule = cabFareRuleId ? await CabFare.findOne({ _id: cabFareRuleId, status: 'active' }).lean() : null;
     if (rule) {
@@ -399,15 +294,16 @@ router.post('/cab', protect, async (req, res) => {
       paymentMethod: 'online',
       paymentStatus: 'pending',
       bookingStatus: 'pending',
+      paymentHoldExpiresAt: getPaymentHoldExpiresAt(),
       verificationStage: 'pending_admin',
       upiTransactionId,
       additionalInfo: `30% advance submitted by UPI. Balance INR ${money.balanceAmount.toLocaleString('en-IN')} payable later.`,
     });
 
-    enqueueBookingNotifications(booking, { partnerAlert: true });
+    await enqueueBookingNotifications(booking, { partnerAlert: true });
     res.status(201).json({ success: true, data: booking });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Booking update failed' });
   }
 });
 
@@ -418,15 +314,11 @@ router.post('/room-type', protect, async (req, res) => {
     const hotelId = String(req.body?.hotelId || '').trim();
     const roomTypeId = String(req.body?.roomTypeId || '').trim();
     if (!hotelId || !roomTypeId) return res.status(400).json({ success: false, message: 'hotelId and roomTypeId are required' });
+    if (rejectInvalidObjectId(res, hotelId, 'hotelId')) return;
+    if (rejectInvalidObjectId(res, roomTypeId, 'roomTypeId')) return;
 
     const hotel = await Hotel.findById(hotelId).lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
-    if (String(hotel.propertyType || '').trim().toLowerCase() === 'dharamshala') {
-      return res.status(400).json({
-        success: false,
-        message: 'Dharamshala rooms are enquiry-only. Please book by WhatsApp or call.',
-      });
-    }
     const acceptedTermsSnapshot = getActivePropertyTermsSnapshot(hotel, req.user._id);
     if (acceptedTermsSnapshot) {
       const accepted = Boolean(req.body?.propertyTermsAccepted);
@@ -490,12 +382,7 @@ router.post('/room-type', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid date range' });
     }
 
-    // Server-side subtotal calculation (includes admin-controlled GST).
-    const nights = Math.max(1, daysToReserve.length);
-    const baseAmount = Math.max(0, Number(roomType.pricePerNight || 0)) * nights * roomQuantity;
-    const taxPercent = await getHotelTaxPercent(hotel, roomType);
-    const taxAmount = Math.round((baseAmount * taxPercent) / 100);
-    const subtotal = Math.round(baseAmount + taxAmount);
+    // Server-side quote calculation (date rates + existing GST/fee formulas).
     const paymentOption = getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']);
     if (!paymentOption) return res.status(400).json({ success: false, message: 'Please select 30% advance or 100% full online payment' });
     const paymentProvider = String(req.body?.paymentProvider || '').trim().toLowerCase() === 'razorpay' ? 'razorpay' : 'manual_upi';
@@ -504,14 +391,23 @@ router.post('/room-type', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'UPI transaction ID is required for online payment' });
     }
 
-    const money = buildMoneyFields({
-      subtotal,
-      baseAmount,
-      taxAmount,
+    const quoteResult = await createBookingQuote({
+      hotelId: hotel._id,
+      roomTypeId: roomType._id,
+      ratePlanId: req.body?.ratePlanId,
+      checkIn,
+      checkOut,
+      roomQuantity,
+      adults: totalAdults,
+      children: totalChildren,
+      hasPet,
       paymentOption,
-      commissionPercent: hotel.partnerId ? PARTNER_COMMISSION_PERCENT : hotel.platform_commission_percentage,
-      gatewayFeeAmount: req.body?.paymentGatewayFeeAmount,
+      checkInventory: false,
     });
+    const money = quoteResult.money;
+    const ratePlan = quoteResult.ratePlan;
+    const quote = quoteResult.quote;
+    const { baseAmount, taxPercent, taxAmount } = money;
 
     const units = await RoomUnit.find({ roomTypeId: roomType._id, status: { $in: BOOKABLE_ROOM_STATUSES } }).sort({ number: 1 }).lean();
     if (!units.length) return res.status(409).json({ success: false, message: 'No rooms available for selected dates' });
@@ -549,6 +445,11 @@ router.post('/room-type', protect, async (req, res) => {
 
       hotelId: hotel._id,
       roomTypeId: roomType._id,
+      ratePlanId: ratePlan._id,
+      ratePlanName: ratePlan.name,
+      ratePlanCode: ratePlan.code,
+      ratePlanMealPlan: ratePlan.mealPlan,
+      nightlyBreakdown: quote.nightlyBreakdown,
 
       checkIn,
       checkOut,
@@ -574,6 +475,7 @@ router.post('/room-type', protect, async (req, res) => {
       paymentMethod: 'online',
       bookingStatus: 'pending',
       paymentStatus: 'pending',
+      paymentHoldExpiresAt: getPaymentHoldExpiresAt(),
       verificationStage: hotel.partnerId ? 'pending_partner' : 'pending_admin',
       partnerPaymentVerified: false,
       adminPaymentVerified: false,
@@ -583,36 +485,16 @@ router.post('/room-type', protect, async (req, res) => {
       acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
     });
 
-    const selectedUnits = [];
-    for (const unit of units) {
-      if (blockedSet.has(String(unit._id))) continue;
-
-      const effectivePetsAllowed =
-        Boolean(hotel.petsAllowed) &&
-        (unit.petsAllowedOverride === null || typeof unit.petsAllowedOverride === 'undefined'
-          ? Boolean(roomType.petsAllowed)
-          : Boolean(unit.petsAllowedOverride));
-      if (hasPet && !effectivePetsAllowed) continue;
-
-      try {
-        await RoomUnitBookingDay.insertMany(
-          daysToReserve.map((d) => ({
-            hotelId: hotel._id,
-            roomTypeId: roomType._id,
-            roomUnitId: unit._id,
-            bookingId: booking._id,
-            date: d,
-          })),
-          { ordered: true }
-        );
-      } catch (err) {
-        if (String(err?.code) === '11000') continue;
-        throw err;
-      }
-
-      selectedUnits.push(unit);
-      if (selectedUnits.length >= roomQuantity) break;
-    }
+    const selectedUnits = await tryReserveRoomUnitsForBooking({
+      booking,
+      hotel,
+      roomType,
+      units,
+      daysToReserve,
+      blockedSet,
+      hasPet,
+      roomQuantity,
+    });
 
     if (selectedUnits.length >= roomQuantity) {
       booking.roomUnitIds = selectedUnits.map((unit) => unit._id);
@@ -626,7 +508,7 @@ router.post('/room-type', protect, async (req, res) => {
         throw err;
       }
 
-      enqueueBookingNotifications(booking, { partnerAlert: true });
+      await enqueueBookingNotifications(booking, { partnerAlert: true });
       return res.status(201).json({ success: true, data: sanitizeCustomerBooking(booking) });
     }
 
@@ -677,6 +559,7 @@ router.post('/room-type', protect, async (req, res) => {
         paymentMethod: 'online',
         bookingStatus: 'pending',
         paymentStatus: 'pending',
+        paymentHoldExpiresAt: getPaymentHoldExpiresAt(),
         verificationStage: hotel.partnerId ? 'pending_partner' : 'pending_admin',
         partnerPaymentVerified: false,
         adminPaymentVerified: false,
@@ -687,7 +570,7 @@ router.post('/room-type', protect, async (req, res) => {
         isWaitlisted: true,
       });
 
-      enqueueBookingNotifications(waitlistedBooking, { partnerAlert: true });
+      await enqueueBookingNotifications(waitlistedBooking, { partnerAlert: true });
       return res.status(201).json({
         success: true,
         data: sanitizeCustomerBooking(waitlistedBooking),
@@ -695,64 +578,86 @@ router.post('/room-type', protect, async (req, res) => {
       });
     }
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment verification failed' });
   }
 });
 
 // Create booking (authenticated user)
 router.post('/', protect, async (req, res) => {
   try {
-    const bookingType = String(req.body?.bookingType || '').trim();
-    let hotel = null;
-    if (['hotel', 'room', 'room_type'].includes(bookingType)) {
-      hotel = await findBookingHotel(bookingType, req.body);
-      if (String(hotel?.propertyType || '').trim().toLowerCase() === 'dharamshala') {
-        return res.status(400).json({
-          success: false,
-          message: 'Dharamshala bookings are enquiry-only. Please book by WhatsApp or call.',
-        });
-      }
+    const bookingType = normalizeBookingType(req.body?.bookingType);
+    if (!bookingType) return res.status(400).json({ success: false, message: 'bookingType is required' });
+
+    if (isLodgingBookingType(bookingType)) {
+      return res.status(409).json({
+        success: false,
+        message: 'Lodging bookings must use the room-type reservation flow so physical-room inventory is locked.',
+      });
     }
+
+    if (bookingType === 'cab') {
+      return res.status(409).json({
+        success: false,
+        message: 'Cab bookings must use the cab booking flow.',
+      });
+    }
+
+    if (!LEGACY_GENERIC_BOOKING_TYPES.has(bookingType)) {
+      return res.status(400).json({ success: false, message: 'Unsupported booking type' });
+    }
+
+    const itemId = normalize(req.body?.itemId);
+    if (!itemId) return res.status(400).json({ success: false, message: 'itemId is required' });
+    if (rejectInvalidObjectId(res, itemId, 'itemId')) return;
+
+    const tour = await Tour.findOne({ _id: itemId, status: 'active', approvalStatus: 'approved' }).lean();
+    if (!tour) return res.status(404).json({ success: false, message: 'Tour not found' });
+
     let paymentOption = getPaymentOption(req.body?.paymentOption || 'full_100', ['advance_30', 'full_100']);
-    if ((bookingType === 'hotel' || bookingType === 'room') && !getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100'])) {
-      return res.status(400).json({ success: false, message: 'Please select 30% advance or 100% full online payment' });
-    }
-    if (bookingType === 'cab') paymentOption = 'advance_30';
     if (!paymentOption) return res.status(400).json({ success: false, message: 'Invalid payment option' });
 
-    const subtotal = Number(req.body?.checkoutSubtotal ?? req.body?.totalAmount ?? 0);
-    const baseAmount = Number(req.body?.baseAmount ?? subtotal);
-    const taxAmount = Number(req.body?.taxAmount ?? 0);
-    const isPartnerBooking = Boolean(req.body?.partnerId || hotel?.partnerId);
-    const commissionPercent = isPartnerBooking
-      ? PARTNER_COMMISSION_PERCENT
-      : clampPercent(req.body?.platformCommissionPercent, 0, 100);
-    const money = buildMoneyFields({ subtotal, baseAmount, taxAmount, paymentOption, commissionPercent, gatewayFeeAmount: req.body?.paymentGatewayFeeAmount });
-    const effectivePartnerId = req.body?.partnerId || hotel?.partnerId;
+    const guests = Math.max(1, Math.min(50, Math.floor(Number(req.body?.guests || req.body?.persons || 1))));
+    const baseAmount = Math.max(0, Math.round(Number(tour.pricePerPerson || 0) * guests));
+    if (!baseAmount) return res.status(400).json({ success: false, message: 'Tour price is not available' });
+    const money = buildMoneyFields({ subtotal: baseAmount, baseAmount, taxAmount: 0, paymentOption, commissionPercent: 0, gatewayFeeAmount: 0 });
 
     const payload = {
-      ...req.body,
+      ...pickAllowed(req.body, [
+        'customerFullName',
+        'customerMobile',
+        'customerEmail',
+        'additionalInfo',
+        'upiTransactionId',
+        'paymentProvider',
+      ]),
+      bookingType,
+      itemId: String(tour._id),
+      itemName: tour.name,
+      itemImage: tour.image || tour.images?.[0] || '/placeholder.svg',
       ...money,
       baseAmount,
-      taxAmount,
+      taxAmount: 0,
       service_billing_model: getBillingModelForBookingType(bookingType),
       userId: req.user._id,
       userName: req.user.name,
       userEmail: req.user.email,
       userPhone: req.user.phone,
       paymentMethod: 'online',
-      bookingStatus: 'confirmed',
+      bookingStatus: 'pending',
       paymentStatus: 'pending',
-      verificationStage: effectivePartnerId ? 'pending_partner' : 'pending_admin',
-      partnerId: effectivePartnerId,
-      partnerName: req.body?.partnerName || hotel?.partnerName,
-      partnerPhone: req.body?.partnerPhone || hotel?.partnerPhone,
+      paymentHoldExpiresAt: getPaymentHoldExpiresAt(),
+      verificationStage: 'pending_admin',
+      partnerId: tour.partnerId || undefined,
+      partnerName: tour.partnerName || undefined,
+      partnerPhone: tour.partnerPhone || undefined,
       partnerPaymentVerified: false,
       adminPaymentVerified: false,
+      checkIn: parseDateOnlyToUTC(String(req.body?.checkIn || req.body?.travelDate || '')) || undefined,
+      guests,
     };
 
     const booking = await Booking.create(payload);
-    enqueueBookingNotifications(booking, { partnerAlert: true });
+    await enqueueBookingNotifications(booking, { partnerAlert: true });
     res.status(201).json({ success: true, data: sanitizeCustomerBooking(booking) });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -867,6 +772,104 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Admin/system-safe maintenance hook: expire stale pending payment holds in bounded batches.
+router.post('/maintenance/expire-pending', protect, authorize('admin'), async (req, res) => {
+  try {
+    const limitRaw = Number(req.body?.limit || req.query?.limit || 100);
+    const result = await expirePendingBookings({ limit: limitRaw });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Booking expiration failed' });
+  }
+});
+
+router.post('/:id/modify/preview', protect, async (req, res) => {
+  try {
+    const result = await buildModificationPreview({
+      bookingId: req.params.id,
+      actor: req.user,
+      changes: req.body || {},
+    });
+    res.json({ success: true, modification: result.response });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.statusCode ? err.message : 'Modification preview failed',
+    });
+  }
+});
+
+router.post('/:id/modify', protect, async (req, res) => {
+  try {
+    const idempotencyKey = req.get('Idempotency-Key') || req.body?.idempotencyKey;
+    const result = await createModification({
+      bookingId: req.params.id,
+      actor: req.user,
+      changes: req.body || {},
+      idempotencyKey,
+    });
+    res.status(result.idempotent ? 200 : 201).json({
+      success: true,
+      data: result.booking ? (req.user.role === 'user' ? sanitizeCustomerBooking(result.booking) : result.booking) : undefined,
+      modification: result.modification,
+      preview: result.preview,
+      payment: result.payment,
+      idempotent: result.idempotent,
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.statusCode ? err.message : 'Booking modification failed',
+    });
+  }
+});
+
+router.post('/:id/modify/payment', protect, async (req, res) => {
+  try {
+    const result = await verifyModificationPayment({
+      bookingId: req.params.id,
+      actor: req.user,
+      body: req.body || {},
+    });
+    res.json({
+      success: true,
+      data: req.user.role === 'user' ? sanitizeCustomerBooking(result.booking) : result.booking,
+      modification: result.modification,
+      message: result.idempotent ? 'PAYMENT_ALREADY_PROCESSED' : 'MODIFICATION_APPLIED',
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.statusCode ? err.message : 'Modification payment verification failed',
+    });
+  }
+});
+
+router.post('/:id/refund', protect, authorize('admin'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (String(booking.paymentStatus || '') !== 'paid') {
+      return res.status(409).json({ success: false, message: 'Booking is not paid' });
+    }
+    const refundableAmount = Math.max(0, Math.round(Number(booking.refundableAmount || 0)));
+    if (!refundableAmount) return res.status(409).json({ success: false, message: 'No refundable amount is available' });
+    await executeBookingRefund({
+      booking,
+      amount: refundableAmount,
+      idempotencyKey: req.get('Idempotency-Key') || `admin-refund:${booking._id}`,
+      reason: 'admin_refund_reconciliation',
+    });
+    await booking.save();
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.statusCode ? err.message : 'Refund failed',
+    });
+  }
+});
+
 // Get single booking (owner/admin/partner)
 router.get('/:id', protect, async (req, res) => {
   try {
@@ -884,23 +887,16 @@ router.get('/:id', protect, async (req, res) => {
 
     res.json({ success: true, data: isOwner && !isAdmin && !isPartner ? sanitizeCustomerBooking(booking) : booking });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment rejection failed' });
   }
 });
 
-const releaseBookingInventory = async (booking) => {
-  if (booking.roomUnitId) await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
-  if (booking.roomTypeId) {
-    try {
-      await processRoomTypeWaitlist({ roomTypeId: booking.roomTypeId, max: 50 });
-    } catch {
-      // ignore waitlist processing errors
-    }
-  }
-};
-
 const cancelBookingNow = async (booking, reason, reviewedByAdmin = false, meta = {}) => {
-  booking.bookingStatus = 'cancelled';
+  await transitionBookingStatus(booking, 'cancelled', {
+    actorId: meta.actorId,
+    actorRole: meta.cancelledByRole || (reviewedByAdmin ? 'admin' : 'user'),
+    reason,
+  });
   booking.cancellationRequested = true;
   booking.cancellationReason = reason;
   booking.cancellationRequestedAt = booking.cancellationRequestedAt || new Date();
@@ -908,13 +904,19 @@ const cancelBookingNow = async (booking, reason, reviewedByAdmin = false, meta =
   booking.cancellationReviewedAt = reviewedByAdmin ? new Date() : booking.cancellationReviewedAt;
   booking.cancelledByRole = meta.cancelledByRole || booking.cancelledByRole || (reviewedByAdmin ? 'admin' : 'user');
   booking.cancelledByName = meta.cancelledByName || booking.cancelledByName || '';
-  booking.cancelledAt = new Date();
+  booking.cancelledAt = booking.cancelledAt || new Date();
   booking.payout_status = 'cancelled';
   booking.cancellationDetails = meta.cancellationDetails || booking.cancellationDetails || '';
   Object.assign(booking, cancellationMoney(booking.totalAmount));
+  await executeBookingRefund({
+    booking,
+    amount: booking.refundableAmount,
+    idempotencyKey: meta.idempotencyKey || `cancel:${booking._id}`,
+    reason: 'booking_cancellation',
+  });
   await booking.save();
   await releaseBookingInventory(booking);
-  enqueueJob(`booking-cancel-email:${booking.bookingId}:${Date.now()}`, () => sendBookingCancellationEmail(booking, reason));
+  await ensureBookingCancellationNotification(booking, reason);
 };
 
 // Cancel booking
@@ -932,13 +934,17 @@ router.put('/:id/cancel', protect, async (req, res) => {
     const cancellationDetails = normalize(req.body?.details || req.body?.cancellationDetails);
     if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
     if (!cancellationDetails) return res.status(400).json({ success: false, message: 'Cancellation details are required' });
-    if (booking.bookingStatus === 'cancelled') return res.status(400).json({ success: false, message: 'Booking is already cancelled' });
+    if (['cancelled', 'expired', 'payment_failed', 'checked_out'].includes(String(booking.bookingStatus || ''))) {
+      return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
 
     if (req.user.role === 'admin' || req.user.role === 'partner') {
       await cancelBookingNow(booking, reason, true, {
         cancelledByRole: req.user.role,
         cancelledByName: req.user.name,
+        actorId: req.user._id,
         cancellationDetails,
+        idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey,
       });
       return res.json({ success: true, data: booking, message: 'Booking cancelled and customer notified.' });
     }
@@ -946,7 +952,9 @@ router.put('/:id/cancel', protect, async (req, res) => {
     await cancelBookingNow(booking, reason, true, {
       cancelledByRole: 'user',
       cancelledByName: req.user.name,
+      actorId: req.user._id,
       cancellationDetails,
+      idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey,
     });
     res.json({ success: true, data: req.user.role === 'user' ? sanitizeCustomerBooking(booking) : booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
@@ -971,7 +979,7 @@ router.put('/:id/cancel-review', protect, authorize('admin'), async (req, res) =
     await booking.save();
     res.json({ success: true, data: sanitizeCustomerBooking(booking) });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Status update failed' });
   }
 });
 
@@ -984,6 +992,7 @@ router.put('/:id/assign-cab', protect, authorize('admin'), async (req, res) => {
 
     const cabId = normalize(req.body?.cabId);
     if (!cabId) return res.status(400).json({ success: false, message: 'cabId is required' });
+    if (rejectInvalidObjectId(res, cabId, 'cabId')) return;
 
     const cab = await Cab.findById(cabId).lean();
     if (!cab) return res.status(404).json({ success: false, message: 'Cab not found' });
@@ -1000,7 +1009,14 @@ router.put('/:id/assign-cab', protect, authorize('admin'), async (req, res) => {
     booking.itemId = String(cab._id);
     booking.itemName = cab.vehicleName;
     booking.itemImage = cab.image || booking.itemImage;
-    booking.bookingStatus = 'confirmed';
+    if (booking.paymentStatus !== 'paid') {
+      return res.status(409).json({ success: false, message: 'Payment must be verified before cab assignment' });
+    }
+    await transitionBookingStatus(booking, 'confirmed', {
+      actorId: req.user._id,
+      actorRole: 'admin',
+      reason: 'cab_assigned',
+    });
     await booking.save();
 
     // SMS driver (best-effort). Drivers must be notified by mobile number, not email.
@@ -1023,7 +1039,7 @@ router.put('/:id/assign-cab', protect, authorize('admin'), async (req, res) => {
 
     res.json({ success: true, data: booking });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Check-in failed' });
   }
 });
 
@@ -1037,15 +1053,18 @@ router.put('/:id/payment', protect, async (req, res) => {
 
     const booking = await Booking.findOne({ _id: req.params.id, userId: req.user._id });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (['cancelled', 'expired', 'payment_failed', 'checked_in', 'checked_out', 'settled'].includes(String(booking.bookingStatus || ''))) {
+      return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
 
     booking.upiTransactionId = upiTransactionId.trim();
     booking.paymentStatus = 'pending';
-    booking.bookingStatus = 'pending';
+    booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt();
     await booking.save();
 
     res.json({ success: true, data: booking });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment rejection failed' });
   }
 });
 
@@ -1062,15 +1081,13 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'Partner verification required before admin verification' });
     }
 
-    const booking = await Booking.findByIdAndUpdate(req.params.id, {
-      paymentStatus: 'paid',
-      bookingStatus: 'confirmed',
-      verificationStage: 'verified',
-      adminPaymentVerified: true,
-      adminPaymentVerifiedAt: new Date(),
-    }, { new: true });
-    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
-    enqueueBookingNotifications(booking, {
+    const booking = await markBookingPaymentPaid(bookingExisting, {
+      paymentProvider: 'manual_upi',
+      actorId: req.user._id,
+      actorRole: 'admin',
+      reason: 'manual_upi_admin_verified',
+    });
+    await enqueueBookingNotifications(booking, {
       invoice: !['cab', 'tour'].includes(String(booking.bookingType || '')),
       partnerAlert: false,
     });
@@ -1088,19 +1105,13 @@ router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
     if (existing.paymentProvider === 'razorpay') {
       return res.status(400).json({ success: false, message: 'Razorpay payments are updated automatically by server/webhook.' });
     }
-    const booking = await Booking.findByIdAndUpdate(
-      req.params.id,
-      {
-        paymentStatus: 'failed',
-        bookingStatus: 'cancelled',
-        verificationStage: 'rejected',
-        adminPaymentVerified: false,
-        adminPaymentVerifiedAt: new Date(),
-      },
-      { new: true }
-    );
-    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
-    await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
+    const booking = await markBookingPaymentFailed(existing, {
+      paymentProvider: 'manual_upi',
+      status: 'rejected',
+      actorId: req.user._id,
+      actorRole: 'admin',
+      reason: 'manual_upi_admin_rejected',
+    });
     res.json({ success: true, data: booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -1113,15 +1124,27 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     const nextStatus = normalize(req.body?.bookingStatus || req.body?.status);
-    const allowed = ['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'settled', 'completed'];
+    const allowed = ['checked_in', 'checked_out', 'settled'];
     if (!allowed.includes(nextStatus)) return res.status(400).json({ success: false, message: 'Invalid booking status' });
-    if (booking.bookingStatus === 'cancelled') return res.status(400).json({ success: false, message: 'Cancelled booking status cannot be changed' });
+    if (nextStatus === 'settled' && booking.bookingStatus !== 'checked_out') {
+      return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
+    if (nextStatus !== 'settled' && booking.paymentStatus !== 'paid') {
+      return res.status(409).json({ success: false, message: 'Payment must be verified before stay status changes' });
+    }
 
-    booking.bookingStatus = nextStatus;
+    if (nextStatus !== 'settled') {
+      await transitionBookingStatus(booking, nextStatus, {
+        actorId: req.user._id,
+        actorRole: 'admin',
+        reason: 'admin_status_update',
+      });
+    } else {
+      booking.bookingStatus = 'settled';
+    }
     if (nextStatus === 'checked_in') booking.payout_status = 'checked_in';
     if (nextStatus === 'checked_out') booking.payout_status = 'checked_out';
     if (nextStatus === 'settled') booking.payout_status = 'settled';
-    if (nextStatus === 'cancelled') booking.payout_status = 'cancelled';
     await booking.save();
     res.json({ success: true, data: booking });
   } catch (err) {
@@ -1137,9 +1160,7 @@ router.put('/:id/partner-check-in', protect, authorize('partner'), async (req, r
     if (!['hotel', 'room', 'room_type'].includes(String(booking.bookingType || ''))) {
       return res.status(400).json({ success: false, message: 'Check-in is only available for lodging bookings' });
     }
-    if (booking.bookingStatus === 'cancelled') {
-      return res.status(400).json({ success: false, message: 'Cancelled booking cannot be checked in' });
-    }
+    if (booking.bookingStatus !== 'confirmed') return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
     if (booking.paymentStatus !== 'paid') {
       return res.status(400).json({ success: false, message: 'Payment must be verified before check-in' });
     }
@@ -1150,7 +1171,11 @@ router.put('/:id/partner-check-in', protect, authorize('partner'), async (req, r
     }
 
     const checkedInAt = new Date();
-    booking.bookingStatus = 'checked_in';
+    await transitionBookingStatus(booking, 'checked_in', {
+      actorId: req.user._id,
+      actorRole: 'partner',
+      reason: 'partner_guest_check_in',
+    });
     booking.payout_status = 'checked_in';
     booking.checkedInAt = checkedInAt;
     booking.checkedInByPartnerId = req.user._id;
@@ -1209,16 +1234,13 @@ router.put('/:id/partner-reject', protect, authorize('partner'), async (req, res
       return res.status(400).json({ success: false, message: 'Partner rejection is only for online payments' });
     }
 
-    booking.partnerPaymentVerified = false;
-    booking.partnerPaymentVerifiedAt = new Date();
-    booking.adminPaymentVerified = false;
-    booking.adminPaymentVerifiedAt = null;
-    booking.paymentStatus = 'failed';
-    booking.bookingStatus = 'cancelled';
-    booking.verificationStage = 'rejected';
-    await booking.save();
-
-    await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
+    await markBookingPaymentFailed(booking, {
+      paymentProvider: 'manual_upi',
+      status: 'rejected',
+      actorId: req.user._id,
+      actorRole: 'partner',
+      reason: 'manual_upi_partner_rejected',
+    });
 
     res.json({ success: true, data: booking });
   } catch (err) {

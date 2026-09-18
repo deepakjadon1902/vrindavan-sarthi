@@ -1,118 +1,41 @@
-const crypto = require('crypto');
-const https = require('https');
 const express = require('express');
 const Booking = require('../models/Booking');
-const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
+const RefundOperation = require('../models/RefundOperation');
+const PaymentReconciliation = require('../models/PaymentReconciliation');
 const { protect, authorize } = require('../middleware/auth');
-const { sendBookingInvoice } = require('../utils/customerMessages');
-const { enqueueJob } = require('../utils/jobQueue');
+const { rejectInvalidObjectId } = require('../utils/security');
+const {
+  markBookingPaymentPaid,
+  markBookingPaymentFailed,
+} = require('../utils/reservationLifecycle');
+const {
+  getRazorpayConfig,
+  verifyPaymentSignature,
+  verifyWebhookSignature,
+  razorpayRequest,
+} = require('../utils/razorpay');
+const {
+  enqueueWebhookEvent,
+  markBookingFailedFromRazorpay,
+  markBookingPaidFromRazorpay,
+  persistRazorpayWebhookEvent,
+  processWebhookEventJob,
+} = require('../utils/razorpayWebhook');
+const { reconcileRefundOperation } = require('../utils/refundOperations');
+const { enqueuePaymentReconciliation } = require('../utils/paymentReconciliation');
 const router = express.Router();
 
-const getRazorpayConfig = () => {
-  const keyId = String(process.env.RAZORPAY_KEY_ID || '').trim();
-  const keySecret = String(process.env.RAZORPAY_KEY_SECRET || '').trim();
-  if (!keyId || !keySecret) {
-    const err = new Error('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
-    err.statusCode = 503;
-    throw err;
-  }
-  return { keyId, keySecret };
-};
-
-const timingSafeEqualHex = (a, b) => {
-  const left = Buffer.from(String(a || ''), 'hex');
-  const right = Buffer.from(String(b || ''), 'hex');
-  return left.length === right.length && crypto.timingSafeEqual(left, right);
-};
-
-const hmacSha256 = (payload, secret) => crypto.createHmac('sha256', secret).update(payload).digest('hex');
-
-const verifyPaymentSignature = ({ orderId, paymentId, signature, secret }) =>
-  timingSafeEqualHex(hmacSha256(`${orderId}|${paymentId}`, secret), signature);
-
-const verifyWebhookSignature = ({ rawBody, signature, secret }) =>
-  timingSafeEqualHex(hmacSha256(rawBody, secret), signature);
-
-const razorpayRequest = ({ method = 'GET', path, body }) => {
-  const { keyId, keySecret } = getRazorpayConfig();
-  const payload = body ? JSON.stringify(body) : '';
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      {
-        hostname: 'api.razorpay.com',
-        path,
-        method,
-        auth: `${keyId}:${keySecret}`,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
-        },
-      },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
-          let parsed = {};
-          try { parsed = data ? JSON.parse(data) : {}; } catch { parsed = { raw: data }; }
-          if (res.statusCode >= 200 && res.statusCode < 300) return resolve(parsed);
-          const err = new Error(parsed?.error?.description || parsed?.message || 'Razorpay request failed');
-          err.statusCode = res.statusCode;
-          err.details = parsed;
-          reject(err);
-        });
-      }
-    );
-    req.on('error', reject);
-    if (payload) req.write(payload);
-    req.end();
-  });
-};
+router.param('id', (req, res, next, id) => {
+  if (rejectInvalidObjectId(res, id, 'payment id')) return;
+  next();
+});
 
 const payableAmountForBooking = (booking) => Math.max(0, Math.round(Number(
   booking?.advanceAmount || booking?.advance_paid || booking?.totalAmount || 0
 )));
 
-const markBookingPaid = async (booking, { paymentId, orderId, signature, status = 'captured' } = {}) => {
-  if (!booking || booking.paymentStatus === 'paid') return booking;
-  booking.paymentProvider = 'razorpay';
-  booking.razorpayOrderId = orderId || booking.razorpayOrderId;
-  booking.razorpayPaymentId = paymentId || booking.razorpayPaymentId;
-  booking.razorpaySignature = signature || booking.razorpaySignature;
-  booking.razorpayStatus = status;
-  booking.paymentStatus = 'paid';
-  booking.bookingStatus = 'confirmed';
-  booking.verificationStage = 'verified';
-  booking.partnerPaymentVerified = true;
-  booking.partnerPaymentVerifiedAt = booking.partnerPaymentVerifiedAt || new Date();
-  booking.adminPaymentVerified = true;
-  booking.adminPaymentVerifiedAt = booking.adminPaymentVerifiedAt || new Date();
-  booking.paidAt = booking.paidAt || new Date();
-  await booking.save();
-  if (!booking.invoiceSentAt && !['cab', 'tour'].includes(String(booking.bookingType || ''))) {
-    enqueueJob(`invoice:${booking.bookingId}`, async () => {
-      await sendBookingInvoice(booking);
-      await Booking.updateOne({ _id: booking._id }, { $set: { invoiceSentAt: new Date() } });
-    });
-  }
-  return booking;
-};
-
-const markBookingFailed = async (booking, status = 'failed') => {
-  if (!booking || booking.paymentStatus === 'paid') return booking;
-  booking.paymentProvider = 'razorpay';
-  booking.razorpayStatus = status;
-  booking.paymentStatus = 'failed';
-  booking.bookingStatus = 'cancelled';
-  booking.verificationStage = 'rejected';
-  booking.partnerPaymentVerified = false;
-  booking.adminPaymentVerified = false;
-  booking.adminPaymentVerifiedAt = null;
-  booking.payout_status = 'cancelled';
-  await booking.save();
-  await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
-  return booking;
-};
+const markBookingPaid = markBookingPaidFromRazorpay;
+const markBookingFailed = markBookingFailedFromRazorpay;
 
 router.post('/razorpay/fail', protect, async (req, res) => {
   try {
@@ -124,6 +47,7 @@ router.post('/razorpay/fail', protect, async (req, res) => {
     if (!bookingId) {
       return res.status(400).json({ success: false, message: 'Booking ID is required' });
     }
+    if (rejectInvalidObjectId(res, bookingId, 'booking id')) return;
 
     const booking = await Booking.findOne({ _id: bookingId, userId: req.user._id });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
@@ -141,7 +65,7 @@ router.post('/razorpay/fail', protect, async (req, res) => {
     );
     res.json({ success: true, data: updated });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Razorpay order creation failed' });
   }
 });
 
@@ -149,10 +73,13 @@ router.post('/razorpay/orders', protect, async (req, res) => {
   try {
     const { keyId } = getRazorpayConfig();
     const bookingMongoId = String(req.body?.bookingId || req.body?.id || '').trim();
+    if (rejectInvalidObjectId(res, bookingMongoId, 'booking id')) return;
     const booking = await Booking.findOne({ _id: bookingMongoId, userId: req.user._id });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
-    if (booking.paymentStatus === 'paid') return res.status(400).json({ success: false, message: 'Booking is already paid' });
-    if (booking.bookingStatus === 'cancelled') return res.status(400).json({ success: false, message: 'Cancelled booking cannot be paid' });
+    if (booking.paymentStatus === 'paid') return res.status(409).json({ success: false, message: 'PAYMENT_ALREADY_PROCESSED' });
+    if (['cancelled', 'expired', 'payment_failed'].includes(String(booking.bookingStatus || ''))) {
+      return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
 
     const amountRupees = payableAmountForBooking(booking);
     if (!amountRupees) return res.status(400).json({ success: false, message: 'Invalid payable amount' });
@@ -190,7 +117,7 @@ router.post('/razorpay/orders', protect, async (req, res) => {
 
     res.status(201).json({ success: true, data: { keyId, booking, order } });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ success: false, message: err.message });
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Razorpay verification failed' });
   }
 });
 
@@ -205,11 +132,21 @@ router.post('/razorpay/verify', protect, async (req, res) => {
     if (!bookingId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
       return res.status(400).json({ success: false, message: 'Razorpay payment response is incomplete' });
     }
+    if (rejectInvalidObjectId(res, bookingId, 'booking id')) return;
 
     const booking = await Booking.findOne({ _id: bookingId, userId: req.user._id });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     if (booking.razorpayOrderId !== razorpayOrderId) {
       return res.status(400).json({ success: false, message: 'Razorpay order does not match this booking' });
+    }
+    if (booking.paymentStatus === 'paid') {
+      if (booking.razorpayPaymentId && booking.razorpayPaymentId !== razorpayPaymentId) {
+        return res.status(409).json({ success: false, message: 'PAYMENT_ALREADY_PROCESSED' });
+      }
+      return res.json({ success: true, data: booking, message: 'PAYMENT_ALREADY_PROCESSED' });
+    }
+    if (['cancelled', 'expired', 'payment_failed'].includes(String(booking.bookingStatus || ''))) {
+      return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
     }
 
     const signatureOk = verifyPaymentSignature({
@@ -263,34 +200,42 @@ router.post('/razorpay/webhook', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid webhook JSON' });
   }
 
-  res.json({ success: true });
-
-  setImmediate(async () => {
-    try {
-      const eventId = String(event?.id || '');
-      const payment = event?.payload?.payment?.entity || {};
-      const orderId = String(payment.order_id || event?.payload?.order?.entity?.id || '');
-      if (!orderId) return;
-
-      const booking = await Booking.findOne({ razorpayOrderId: orderId });
-      if (!booking) return;
-      if (eventId && booking.razorpayWebhookEventIds?.map(String).includes(eventId)) return;
-      if (eventId) booking.razorpayWebhookEventIds = [...(booking.razorpayWebhookEventIds || []), eventId].slice(-25);
-
-      const eventName = String(event?.event || '');
-      if (eventName === 'payment.captured') {
-        await markBookingPaid(booking, {
-          paymentId: String(payment.id || ''),
-          orderId,
-          status: String(payment.status || 'captured'),
-        });
-      } else if (eventName === 'payment.failed') {
-        await markBookingFailed(booking, String(payment.status || 'failed'));
-      }
-    } catch (err) {
-      console.error('[razorpay.webhook]', err?.message || err);
+  try {
+    const { webhookEvent, duplicate, payloadHashChanged } = await persistRazorpayWebhookEvent({ event, rawBody });
+    if (payloadHashChanged) {
+      return res.status(409).json({ success: false, message: 'Duplicate Razorpay event id has a different payload' });
     }
-  });
+
+    if (webhookEvent.status === 'processed') {
+      return res.json({ success: true, duplicate: true });
+    }
+
+    const enqueueResult = await enqueueWebhookEvent(webhookEvent);
+    if (!enqueueResult.queued) {
+      // Compatibility path for development/tests where Redis is intentionally absent.
+      // The durable MongoDB inbox record has already been persisted before processing.
+      const processed = await processWebhookEventJob({
+        webhookEventId: String(webhookEvent._id),
+        provider: webhookEvent.provider,
+        eventId: webhookEvent.eventId,
+      });
+      return res.json({ success: true, duplicate, queued: false, processed });
+    }
+
+    if (process.env.NODE_ENV === 'test') {
+      const processed = await processWebhookEventJob({
+        webhookEventId: String(webhookEvent._id),
+        provider: webhookEvent.provider,
+        eventId: webhookEvent.eventId,
+      });
+      return res.json({ success: true, duplicate, queued: true, processed });
+    }
+
+    return res.json({ success: true, duplicate, queued: true });
+  } catch (err) {
+    console.error('[razorpay.webhook]', err?.message || err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Razorpay webhook processing failed' });
+  }
 });
 
 router.get('/all', protect, authorize('admin'), async (req, res) => {
@@ -305,7 +250,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .select('bookingId bookingType itemName userName userPhone userEmail totalAmount advanceAmount paymentMethod paymentProvider paymentStatus bookingStatus razorpayOrderId razorpayPaymentId partnerId partnerName createdAt')
       .lean();
     res.json({ success: true, data: bookings });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+  } catch (err) { res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment verification failed' }); }
 });
 
 router.get('/partner', protect, authorize('partner'), async (req, res) => {
@@ -320,31 +265,160 @@ router.get('/partner', protect, authorize('partner'), async (req, res) => {
       .select('bookingId bookingType itemName userName userPhone userEmail totalAmount advanceAmount paymentMethod paymentProvider paymentStatus bookingStatus razorpayOrderId razorpayPaymentId partnerName createdAt')
       .lean();
     res.json({ success: true, data: bookings });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+  } catch (err) { res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment rejection failed' }); }
+});
+
+router.get('/reconciliation', protect, authorize('admin'), async (req, res) => {
+  try {
+    const query = {};
+    for (const [param, field] of [
+      ['status', 'reconciliationStatus'],
+      ['targetType', 'targetType'],
+      ['provider', 'provider'],
+      ['orderId', 'orderId'],
+      ['paymentId', 'paymentId'],
+    ]) {
+      if (req.query?.[param]) query[field] = String(req.query[param]).trim();
+    }
+    if (req.query?.bookingId) {
+      if (rejectInvalidObjectId(res, String(req.query.bookingId), 'booking id')) return;
+      query.bookingId = req.query.bookingId;
+    }
+    if (req.query?.modificationId) {
+      if (rejectInvalidObjectId(res, String(req.query.modificationId), 'modification id')) return;
+      query.modificationId = req.query.modificationId;
+    }
+    const limitRaw = Number(req.query?.limit || 100);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(200, Math.floor(limitRaw)) : 100;
+    const skipRaw = Number(req.query?.skip || 0);
+    const skip = Number.isFinite(skipRaw) && skipRaw > 0 ? Math.floor(skipRaw) : 0;
+    const records = await PaymentReconciliation.find(query)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    res.json({ success: true, data: records });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment reconciliation lookup failed' });
+  }
+});
+
+router.get('/reconciliation/:reconciliationId', protect, authorize('admin'), async (req, res) => {
+  try {
+    const id = String(req.params.reconciliationId || '');
+    if (rejectInvalidObjectId(res, id, 'payment reconciliation id')) return;
+    const record = await PaymentReconciliation.findById(id).lean();
+    if (!record) return res.status(404).json({ success: false, message: 'Payment reconciliation not found' });
+    res.json({ success: true, data: record });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment reconciliation lookup failed' });
+  }
+});
+
+router.post('/reconciliation/:reconciliationId/retry', protect, authorize('admin'), async (req, res) => {
+  try {
+    const id = String(req.params.reconciliationId || '');
+    if (rejectInvalidObjectId(res, id, 'payment reconciliation id')) return;
+    const record = await PaymentReconciliation.findById(id);
+    if (!record) return res.status(404).json({ success: false, message: 'Payment reconciliation not found' });
+    if (['resolved', 'processing'].includes(String(record.reconciliationStatus || ''))) {
+      return res.status(409).json({ success: false, message: 'Payment reconciliation cannot be retried in its current state' });
+    }
+    record.reconciliationStatus = 'pending';
+    record.nextCheckAt = new Date();
+    record.failureReason = undefined;
+    await record.save();
+    const targetId = record.targetType === 'booking' ? record.bookingId : record.modificationId;
+    const queued = await enqueuePaymentReconciliation({
+      targetType: record.targetType,
+      targetId,
+      paymentId: record.paymentId,
+    });
+    res.json({ success: true, data: record, queued });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment reconciliation retry failed' });
+  }
+});
+
+router.post('/reconciliation/:reconciliationId/resolve', protect, authorize('admin'), async (req, res) => {
+  try {
+    const id = String(req.params.reconciliationId || '');
+    if (rejectInvalidObjectId(res, id, 'payment reconciliation id')) return;
+    const action = String(req.body?.action || '').trim();
+    if (!['ignore'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Unsupported reconciliation resolution action' });
+    }
+    const record = await PaymentReconciliation.findById(id);
+    if (!record) return res.status(404).json({ success: false, message: 'Payment reconciliation not found' });
+    if (record.reconciliationStatus === 'resolved') {
+      return res.status(409).json({ success: false, message: 'Resolved reconciliation cannot be manually changed' });
+    }
+    record.reconciliationStatus = 'ignored';
+    record.reason = String(req.body?.reason || 'admin_ignored_reconciliation').slice(0, 300);
+    record.resolvedAt = new Date();
+    record.nextCheckAt = undefined;
+    await record.save();
+    res.json({ success: true, data: record });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment reconciliation resolution failed' });
+  }
+});
+
+router.get('/refunds/reconciliation', protect, authorize('admin'), async (req, res) => {
+  try {
+    const operations = await RefundOperation.find({
+      status: 'reconciliation_required',
+    }).sort({ updatedAt: -1 }).limit(100).lean();
+    res.json({ success: true, data: operations });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Refund reconciliation lookup failed' });
+  }
+});
+
+router.post('/refunds/:refundOperationId/reconcile', protect, authorize('admin'), async (req, res) => {
+  try {
+    const id = String(req.params.refundOperationId || '');
+    if (rejectInvalidObjectId(res, id, 'refund operation id')) return;
+    const operation = await RefundOperation.findById(id);
+    if (!operation) return res.status(404).json({ success: false, message: 'Refund operation not found' });
+    const reconciled = await reconcileRefundOperation(operation);
+    res.json({ success: true, data: reconciled });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Refund reconciliation failed' });
+  }
 });
 
 router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
   try {
-    const existing = await Booking.findById(req.params.id).select('paymentProvider').lean();
+    const existing = await Booking.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
     if (existing.paymentProvider === 'razorpay') {
       return res.status(400).json({ success: false, message: 'Razorpay payments are verified automatically by server/webhook.' });
     }
-    const booking = await Booking.findByIdAndUpdate(req.params.id, { paymentStatus: 'paid' }, { new: true });
-    if (!booking) return res.status(404).json({ success: false, message: 'Not found' });
+    const booking = await markBookingPaymentPaid(existing, {
+      paymentProvider: 'manual_upi',
+      actorId: req.user._id,
+      actorRole: 'admin',
+      reason: 'payment_admin_verified',
+    });
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
 router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
   try {
-    const existing = await Booking.findById(req.params.id).select('paymentProvider').lean();
+    const existing = await Booking.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
     if (existing.paymentProvider === 'razorpay') {
       return res.status(400).json({ success: false, message: 'Razorpay payments are updated automatically by server/webhook.' });
     }
-    const booking = await Booking.findByIdAndUpdate(req.params.id, { paymentStatus: 'failed' }, { new: true });
-    if (!booking) return res.status(404).json({ success: false, message: 'Not found' });
+    const booking = await markBookingPaymentFailed(existing, {
+      paymentProvider: 'manual_upi',
+      status: 'rejected',
+      actorId: req.user._id,
+      actorRole: 'admin',
+      reason: 'payment_admin_rejected',
+    });
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

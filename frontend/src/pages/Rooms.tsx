@@ -205,7 +205,7 @@ const Rooms = () => {
                           images={rt?.images?.length ? rt.images : rt?.hotel?.images}
                           name={rt.name}
                           location={`${rt?.hotel?.name || ''}${rt?.hotel?.location ? ` - ${rt.hotel.location}` : ''}`}
-                          price={isDharamshalaType(rt?.hotel?.propertyType) ? undefined : getTaxInclusivePrice(rt)}
+                          price={getTaxInclusivePrice(rt)}
                           priceLabel={rt?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                           rating={0}
                           reviewCount={0}
@@ -213,7 +213,7 @@ const Rooms = () => {
                           meta={Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined}
                           variant="compact"
                           badge={getPropertyTypeLabel(rt?.hotel?.propertyType)}
-                          ctaLabel={isDharamshalaType(rt?.hotel?.propertyType) ? 'WhatsApp / Call' : 'Book Room'}
+                          ctaLabel="Book Room"
                           onViewDetails={() => {
                             prefetchDetail('roomTypes', rt._id, rt);
                             navigate(`/room-types/${rt._id}`);

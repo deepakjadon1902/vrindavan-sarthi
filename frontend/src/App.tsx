@@ -53,6 +53,8 @@ const ManageBookings = lazy(() => import("@/pages/admin/ManageBookings"));
 const AdminInventory = lazy(() => import("@/pages/admin/AdminInventory"));
 const AdminPayments = lazy(() => import("@/pages/admin/AdminPayments"));
 const AdminPartnerPayouts = lazy(() => import("@/pages/admin/AdminPartnerPayouts"));
+const AdminOperations = lazy(() => import("@/pages/admin/AdminOperations"));
+const AdminChannelManager = lazy(() => import("@/pages/admin/AdminChannelManager"));
 const ManagePartners = lazy(() => import("@/pages/admin/ManagePartners"));
 const ManageProducts = lazy(() => import("@/pages/admin/ManageProducts"));
 const AdminOrders = lazy(() => import("@/pages/admin/AdminOrders"));
@@ -65,6 +67,7 @@ const PartnerDashboard = lazy(() => import("@/pages/partner/PartnerDashboard"));
 const PartnerAddHotel = lazy(() => import("@/pages/partner/PartnerAddHotel"));
 const PartnerAddCab = lazy(() => import("@/pages/partner/PartnerAddCab"));
 const PartnerInventory = lazy(() => import("@/pages/partner/PartnerInventory"));
+const PartnerRates = lazy(() => import("@/pages/partner/PartnerRates"));
 const PartnerListings = lazy(() => import("@/pages/partner/PartnerListings"));
 const PartnerBookings = lazy(() => import("@/pages/partner/PartnerBookings"));
 const PartnerPayments = lazy(() => import("@/pages/partner/PartnerPayments"));
@@ -177,6 +180,7 @@ const App = () => {
                 <Route path="hotels" element={<PartnerAddHotel />} />
                 <Route path="cabs" element={<PartnerAddCab />} />
                 <Route path="inventory" element={<PartnerInventory />} />
+                <Route path="rates" element={<PartnerRates />} />
                 <Route path="listings" element={<PartnerListings />} />
                 <Route path="bookings" element={<PartnerBookings />} />
                 <Route path="payments" element={<PartnerPayments />} />
@@ -199,6 +203,8 @@ const App = () => {
                 <Route path="bookings" element={<ManageBookings />} />
                 <Route path="payments" element={<AdminPayments />} />
                 <Route path="partner-payouts" element={<AdminPartnerPayouts />} />
+                <Route path="operations" element={<AdminOperations />} />
+                <Route path="channel-manager" element={<AdminChannelManager />} />
                 <Route path="products" element={<ManageProducts />} />
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="users" element={<ManageUsers />} />

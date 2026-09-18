@@ -6,6 +6,7 @@ const Booking = require('../models/Booking');
 const PartnerNotification = require('../models/PartnerNotification');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
+const { rejectInvalidObjectId } = require('../utils/security');
 const router = express.Router();
 const PROPERTY_TYPES = ['hotel', 'dharamshala', 'home_stay', 'guest_house'];
 
@@ -141,6 +142,34 @@ const normalizeBankDetails = (body) => {
   return { data: { account_holder_name, bank_name, account_number, ifsc_code, verified: true, updatedAt: new Date() } };
 };
 
+for (const paramName of ['id', 'partnerId']) {
+  router.param(paramName, (req, res, next, value) => {
+    if (rejectInvalidObjectId(res, value, paramName)) return;
+    next();
+  });
+}
+
+const stripPartnerListingProtectedFields = (body) => {
+  for (const key of [
+    '_id',
+    'id',
+    'role',
+    'partnerId',
+    'partnerName',
+    'partnerEmail',
+    'partnerPhone',
+    'partnerSubmitted',
+    'approvalStatus',
+    'adminRemarks',
+    'createdAt',
+    'updatedAt',
+    'createdByUserId',
+    'createdByRole',
+  ]) {
+    delete body[key];
+  }
+};
+
 const MIN_PAYOUT_THRESHOLD = 1000;
 const PAYOUT_CYCLE_DAYS = ['Monday', 'Wednesday'];
 const isPayoutCycleDay = (date = new Date()) => {
@@ -165,18 +194,12 @@ const applyPartnerHotelDefaults = (body, user) => {
   body.businessName = businessName;
   const propertyType = String(body?.propertyType || '').trim().toLowerCase();
   body.propertyType = PROPERTY_TYPES.includes(propertyType) ? propertyType : 'hotel';
-  if (body.propertyType === 'dharamshala') {
-    body.taxEnabled = false;
-    body.taxPercent = 0;
-    body.gstMode = 'manual';
-  } else {
-    const hasGstin = Boolean(String(body?.hotelGstin || user?.gstNumber || '').trim());
-    body.hotelGstin = String(body?.hotelGstin || user?.gstNumber || '').trim().toUpperCase();
-    body.taxEnabled = hasGstin && Boolean(body?.taxEnabled);
-    body.gstMode = String(body?.gstMode || '').trim().toLowerCase() === 'manual' ? 'manual' : 'automatic';
-    const p = Number(body?.taxPercent);
-    body.taxPercent = body.gstMode === 'manual' && Number.isFinite(p) && p >= 0 ? Math.min(50, p) : 0;
-  }
+  const hasGstin = Boolean(String(body?.hotelGstin || user?.gstNumber || '').trim());
+  body.hotelGstin = String(body?.hotelGstin || user?.gstNumber || '').trim().toUpperCase();
+  body.taxEnabled = hasGstin && Boolean(body?.taxEnabled);
+  body.gstMode = String(body?.gstMode || '').trim().toLowerCase() === 'manual' ? 'manual' : 'automatic';
+  const p = Number(body?.taxPercent);
+  body.taxPercent = body.gstMode === 'manual' && Number.isFinite(p) && p >= 0 ? Math.min(50, p) : 0;
   body.platform_commission_percentage = 10;
   return body;
 };
@@ -185,6 +208,7 @@ const applyPartnerHotelDefaults = (body, user) => {
 router.post('/hotels', protect, authorize('partner'), async (req, res) => {
   try {
     const body = { ...req.body };
+    stripPartnerListingProtectedFields(body);
     const existingHotel = await Hotel.findOne({ partnerId: req.user._id }).select('_id name').lean();
     if (existingHotel) {
       return res.status(409).json({ success: false, message: 'Only one hotel or dharamshala can be listed per partner. Add unlimited room types and room numbers from Inventory.' });
@@ -194,7 +218,7 @@ router.post('/hotels', protect, authorize('partner'), async (req, res) => {
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     body.propertyTerms = await resolvePropertyTermsForHotel(body.propertyTerms, req.user);
-    if (body.propertyType !== 'dharamshala' && !hasAnyTermsText(body.propertyTerms?.sections)) {
+    if (!hasAnyTermsText(body.propertyTerms?.sections)) {
       return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
     }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
@@ -220,6 +244,7 @@ router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
 
     const body = { ...req.body };
+    stripPartnerListingProtectedFields(body);
     applyPartnerHotelDefaults(body, req.user);
     if (!body.name || !body.location) return res.status(400).json({ success: false, message: 'Property name and location are required' });
     const locationError = normalizeRequiredLocationFields(body);
@@ -228,12 +253,16 @@ router.put('/hotels/:id', protect, authorize('partner'), async (req, res) => {
     delete body.propertyTerms;
     if (typeof propertyTerms !== 'undefined') {
       propertyTerms = await resolvePropertyTermsForHotel(propertyTerms, req.user);
-      if (body.propertyType !== 'dharamshala' && !hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
+      if (!hasAnyTermsText(propertyTerms?.sections || propertyTerms)) {
         return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
       }
     }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
     Object.assign(hotel, body);
+    hotel.partnerId = req.user._id;
+    hotel.partnerName = req.user.name;
+    hotel.partnerEmail = req.user.email;
+    hotel.partnerPhone = req.user.phone;
     applyPropertyTermsUpdate(hotel, propertyTerms, req.user);
     if (typeof propertyTerms !== 'undefined') await saveReusablePropertyTerms(req.user, propertyTerms);
     hotel.partnerSubmitted = true;
@@ -262,6 +291,7 @@ router.delete('/hotels/:id', protect, authorize('partner'), async (req, res) => 
 router.post('/cabs', protect, authorize('partner'), async (req, res) => {
   try {
     const body = { ...req.body };
+    stripPartnerListingProtectedFields(body);
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/cabs', single: ['image'], multi: ['images'], tags: ['cab', 'partner'] });
@@ -287,10 +317,15 @@ router.put('/cabs/:id', protect, authorize('partner'), async (req, res) => {
     if (!cab) return res.status(404).json({ success: false, message: 'Cab not found' });
 
     const body = { ...req.body };
+    stripPartnerListingProtectedFields(body);
     const locationError = normalizeRequiredLocationFields(body);
     if (locationError) return res.status(400).json({ success: false, message: locationError });
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/cabs', single: ['image'], multi: ['images'], tags: ['cab', 'partner'] });
     Object.assign(cab, body);
+    cab.partnerId = req.user._id;
+    cab.partnerName = req.user.name;
+    cab.partnerEmail = req.user.email;
+    cab.partnerPhone = req.user.phone;
     cab.partnerSubmitted = true;
     cab.approvalStatus = 'pending';
     cab.status = 'inactive';

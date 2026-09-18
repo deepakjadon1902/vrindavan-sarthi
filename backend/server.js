@@ -7,10 +7,25 @@ const cors = require('cors');
 const compression = require('compression');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
+const { closeDB } = require('./config/db');
 const { seedAdminOnce } = require('./config/seedAdmin');
 const { seedToursOnce } = require('./config/seedTours');
 const { ensureIndexesOnce } = require('./config/ensureIndexes');
 const { requestTiming } = require('./middleware/requestTiming');
+const { securityHeaders } = require('./middleware/securityHeaders');
+const { rejectUnsafeMongoKeys } = require('./middleware/noSqlSanitizer');
+const {
+  authRateLimiter,
+  passwordResetRateLimiter,
+  publicWriteRateLimiter,
+  paymentRateLimiter,
+  webhookRateLimiter,
+  uploadRateLimiter,
+} = require('./middleware/rateLimit');
+const { assertProductionConfig, boolEnv } = require('./config/productionConfig');
+const { getReadinessSnapshot } = require('./utils/readiness');
+const { closeQueueResources } = require('./queues/factory');
+const { createGracefulShutdown } = require('./utils/gracefulShutdown');
 
 const authRoutes = require('./routes/auth.routes');
 const hotelRoutes = require('./routes/hotel.routes');
@@ -31,9 +46,24 @@ const cabFareRoutes = require('./routes/cabFare.routes');
 const contactRoutes = require('./routes/contact.routes');
 const reviewRoutes = require('./routes/review.routes');
 const seoRoutes = require('./routes/seo.routes');
+const notificationRoutes = require('./routes/notification.routes');
+const adminOperationsRoutes = require('./routes/adminOperations.routes');
+const rateRoutes = require('./routes/rate.routes');
+const channelRoutes = require('./routes/channel.routes');
 const Hotel = require('./models/Hotel');
 const Tour = require('./models/Tour');
 const Booking = require('./models/Booking');
+const { getQueueConfig } = require('./config/redis');
+
+try {
+  const configResult = assertProductionConfig(process.env, { role: 'api' });
+  for (const warning of configResult.warnings || []) {
+    console.warn(`[config] ${warning}`);
+  }
+} catch (err) {
+  console.error(`[config] ${err.message}`);
+  process.exit(1);
+}
 
 connectDB();
 
@@ -65,9 +95,11 @@ const seedPoll = setInterval(() => {
 }, 2000);
 
 const app = express();
+app.disable('x-powered-by');
 
 // Log only slow requests to help identify hangs/timeouts in prod/local.
 app.use(requestTiming());
+app.use(securityHeaders);
 
 app.use(
   compression({
@@ -78,7 +110,7 @@ app.use(
 
 // If MongoDB is down, return a clear error instead of hanging/throwing deep in handlers.
 app.use('/api', (req, res, next) => {
-  if (req.path === '/health') return next();
+  if (req.path === '/health' || req.path === '/readiness') return next();
   if (mongoose.connection.readyState === 1) return next();
 
   // If the DB is currently connecting, wait briefly to avoid transient "DB not connected" errors
@@ -140,13 +172,34 @@ app.use(
   })
 );
 app.use(express.json({
-  limit: '50mb',
+  limit: process.env.JSON_BODY_LIMIT || '25mb',
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   },
 }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_BODY_LIMIT || '10mb' }));
+app.use(rejectUnsafeMongoKeys);
 app.use('/uploads', express.static('uploads'));
+
+app.use('/api/auth/login', authRateLimiter);
+app.use('/api/auth/register', authRateLimiter);
+app.use('/api/auth/forgot-password', passwordResetRateLimiter);
+app.use('/api/auth/verify-reset-otp', passwordResetRateLimiter);
+app.use('/api/auth/reset-password', passwordResetRateLimiter);
+app.use('/api/contact', publicWriteRateLimiter);
+app.use('/api/bookings/room-type', publicWriteRateLimiter);
+app.use('/api/bookings/cab', publicWriteRateLimiter);
+app.use('/api/payments/razorpay/orders', paymentRateLimiter);
+app.use('/api/payments/razorpay/verify', paymentRateLimiter);
+app.use('/api/payments/razorpay/fail', paymentRateLimiter);
+app.use('/api/payment/razorpay/orders', paymentRateLimiter);
+app.use('/api/payment/razorpay/verify', paymentRateLimiter);
+app.use('/api/payment/razorpay/fail', paymentRateLimiter);
+app.use('/api/payments/razorpay/webhook', webhookRateLimiter);
+app.use('/api/payment/razorpay/webhook', webhookRateLimiter);
+app.use('/api/channel/webhooks', webhookRateLimiter);
+app.use('/api/settings/logo', uploadRateLimiter);
+app.use('/api/settings/favicon', uploadRateLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/hotels', hotelRoutes);
@@ -166,16 +219,29 @@ app.use('/api/cab-fares', cabFareRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/seo', seoRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/rates', rateRoutes);
+app.use('/api/channel', channelRoutes);
+app.use('/api/admin/operations', adminOperationsRoutes);
 app.use('/api/admin', adminAnalyticsRoutes);
 app.use('/api/admin/inventory', adminInventoryRoutes);
 
-app.get('/api/health', (req, res) =>
+app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    message: 'Vrindavan Sarthi API running',
-    dbReadyState: mongoose.connection.readyState,
-  })
-);
+  });
+});
+
+app.get('/api/readiness', (req, res) => {
+  const snapshot = getReadinessSnapshot({
+    queueConfig: getQueueConfig(),
+    redisRequired: boolEnv(process.env, 'REDIS_REQUIRED'),
+  });
+  res.status(snapshot.ready ? 200 : 503).json({
+    status: snapshot.ready ? 'ready' : 'not_ready',
+    checks: snapshot.checks,
+  });
+});
 
 app.get('/api/public-stats', async (_req, res) => {
   try {
@@ -206,10 +272,35 @@ app.get('/api/public-stats', async (_req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Server Error' });
+  const statusCode = err.statusCode || err.status || 500;
+  const safeMessage = statusCode >= 500 && process.env.NODE_ENV === 'production'
+    ? 'Server Error'
+    : (err.message || 'Server Error');
+  console.error('[request_error]', JSON.stringify({
+    method: req.method,
+    path: req.originalUrl,
+    statusCode,
+    message: err.message,
+  }));
+  res.status(statusCode).json({ success: false, message: safeMessage });
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+const shutdown = createGracefulShutdown({
+  server,
+  closeQueues: closeQueueResources,
+  closeDatabase: closeDB,
+});
+
+process.on('SIGTERM', () => {
+  void shutdown('SIGTERM');
+});
+
+process.on('SIGINT', () => {
+  void shutdown('SIGINT');
+});
+
+module.exports = { app, server, shutdown };
 

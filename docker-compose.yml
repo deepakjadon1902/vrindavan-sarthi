@@ -8,5 +8,15 @@ services:
     volumes:
       - vrindavan_sarthi_mongo:/data/db
 
+  redis:
+    image: redis:7-alpine
+    container_name: vrindavan-sarthi-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - vrindavan_sarthi_redis:/data
+
 volumes:
   vrindavan_sarthi_mongo:
+  vrindavan_sarthi_redis:

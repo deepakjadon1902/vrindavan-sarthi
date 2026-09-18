@@ -3,7 +3,13 @@ const Cab = require('../models/Cab');
 const { protect, authorize } = require('../middleware/auth');
 const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImageSet, stripLargeInlineImage } = require('../utils/publicImages');
+const { rejectInvalidObjectId } = require('../utils/security');
 const router = express.Router();
+
+router.param('id', (req, res, next, value) => {
+  if (rejectInvalidObjectId(res, value, 'cab id')) return;
+  next();
+});
 
 const normalizeRequiredLocationFields = (body) => {
   const googleMapLink = String(body?.googleMapLink || '').trim();

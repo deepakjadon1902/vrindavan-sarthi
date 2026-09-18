@@ -1,7 +1,13 @@
 const express = require('express');
 const CabFare = require('../models/CabFare');
 const { protect, authorize } = require('../middleware/auth');
+const { rejectInvalidObjectId } = require('../utils/security');
 const router = express.Router();
+
+router.param('id', (req, res, next, value) => {
+  if (rejectInvalidObjectId(res, value, 'fare id')) return;
+  next();
+});
 
 const normalize = (v) => String(v || '').trim();
 

@@ -459,7 +459,7 @@ const Hotels = () => {
                             name={hotel.name}
                             badge={getPropertyTypeLabel(hotel.propertyType)}
                             location={hotel.location}
-                            price={isDharamshalaType(hotel.propertyType) ? undefined : getHotelStartingPrice(hotel)}
+                            price={getHotelStartingPrice(hotel)}
                             priceLabel={hotel.taxEnabled ? '/night incl. GST' : '/night'}
                             rating={Number(hotel.rating || 0)}
                             reviewCount={Number(hotel.reviewCount || 0)}

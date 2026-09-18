@@ -11,7 +11,7 @@ import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 import { COMPANY_PHONE_DIGITS } from '@/lib/brand';
 import { useSettingsStore } from '@/store/settingsStore';
-import { getPropertyTypeLabel, isDharamshalaType } from '@/lib/propertyTypes';
+import { getPropertyTypeLabel } from '@/lib/propertyTypes';
 
 const heroImg = '/backgrounds/braj-govardhan-hero.jpeg';
 
@@ -518,7 +518,7 @@ const Home = () => {
                     name={hotel.name}
                     badge={getPropertyTypeLabel(hotel?.propertyType)}
                     location={hotel.location}
-                    price={isDharamshalaType(hotel?.propertyType) ? undefined : getHotelStartingPrice(hotel)}
+                    price={getHotelStartingPrice(hotel)}
                     priceLabel={hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}
@@ -565,14 +565,14 @@ const Home = () => {
                     images={roomType?.images?.length ? roomType.images : roomType?.hotel?.images}
                     name={roomType.name}
                     location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` - ${roomType.hotel.location}` : ''}`}
-                    price={isDharamshalaType(roomType?.hotel?.propertyType) ? undefined : getRoomPrice(roomType)}
+                    price={getRoomPrice(roomType)}
                     priceLabel={roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={0}
                     reviewCount={0}
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}
                     meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
                     badge={getPropertyTypeLabel(roomType?.hotel?.propertyType)}
-                    ctaLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? 'WhatsApp / Call' : 'Book Room'}
+                    ctaLabel="Book Room"
                     onViewDetails={() => {
                       prefetchDetail('roomTypes', roomType._id, roomType);
                       navigate(`/room-types/${roomType._id}`);

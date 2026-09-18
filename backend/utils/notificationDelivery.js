@@ -1,0 +1,506 @@
+const crypto = require('crypto');
+const mongoose = require('mongoose');
+
+const Booking = require('../models/Booking');
+const Order = require('../models/Order');
+const PartnerNotification = require('../models/PartnerNotification');
+const NotificationDelivery = require('../models/NotificationDelivery');
+const { createQueue } = require('../queues/factory');
+const { QUEUE_NAMES, JOB_NAMES } = require('../queues/names');
+const { getBackoffBaseMs } = require('../config/redis');
+const {
+  sendBookingInvoice,
+  sendOrderInvoice,
+  sendBookingCancellationEmail,
+  sendOrderCancellationEmail,
+  sendAdminAlert,
+  sendPartnerBookingAlert,
+  bookingRows,
+  orderRows,
+} = require('./customerMessages');
+
+const PROCESSING_STALE_MS = 15 * 60 * 1000;
+const DEFAULT_MAX_ATTEMPTS = 5;
+const DEFAULT_RECOVERY_BATCH_SIZE = 50;
+
+let notificationProvider = null;
+
+const normalize = (value) => String(value || '').trim();
+
+const hashValue = (value) =>
+  crypto.createHash('sha256').update(normalize(value).toLowerCase()).digest('hex').slice(0, 24);
+
+const safeErrorMessage = (err) =>
+  normalize(err?.message || err || 'Notification delivery failed').slice(0, 500);
+
+const buildNotificationKey = (...parts) =>
+  ['notification', ...parts.map((part) => normalize(part).replace(/:/g, '-'))].join(':');
+
+const notificationJobId = (notificationDeliveryId) => `notification:${notificationDeliveryId}`;
+
+const setNotificationProvider = (provider) => {
+  notificationProvider = provider;
+};
+
+const resetNotificationProvider = () => {
+  notificationProvider = null;
+};
+
+const classifyNotificationError = (err) => {
+  const statusCode = Number(err?.statusCode || err?.httpStatus || 0);
+  const code = normalize(err?.code).toUpperCase();
+  if (['EMAIL_PROVIDER_NOT_CONFIGURED', 'RESEND_FROM_MISSING', 'RESEND_FROM_NOT_VERIFIED', 'EAUTH'].includes(code)) {
+    return 'permanent';
+  }
+  if (['INVALID_RECIPIENT', 'INVALID_TEMPLATE', 'MALFORMED_NOTIFICATION_PAYLOAD'].includes(code)) {
+    return 'permanent';
+  }
+  if (statusCode === 429 || statusCode >= 500) return 'transient';
+  if (['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EPIPE', 'ERR_HTTP2_STREAM_CANCEL'].includes(code)) {
+    return 'transient';
+  }
+  if (statusCode >= 400 && statusCode < 500) return 'permanent';
+  if (code === 'PROVIDER_OUTCOME_UNKNOWN') return 'unknown';
+  return 'unknown';
+};
+
+const createOrGetNotificationDelivery = async ({
+  notificationKey,
+  eventType,
+  channel,
+  template,
+  recipient,
+  recipientUserId,
+  bookingId,
+  orderId,
+  modificationId,
+  partnerId,
+  hotelId,
+  payload = {},
+  provider = 'internal',
+}) => {
+  const doc = {
+    notificationKey,
+    eventType,
+    channel,
+    template,
+    recipient: normalize(recipient),
+    recipientUserId,
+    bookingId,
+    orderId,
+    modificationId,
+    partnerId,
+    hotelId,
+    payload,
+    provider,
+    status: 'queued',
+    nextAttemptAt: new Date(),
+  };
+
+  try {
+    return await NotificationDelivery.create(doc);
+  } catch (err) {
+    if (String(err?.code) !== '11000') throw err;
+    const existing = await NotificationDelivery.findOne({ notificationKey });
+    if (!existing) throw err;
+    return existing;
+  }
+};
+
+const enqueueNotificationDelivery = async (delivery, { queueFactory = createQueue } = {}) => {
+  const queue = queueFactory(QUEUE_NAMES.notification, { required: false });
+  if (!queue) return { queued: false, reason: 'redis_not_configured' };
+  await queue.add(
+    JOB_NAMES.notificationDeliverySend,
+    { notificationDeliveryId: String(delivery._id) },
+    {
+      jobId: notificationJobId(delivery._id),
+      attempts: 1,
+      removeOnComplete: { age: 7 * 24 * 60 * 60, count: 1000 },
+      removeOnFail: { age: 30 * 24 * 60 * 60, count: 5000 },
+    }
+  );
+  return { queued: true };
+};
+
+const ensureNotificationDelivery = async (input, options = {}) => {
+  const delivery = await createOrGetNotificationDelivery(input);
+  if (!['sent', 'failed', 'cancelled', 'reconciliation_required'].includes(String(delivery.status))) {
+    await enqueueNotificationDelivery(delivery, options);
+  }
+  return delivery;
+};
+
+const claimNotificationDelivery = async ({ notificationDeliveryId, now = new Date(), Model = NotificationDelivery }) => {
+  if (!mongoose.Types.ObjectId.isValid(String(notificationDeliveryId || ''))) {
+    const err = new Error('Invalid notification delivery id');
+    err.statusCode = 400;
+    throw err;
+  }
+  const staleBefore = new Date(now.getTime() - PROCESSING_STALE_MS);
+  return Model.findOneAndUpdate(
+    {
+      _id: notificationDeliveryId,
+      $or: [
+        { status: 'queued', nextAttemptAt: { $lte: now } },
+        { status: 'queued', nextAttemptAt: { $exists: false } },
+        { status: 'retry_scheduled', nextAttemptAt: { $lte: now } },
+        { status: 'processing', processingStartedAt: { $lte: staleBefore } },
+      ],
+    },
+    {
+      $set: { status: 'processing', processingStartedAt: now },
+      $inc: { attempts: 1 },
+    },
+    { new: true }
+  );
+};
+
+const markNotificationSent = async (delivery, result = {}) => {
+  delivery.status = 'sent';
+  delivery.sentAt = new Date();
+  delivery.nextAttemptAt = undefined;
+  delivery.processingStartedAt = undefined;
+  delivery.lastError = undefined;
+  delivery.lastErrorAt = undefined;
+  if (result.provider) delivery.provider = result.provider;
+  if (result.providerMessageId) delivery.providerMessageId = result.providerMessageId;
+  await delivery.save();
+  return delivery;
+};
+
+const markNotificationRetry = async (delivery, err) => {
+  if (Number(delivery.attempts || 0) >= DEFAULT_MAX_ATTEMPTS) {
+    delivery.status = 'failed';
+    delivery.failedAt = new Date();
+    delivery.nextAttemptAt = undefined;
+  } else {
+    delivery.status = 'retry_scheduled';
+    delivery.nextAttemptAt = new Date(Date.now() + getBackoffBaseMs() * Math.max(1, Number(delivery.attempts || 1)));
+  }
+  delivery.processingStartedAt = undefined;
+  delivery.lastError = safeErrorMessage(err);
+  delivery.lastErrorAt = new Date();
+  await delivery.save();
+  return delivery;
+};
+
+const markNotificationFailed = async (delivery, err) => {
+  delivery.status = 'failed';
+  delivery.failedAt = new Date();
+  delivery.nextAttemptAt = undefined;
+  delivery.processingStartedAt = undefined;
+  delivery.lastError = safeErrorMessage(err);
+  delivery.lastErrorAt = new Date();
+  await delivery.save();
+  return delivery;
+};
+
+const markNotificationUnknown = async (delivery, err) => {
+  delivery.status = 'reconciliation_required';
+  delivery.nextAttemptAt = undefined;
+  delivery.processingStartedAt = undefined;
+  delivery.lastError = safeErrorMessage(err);
+  delivery.lastErrorAt = new Date();
+  await delivery.save();
+  return delivery;
+};
+
+const createPanelNotification = async ({ delivery, booking, order, audience, partnerId }) => {
+  const isBooking = Boolean(booking);
+  const entityId = String((booking || order)?._id || '');
+  const title = isBooking
+    ? `New booking ${booking.bookingId}`
+    : `New order ${order.orderId}`;
+  const message = isBooking
+    ? `${booking.itemName} by ${booking.customerFullName || booking.userName}. Amount INR ${Number(booking.totalAmount || 0).toLocaleString('en-IN')}.`
+    : `${order.productName} by ${order.userName}. Amount INR ${Number(order.totalAmount || 0).toLocaleString('en-IN')}.`;
+
+  const query = {
+    type: 'notification',
+    audience,
+    entityType: isBooking ? 'booking' : 'order',
+    entityId,
+    ...(partnerId ? { partnerId } : {}),
+  };
+  await PartnerNotification.updateOne(
+    query,
+    {
+      $setOnInsert: {
+        title,
+        message,
+        ...query,
+      },
+    },
+    { upsert: true }
+  );
+  return { provider: 'mongodb', providerMessageId: String(delivery._id) };
+};
+
+const deliverWithDefaultProvider = async (delivery) => {
+  const template = String(delivery.template || '');
+  if (template.startsWith('booking_')) {
+    const booking = await Booking.findById(delivery.bookingId);
+    if (!booking) {
+      const err = new Error('Booking not found for notification');
+      err.code = 'MALFORMED_NOTIFICATION_PAYLOAD';
+      throw err;
+    }
+    if (template === 'booking_invoice') {
+      if (booking.invoiceSentAt) return { provider: 'internal', providerMessageId: 'already-sent' };
+      const result = await sendBookingInvoice(booking);
+      await Booking.updateOne({ _id: booking._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
+      return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
+    }
+    if (template === 'booking_cancelled') {
+      const result = await sendBookingCancellationEmail(booking, delivery.payload?.reason || booking.cancellationReason || 'Cancelled');
+      return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
+    }
+    if (template === 'booking_partner_email') {
+      const result = await sendPartnerBookingAlert(booking);
+      return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
+    }
+    if (template === 'booking_admin_email') {
+      const result = await sendAdminAlert({
+        subject: `New booking ${booking.bookingId}`,
+        title: 'New booking received',
+        intro: 'A customer has submitted a booking. Admin confirmation may be required.',
+        rows: bookingRows(booking),
+      });
+      return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
+    }
+    if (template === 'booking_admin_panel') {
+      return createPanelNotification({ delivery, booking, audience: 'admin' });
+    }
+    if (template === 'booking_partner_panel') {
+      return createPanelNotification({ delivery, booking, audience: 'partner', partnerId: booking.partnerId });
+    }
+  }
+
+  if (template.startsWith('order_')) {
+    const order = await Order.findById(delivery.orderId);
+    if (!order) {
+      const err = new Error('Order not found for notification');
+      err.code = 'MALFORMED_NOTIFICATION_PAYLOAD';
+      throw err;
+    }
+    if (template === 'order_invoice') {
+      if (order.invoiceSentAt) return { provider: 'internal', providerMessageId: 'already-sent' };
+      const result = await sendOrderInvoice(order);
+      await Order.updateOne({ _id: order._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
+      return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
+    }
+    if (template === 'order_cancelled') {
+      const result = await sendOrderCancellationEmail(order, delivery.payload?.reason || order.cancellationReason || 'Cancelled');
+      return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
+    }
+    if (template === 'order_admin_email') {
+      const result = await sendAdminAlert({
+        subject: `New order ${order.orderId}`,
+        title: 'New shop order received',
+        intro: 'A customer has submitted a product order. Admin confirmation may be required.',
+        rows: orderRows(order),
+      });
+      return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
+    }
+    if (template === 'order_admin_panel') {
+      return createPanelNotification({ delivery, order, audience: 'admin' });
+    }
+  }
+
+  const err = new Error(`Unsupported notification template: ${template}`);
+  err.code = 'INVALID_TEMPLATE';
+  throw err;
+};
+
+const processNotificationDeliveryJob = async (jobData, options = {}) => {
+  const notificationDeliveryId = normalize(jobData?.notificationDeliveryId);
+  const claimed = await claimNotificationDelivery({ notificationDeliveryId });
+  if (!claimed) {
+    const existing = await NotificationDelivery.findById(notificationDeliveryId);
+    if (!existing) {
+      const err = new Error('NotificationDelivery not found');
+      err.statusCode = 404;
+      throw err;
+    }
+    return { skipped: true, status: existing.status };
+  }
+
+  try {
+    const provider = options.provider || notificationProvider;
+    const result = provider?.deliver
+      ? await provider.deliver(claimed)
+      : await deliverWithDefaultProvider(claimed);
+    return markNotificationSent(claimed, result || {});
+  } catch (err) {
+    const kind = classifyNotificationError(err);
+    if (kind === 'transient') return markNotificationRetry(claimed, err);
+    if (kind === 'unknown') return markNotificationUnknown(claimed, err);
+    return markNotificationFailed(claimed, err);
+  }
+};
+
+const recoverNotificationDeliveries = async ({ limit = DEFAULT_RECOVERY_BATCH_SIZE, queueFactory = createQueue } = {}) => {
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - PROCESSING_STALE_MS);
+  const records = await NotificationDelivery.find({
+    $or: [
+      { status: 'queued' },
+      { status: 'retry_scheduled', nextAttemptAt: { $lte: now } },
+      { status: 'processing', processingStartedAt: { $lte: staleBefore } },
+    ],
+  }).sort({ createdAt: 1 }).limit(Math.max(1, Math.min(200, Number(limit) || DEFAULT_RECOVERY_BATCH_SIZE)));
+
+  let queued = 0;
+  for (const delivery of records) {
+    const result = await enqueueNotificationDelivery(delivery, { queueFactory });
+    if (result.queued) queued += 1;
+  }
+  return { scanned: records.length, queued };
+};
+
+const processNotificationRecoveryJob = async (_jobData, options = {}) =>
+  recoverNotificationDeliveries(options);
+
+const ensureBookingInvoiceNotification = (booking, options) =>
+  ensureNotificationDelivery({
+    notificationKey: buildNotificationKey('booking', booking._id, 'invoice'),
+    eventType: 'booking.invoice',
+    channel: 'email',
+    template: 'booking_invoice',
+    recipient: booking.customerEmail || booking.userEmail,
+    recipientUserId: booking.userId,
+    bookingId: booking._id,
+    partnerId: booking.partnerId,
+    hotelId: booking.hotelId,
+    provider: 'email',
+  }, options);
+
+const ensureBookingCancellationNotification = (booking, reason, options) =>
+  ensureNotificationDelivery({
+    notificationKey: buildNotificationKey('booking', booking._id, 'cancelled'),
+    eventType: 'booking.cancelled',
+    channel: 'email',
+    template: 'booking_cancelled',
+    recipient: booking.customerEmail || booking.userEmail,
+    recipientUserId: booking.userId,
+    bookingId: booking._id,
+    partnerId: booking.partnerId,
+    hotelId: booking.hotelId,
+    provider: 'email',
+    payload: { reason },
+  }, options);
+
+const ensureBookingCreatedNotifications = async (booking, { partnerAlert = true } = {}, options) => {
+  if (!partnerAlert) return [];
+  const tasks = [
+    ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('booking', booking._id, 'admin-panel'),
+      eventType: 'booking.created',
+      channel: 'in_app',
+      template: 'booking_admin_panel',
+      bookingId: booking._id,
+      partnerId: booking.partnerId,
+      hotelId: booking.hotelId,
+    }, options),
+    ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('booking', booking._id, 'admin-email'),
+      eventType: 'booking.created',
+      channel: 'email',
+      template: 'booking_admin_email',
+      bookingId: booking._id,
+      partnerId: booking.partnerId,
+      hotelId: booking.hotelId,
+      provider: 'email',
+    }, options),
+  ];
+  if (booking.partnerId) {
+    tasks.push(ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('booking', booking._id, 'partner-panel'),
+      eventType: 'booking.created',
+      channel: 'in_app',
+      template: 'booking_partner_panel',
+      bookingId: booking._id,
+      partnerId: booking.partnerId,
+      hotelId: booking.hotelId,
+    }, options));
+    tasks.push(ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('booking', booking._id, 'partner-email'),
+      eventType: 'booking.created',
+      channel: 'email',
+      template: 'booking_partner_email',
+      bookingId: booking._id,
+      partnerId: booking.partnerId,
+      hotelId: booking.hotelId,
+      provider: 'email',
+    }, options));
+  }
+  return Promise.all(tasks);
+};
+
+const ensureOrderInvoiceNotification = (order, options) =>
+  ensureNotificationDelivery({
+    notificationKey: buildNotificationKey('order', order._id, 'invoice'),
+    eventType: 'order.invoice',
+    channel: 'email',
+    template: 'order_invoice',
+    recipient: order.userEmail,
+    recipientUserId: order.userId,
+    orderId: order._id,
+    provider: 'email',
+  }, options);
+
+const ensureOrderCancellationNotification = (order, reason, options) =>
+  ensureNotificationDelivery({
+    notificationKey: buildNotificationKey('order', order._id, 'cancelled'),
+    eventType: 'order.cancelled',
+    channel: 'email',
+    template: 'order_cancelled',
+    recipient: order.userEmail,
+    recipientUserId: order.userId,
+    orderId: order._id,
+    provider: 'email',
+    payload: { reason },
+  }, options);
+
+const ensureOrderCreatedNotifications = (order, options) =>
+  Promise.all([
+    ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('order', order._id, 'admin-panel'),
+      eventType: 'order.created',
+      channel: 'in_app',
+      template: 'order_admin_panel',
+      orderId: order._id,
+    }, options),
+    ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('order', order._id, 'admin-email'),
+      eventType: 'order.created',
+      channel: 'email',
+      template: 'order_admin_email',
+      orderId: order._id,
+      provider: 'email',
+    }, options),
+  ]);
+
+module.exports = {
+  DEFAULT_MAX_ATTEMPTS,
+  buildNotificationKey,
+  claimNotificationDelivery,
+  classifyNotificationError,
+  createOrGetNotificationDelivery,
+  enqueueNotificationDelivery,
+  ensureBookingCancellationNotification,
+  ensureBookingCreatedNotifications,
+  ensureBookingInvoiceNotification,
+  ensureNotificationDelivery,
+  ensureOrderCancellationNotification,
+  ensureOrderCreatedNotifications,
+  ensureOrderInvoiceNotification,
+  hashValue,
+  notificationJobId,
+  processNotificationDeliveryJob,
+  processNotificationRecoveryJob,
+  recoverNotificationDeliveries,
+  resetNotificationProvider,
+  setNotificationProvider,
+};

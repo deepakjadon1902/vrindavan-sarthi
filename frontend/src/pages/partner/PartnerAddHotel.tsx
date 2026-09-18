@@ -8,7 +8,7 @@ import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { BRAJ_LANDMARK_PLACE_NAMES, OTHER_LANDMARK_OPTION, getLandmarkOptionsForPlace, getLandmarkPlaceForListing } from '@/lib/landmarks';
 import { PropertyTermsEditor, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
-import { isDharamshalaType, propertyTypeOptions, type StayPropertyType } from '@/lib/propertyTypes';
+import { propertyTypeOptions, type StayPropertyType } from '@/lib/propertyTypes';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 interface PartnerHotel {
@@ -172,7 +172,7 @@ const PartnerAddHotel = () => {
       checkInTime: form.checkInTime || '12:00',
       checkOutTime: form.checkOutTime || '11:00',
       hotelGstin: form.hotelGstin.trim(),
-      taxEnabled: !isDharamshalaType(form.propertyType) && Boolean(form.hotelGstin.trim()) && Boolean(form.taxEnabled),
+      taxEnabled: Boolean(form.hotelGstin.trim()) && Boolean(form.taxEnabled),
       taxPercent: form.gstMode === 'manual' ? Number(form.taxPercent || 12) : 0,
       gstMode: form.gstMode,
       amenities: form.amenities
@@ -282,8 +282,6 @@ const PartnerAddHotel = () => {
   const { page, setPage, pageItems } = useRecordPagination(filtered, [search]);
   const isApproved = user?.partnerStatus === 'approved';
   const hasHotel = items.length > 0;
-  const isDharamshalaForm = isDharamshalaType(form.propertyType);
-
   return (
     <div className="space-y-6">
       <div>
@@ -367,9 +365,6 @@ const PartnerAddHotel = () => {
                 >
                   {propertyTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
-                {isDharamshalaForm && (
-                  <p className="font-body text-xs text-muted-foreground mt-1">Dharamshala onboarding is enquiry-first with fewer commercial fields.</p>
-                )}
               </div>
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Place *</label>
@@ -395,7 +390,6 @@ const PartnerAddHotel = () => {
                   placeholder="Area, road, or complete address"
                 />
               </div>
-              {!isDharamshalaForm && (
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Rating</label>
                 <input
@@ -408,7 +402,6 @@ const PartnerAddHotel = () => {
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 />
               </div>
-              )}
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Map Location / Google Link</label>
                 <input
@@ -463,7 +456,6 @@ const PartnerAddHotel = () => {
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 />
               </div>
-              {!isDharamshalaForm && (
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">GSTIN</label>
                 <input
@@ -474,8 +466,7 @@ const PartnerAddHotel = () => {
                   placeholder="Optional, auto-filled from profile if available"
                 />
               </div>
-              )}
-              {!isDharamshalaForm && form.hotelGstin.trim() && (
+              {form.hotelGstin.trim() && (
                 <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
                   <label className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
                     <input
@@ -528,7 +519,6 @@ const PartnerAddHotel = () => {
               )}
             </div>
 
-            {!isDharamshalaForm && (
             <div className="flex items-center gap-2">
               <input
                 id="hotelPetsAllowed"
@@ -540,7 +530,6 @@ const PartnerAddHotel = () => {
                 Pets Allowed (Hotel Level)
               </label>
             </div>
-            )}
 
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Amenities (comma separated)</label>
@@ -563,19 +552,10 @@ const PartnerAddHotel = () => {
               />
             </div>
 
-            {isDharamshalaForm ? (
-              <div className="rounded-lg border border-brand-gold/25 bg-brand-gold/10 p-3">
-                <p className="font-body text-sm font-semibold text-foreground">Dharamshala policy note</p>
-                <p className="mt-1 font-body text-xs text-muted-foreground">
-                  Detailed booking terms are optional for Dharamshalas because guests enquire by WhatsApp or call before confirmation.
-                </p>
-              </div>
-            ) : (
-              <PropertyTermsEditor
-                value={form.propertyTerms}
-                onChange={(propertyTerms) => setForm({ ...form, propertyTerms })}
-              />
-            )}
+            <PropertyTermsEditor
+              value={form.propertyTerms}
+              onChange={(propertyTerms) => setForm({ ...form, propertyTerms })}
+            />
 
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-2 block">Photos</label>

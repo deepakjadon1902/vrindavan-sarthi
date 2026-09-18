@@ -4,12 +4,13 @@ const User = require('../models/User');
 const RoomType = require('../models/RoomType');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
-const Booking = require('../models/Booking');
+const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const Review = require('../models/Review');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
 const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImageSet, normalizePublicImages, stripLargeInlineImage } = require('../utils/publicImages');
+const { rejectInvalidObjectId } = require('../utils/security');
 const router = express.Router();
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 const PROPERTY_TYPES = ['hotel', 'dharamshala', 'home_stay', 'guest_house'];
@@ -29,6 +30,11 @@ const getLocationSearchTerms = (value) => {
   if (lower.includes('radhakund')) terms.add('radha kund');
   return Array.from(terms);
 };
+
+router.param('id', (req, res, next, value) => {
+  if (rejectInvalidObjectId(res, value, 'hotel id')) return;
+  next();
+});
 
 const redactCommissionFields = (value) => {
   if (!value || typeof value !== 'object') return value;
@@ -78,12 +84,6 @@ const normalizeHotelTaxControls = (body) => {
   if (typeof body.platform_commission_percentage !== 'undefined') {
     const p = Number(body.platform_commission_percentage);
     body.platform_commission_percentage = Number.isFinite(p) && p >= 0 ? Math.min(100, p) : 10;
-  }
-  if (String(body.propertyType || '').trim().toLowerCase() === 'dharamshala') {
-    body.taxEnabled = false;
-    body.taxPercent = 0;
-    body.gstMode = 'manual';
-    body.platform_commission_percentage = 0;
   }
   return body;
 };
@@ -382,13 +382,11 @@ router.get('/', async (req, res) => {
     ]);
     const blockedByBlocks = new Map(blocksAgg.map((r) => [String(r._id), (r.roomUnitIds || []).map(String)]));
 
-    const bookingsAgg = await Booking.aggregate([
+    const bookingsAgg = await RoomUnitBookingDay.aggregate([
       {
         $match: {
           roomTypeId: { $in: roomTypeIds },
-          bookingStatus: { $ne: 'cancelled' },
-          checkIn: { $lt: checkOut },
-          checkOut: { $gt: checkIn },
+          date: { $gte: checkIn, $lt: checkOut },
         },
       },
       { $group: { _id: '$roomTypeId', roomUnitIds: { $addToSet: '$roomUnitId' } } },
@@ -500,11 +498,9 @@ router.get('/:id/room-types', async (req, res) => {
           endDate: { $gt: checkIn },
         });
 
-        const blockedByBookings = await Booking.distinct('roomUnitId', {
+        const blockedByBookings = await RoomUnitBookingDay.distinct('roomUnitId', {
           roomTypeId: rt._id,
-          bookingStatus: { $ne: 'cancelled' },
-          checkIn: { $lt: checkOut },
-          checkOut: { $gt: checkIn },
+          date: { $gte: checkIn, $lt: checkOut },
         });
 
         const blockedSet = new Set([...blockedByBlocks.map(String), ...blockedByBookings.map(String)]);

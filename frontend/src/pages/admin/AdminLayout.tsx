@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, Car, Map, ClipboardList,
   Users, LogOut, Menu, X, Handshake, Settings, CreditCard,
-  Landmark, UserCheck,
+  Landmark, UserCheck, Activity, Network,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -24,6 +24,8 @@ const sidebarLinks = [
   { name: 'Bookings', path: '/admin/bookings', icon: ClipboardList },
   { name: 'Payments', path: '/admin/payments', icon: CreditCard },
   { name: 'Partner Payouts', path: '/admin/partner-payouts', icon: Landmark },
+  { name: 'Operations', path: '/admin/operations', icon: Activity },
+  { name: 'Channel Manager', path: '/admin/channel-manager', icon: Network },
   { name: 'Products', path: '/admin/products', icon: ClipboardList },
   { name: 'Orders', path: '/admin/orders', icon: ClipboardList },
   { name: 'Users', path: '/admin/users', icon: Users },

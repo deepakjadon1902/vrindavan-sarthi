@@ -1,10 +1,15 @@
 const mongoose = require('mongoose');
+const { isProduction, isLocalMongoUri } = require('./productionConfig');
 
 const connectDB = async () => {
   const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
   if (!mongoUri || typeof mongoUri !== 'string') {
     console.error('Missing MongoDB connection string. Set MONGO_URI in backend/.env.');
+    process.exit(1);
+  }
+  if (isProduction() && isLocalMongoUri(mongoUri)) {
+    console.error('Refusing to use a localhost MongoDB URI in production.');
     process.exit(1);
   }
 
@@ -21,6 +26,9 @@ const connectDB = async () => {
     try {
       const conn = await mongoose.connect(mongoUri, {
         serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE || 20),
+        minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE || 0),
       });
       console.log(`MongoDB Connected: ${conn.connection.host}`);
       attempt = 0;
@@ -43,3 +51,7 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB;
+module.exports.closeDB = async () => {
+  if (mongoose.connection.readyState === 0) return;
+  await mongoose.disconnect();
+};

@@ -8,6 +8,29 @@ import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { api, withAuth } from '@/lib/api';
 
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
+
+const loadRazorpayCheckout = () =>
+  new Promise<void>((resolve, reject) => {
+    if (window.Razorpay) return resolve();
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Razorpay Checkout failed to load')), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Razorpay Checkout failed to load'));
+    document.body.appendChild(script);
+  });
+
 const BookingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -18,6 +41,20 @@ const BookingDetail = () => {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [isReviewing, setIsReviewing] = useState(false);
+  const [modifyOpen, setModifyOpen] = useState(false);
+  const [roomTypes, setRoomTypes] = useState<any[]>([]);
+  const [modifyForm, setModifyForm] = useState({
+    checkInDate: '',
+    checkOutDate: '',
+    roomTypeId: '',
+    roomQuantity: 1,
+    adults: 1,
+    children: 0,
+    pets: false,
+  });
+  const [modifyPreview, setModifyPreview] = useState<any>(null);
+  const [isPreviewingModification, setIsPreviewingModification] = useState(false);
+  const [isSubmittingModification, setIsSubmittingModification] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -73,9 +110,11 @@ const BookingDetail = () => {
   const statusConfig = {
     confirmed: { color: 'bg-brand-green/10 text-brand-green border-brand-green/20', icon: CheckCircle2, label: 'Confirmed' },
     cancelled: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Cancelled' },
+    expired: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Expired' },
+    payment_failed: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Payment Failed' },
     completed: { color: 'bg-brand-gold/10 text-brand-gold border-brand-gold/20', icon: CheckCircle2, label: 'Completed' },
     pending: { color: 'bg-muted text-muted-foreground border-border', icon: Clock, label: 'Pending' },
-  }[booking.bookingStatus];
+  }[booking.bookingStatus] || { color: 'bg-muted text-muted-foreground border-border', icon: Clock, label: String(booking.bookingStatus || 'Pending') };
 
   const StatusIcon = statusConfig.icon;
 
@@ -132,6 +171,14 @@ const BookingDetail = () => {
   const customerPhone = booking.customerMobile || booking.userPhone || '-';
   const customerEmail = booking.customerEmail || booking.userEmail || '-';
   const documentLabel = isHotelMarketplace ? 'Booking Confirmation & Payment Receipt' : 'Tax Invoice';
+  const canModify =
+    booking.bookingType === 'room_type' &&
+    booking.bookingStatus === 'confirmed' &&
+    booking.paymentStatus === 'paid';
+  const modificationKey = () => {
+    const random = window.crypto?.getRandomValues ? Array.from(window.crypto.getRandomValues(new Uint32Array(2))).join('-') : Math.random().toString(16).slice(2);
+    return `modify:${booking.id}:${Date.now()}:${random}`;
+  };
 
   const submitReview = async () => {
     if (!token || !booking?.id) return;
@@ -144,6 +191,100 @@ const BookingDetail = () => {
       toast.error(err?.response?.data?.message || 'Review failed');
     } finally {
       setIsReviewing(false);
+    }
+  };
+
+  const openModify = async () => {
+    setModifyOpen(true);
+    setModifyPreview(null);
+    setModifyForm({
+      checkInDate: booking.checkIn ? new Date(booking.checkIn).toISOString().slice(0, 10) : '',
+      checkOutDate: booking.checkOut ? new Date(booking.checkOut).toISOString().slice(0, 10) : '',
+      roomTypeId: booking.roomTypeId || booking.itemId || '',
+      roomQuantity: Number(booking.roomQuantity || 1),
+      adults: Number(booking.totalAdults || booking.guests || 1),
+      children: Number(booking.totalChildren || 0),
+      pets: Boolean(booking.hasPet),
+    });
+    if (booking.hotelId) {
+      try {
+        const res = await api.get(`/hotels/${booking.hotelId}/room-types`);
+        setRoomTypes(Array.isArray(res.data?.data) ? res.data.data : []);
+      } catch {
+        setRoomTypes([]);
+      }
+    }
+  };
+
+  const previewModification = async () => {
+    if (!token || !booking?.id) return;
+    try {
+      setIsPreviewingModification(true);
+      const res = await api.post(`/bookings/${booking.id}/modify/preview`, modifyForm, withAuth(token));
+      setModifyPreview(res.data?.modification || null);
+    } catch (err: any) {
+      setModifyPreview(null);
+      toast.error(err?.response?.data?.message || 'Modification preview failed');
+    } finally {
+      setIsPreviewingModification(false);
+    }
+  };
+
+  const confirmModification = async () => {
+    if (!token || !booking?.id || !modifyPreview?.inventoryAvailable) return;
+    const idempotencyKey = modificationKey();
+    try {
+      setIsSubmittingModification(true);
+      const res = await api.post(`/bookings/${booking.id}/modify`, modifyForm, {
+        ...withAuth(token),
+        headers: { ...(withAuth(token).headers || {}), 'Idempotency-Key': idempotencyKey },
+      });
+      const payment = res.data?.payment;
+      const modification = res.data?.modification;
+      if (payment?.order?.id && payment?.keyId) {
+        await loadRazorpayCheckout();
+        if (!window.Razorpay) throw new Error('Razorpay Checkout is not ready');
+        const rzp = new window.Razorpay({
+          key: payment.keyId,
+          amount: payment.order.amount,
+          currency: payment.order.currency || 'INR',
+          name: 'Vrindavan Sarthi',
+          description: `Additional payment for ${booking.bookingId}`,
+          order_id: payment.order.id,
+          handler: async (response: any) => {
+            try {
+              const verified = await api.post(`/bookings/${booking.id}/modify/payment`, {
+                modificationId: modification?._id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }, withAuth(token));
+              setBooking(verified.data?.data || booking);
+              toast.success('Booking modified');
+              setModifyOpen(false);
+            } catch (err: any) {
+              toast.error(err?.response?.data?.message || 'Additional payment verification failed');
+            }
+          },
+          modal: {
+            ondismiss: () => toast.error('Additional payment was not completed'),
+          },
+          prefill: {
+            name: customerName,
+            email: customerEmail,
+            contact: customerPhone,
+          },
+        });
+        rzp.open();
+        return;
+      }
+      setBooking(res.data?.data || booking);
+      toast.success(modifyPreview.paymentAction === 'refund' ? 'Booking modified. Refund processing may take time.' : 'Booking modified');
+      setModifyOpen(false);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Booking modification failed');
+    } finally {
+      setIsSubmittingModification(false);
     }
   };
 
@@ -286,6 +427,130 @@ const BookingDetail = () => {
                   </div>
                 </div>
               </div>
+
+              {modifyOpen && (
+                <div className="bg-card rounded-xl border border-border p-6">
+                  <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Modify Booking</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="font-body text-xs text-muted-foreground">
+                      Check-in
+                      <input
+                        type="date"
+                        value={modifyForm.checkInDate}
+                        onChange={(e) => setModifyForm((current) => ({ ...current, checkInDate: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                      />
+                    </label>
+                    <label className="font-body text-xs text-muted-foreground">
+                      Check-out
+                      <input
+                        type="date"
+                        value={modifyForm.checkOutDate}
+                        onChange={(e) => setModifyForm((current) => ({ ...current, checkOutDate: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                      />
+                    </label>
+                    <label className="font-body text-xs text-muted-foreground sm:col-span-2">
+                      Room Type
+                      <select
+                        value={modifyForm.roomTypeId}
+                        onChange={(e) => setModifyForm((current) => ({ ...current, roomTypeId: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                      >
+                        <option value={modifyForm.roomTypeId}>{booking.itemName}</option>
+                        {roomTypes.map((rt) => (
+                          <option key={rt._id || rt.id} value={rt._id || rt.id}>
+                            {rt.name} - ₹{Number(rt.pricePerNight || 0).toLocaleString('en-IN')}/night
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="font-body text-xs text-muted-foreground">
+                      Rooms
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={modifyForm.roomQuantity}
+                        onChange={(e) => setModifyForm((current) => ({ ...current, roomQuantity: Number(e.target.value || 1) }))}
+                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                      />
+                    </label>
+                    <label className="font-body text-xs text-muted-foreground">
+                      Adults
+                      <input
+                        type="number"
+                        min={1}
+                        value={modifyForm.adults}
+                        onChange={(e) => setModifyForm((current) => ({ ...current, adults: Number(e.target.value || 1) }))}
+                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                      />
+                    </label>
+                    <label className="font-body text-xs text-muted-foreground">
+                      Children
+                      <input
+                        type="number"
+                        min={0}
+                        value={modifyForm.children}
+                        onChange={(e) => setModifyForm((current) => ({ ...current, children: Number(e.target.value || 0) }))}
+                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 font-body text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={modifyForm.pets}
+                        onChange={(e) => setModifyForm((current) => ({ ...current, pets: e.target.checked }))}
+                      />
+                      Pet travelling
+                    </label>
+                  </div>
+
+                  {modifyPreview && (
+                    <div className="mt-4 rounded-lg border border-border bg-background/70 p-4">
+                      <div className="grid grid-cols-2 gap-3 font-body text-sm">
+                        <div><span className="block text-xs text-muted-foreground">Current total</span><span className="font-semibold">{formatMoney(modifyPreview.oldAmount)}</span></div>
+                        <div><span className="block text-xs text-muted-foreground">New total</span><span className="font-semibold">{formatMoney(modifyPreview.newAmount)}</span></div>
+                        <div><span className="block text-xs text-muted-foreground">Availability</span><span className={modifyPreview.inventoryAvailable ? 'text-brand-green' : 'text-destructive'}>{modifyPreview.inventoryAvailable ? 'Available' : 'Unavailable'}</span></div>
+                        <div>
+                          <span className="block text-xs text-muted-foreground">
+                            {modifyPreview.paymentAction === 'additional_payment' ? 'Additional amount due' : modifyPreview.paymentAction === 'refund' ? 'Refund amount' : 'Price difference'}
+                          </span>
+                          <span className="font-semibold">
+                            {formatMoney(modifyPreview.paymentAction === 'refund' ? modifyPreview.refundAmount : Math.abs(Number(modifyPreview.differenceAmount || 0)))}
+                          </span>
+                        </div>
+                      </div>
+                      {modifyPreview.paymentAction === 'refund' && (
+                        <p className="mt-3 font-body text-xs text-muted-foreground">Refund processing may take time depending on Razorpay, the bank, and payment method.</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      onClick={previewModification}
+                      disabled={isPreviewingModification}
+                      className="rounded-lg border border-border px-4 py-2 font-body text-xs font-semibold hover:bg-muted disabled:opacity-60"
+                    >
+                      {isPreviewingModification ? 'Checking...' : 'Check Availability'}
+                    </button>
+                    <button
+                      onClick={confirmModification}
+                      disabled={isSubmittingModification || !modifyPreview?.inventoryAvailable}
+                      className="rounded-lg bg-brand-crimson px-4 py-2 font-body text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                    >
+                      {isSubmittingModification ? 'Submitting...' : 'Confirm Modification'}
+                    </button>
+                    <button
+                      onClick={() => setModifyOpen(false)}
+                      className="rounded-lg border border-border px-4 py-2 font-body text-xs"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Payment Sidebar */}
@@ -400,12 +665,22 @@ const BookingDetail = () => {
               )}
 
               {booking.bookingStatus === 'confirmed' && (
-                <button
-                  onClick={handleCancel}
-                  className="w-full py-3 rounded-xl border-2 border-destructive text-destructive font-body text-sm font-medium hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2"
-                >
-                  <XCircle size={16} /> Cancel Booking
-                </button>
+                <div className="space-y-2">
+                  {canModify && (
+                    <button
+                      onClick={openModify}
+                      className="w-full py-3 rounded-xl bg-brand-gold text-foreground font-body text-sm font-semibold hover:bg-brand-gold/90 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Calendar size={16} /> Modify Booking
+                    </button>
+                  )}
+                  <button
+                    onClick={handleCancel}
+                    className="w-full py-3 rounded-xl border-2 border-destructive text-destructive font-body text-sm font-medium hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <XCircle size={16} /> Cancel Booking
+                  </button>
+                </div>
               )}
 
               <Link

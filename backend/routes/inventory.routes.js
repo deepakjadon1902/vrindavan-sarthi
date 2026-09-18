@@ -9,11 +9,19 @@ const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
 const { normalizeImageFields } = require('../utils/imageFields');
+const { rejectInvalidObjectId } = require('../utils/security');
 
 const router = express.Router();
 
 // Partner-only inventory APIs
 router.use(protect, authorize('partner'));
+
+for (const paramName of ['hotelId', 'roomTypeId', 'roomUnitId', 'blockId']) {
+  router.param(paramName, (req, res, next, value) => {
+    if (rejectInvalidObjectId(res, value, paramName)) return;
+    next();
+  });
+}
 
 const stripLargeInlineImage = (value) => {
   const v = typeof value === 'string' ? value : '';
@@ -88,9 +96,8 @@ router.post('/hotels/:hotelId/room-types', async (req, res) => {
     const name = normalizeString(req.body?.name);
     const pricePerNight = Number(req.body?.pricePerNight || 0);
     if (!name) return res.status(400).json({ success: false, message: 'Room type name is required' });
-    const isDharamshala = String(hotel.propertyType || '').trim().toLowerCase() === 'dharamshala';
-    if (!Number.isFinite(pricePerNight) || (!isDharamshala && pricePerNight <= 0) || pricePerNight < 0) {
-      return res.status(400).json({ success: false, message: isDharamshala ? 'Valid pricePerNight is required' : 'Price per night is required' });
+    if (!Number.isFinite(pricePerNight) || pricePerNight <= 0) {
+      return res.status(400).json({ success: false, message: 'Price per night is required' });
     }
 
     const body = { ...req.body };
@@ -105,7 +112,7 @@ router.post('/hotels/:hotelId/room-types', async (req, res) => {
       description: normalizeString(req.body?.description),
       images: normalizeStringArray(body?.images),
       amenities: normalizeStringArray(req.body?.amenities),
-      pricePerNight: isDharamshala ? Math.max(0, pricePerNight) : pricePerNight,
+      pricePerNight,
       maxAdults: Math.max(1, Number(req.body?.maxAdults || 1)),
       maxChildren: Math.max(0, Number(req.body?.maxChildren || 0)),
       petsAllowed: Boolean(req.body?.petsAllowed),
@@ -131,13 +138,11 @@ router.put('/room-types/:roomTypeId', async (req, res) => {
     if (typeof req.body?.images !== 'undefined') roomType.images = normalizeStringArray(body?.images);
     if (typeof req.body?.amenities !== 'undefined') roomType.amenities = normalizeStringArray(req.body?.amenities);
     if (typeof req.body?.pricePerNight !== 'undefined') {
-      const hotel = await Hotel.findOne({ _id: roomType.hotelId, partnerId: req.user._id }).select('propertyType');
-      const isDharamshala = String(hotel?.propertyType || '').trim().toLowerCase() === 'dharamshala';
       const pricePerNight = Number(req.body?.pricePerNight || 0);
-      if (!Number.isFinite(pricePerNight) || (!isDharamshala && pricePerNight <= 0) || pricePerNight < 0) {
-        return res.status(400).json({ success: false, message: isDharamshala ? 'Valid pricePerNight is required' : 'Price per night is required' });
+      if (!Number.isFinite(pricePerNight) || pricePerNight <= 0) {
+        return res.status(400).json({ success: false, message: 'Price per night is required' });
       }
-      roomType.pricePerNight = isDharamshala ? Math.max(0, pricePerNight) : pricePerNight;
+      roomType.pricePerNight = pricePerNight;
     }
     if (typeof req.body?.maxAdults !== 'undefined') roomType.maxAdults = Math.max(1, Number(req.body?.maxAdults || 1));
     if (typeof req.body?.maxChildren !== 'undefined') roomType.maxChildren = Math.max(0, Number(req.body?.maxChildren || 0));
@@ -278,7 +283,7 @@ router.get('/rooms/:roomUnitId/calendar', async (req, res) => {
     const blocks = await RoomUnitBlock.find(match).sort({ startDate: 1 }).lean();
     const bookings = await Booking.find({
       roomUnitId: room._id,
-      bookingStatus: { $ne: 'cancelled' },
+      bookingStatus: { $nin: ['cancelled', 'expired', 'payment_failed'] },
       checkIn: { $lt: isValidDate(to) ? to : new Date('2100-01-01T00:00:00.000Z') },
       checkOut: { $gt: isValidDate(from) ? from : new Date('1970-01-01T00:00:00.000Z') },
     })

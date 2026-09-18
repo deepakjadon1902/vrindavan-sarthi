@@ -38,8 +38,8 @@ export interface Booking {
   hotel_gstin?: string;
   hotel_invoice_number?: string;
   paymentMethod: 'online' | 'doorstep';
-  paymentStatus: 'pending' | 'paid' | 'failed';
-  bookingStatus: 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled';
+  paymentStatus: 'pending' | 'paid' | 'failed' | 'expired';
+  bookingStatus: 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled' | 'expired' | 'payment_failed';
   checkedInAt?: string;
   checkedInByPartnerId?: string;
   checkedInByPartnerName?: string;
@@ -53,6 +53,13 @@ export interface Booking {
   razorpayPaymentId?: string;
   razorpayStatus?: string;
   paidAt?: string;
+  paymentHoldExpiresAt?: string;
+  confirmedAt?: string;
+  checkedOutAt?: string;
+  paymentFailedAt?: string;
+  expiredAt?: string;
+  inventoryReleasedAt?: string;
+  statusHistory?: Array<{ from?: string; to?: string; at?: string; actorRole?: string; reason?: string }>;
   additionalInfo?: string;
   createdAt: string;
   // Inventory booking extras
@@ -114,6 +121,13 @@ export interface Booking {
   cancellationDeductionPercent?: number;
   cancellationDeductionAmount?: number;
   refundableAmount?: number;
+  refundId?: string;
+  refundAmount?: number;
+  refundStatus?: 'not_required' | 'pending' | 'processed' | 'failed';
+  refundRequestedAt?: string;
+  refundProcessedAt?: string;
+  refundFailureReason?: string;
+  refundReconciliationState?: 'none' | 'needs_refund_reconciliation';
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -194,6 +208,13 @@ const normalizeBooking = (b: unknown): Booking => {
     razorpayPaymentId: getString(obj, 'razorpayPaymentId') || undefined,
     razorpayStatus: getString(obj, 'razorpayStatus') || undefined,
     paidAt: getString(obj, 'paidAt') || undefined,
+    paymentHoldExpiresAt: getString(obj, 'paymentHoldExpiresAt') || undefined,
+    confirmedAt: getString(obj, 'confirmedAt') || undefined,
+    checkedOutAt: getString(obj, 'checkedOutAt') || undefined,
+    paymentFailedAt: getString(obj, 'paymentFailedAt') || undefined,
+    expiredAt: getString(obj, 'expiredAt') || undefined,
+    inventoryReleasedAt: getString(obj, 'inventoryReleasedAt') || undefined,
+    statusHistory: Array.isArray(obj.statusHistory) ? obj.statusHistory as Booking['statusHistory'] : undefined,
     additionalInfo: getString(obj, 'additionalInfo') || undefined,
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
     hotelId: getString(obj, 'hotelId') || undefined,
@@ -241,6 +262,13 @@ const normalizeBooking = (b: unknown): Booking => {
     cancellationDeductionPercent: getNumber(obj, 'cancellationDeductionPercent') || undefined,
     cancellationDeductionAmount: getNumber(obj, 'cancellationDeductionAmount') || undefined,
     refundableAmount: getNumber(obj, 'refundableAmount') || undefined,
+    refundId: getString(obj, 'refundId') || undefined,
+    refundAmount: getNumber(obj, 'refundAmount') || undefined,
+    refundStatus: (getString(obj, 'refundStatus') as Booking['refundStatus']) || undefined,
+    refundRequestedAt: getString(obj, 'refundRequestedAt') || undefined,
+    refundProcessedAt: getString(obj, 'refundProcessedAt') || undefined,
+    refundFailureReason: getString(obj, 'refundFailureReason') || undefined,
+    refundReconciliationState: (getString(obj, 'refundReconciliationState') as Booking['refundReconciliationState']) || undefined,
   };
 };
 

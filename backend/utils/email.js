@@ -59,7 +59,14 @@ const resendSendEmail = async ({ apiKey, from, to, subject, text, html, attachme
     headers: { Authorization: `Bearer ${apiKey}` },
     body: { from, to: [to], subject, text, ...(html ? { html } : {}), ...(replyTo ? { reply_to: replyTo } : {}), ...(files.length ? { attachments: files } : {}) },
   });
-  if (resp.status >= 200 && resp.status < 300) return;
+  if (resp.status >= 200 && resp.status < 300) {
+    try {
+      const parsed = JSON.parse(resp.body || '{}');
+      return { provider: 'resend', providerMessageId: parsed?.id ? String(parsed.id) : undefined };
+    } catch {
+      return { provider: 'resend' };
+    }
+  }
   const err = new Error(`Resend send failed: HTTP ${resp.status}`);
   err.code = 'RESEND_SEND_FAILED';
   throw err;
@@ -92,8 +99,7 @@ const sendEmail = async ({ to, subject, text, html, attachments, replyTo }) => {
     const apiKey = String(process.env.RESEND_API_KEY || '').trim();
     const from = String(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
     if (!from) throw new Error('Missing RESEND_FROM (or SMTP_FROM/SMTP_USER)');
-    await resendSendEmail({ apiKey, from, to: toAddr, subject, text, html, attachments: files, replyTo: replyToAddr });
-    return;
+    return resendSendEmail({ apiKey, from, to: toAddr, subject, text, html, attachments: files, replyTo: replyToAddr });
   }
 
   if (!canSendSmtp()) {
@@ -103,7 +109,8 @@ const sendEmail = async ({ to, subject, text, html, attachments, replyTo }) => {
   }
   const transport = buildMailer();
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  await transport.sendMail({ from, to: toAddr, subject, text, html, replyTo: replyToAddr || undefined, attachments: files });
+  const info = await transport.sendMail({ from, to: toAddr, subject, text, html, replyTo: replyToAddr || undefined, attachments: files });
+  return { provider: 'smtp', providerMessageId: info?.messageId ? String(info.messageId) : undefined };
 };
 
 module.exports = { sendEmail };

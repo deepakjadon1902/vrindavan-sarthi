@@ -7,7 +7,7 @@ import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { BRAJ_LANDMARK_PLACE_NAMES, OTHER_LANDMARK_OPTION, getLandmarkOptionsForPlace, getLandmarkPlaceForListing } from '@/lib/landmarks';
 import { PropertyTermsEditor, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
-import { getPropertyTypeLabel, isDharamshalaType, propertyTypeOptions, type StayPropertyType } from '@/lib/propertyTypes';
+import { getPropertyTypeLabel, propertyTypeOptions, type StayPropertyType } from '@/lib/propertyTypes';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 interface Hotel {
@@ -185,9 +185,9 @@ const ManageHotels = () => {
       status: form.status,
       approvalStatus: 'approved',
       partnerSubmitted: false,
-      taxEnabled: isDharamshalaType(form.propertyType) ? false : form.taxEnabled,
-      taxPercent: isDharamshalaType(form.propertyType) ? 0 : Number(form.taxPercent || 12),
-      platform_commission_percentage: isDharamshalaType(form.propertyType) ? 0 : Number(form.platform_commission_percentage || 0),
+      taxEnabled: form.taxEnabled,
+      taxPercent: Number(form.taxPercent || 12),
+      platform_commission_percentage: Number(form.platform_commission_percentage || 0),
       propertyTerms: form.propertyTerms,
     };
     if (editingId && payload.image === '/placeholder.svg') delete payload.image;
@@ -331,12 +331,7 @@ const ManageHotels = () => {
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Listing Type</label>
                 <select
                   value={form.propertyType}
-                  onChange={(e) => setForm({
-                    ...form,
-                    propertyType: e.target.value as Hotel['propertyType'],
-                    taxEnabled: isDharamshalaType(e.target.value) ? false : form.taxEnabled,
-                    platform_commission_percentage: isDharamshalaType(e.target.value) ? '0' : form.platform_commission_percentage,
-                  })}
+                  onChange={(e) => setForm({ ...form, propertyType: e.target.value as Hotel['propertyType'] })}
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                 >
                   {propertyTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -392,7 +387,7 @@ const ManageHotels = () => {
                   className="w-full px-4 py-2.5 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                   placeholder="10"
                 />
-                <p className="font-body text-xs text-muted-foreground mt-1">Use 0 for Dharamshalas or no-commission properties.</p>
+                <p className="font-body text-xs text-muted-foreground mt-1">Set the platform commission for this listing.</p>
               </div>
               <div>
                 <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Map Location / Google Link</label>
@@ -477,14 +472,13 @@ const ManageHotels = () => {
                 <input
                   type="checkbox"
                   checked={form.taxEnabled}
-                  disabled={isDharamshalaType(form.propertyType)}
                   onChange={(e) => setForm({ ...form, taxEnabled: e.target.checked })}
                   className="mt-1"
                 />
                 <span>
                   Apply GST to this property
                   <span className="block text-xs text-muted-foreground mt-1">
-                    Dharamshala listings are GST-free and booked by WhatsApp or call enquiry.
+                    GST settings apply to hotels, dharamshalas, home stays, and guest houses.
                   </span>
                 </span>
               </label>

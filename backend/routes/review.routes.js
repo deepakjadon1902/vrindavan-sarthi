@@ -3,8 +3,14 @@ const Review = require('../models/Review');
 const Booking = require('../models/Booking');
 const Hotel = require('../models/Hotel');
 const { protect } = require('../middleware/auth');
+const { rejectInvalidObjectId } = require('../utils/security');
 
 const router = express.Router();
+
+router.param('hotelId', (req, res, next, value) => {
+  if (rejectInvalidObjectId(res, value, 'hotel id')) return;
+  next();
+});
 
 router.get('/hotel/:hotelId', async (req, res) => {
   try {
@@ -39,6 +45,7 @@ router.post('/', protect, async (req, res) => {
     const rating = Number(req.body?.rating || 0);
     const text = String(req.body?.text || '').trim();
     if (!bookingId) return res.status(400).json({ success: false, message: 'bookingId is required' });
+    if (rejectInvalidObjectId(res, bookingId, 'booking id')) return;
     if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
       return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5' });
     }
