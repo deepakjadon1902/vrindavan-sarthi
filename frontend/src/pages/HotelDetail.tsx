@@ -427,7 +427,7 @@ import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { PropertyTermsPreview, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
 import { getGoogleMapEmbedSrc, getGoogleMapNavigationUrl } from '@/lib/maps';
-import { getPropertyTypeLabel, type StayPropertyType } from '@/lib/propertyTypes';
+import { getPropertyTypeLabel, isDharamshalaType, type StayPropertyType } from '@/lib/propertyTypes';
 
 type Hotel = {
   _id: string;
@@ -573,6 +573,7 @@ const HotelDetail = () => {
   const getTaxInclusivePrice = (rt: RoomType) => {
     const base = Number(rt.pricePerNight || 0);
     const rtHotel = rt.hotel || hotel;
+    if (isDharamshalaType(rtHotel?.propertyType)) return Math.round(base * 1.1);
     if (!rtHotel?.taxEnabled) return base;
     const percent = rtHotel.gstMode === 'automatic'
       ? base <= 7500 ? 5 : 18

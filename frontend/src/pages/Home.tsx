@@ -11,7 +11,7 @@ import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 import { COMPANY_PHONE_DIGITS } from '@/lib/brand';
 import { useSettingsStore } from '@/store/settingsStore';
-import { getPropertyTypeLabel } from '@/lib/propertyTypes';
+import { getPropertyTypeLabel, isDharamshalaType } from '@/lib/propertyTypes';
 
 const heroImg = '/backgrounds/braj-govardhan-hero.jpeg';
 
@@ -243,6 +243,7 @@ const Home = () => {
   const getRoomPrice = (roomType: any) => {
     const base = Number(roomType?.pricePerNight || 0);
     const hotel = roomType?.hotel || {};
+    if (isDharamshalaType(hotel?.propertyType)) return Math.round(base * 1.1);
     if (!hotel?.taxEnabled) return base;
     const percent = hotel?.gstMode === 'automatic'
       ? base <= 7500 ? 5 : 18
@@ -263,6 +264,7 @@ const Home = () => {
       .filter((price) => Number.isFinite(price) && price > 0);
     if (!prices.length) return undefined;
     const base = Math.min(...prices);
+    if (isDharamshalaType(hotel?.propertyType)) return Math.round(base * 1.1);
     if (!hotel?.taxEnabled) return base;
     const percent = hotel?.gstMode === 'automatic'
       ? base <= 7500 ? 5 : 18
@@ -519,7 +521,7 @@ const Home = () => {
                     badge={getPropertyTypeLabel(hotel?.propertyType)}
                     location={hotel.location}
                     price={getHotelStartingPrice(hotel)}
-                    priceLabel={hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    priceLabel={isDharamshalaType(hotel?.propertyType) ? '/night incl. platform fee' : hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}
                     amenities={hotel.amenities || []}
@@ -566,7 +568,7 @@ const Home = () => {
                     name={roomType.name}
                     location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` - ${roomType.hotel.location}` : ''}`}
                     price={getRoomPrice(roomType)}
-                    priceLabel={roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    priceLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? '/night incl. platform fee' : roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={0}
                     reviewCount={0}
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}

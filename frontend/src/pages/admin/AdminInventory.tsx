@@ -6,7 +6,7 @@ import { Plus, Trash2, Pencil, CalendarDays } from 'lucide-react';
 import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { useSettingsStore } from '@/store/settingsStore';
-import { getPropertyTypeLabel, type StayPropertyType } from '@/lib/propertyTypes';
+import { getPropertyTypeLabel, isDharamshalaType, type StayPropertyType } from '@/lib/propertyTypes';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 type Hotel = { _id: string; name: string; propertyType?: StayPropertyType; status?: string; approvalStatus?: string; location?: string; partnerName?: string };
@@ -81,6 +81,8 @@ const AdminInventory = () => {
   const selectedRoomUnit = useMemo(() => rooms.find((r) => r._id === selectedRoomUnitId) || null, [rooms, selectedRoomUnitId]);
   const taxPercent = Math.min(50, Math.max(0, Number(hotelTaxPercent ?? 12)));
   const priceWithTax = (price: number) => Math.round(Number(price || 0) * (1 + taxPercent / 100));
+  const customerRoomPrice = (price: number) =>
+    isDharamshalaType(selectedHotel?.propertyType) ? Math.round(Number(price || 0) * 1.1) : priceWithTax(price);
 
   const loadHotels = async () => {
     if (!token) return;
@@ -535,7 +537,9 @@ const AdminInventory = () => {
                             Rs. {Number(rt.pricePerNight || 0).toLocaleString('en-IN')} - Adults {rt.maxAdults} - Children {rt.maxChildren}
                           </p>
                           <p className="font-body text-[11px] text-muted-foreground truncate">
-                            Customer pays Rs. {priceWithTax(rt.pricePerNight).toLocaleString('en-IN')} / night incl. {taxPercent}% GST
+                            {isDharamshalaType(selectedHotel?.propertyType)
+                              ? `Customer pays Rs. ${customerRoomPrice(rt.pricePerNight).toLocaleString('en-IN')} / night incl. 10% platform fee`
+                              : `Customer pays Rs. ${customerRoomPrice(rt.pricePerNight).toLocaleString('en-IN')} / night incl. ${taxPercent}% GST`}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">

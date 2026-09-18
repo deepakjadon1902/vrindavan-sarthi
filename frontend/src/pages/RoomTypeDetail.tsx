@@ -688,6 +688,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import SEO from '@/components/SEO';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { hasPropertyTermsText, normalizePropertyTerms } from '@/components/shared/PropertyTerms';
+import { isDharamshalaType } from '@/lib/propertyTypes';
 
 declare global {
   interface Window {
@@ -847,6 +848,7 @@ const RoomTypeDetail = () => {
   const roomType = data || null;
   const hotel = roomType?.hotel || null;
   const uploader = roomType?.uploader || null;
+  const isDharamshala = isDharamshalaType(hotel?.propertyType);
   const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
   const mustAcceptPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
 
@@ -973,7 +975,7 @@ const RoomTypeDetail = () => {
 
   const nights = checkIn && checkOut ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 1;
   const baseTotal = Number(roomType.pricePerNight || 0) * nights * roomQuantity;
-  const taxEnabled = Boolean(hotel?.taxEnabled);
+  const taxEnabled = !isDharamshala && Boolean(hotel?.taxEnabled);
   const taxPercent = taxEnabled
     ? hotel?.gstMode === 'automatic'
       ? Number(roomType.pricePerNight || 0) <= 7500 ? 5 : 18
@@ -981,9 +983,11 @@ const RoomTypeDetail = () => {
     : 0;
   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
   const subtotal = baseTotal + taxTotal;
-  const convenienceFee = Math.round(baseTotal * 0.0445);
+  const convenienceFeePercent = isDharamshala ? 10 : 4.45;
+  const convenienceFee = Math.round(baseTotal * (convenienceFeePercent / 100));
   const total = subtotal + convenienceFee;
-  const payableNow = paymentOption === 'full_100' ? total : paymentOption === 'advance_30' ? Math.round(total * 0.3) : 0;
+  const effectivePaymentOption = isDharamshala ? 'full_100' : paymentOption;
+  const payableNow = effectivePaymentOption === 'full_100' ? total : effectivePaymentOption === 'advance_30' ? Math.round(total * 0.3) : 0;
   const balanceLater = Math.max(0, total - payableNow);
   const availableCount = availableCountForSelection;
   const totalCount = typeof roomType.totalCount === 'number' ? roomType.totalCount : null;
@@ -1023,7 +1027,7 @@ const RoomTypeDetail = () => {
     if (checkIn < todayKey) { toast.error('Check-in date cannot be in the past'); return false; }
     if (checkOut <= checkIn) { toast.error('Check-out must be after check-in'); return false; }
     if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) { toast.error('Please fill your name, mobile and email'); return false; }
-    if (!paymentOption) { toast.error('Please select a payment option'); return false; }
+    if (!effectivePaymentOption) { toast.error('Please select a payment option'); return false; }
     if (roomQuantity < 1) { toast.error('Please select at least 1 room'); return false; }
     if (availableCount !== null && roomQuantity > availableCount) {
       toast.error(`Only ${availableCount} room(s) are available for selected dates`);
@@ -1064,7 +1068,7 @@ const RoomTypeDetail = () => {
       totalAmount: total,
       paymentMethod: 'online',
       paymentProvider: 'razorpay',
-      paymentOption,
+      paymentOption: effectivePaymentOption,
       propertyTermsAccepted,
       acceptedPropertyTermsVersion: propertyTerms.currentVersion,
       additionalInfo: 'Razorpay Checkout payment initiated.',
@@ -1650,7 +1654,7 @@ const RoomTypeDetail = () => {
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <span>Platform convenience fee</span>
+                    <span>{isDharamshala ? 'Platform fee (10%)' : 'Platform convenience fee'}</span>
                     <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
@@ -1664,6 +1668,7 @@ const RoomTypeDetail = () => {
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Payment Option *</p>
 
+                  {!isDharamshala && (
                   <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-gray-50 transition-colors"
                     style={{ borderColor: paymentOption === 'advance_30' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
                     <input type="radio" name="roomPaymentOption" checked={paymentOption === 'advance_30'} onChange={() => setPaymentOption('advance_30')} className="mt-1 accent-[hsl(var(--brand-crimson))]" />
@@ -1677,25 +1682,31 @@ const RoomTypeDetail = () => {
                       </span>
                     </span>
                   </label>
+                  )}
 
-                  <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                    style={{ borderColor: paymentOption === 'full_100' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
-                    <input type="radio" name="roomPaymentOption" checked={paymentOption === 'full_100'} onChange={() => setPaymentOption('full_100')} className="mt-1 accent-[hsl(var(--brand-crimson))]" />
+                  <label className={`flex items-start gap-3 rounded-xl border p-3 ${isDharamshala ? 'cursor-default bg-amber-50/60' : 'cursor-pointer hover:bg-gray-50'} transition-colors`}
+                    style={{ borderColor: effectivePaymentOption === 'full_100' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
+                    <input type="radio" name="roomPaymentOption" checked={effectivePaymentOption === 'full_100'} onChange={() => setPaymentOption('full_100')} disabled={isDharamshala} className="mt-1 accent-[hsl(var(--brand-crimson))] disabled:opacity-80" />
                     <span className="min-w-0 flex-1 text-sm">
                       <span className="flex items-center gap-1.5 font-semibold text-gray-800">Pay 100% Full Payment Online</span>
                       <span className="block text-xs text-gray-400 mt-0.5">
                         Pay Rs. {total.toLocaleString('en-IN')} now with no balance at property.
                       </span>
+                      {isDharamshala && (
+                        <span className="mt-1.5 inline-block rounded-md border border-amber-100 bg-white px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                          Dharamshala bookings require full payment in one time.
+                        </span>
+                      )}
                     </span>
                   </label>
 
-                  {paymentOption && (
+                  {effectivePaymentOption && (
                     <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 flex justify-between text-sm">
                       <span className="text-gray-500">Payable now</span>
                       <span className="font-bold text-brand-crimson">Rs. {payableNow.toLocaleString('en-IN')}</span>
                     </div>
                   )}
-                  {paymentOption === 'advance_30' && (
+                  {effectivePaymentOption === 'advance_30' && (
                     <div className="flex justify-between text-xs text-gray-400 px-1">
                       <span>Balance at property</span>
                       <span>Rs. {balanceLater.toLocaleString('en-IN')}</span>

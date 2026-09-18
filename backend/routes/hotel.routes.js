@@ -85,6 +85,12 @@ const normalizeHotelTaxControls = (body) => {
     const p = Number(body.platform_commission_percentage);
     body.platform_commission_percentage = Number.isFinite(p) && p >= 0 ? Math.min(100, p) : 10;
   }
+  if (String(body.propertyType || '').trim().toLowerCase() === 'dharamshala') {
+    body.taxEnabled = false;
+    body.taxPercent = 0;
+    body.gstMode = 'manual';
+    body.platform_commission_percentage = 10;
+  }
   return body;
 };
 

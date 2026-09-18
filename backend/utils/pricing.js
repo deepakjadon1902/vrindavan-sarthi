@@ -1,6 +1,7 @@
 const Settings = require('../models/Settings');
 
 const PARTNER_COMMISSION_PERCENT = 10;
+const DHARAMSHALA_PLATFORM_FEE_PERCENT = 10;
 const GST_THRESHOLD_AMOUNT = 7500;
 const LOW_GST_PERCENT = 5;
 const HIGH_GST_PERCENT = 18;
@@ -23,7 +24,11 @@ const getPaymentOption = (value, allowed = ['advance_30', 'full_100']) => {
   return allowed.includes(option) ? option : '';
 };
 
+const isDharamshalaProperty = (hotel) =>
+  String(hotel?.propertyType || '').trim().toLowerCase() === 'dharamshala';
+
 const getHotelTaxPercent = async (hotel, roomType) => {
+  if (isDharamshalaProperty(hotel)) return 0;
   if (!hotel?.taxEnabled) return 0;
   if (String(hotel?.gstMode || '').trim().toLowerCase() === 'automatic') {
     const pricePerNight = Number(roomType?.pricePerNight || 0);
@@ -41,10 +46,19 @@ const getHotelTaxPercent = async (hotel, roomType) => {
   }
 };
 
-const buildMoneyFields = ({ subtotal, baseAmount, taxAmount = 0, paymentOption = 'advance_30', commissionPercent = 0, gatewayFeeAmount }) => {
+const buildMoneyFields = ({
+  subtotal,
+  baseAmount,
+  taxAmount = 0,
+  paymentOption = 'advance_30',
+  commissionPercent = 0,
+  gatewayFeeAmount,
+  convenienceFeePercent = CONVENIENCE_FEE_PERCENT,
+}) => {
   const checkoutSubtotal = Math.round(Math.max(0, Number(subtotal || 0)));
   const roomAmount = Math.round(Math.max(0, Number(baseAmount ?? (checkoutSubtotal - Number(taxAmount || 0)))));
-  const convenienceFeeAmount = calculateConvenienceFee(roomAmount);
+  const safeConvenienceFeePercent = clampPercent(convenienceFeePercent, CONVENIENCE_FEE_PERCENT, 100);
+  const convenienceFeeAmount = Math.round((roomAmount * safeConvenienceFeePercent) / 100);
   const totalAmount = checkoutSubtotal + convenienceFeeAmount;
   const advancePercent = paymentOption === 'full_100' ? 100 : 30;
   const advanceAmount = Math.round(totalAmount * (advancePercent / 100));
@@ -70,7 +84,7 @@ const buildMoneyFields = ({ subtotal, baseAmount, taxAmount = 0, paymentOption =
     hotel_net_payout: partnerNetPayout,
     payout_status: 'pending',
     checkoutSubtotal,
-    convenienceFeePercent: CONVENIENCE_FEE_PERCENT,
+    convenienceFeePercent: safeConvenienceFeePercent,
     convenienceFeeAmount,
     totalAmount,
     paymentOption,
@@ -99,13 +113,16 @@ const calculateLodgingPrice = async ({
   const taxPercent = await getHotelTaxPercent(hotel, roomType);
   const taxAmount = Math.round((baseAmount * taxPercent) / 100);
   const subtotal = Math.round(baseAmount + taxAmount);
+  const isDharamshala = isDharamshalaProperty(hotel);
+  const effectivePaymentOption = isDharamshala ? 'full_100' : paymentOption;
   const money = buildMoneyFields({
     subtotal,
     baseAmount,
     taxAmount,
-    paymentOption,
-    commissionPercent: hotel?.partnerId ? PARTNER_COMMISSION_PERCENT : hotel?.platform_commission_percentage,
-    gatewayFeeAmount,
+    paymentOption: effectivePaymentOption,
+    commissionPercent: isDharamshala ? 0 : hotel?.partnerId ? PARTNER_COMMISSION_PERCENT : hotel?.platform_commission_percentage,
+    gatewayFeeAmount: isDharamshala ? 0 : gatewayFeeAmount,
+    convenienceFeePercent: isDharamshala ? DHARAMSHALA_PLATFORM_FEE_PERCENT : CONVENIENCE_FEE_PERCENT,
   });
 
   return {
@@ -128,13 +145,16 @@ const calculateLodgingPriceFromBase = async ({
   const taxPercent = await getHotelTaxPercent(hotel, roomType);
   const taxAmount = Math.round((safeBaseAmount * taxPercent) / 100);
   const subtotal = Math.round(safeBaseAmount + taxAmount);
+  const isDharamshala = isDharamshalaProperty(hotel);
+  const effectivePaymentOption = isDharamshala ? 'full_100' : paymentOption;
   const money = buildMoneyFields({
     subtotal,
     baseAmount: safeBaseAmount,
     taxAmount,
-    paymentOption,
-    commissionPercent: hotel?.partnerId ? PARTNER_COMMISSION_PERCENT : hotel?.platform_commission_percentage,
-    gatewayFeeAmount,
+    paymentOption: effectivePaymentOption,
+    commissionPercent: isDharamshala ? 0 : hotel?.partnerId ? PARTNER_COMMISSION_PERCENT : hotel?.platform_commission_percentage,
+    gatewayFeeAmount: isDharamshala ? 0 : gatewayFeeAmount,
+    convenienceFeePercent: isDharamshala ? DHARAMSHALA_PLATFORM_FEE_PERCENT : CONVENIENCE_FEE_PERCENT,
   });
 
   return {
@@ -148,6 +168,7 @@ const calculateLodgingPriceFromBase = async ({
 
 module.exports = {
   PARTNER_COMMISSION_PERCENT,
+  DHARAMSHALA_PLATFORM_FEE_PERCENT,
   CONVENIENCE_FEE_PERCENT,
   calculateConvenienceFee,
   calculateGatewayFee,

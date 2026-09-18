@@ -8,7 +8,7 @@ import { publishAppEvent } from '@/lib/broadcast';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { BRAJ_LANDMARK_PLACE_NAMES, OTHER_LANDMARK_OPTION, getLandmarkOptionsForPlace, getLandmarkPlaceForListing } from '@/lib/landmarks';
 import { PropertyTermsEditor, hasPropertyTermsText, normalizePropertyTerms, type PropertyTermsValue } from '@/components/shared/PropertyTerms';
-import { propertyTypeOptions, type StayPropertyType } from '@/lib/propertyTypes';
+import { isDharamshalaType, propertyTypeOptions, type StayPropertyType } from '@/lib/propertyTypes';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
 interface PartnerHotel {
@@ -172,9 +172,9 @@ const PartnerAddHotel = () => {
       checkInTime: form.checkInTime || '12:00',
       checkOutTime: form.checkOutTime || '11:00',
       hotelGstin: form.hotelGstin.trim(),
-      taxEnabled: Boolean(form.hotelGstin.trim()) && Boolean(form.taxEnabled),
-      taxPercent: form.gstMode === 'manual' ? Number(form.taxPercent || 12) : 0,
-      gstMode: form.gstMode,
+      taxEnabled: isDharamshalaType(form.propertyType) ? false : Boolean(form.hotelGstin.trim()) && Boolean(form.taxEnabled),
+      taxPercent: isDharamshalaType(form.propertyType) ? 0 : form.gstMode === 'manual' ? Number(form.taxPercent || 12) : 0,
+      gstMode: isDharamshalaType(form.propertyType) ? 'manual' : form.gstMode,
       amenities: form.amenities
         .split(',')
         .map((a) => a.trim())
@@ -282,6 +282,7 @@ const PartnerAddHotel = () => {
   const { page, setPage, pageItems } = useRecordPagination(filtered, [search]);
   const isApproved = user?.partnerStatus === 'approved';
   const hasHotel = items.length > 0;
+  const isDharamshalaForm = isDharamshalaType(form.propertyType);
   return (
     <div className="space-y-6">
       <div>
@@ -466,7 +467,12 @@ const PartnerAddHotel = () => {
                   placeholder="Optional, auto-filled from profile if available"
                 />
               </div>
-              {form.hotelGstin.trim() && (
+              {isDharamshalaForm && (
+                <div className="md:col-span-2 rounded-lg border border-brand-gold/25 bg-brand-gold/10 p-3 font-body text-xs text-muted-foreground">
+                  Dharamshala bookings collect only a fixed 10% platform fee. GST and other customer charges are not applied.
+                </div>
+              )}
+              {!isDharamshalaForm && form.hotelGstin.trim() && (
                 <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
                   <label className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
                     <input

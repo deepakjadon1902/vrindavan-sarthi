@@ -285,6 +285,7 @@ const Hotels = () => {
       .filter((price) => Number.isFinite(price) && price > 0);
     if (!prices.length) return undefined;
     const base = Math.min(...prices);
+    if (isDharamshalaType(hotel.propertyType)) return Math.round(base * 1.1);
     if (!hotel.taxEnabled) return base;
     const percent = hotel.gstMode === 'automatic'
       ? base <= 7500 ? 5 : 18
@@ -460,7 +461,7 @@ const Hotels = () => {
                             badge={getPropertyTypeLabel(hotel.propertyType)}
                             location={hotel.location}
                             price={getHotelStartingPrice(hotel)}
-                            priceLabel={hotel.taxEnabled ? '/night incl. GST' : '/night'}
+                            priceLabel={isDharamshalaType(hotel.propertyType) ? '/night incl. platform fee' : hotel.taxEnabled ? '/night incl. GST' : '/night'}
                             rating={Number(hotel.rating || 0)}
                             reviewCount={Number(hotel.reviewCount || 0)}
                             amenities={hotel.amenities || []}

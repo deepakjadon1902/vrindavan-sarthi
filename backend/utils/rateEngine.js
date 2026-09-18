@@ -346,6 +346,9 @@ const createBookingQuote = async ({
   if (!roomType) throw httpError('Room type not found', 404);
   const ratePlan = await getRatePlanForSale({ hotel, roomType, ratePlanId, actor });
   if (!ratePlan.active) throw httpError('Rate plan is inactive', 409);
+  const effectivePaymentOption = String(hotel?.propertyType || '').trim().toLowerCase() === 'dharamshala'
+    ? 'full_100'
+    : paymentOption;
 
   const quantity = Math.max(1, Math.floor(Number(roomQuantity || 1)));
   const occupancy = validateOccupancy({ roomType, ratePlan, roomQuantity: quantity, adults, children });
@@ -354,7 +357,7 @@ const createBookingQuote = async ({
     hotel,
     roomType: { ...roomType, pricePerNight: rate.nightlyBreakdown[0]?.price ?? roomType.pricePerNight },
     baseAmount: rate.baseAmount,
-    paymentOption,
+    paymentOption: effectivePaymentOption,
     gatewayFeeAmount,
   });
   const availability = checkInventory

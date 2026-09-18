@@ -16,6 +16,7 @@ const {
 const {
   calculateConvenienceFee,
   buildMoneyFields,
+  calculateLodgingPrice,
 } = require('../utils/pricing');
 
 const readBackendFile = (...segments) => fs.readFileSync(path.join(__dirname, '..', ...segments), 'utf8');
@@ -102,6 +103,38 @@ test('extracted pricing preserves existing convenience and money formulas', () =
   assert.equal(money.balanceAmount, 7661);
   assert.equal(money.platformCommissionAmount, 1000);
   assert.equal(money.paymentGatewayFeeAmount, 200);
+});
+
+test('dharamshala lodging pricing charges only fixed 10 percent platform fee', async () => {
+  const money = await calculateLodgingPrice({
+    hotel: {
+      propertyType: 'dharamshala',
+      taxEnabled: true,
+      taxPercent: 18,
+      gstMode: 'manual',
+      partnerId: oid(),
+      platform_commission_percentage: 25,
+    },
+    roomType: { pricePerNight: 1000 },
+    nights: 2,
+    roomQuantity: 3,
+    paymentOption: 'advance_30',
+    gatewayFeeAmount: 999,
+  });
+
+  assert.equal(money.baseAmount, 6000);
+  assert.equal(money.taxPercent, 0);
+  assert.equal(money.taxAmount, 0);
+  assert.equal(money.convenienceFeePercent, 10);
+  assert.equal(money.convenienceFeeAmount, 600);
+  assert.equal(money.totalAmount, 6600);
+  assert.equal(money.paymentOption, 'full_100');
+  assert.equal(money.advancePercent, 100);
+  assert.equal(money.advanceAmount, 6600);
+  assert.equal(money.balanceAmount, 0);
+  assert.equal(money.platformCommissionPercent, 0);
+  assert.equal(money.platformCommissionAmount, 0);
+  assert.equal(money.paymentGatewayFeeAmount, 0);
 });
 
 test('authorization helper preserves customer, partner, and admin ownership boundaries', () => {

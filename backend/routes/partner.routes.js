@@ -201,6 +201,11 @@ const applyPartnerHotelDefaults = (body, user) => {
   const p = Number(body?.taxPercent);
   body.taxPercent = body.gstMode === 'manual' && Number.isFinite(p) && p >= 0 ? Math.min(50, p) : 0;
   body.platform_commission_percentage = 10;
+  if (body.propertyType === 'dharamshala') {
+    body.taxEnabled = false;
+    body.taxPercent = 0;
+    body.gstMode = 'manual';
+  }
   return body;
 };
 

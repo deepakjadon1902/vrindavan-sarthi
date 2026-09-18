@@ -383,8 +383,12 @@ router.post('/room-type', protect, async (req, res) => {
     }
 
     // Server-side quote calculation (date rates + existing GST/fee formulas).
-    const paymentOption = getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']);
+    const isDharamshala = String(hotel.propertyType || '').trim().toLowerCase() === 'dharamshala';
+    const paymentOption = isDharamshala ? 'full_100' : getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']);
     if (!paymentOption) return res.status(400).json({ success: false, message: 'Please select 30% advance or 100% full online payment' });
+    if (isDharamshala && req.body?.paymentOption && String(req.body.paymentOption).trim() !== 'full_100') {
+      return res.status(400).json({ success: false, message: 'Dharamshala bookings require 100% full online payment' });
+    }
     const paymentProvider = String(req.body?.paymentProvider || '').trim().toLowerCase() === 'razorpay' ? 'razorpay' : 'manual_upi';
     const upiTransactionId = String(req.body?.upiTransactionId || '').trim();
     if (paymentProvider !== 'razorpay' && !upiTransactionId) {
