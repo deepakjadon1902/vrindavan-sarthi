@@ -1654,7 +1654,7 @@ const RoomTypeDetail = () => {
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <span>{isDharamshala ? 'Platform fee (10%)' : 'Platform convenience fee'}</span>
+                    <span>{isDharamshala ? 'Platform fee' : 'Platform convenience fee'}</span>
                     <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
@@ -1694,7 +1694,7 @@ const RoomTypeDetail = () => {
                       </span>
                       {isDharamshala && (
                         <span className="mt-1.5 inline-block rounded-md border border-amber-100 bg-white px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                          Dharamshala bookings require full payment in one time.
+                          Dharamshala charges are not refundable.
                         </span>
                       )}
                     </span>
