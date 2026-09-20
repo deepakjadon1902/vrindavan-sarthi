@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
@@ -9,7 +10,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { getPropertyTypeLabel, isDharamshalaType, type StayPropertyType } from '@/lib/propertyTypes';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
-type Hotel = { _id: string; name: string; propertyType?: StayPropertyType; status?: string; approvalStatus?: string; location?: string; partnerName?: string };
+type Hotel = { _id: string; name: string; propertyType?: StayPropertyType; status?: string; approvalStatus?: string; location?: string; partnerName?: string; showPrices?: boolean };
 
 type RoomType = {
   _id: string;
@@ -38,6 +39,8 @@ type BlockKind = 'available' | 'offline_booking' | 'unavailable' | 'closed';
 type BlockScope = 'room' | 'room_type';
 
 const AdminInventory = () => {
+  const [searchParams] = useSearchParams();
+  const requestedHotelId = searchParams.get('hotelId') || '';
   const token = useAuthStore((s) => s.token);
   const hotelTaxPercent = useSettingsStore((s) => s.settings.hotelTaxPercent);
   const [hotels, setHotels] = useState<Hotel[]>([]);
@@ -149,6 +152,13 @@ const AdminInventory = () => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  useEffect(() => {
+    if (!requestedHotelId) return;
+    if (hotels.some((hotel) => hotel._id === requestedHotelId)) {
+      setSelectedHotelId(requestedHotelId);
+    }
+  }, [hotels, requestedHotelId]);
 
   useEffect(() => {
     if (!selectedHotelId) return;
@@ -428,6 +438,15 @@ const AdminInventory = () => {
               ))}
             </select>
           </div>
+
+          {selectedHotel && selectedHotel.showPrices === false && (
+            <div className="rounded-xl border border-brand-gold/25 bg-brand-gold/10 p-3">
+              <p className="font-body text-sm font-semibold text-foreground">Call/WhatsApp booking is active.</p>
+              <p className="mt-1 font-body text-xs text-muted-foreground">
+                Room prices saved here stay hidden until price display is enabled in Manage Hotels.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">

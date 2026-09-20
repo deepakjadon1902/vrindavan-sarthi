@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
-import { Car, Hotel, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Car, Hotel, Eye, IndianRupee, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { publishAppEvent, subscribeAppEvent } from '@/lib/broadcast';
 import { clearSessionCache, getSessionCache, setSessionCache } from '@/lib/panelCache';
@@ -75,6 +75,10 @@ const PartnerListings = () => {
 
   const handleEdit = (item: any) => {
     navigate(`${ADD_ROUTES[item.itemType]}?edit=${item.id}`);
+  };
+
+  const handlePrices = (item: any) => {
+    navigate(`/partner/inventory?hotelId=${encodeURIComponent(item.id)}`);
   };
 
   const handleDelete = async (item: any) => {
@@ -169,6 +173,15 @@ const PartnerListings = () => {
                 >
                   <Eye size={14} />
                 </button>
+                {item.itemType === 'hotel' && (
+                  <button
+                    onClick={() => handlePrices(item)}
+                    className="p-1.5 rounded hover:bg-brand-gold/10 transition-colors text-muted-foreground hover:text-brand-gold"
+                    title="Add or edit prices"
+                  >
+                    <IndianRupee size={14} />
+                  </button>
+                )}
                 <button
                   onClick={() => handleEdit(item)}
                   className="p-1.5 rounded hover:bg-brand-gold/10 transition-colors text-muted-foreground hover:text-brand-gold"
@@ -206,6 +219,14 @@ const PartnerListings = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-heading text-lg font-semibold">{getItemName(viewItem)}</h3>
             <div className="flex items-center gap-2">
+              {viewItem.itemType === 'hotel' && (
+                <button
+                  onClick={() => handlePrices(viewItem)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-body border border-brand-gold text-brand-gold hover:bg-brand-gold/10 flex items-center gap-1"
+                >
+                  <IndianRupee size={12} /> Prices
+                </button>
+              )}
               <button
                 onClick={() => handleEdit(viewItem)}
                 className="px-3 py-1.5 rounded-lg text-xs font-body border border-brand-gold text-brand-gold hover:bg-brand-gold/10 flex items-center gap-1"

@@ -63,7 +63,7 @@ router.get('/hotels', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const hotels = await Hotel.find({})
       .sort({ createdAt: -1 })
-      .select('_id name propertyType location status approvalStatus partnerId partnerName partnerEmail partnerPhone')
+      .select('_id name propertyType location status approvalStatus showPrices partnerId partnerName partnerEmail partnerPhone')
       .lean();
     res.json({ success: true, data: hotels });
   } catch (err) {

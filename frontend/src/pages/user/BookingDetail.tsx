@@ -55,6 +55,7 @@ const BookingDetail = () => {
   const [modifyPreview, setModifyPreview] = useState<any>(null);
   const [isPreviewingModification, setIsPreviewingModification] = useState(false);
   const [isSubmittingModification, setIsSubmittingModification] = useState(false);
+  const [isPayingDharamshala, setIsPayingDharamshala] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -109,6 +110,11 @@ const BookingDetail = () => {
 
   const statusConfig = {
     confirmed: { color: 'bg-brand-green/10 text-brand-green border-brand-green/20', icon: CheckCircle2, label: 'Confirmed' },
+    pending_property_confirmation: { color: 'bg-brand-saffron/10 text-brand-saffron border-brand-saffron/20', icon: Clock, label: 'Pending Property Confirmation' },
+    awaiting_customer_payment: { color: 'bg-brand-saffron/10 text-brand-saffron border-brand-saffron/20', icon: CreditCard, label: 'Awaiting Service Fee Payment' },
+    rejected_by_property: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Rejected by Property' },
+    expired_property_no_response: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Expired - Property Did Not Respond' },
+    no_show: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'No-show' },
     cancelled: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Cancelled' },
     expired: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Expired' },
     payment_failed: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Payment Failed' },
@@ -160,24 +166,87 @@ const BookingDetail = () => {
   const isHotelMarketplace =
     booking.service_billing_model === 'hotel_marketplace' ||
     ['hotel', 'room', 'room_type'].includes(String(booking.bookingType || ''));
+  const isDharamshalaBooking = String(booking.propertyType || '').toLowerCase() === 'dharamshala';
   const formatMoney = (value: unknown) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
-  const roomAmount = Number(booking.baseAmount || booking.checkoutSubtotal || 0);
+  const roomAmount = Number(isDharamshalaBooking ? booking.dharamshalaAmount : (booking.baseAmount || booking.checkoutSubtotal || 0));
   const hotelTaxes = Number(booking.taxAmount || 0);
-  const convenienceFee = Number(booking.convenienceFeeAmount || 0);
+  const convenienceFee = Number(isDharamshalaBooking ? booking.vrindavanSarthiServiceFee : (booking.convenienceFeeAmount || 0));
   const totalPayable = Number(booking.totalAmount || 0);
-  const advancePaid = Number(booking.advanceAmount || (booking.paymentOption === 'advance_30' ? Math.round(totalPayable * 0.3) : totalPayable));
-  const balancePayable = Number(booking.balanceAmount || Math.max(0, totalPayable - advancePaid));
+  const advancePaid = Number(isDharamshalaBooking ? booking.amountPaidOnline : (booking.advanceAmount || (booking.paymentOption === 'advance_30' ? Math.round(totalPayable * 0.3) : totalPayable)));
+  const balancePayable = Number(isDharamshalaBooking ? booking.amountPayableAtProperty : (booking.balanceAmount || Math.max(0, totalPayable - advancePaid)));
   const customerName = booking.customerFullName || booking.userName || '-';
   const customerPhone = booking.customerMobile || booking.userPhone || '-';
   const customerEmail = booking.customerEmail || booking.userEmail || '-';
   const documentLabel = isHotelMarketplace ? 'Booking Confirmation & Payment Receipt' : 'Tax Invoice';
+  const voucherLabel = isDharamshalaBooking ? 'VRINDAVAN SARTHI - BOOKING CONFIRMATION' : documentLabel;
   const canModify =
     booking.bookingType === 'room_type' &&
     booking.bookingStatus === 'confirmed' &&
     booking.paymentStatus === 'paid';
+  const canPayAcceptedDharamshala =
+    isDharamshalaBooking &&
+    booking.bookingStatus === 'awaiting_customer_payment' &&
+    booking.paymentStatus === 'pending' &&
+    Number(booking.amountPaidOnline || 0) > 0;
+  const canFindAnotherDharamshala =
+    isDharamshalaBooking &&
+    ['rejected_by_property', 'expired_property_no_response'].includes(String(booking.bookingStatus || ''));
   const modificationKey = () => {
     const random = window.crypto?.getRandomValues ? Array.from(window.crypto.getRandomValues(new Uint32Array(2))).join('-') : Math.random().toString(16).slice(2);
     return `modify:${booking.id}:${Date.now()}:${random}`;
+  };
+
+  const payAcceptedDharamshala = async () => {
+    if (!token || !booking?.id || !canPayAcceptedDharamshala) return;
+    try {
+      setIsPayingDharamshala(true);
+      await loadRazorpayCheckout();
+      const orderRes = await api.post('/payments/razorpay/orders', { bookingId: booking.id }, withAuth(token));
+      const data = orderRes.data?.data || {};
+      const order = data.order || {};
+      const keyId = String(data.keyId || '');
+      if (!window.Razorpay || !keyId || !order.id) throw new Error('Razorpay Checkout is not ready');
+      const rzp = new window.Razorpay({
+        key: keyId,
+        amount: order.amount,
+        currency: order.currency || 'INR',
+        name: 'Vrindavan Sarthi',
+        description: `Dharamshala payment for ${booking.bookingId}`,
+        order_id: order.id,
+        image: '/logo.png',
+        prefill: {
+          name: customerName,
+          email: customerEmail,
+          contact: customerPhone,
+        },
+        handler: async (response: any) => {
+          try {
+            const verifyRes = await api.post('/payments/razorpay/verify', {
+              bookingId: booking.id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }, withAuth(token));
+            setBooking(verifyRes.data?.data || booking);
+            toast.success('Payment verified. Booking confirmed.');
+          } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Payment verification failed');
+          } finally {
+            setIsPayingDharamshala(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsPayingDharamshala(false);
+            toast.message('Payment was not completed');
+          },
+        },
+      });
+      rzp.open();
+    } catch (err: any) {
+      setIsPayingDharamshala(false);
+      toast.error(err?.response?.data?.message || err?.message || 'Unable to start payment');
+    }
   };
 
   const submitReview = async () => {
@@ -556,10 +625,35 @@ const BookingDetail = () => {
             {/* Payment Sidebar */}
             <div className="space-y-6">
               <div className="bg-card rounded-xl border border-border p-6">
-                <p className="font-body text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-crimson mb-1">{documentLabel}</p>
+                <p className="font-body text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-crimson mb-1">{voucherLabel}</p>
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Payment Summary</h3>
                 <div className="space-y-3">
-                  {isHotelMarketplace ? (
+                  {isDharamshalaBooking ? (
+                    <>
+                      <div className="flex justify-between gap-4 font-body text-sm">
+                        <span className="text-muted-foreground">Dharamshala Contribution / Stay Amount</span>
+                        <span className="font-semibold text-foreground">{formatMoney(roomAmount)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4 font-body text-sm">
+                        <span className="text-muted-foreground">Payment</span>
+                        <span className="text-right font-semibold text-foreground">
+                          {String(booking.paymentMode) === 'full_online' ? 'Paid online after confirmation' : 'Pay at Dharamshala'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-4 font-body text-sm">
+                        <span className="text-muted-foreground">Vrindavan Sarthi Booking Service Fee</span>
+                        <span className="font-semibold text-foreground">{formatMoney(convenienceFee)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4 font-body text-sm">
+                        <span className="text-muted-foreground">Amount payable at Dharamshala</span>
+                        <span className="font-bold text-foreground">{formatMoney(balancePayable)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4 font-body text-sm">
+                        <span className="text-muted-foreground">Amount paid to Vrindavan Sarthi</span>
+                        <span className="font-bold text-brand-green">{formatMoney(advancePaid)}</span>
+                      </div>
+                    </>
+                  ) : isHotelMarketplace ? (
                     <>
                       <div className="flex justify-between gap-4 font-body text-sm">
                         <span className="text-muted-foreground">Room Amount</span>
@@ -575,15 +669,15 @@ const BookingDetail = () => {
                       </div>
                     </>
                   ) : null}
-                  <div className="flex justify-between gap-4 font-body text-sm">
+                  {!isDharamshalaBooking && <div className="flex justify-between gap-4 font-body text-sm">
                     <span className="font-semibold text-foreground">Total Payable</span>
                     <span className="font-bold text-brand-crimson">{formatMoney(totalPayable)}</span>
-                  </div>
-                  <div className="flex justify-between gap-4 font-body text-sm">
+                  </div>}
+                  {!isDharamshalaBooking && <div className="flex justify-between gap-4 font-body text-sm">
                     <span className="text-muted-foreground">Advance Paid Online</span>
                     <span className="font-semibold text-brand-green">{formatMoney(advancePaid)}</span>
-                  </div>
-                  {isHotelMarketplace && (
+                  </div>}
+                  {!isDharamshalaBooking && isHotelMarketplace && (
                     <div className="flex justify-between gap-4 font-body text-sm">
                       <span className="text-muted-foreground">Balance at Property</span>
                       <span className="font-semibold text-foreground">{formatMoney(balancePayable)}</span>
@@ -610,12 +704,14 @@ const BookingDetail = () => {
                   </div>
                   <div className="h-px bg-border" />
                   <div className="flex justify-between font-body text-base">
-                    <span className="font-semibold text-foreground">Booking Total</span>
+                    <span className="font-semibold text-foreground">{isDharamshalaBooking ? 'Total booking value' : 'Booking Total'}</span>
                     <span className="font-bold text-brand-crimson text-lg">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
                   </div>
                   {isHotelMarketplace && (
                     <p className="rounded-lg border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-relaxed text-muted-foreground">
-                      This is not a tax invoice for accommodation. The property partner will issue the hotel tax invoice where applicable.
+                      {isDharamshalaBooking
+                        ? "Dharamshala contribution/stay amount is payable directly to the property according to its applicable terms. The property will issue its applicable receipt. Vrindavan Sarthi's service fee is separate."
+                        : 'This is not a tax invoice for accommodation. The property partner will issue the hotel tax invoice where applicable.'}
                     </p>
                   )}
                 </div>
@@ -661,6 +757,32 @@ const BookingDetail = () => {
                   >
                     {isReviewing ? 'Submitting...' : 'Submit Review'}
                   </button>
+                </div>
+              )}
+
+              {canPayAcceptedDharamshala && (
+                <button
+                  onClick={payAcceptedDharamshala}
+                  disabled={isPayingDharamshala}
+                  className="w-full py-3 rounded-xl bg-brand-gold text-foreground font-body text-sm font-semibold hover:bg-brand-gold/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <CreditCard size={16} /> {isPayingDharamshala ? 'Opening Razorpay...' : `Pay ${formatMoney(booking.amountPaidOnline)} Online`}
+                </button>
+              )}
+
+              {canFindAnotherDharamshala && (
+                <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+                  <p className="font-body text-sm font-semibold text-foreground">
+                    {booking.bookingStatus === 'rejected_by_property'
+                      ? 'This Dharamshala could not confirm your requested dates.'
+                      : 'This request expired because the Dharamshala did not respond in time.'}
+                  </p>
+                  <Link
+                    to="/hotels?type=dharamshala"
+                    className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-brand-crimson px-4 py-3 font-body text-sm font-semibold text-primary-foreground hover:bg-brand-crimson/90"
+                  >
+                    Find Another Dharamshala
+                  </Link>
                 </div>
               )}
 

@@ -241,6 +241,7 @@ const Home = () => {
   }, [fetchProducts, shopEnabled]);
 
   const getRoomPrice = (roomType: any) => {
+    if (roomType?.hotel?.showPrices === false) return undefined;
     const base = Number(roomType?.pricePerNight || 0);
     const hotel = roomType?.hotel || {};
     if (isDharamshalaType(hotel?.propertyType)) return Math.round(base * 1.1);
@@ -252,6 +253,7 @@ const Home = () => {
   };
 
   const getHotelStartingPrice = (hotel: any) => {
+    if (hotel?.showPrices === false) return undefined;
     const prices = [
       hotel?.pricePerNight,
       hotel?.pricePerBed,

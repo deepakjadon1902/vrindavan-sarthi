@@ -674,7 +674,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint, Star, Landmark, BedDouble, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, PawPrint, Star, Landmark, BedDouble, Minus, Plus, MessageCircle, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { api, withAuth } from '@/lib/api';
@@ -742,6 +742,7 @@ const RoomTypeDetail = () => {
   const { isAuthenticated, user, token } = useAuthStore();
   const { createRoomTypeBooking } = useBookingStore();
   const defaultHotelTaxPercent = useSettingsStore((s) => s.settings.hotelTaxPercent);
+  const supportPhone = useSettingsStore((s) => s.settings.adminPhone);
 
   const qs = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const [checkIn, setCheckIn] = useState(() => qs.get('checkIn') || '');
@@ -849,6 +850,11 @@ const RoomTypeDetail = () => {
   const hotel = roomType?.hotel || null;
   const uploader = roomType?.uploader || null;
   const isDharamshala = isDharamshalaType(hotel?.propertyType);
+  const showPrices = hotel?.showPrices !== false;
+  const roomHasPublishedPrice = Number(roomType?.pricePerNight || 0) > 0;
+  const canShowRoomPrices = showPrices && (!isDharamshala || roomHasPublishedPrice);
+  const supportDigits = supportPhone.replace(/\D/g, '');
+  const whatsappMessage = `Radhe Radhe, I want to book ${hotel?.name || 'this property'}${roomType?.name ? ` - ${roomType.name}` : ''}${hotel?.location ? ` in ${hotel.location}` : ''}. Please share availability and price.`;
   const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
   const mustAcceptPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
 
@@ -1027,7 +1033,7 @@ const RoomTypeDetail = () => {
     if (checkIn < todayKey) { toast.error('Check-in date cannot be in the past'); return false; }
     if (checkOut <= checkIn) { toast.error('Check-out must be after check-in'); return false; }
     if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) { toast.error('Please fill your name, mobile and email'); return false; }
-    if (!effectivePaymentOption) { toast.error('Please select a payment option'); return false; }
+    if (canShowRoomPrices && !effectivePaymentOption) { toast.error('Please select a payment option'); return false; }
     if (roomQuantity < 1) { toast.error('Please select at least 1 room'); return false; }
     if (availableCount !== null && roomQuantity > availableCount) {
       toast.error(`Only ${availableCount} room(s) are available for selected dates`);
@@ -1065,7 +1071,7 @@ const RoomTypeDetail = () => {
       totalChildren,
       hasPet,
       guestDetails,
-      totalAmount: total,
+      totalAmount: canShowRoomPrices ? total : 0,
       paymentMethod: 'online',
       paymentProvider: 'razorpay',
       paymentOption: effectivePaymentOption,
@@ -1078,6 +1084,10 @@ const RoomTypeDetail = () => {
   const startRazorpayPayment = async () => {
     const ok = validateBookingForm();
     if (!ok) return;
+    if (!showPrices && !isDharamshala) {
+      toast.error('Prices are not published for this room. Please book by call or WhatsApp.');
+      return;
+    }
     if (!token) { toast.error('Please login to book'); navigate('/login'); return; }
     if (availableCount !== null && roomQuantity > availableCount) {
       setShowAvailability(true);
@@ -1089,10 +1099,10 @@ const RoomTypeDetail = () => {
     setIsStartingPayment(true);
     let pendingRazorpayBookingId = '';
     try {
-      await loadRazorpayCheckout();
       const bookingResult = await createRoomTypeBooking(buildBookingPayload());
       if (!bookingResult.success || !bookingResult.data?.id) {
         toast.error(bookingResult.error || 'Booking failed');
+        setIsStartingPayment(false);
         return;
       }
 
@@ -1100,6 +1110,15 @@ const RoomTypeDetail = () => {
       pendingRazorpayBookingId = pendingBooking.id;
       setBookingId(String(pendingBooking.bookingId));
       setIsWaitlistedBooking(Boolean(pendingBooking.isWaitlisted));
+
+      if (isDharamshala) {
+        setBooked(true);
+        toast.success('Request submitted. The Dharamshala will confirm availability before payment.');
+        setIsStartingPayment(false);
+        return;
+      }
+
+      await loadRazorpayCheckout();
 
       const markRazorpayAttemptFailed = async (status: 'failed' | 'cancelled' | 'dismissed' | 'verification_failed', razorpayPaymentId?: string) => {
         try {
@@ -1393,9 +1412,11 @@ const RoomTypeDetail = () => {
                 <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
                   <Shield size={22} className="text-green-600" />
                 </div>
-                <p className="text-lg font-bold text-gray-900">Booking Successful</p>
+                <p className="text-lg font-bold text-gray-900">{isDharamshala ? 'Request Submitted' : 'Booking Successful'}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {isWaitlistedBooking ? 'Payment verified. You are on the waitlist.' : 'Your payment is verified and room booking is confirmed.'}
+                  {isDharamshala
+                    ? 'Your booking request has been sent to the Dharamshala for confirmation.'
+                    : isWaitlistedBooking ? 'Payment verified. You are on the waitlist.' : 'Your payment is verified and room booking is confirmed.'}
                 </p>
                 {bookingId && <p className="text-xs text-gray-400 mt-2">Booking ID: <span className="text-gray-700 font-medium">{bookingId}</span></p>}
                 <Link to="/bookings" className="btn-crimson inline-block mt-4 px-6 py-2.5 rounded-lg text-sm font-semibold">
@@ -1408,12 +1429,19 @@ const RoomTypeDetail = () => {
                 {/* Price */}
                 <div>
                   <p className="text-xs text-gray-400 uppercase tracking-wide">Price</p>
-                  <p className="text-3xl font-bold text-brand-crimson">
-                    ₹{Number(roomType.pricePerNight || 0).toLocaleString('en-IN')}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    per night
-                  </p>
+                  {canShowRoomPrices ? (
+                    <>
+                      <p className="text-3xl font-bold text-brand-crimson">
+                        Rs. {Number(roomType.pricePerNight || 0).toLocaleString('en-IN')}
+                      </p>
+                      <p className="text-xs text-gray-400">per night</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-3xl font-bold text-brand-crimson">{isDharamshala ? 'Contribution on request' : 'Price on request'}</p>
+                      <p className="text-xs text-gray-400">{isDharamshala ? 'Dharamshala will confirm amount and availability' : 'Confirm current price by call or WhatsApp'}</p>
+                    </>
+                  )}
                 </div>
 
                 <hr className="border-gray-100" />
@@ -1544,8 +1572,8 @@ const RoomTypeDetail = () => {
                       <span className="block font-semibold text-gray-800">{maxAdultsForSelection} adults · {maxChildrenForSelection} children</span>
                     </div>
                     <div className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">
-                      Room total
-                      <span className="block font-semibold">Rs. {baseTotal.toLocaleString('en-IN')}</span>
+                      Price
+                      <span className="block font-semibold">{canShowRoomPrices ? `Rs. ${baseTotal.toLocaleString('en-IN')}` : 'On request'}</span>
                     </div>
                   </div>
                   <p className="mt-2 text-[11px] text-gray-400">
@@ -1642,6 +1670,7 @@ const RoomTypeDetail = () => {
                 )}
 
                 {/* Price breakdown */}
+                {canShowRoomPrices && (
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-1.5 text-sm">
                   <div className="flex justify-between text-gray-500">
                     <span>Rs. {Number(roomType.pricePerNight || 0).toLocaleString('en-IN')} x {nights} night(s) x {roomQuantity} room(s)</span>
@@ -1662,9 +1691,11 @@ const RoomTypeDetail = () => {
                     <span className="text-brand-crimson">Rs. {total.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
+                )}
 
 
                 {/* Payment options */}
+                {canShowRoomPrices && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Payment Option *</p>
 
@@ -1713,6 +1744,7 @@ const RoomTypeDetail = () => {
                     </div>
                   )}
                 </div>
+                )}
 
                 {mustAcceptPropertyTerms && (
                   <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 p-3">
@@ -1731,13 +1763,30 @@ const RoomTypeDetail = () => {
                 )}
 
                 {/* CTA */}
-                {!isFullyBookedSelectedDates ? (
+                {!showPrices && !isDharamshala ? (
+                  <div className="grid grid-cols-1 gap-2">
+                    <a
+                      href={`https://wa.me/${supportDigits}?text=${encodeURIComponent(whatsappMessage)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-gold inline-flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold tracking-wide"
+                    >
+                      <MessageCircle size={16} /> WhatsApp Booking
+                    </a>
+                    <a
+                      href={`tel:${supportDigits}`}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-3 text-sm font-bold text-gray-800 hover:border-brand-gold/50"
+                    >
+                      <Phone size={16} /> Call Booking
+                    </a>
+                  </div>
+                ) : !isFullyBookedSelectedDates ? (
                   <button
                     onClick={startRazorpayPayment}
                     disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
                     className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isStartingPayment ? 'Opening Razorpay...' : 'Pay Securely with Razorpay'}
+                    {isStartingPayment ? (isDharamshala ? 'Submitting request...' : 'Opening Razorpay...') : (isDharamshala ? 'Request Booking' : 'Pay Securely with Razorpay')}
                   </button>
                 ) : (
                   <div className="space-y-2">
@@ -1759,7 +1808,7 @@ const RoomTypeDetail = () => {
                 )}
 
                 <p className="text-center text-[11px] text-gray-400">
-                  Official Razorpay Checkout - automatic server verification
+                  {canShowRoomPrices ? (isDharamshala ? 'The Dharamshala confirms availability before any online payment.' : 'Official Razorpay Checkout - automatic server verification') : 'Prices and availability are confirmed by our booking desk.'}
                 </p>
               </div>
             )}

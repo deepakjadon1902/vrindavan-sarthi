@@ -111,6 +111,7 @@ const Rooms = () => {
   const getTaxInclusivePrice = (rt: any) => {
     const base = Number(rt?.pricePerNight || 0);
     const hotel = rt?.hotel || {};
+    if (hotel?.showPrices === false) return undefined;
     if (isDharamshalaType(hotel?.propertyType)) return Math.round(base * 1.1);
     if (!hotel?.taxEnabled) return base;
     const percent = hotel?.gstMode === 'automatic'

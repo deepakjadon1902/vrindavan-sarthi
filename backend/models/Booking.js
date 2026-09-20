@@ -37,7 +37,7 @@ const bookingSchema = new mongoose.Schema({
   bookingType: { type: String, enum: ['hotel', 'room', 'cab', 'tour', 'room_type'], required: true },
   service_billing_model: {
     type: String,
-    enum: ['hotel_marketplace', 'taxi_direct', 'tour_direct', 'ecommerce_direct'],
+    enum: ['hotel_marketplace', 'dharamshala_booking', 'taxi_direct', 'tour_direct', 'ecommerce_direct'],
     default: 'hotel_marketplace',
     index: true,
   },
@@ -51,6 +51,8 @@ const bookingSchema = new mongoose.Schema({
   partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   partnerName: String,
   partnerPhone: String,
+  propertyType: { type: String, enum: ['hotel', 'dharamshala', 'home_stay', 'guest_house'], default: 'hotel', index: true },
+  paymentMode: { type: String, enum: ['pay_at_dharamshala', 'full_online', 'request_only'], default: null, index: true },
 
   // Hotel inventory booking (room-type based)
   hotelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel' },
@@ -110,6 +112,11 @@ const bookingSchema = new mongoose.Schema({
   guestDetails: [guestDetailSchema],
 
   totalAmount: { type: Number, default: 0 },
+  dharamshalaAmount: { type: Number, default: 0 },
+  vrindavanSarthiServiceFee: { type: Number, default: 0 },
+  amountPaidOnline: { type: Number, default: 0 },
+  amountPayableAtProperty: { type: Number, default: 0 },
+  amountPaidToProperty: { type: Number, default: 0 },
   baseAmount: { type: Number, default: 0 },
   base_amount: { type: Number, default: 0 },
   taxPercent: { type: Number, default: 0 },
@@ -141,9 +148,35 @@ const bookingSchema = new mongoose.Schema({
   hotel_invoice_number: String,
   invoiceSentAt: Date,
   paymentMethod: { type: String, enum: ['online', 'doorstep'], default: 'online' },
-  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'expired'], default: 'pending' },
-  bookingStatus: { type: String, enum: ['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'completed', 'settled', 'expired', 'payment_failed'], default: 'pending' },
+  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'expired', 'not_required'], default: 'pending' },
+  bookingStatus: {
+    type: String,
+    enum: [
+      'pending',
+      'pending_property_confirmation',
+      'awaiting_customer_payment',
+      'rejected_by_property',
+      'expired_property_no_response',
+      'confirmed',
+      'checked_in',
+      'checked_out',
+      'no_show',
+      'cancelled',
+      'completed',
+      'settled',
+      'expired',
+      'payment_failed',
+    ],
+    default: 'pending',
+  },
   paymentHoldExpiresAt: { type: Date, index: true },
+  requestExpiresAt: { type: Date, index: true },
+  propertyRespondedAt: Date,
+  propertyDecisionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  propertyDecisionRole: { type: String, enum: ['admin', 'partner', 'system'], default: null },
+  propertyDecisionReason: String,
+  idempotencyKey: { type: String, index: true },
+  bookingSource: { type: String, default: 'web' },
   confirmedAt: Date,
   checkedInAt: Date,
   checkedOutAt: Date,
@@ -225,5 +258,13 @@ bookingSchema.index({ userId: 1, createdAt: -1 });
 bookingSchema.index({ partnerId: 1, createdAt: -1 });
 bookingSchema.index({ roomTypeId: 1, bookingStatus: 1, checkIn: 1, checkOut: 1 });
 bookingSchema.index({ bookingStatus: 1, paymentStatus: 1, paymentHoldExpiresAt: 1 });
+bookingSchema.index({ propertyType: 1, bookingStatus: 1, requestExpiresAt: 1 });
+bookingSchema.index({ partnerId: 1, propertyType: 1, bookingStatus: 1, createdAt: -1 });
+bookingSchema.index({ userId: 1, propertyType: 1, bookingStatus: 1, createdAt: -1 });
+bookingSchema.index({ hotelId: 1, propertyType: 1, bookingStatus: 1, checkIn: 1, checkOut: 1 });
+bookingSchema.index(
+  { userId: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } }
+);
 
 module.exports = mongoose.model('Booking', bookingSchema);

@@ -6,11 +6,12 @@ import path from "path";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const proxyTarget = env.VITE_API_PROXY_TARGET || env.VITE_BACKEND_URL || "http://localhost:5000";
+  const devPort = Number(env.VITE_DEV_PORT || 8081);
 
   return {
     server: {
       host: "::",
-      port: 8080,
+      port: Number.isFinite(devPort) && devPort > 0 ? devPort : 8081,
       fs: {
         // Prevent dev server from attempting to crawl outside the project root in locked-down environments.
         strict: true,

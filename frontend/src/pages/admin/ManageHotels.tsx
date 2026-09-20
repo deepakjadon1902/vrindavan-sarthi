@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, Search, X, Upload, Image as ImageIcon, Building2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Pencil, Trash2, Search, X, Upload, Image as ImageIcon, Building2, IndianRupee } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
@@ -25,6 +26,10 @@ interface Hotel {
   checkInTime?: string;
   checkOutTime?: string;
   hotelGstin?: string;
+  showPrices?: boolean;
+  dharamshalaPaymentMode?: 'pay_at_dharamshala' | 'full_online' | 'request_only';
+  dharamshalaServiceFee?: number;
+  dharamshalaResponseTimeoutMinutes?: number;
   taxEnabled?: boolean;
   taxPercent?: number;
   platform_commission_percentage?: number;
@@ -36,6 +41,7 @@ interface Hotel {
 }
 
 const ManageHotels = () => {
+  const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   const [items, setItems] = useState<Hotel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,6 +69,10 @@ const ManageHotels = () => {
     taxEnabled: false,
     taxPercent: '12',
     platform_commission_percentage: '10',
+    showPrices: true,
+    dharamshalaPaymentMode: 'pay_at_dharamshala' as const,
+    dharamshalaServiceFee: '99',
+    dharamshalaResponseTimeoutMinutes: '30',
     propertyTerms: normalizePropertyTerms(),
   });
 
@@ -104,6 +114,10 @@ const ManageHotels = () => {
       taxEnabled: false,
       taxPercent: '12',
       platform_commission_percentage: '10',
+      showPrices: true,
+      dharamshalaPaymentMode: 'pay_at_dharamshala',
+      dharamshalaServiceFee: '99',
+      dharamshalaResponseTimeoutMinutes: '30',
       propertyTerms: normalizePropertyTerms(),
     });
     setImagePreview('');
@@ -147,6 +161,10 @@ const ManageHotels = () => {
       taxEnabled: Boolean(hotel.taxEnabled),
       taxPercent: String(hotel.taxPercent ?? 12),
       platform_commission_percentage: String(hotel.platform_commission_percentage ?? 10),
+      showPrices: hotel.showPrices !== false,
+      dharamshalaPaymentMode: hotel.dharamshalaPaymentMode || 'pay_at_dharamshala',
+      dharamshalaServiceFee: String(hotel.dharamshalaServiceFee ?? 99),
+      dharamshalaResponseTimeoutMinutes: String(hotel.dharamshalaResponseTimeoutMinutes ?? 30),
       propertyTerms: normalizePropertyTerms(hotel.propertyTerms),
     });
     setImagePreview(hotel.image || '');
@@ -188,6 +206,10 @@ const ManageHotels = () => {
       taxEnabled: isDharamshalaType(form.propertyType) ? false : form.taxEnabled,
       taxPercent: isDharamshalaType(form.propertyType) ? 0 : Number(form.taxPercent || 12),
       platform_commission_percentage: isDharamshalaType(form.propertyType) ? 10 : Number(form.platform_commission_percentage || 0),
+      showPrices: Boolean(form.showPrices),
+      dharamshalaPaymentMode: form.dharamshalaPaymentMode,
+      dharamshalaServiceFee: Number(form.dharamshalaServiceFee || 0),
+      dharamshalaResponseTimeoutMinutes: Number(form.dharamshalaResponseTimeoutMinutes || 30),
       propertyTerms: form.propertyTerms,
     };
     if (editingId && payload.image === '/placeholder.svg') delete payload.image;
@@ -240,6 +262,10 @@ const ManageHotels = () => {
     } finally {
       setDeleteConfirm(null);
     }
+  };
+
+  const handlePrices = (hotel: Hotel) => {
+    navigate(`/admin/inventory?hotelId=${encodeURIComponent(hotel._id)}`);
   };
 
   const filtered = useMemo(
@@ -479,6 +505,60 @@ const ManageHotels = () => {
               <label className="flex items-start gap-3 font-body text-sm text-foreground">
                 <input
                   type="checkbox"
+                  checked={form.showPrices}
+                  onChange={(e) => setForm({ ...form, showPrices: e.target.checked })}
+                  className="mt-1"
+                />
+                <span>
+                  Show prices and online booking on this property
+                  <span className="block text-xs text-muted-foreground mt-1">
+                    Turn this off when guests should book by call or WhatsApp only.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            {isDharamshalaType(form.propertyType) && (
+              <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-3">
+                <label className="font-body text-sm font-medium text-foreground">
+                  Booking Mode
+                  <select
+                    value={form.dharamshalaPaymentMode}
+                    onChange={(e) => setForm({ ...form, dharamshalaPaymentMode: e.target.value as typeof form.dharamshalaPaymentMode })}
+                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="pay_at_dharamshala">Service fee online, stay amount at Dharamshala</option>
+                    <option value="full_online">Full amount online</option>
+                    <option value="request_only">Request only, no online payment</option>
+                  </select>
+                </label>
+                <label className="font-body text-sm font-medium text-foreground">
+                  Service Fee
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.dharamshalaServiceFee}
+                    onChange={(e) => setForm({ ...form, dharamshalaServiceFee: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="font-body text-sm font-medium text-foreground">
+                  Response Timeout Minutes
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.dharamshalaResponseTimeoutMinutes}
+                    onChange={(e) => setForm({ ...form, dharamshalaResponseTimeoutMinutes: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+            )}
+
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <label className="flex items-start gap-3 font-body text-sm text-foreground">
+                <input
+                  type="checkbox"
                   checked={form.taxEnabled}
                   disabled={isDharamshalaType(form.propertyType)}
                   onChange={(e) => setForm({ ...form, taxEnabled: e.target.checked })}
@@ -613,6 +693,13 @@ const ManageHotels = () => {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handlePrices(hotel)}
+                          className="p-1.5 rounded hover:bg-brand-gold/10 transition-colors text-muted-foreground hover:text-brand-gold"
+                          title="Add or edit prices"
+                        >
+                          <IndianRupee size={14} />
+                        </button>
                         <button
                           onClick={() => handleEdit(hotel)}
                           className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"

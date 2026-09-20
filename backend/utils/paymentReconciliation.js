@@ -17,6 +17,7 @@ const {
   getExpectedRoomNightLockCount,
 } = require('./reservationLifecycle');
 const { applyModificationPaymentFromWebhook, markModificationPaymentFailed } = require('./bookingModification');
+const { expectedBookingAmountPaise } = require('./bookingPayable');
 
 const PROCESSING_STALE_MS = 15 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -61,9 +62,6 @@ const buildPaymentReconciliationKey = ({ targetType, targetId, orderId, paymentI
 
 const getPaymentReconciliationJobId = ({ targetType, targetId }) =>
   `payment-reconcile:${normalize(targetType)}:${normalize(targetId)}`;
-
-const expectedBookingAmountPaise = (booking) =>
-  Math.max(0, Math.round(Number(booking?.advanceAmount || booking?.advance_paid || booking?.totalAmount || 0) * 100));
 
 const expectedModificationAmountPaise = (modification) =>
   Math.max(0, Math.round(Number(modification?.differenceAmount || 0) * 100));
@@ -116,6 +114,9 @@ const classifyCapturedBookingLocalState = ({ bookingStatus, paymentStatus, inven
   if (paymentStatus === 'paid') return { status: 'resolved', reason: 'provider_captured_local_already_paid' };
   if (bookingStatus === 'pending' && paymentStatus === 'pending' && inventoryComplete) {
     return { status: 'safe_to_confirm', reason: 'provider_captured_local_pending' };
+  }
+  if (bookingStatus === 'awaiting_customer_payment' && paymentStatus === 'pending' && inventoryComplete) {
+    return { status: 'safe_to_confirm', reason: 'provider_captured_local_dharamshala_awaiting_payment' };
   }
   if (bookingStatus === 'pending' && paymentStatus === 'pending' && !inventoryComplete) {
     return { status: 'reconciliation_required', reason: 'provider_captured_inventory_incomplete' };

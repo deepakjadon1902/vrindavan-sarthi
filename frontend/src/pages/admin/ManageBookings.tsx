@@ -17,8 +17,11 @@ const ManageBookings = () => {
     rejectPayment,
     adminCancelBooking,
     updateBookingStatus,
+    acceptDharamshalaRequest,
+    rejectDharamshalaRequest,
+    markDharamshalaNoShow,
   } = useBookingStore();
-  const [filter, setFilter] = useState<'all' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled' | 'expired' | 'payment_failed'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending_property_confirmation' | 'awaiting_customer_payment' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled' | 'expired' | 'payment_failed' | 'rejected_by_property' | 'expired_property_no_response'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'room_type' | 'cab' | 'tour'>('all');
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignBookingId, setAssignBookingId] = useState<string>('');
@@ -56,10 +59,11 @@ const ManageBookings = () => {
 
   const statusColor = (s: string) => {
     if (s === 'confirmed') return 'bg-brand-green/10 text-brand-green';
+    if (s === 'pending_property_confirmation' || s === 'awaiting_customer_payment') return 'bg-brand-saffron/10 text-brand-saffron';
     if (s === 'checked_in') return 'bg-blue-50 text-blue-700';
     if (s === 'checked_out') return 'bg-emerald-50 text-emerald-700';
     if (s === 'cancelled') return 'bg-destructive/10 text-destructive';
-    if (s === 'expired' || s === 'payment_failed') return 'bg-destructive/10 text-destructive';
+    if (s === 'expired' || s === 'payment_failed' || s === 'rejected_by_property' || s === 'expired_property_no_response') return 'bg-destructive/10 text-destructive';
     if (s === 'completed' || s === 'settled') return 'bg-brand-gold/10 text-brand-gold';
     return 'bg-muted text-muted-foreground';
   };
@@ -87,6 +91,9 @@ const ManageBookings = () => {
     b.bookingType === 'cab' &&
     b.bookingStatus === 'pending' &&
     (b.paymentMethod !== 'online' || b.paymentStatus === 'paid');
+  const canDecideDharamshala = (b: any) =>
+    String(b.propertyType || '').toLowerCase() === 'dharamshala' &&
+    b.bookingStatus === 'pending_property_confirmation';
 
   const handleVerify = async (id: string) => {
     const res = await verifyPayment(id);
@@ -100,10 +107,31 @@ const ManageBookings = () => {
     else toast.error(res.error || 'Reject failed');
   };
 
-  const handleStatusChange = async (id: string, status: 'checked_in' | 'checked_out' | 'settled') => {
+  const handleStatusChange = async (id: string, status: 'checked_in' | 'checked_out' | 'completed' | 'settled') => {
     const res = await updateBookingStatus(id, status);
     if (res.success) toast.success(`Booking marked ${status.replace('_', ' ')}`);
     else toast.error(res.error || 'Status update failed');
+  };
+
+  const handleNoShow = async (id: string) => {
+    const reason = window.prompt('No-show note:') || 'Guest did not arrive';
+    const res = await markDharamshalaNoShow(id, reason.trim() || 'Guest did not arrive');
+    if (res.success) toast.success('Booking marked no-show');
+    else toast.error(res.error || 'No-show update failed');
+  };
+
+  const handleAcceptDharamshala = async (id: string) => {
+    const res = await acceptDharamshalaRequest(id);
+    if (res.success) toast.success(res.data?.bookingStatus === 'awaiting_customer_payment' ? 'Request accepted. Customer can pay online.' : 'Request accepted and confirmed.');
+    else toast.error(res.error || 'Accept failed');
+  };
+
+  const handleRejectDharamshala = async (id: string) => {
+    const reason = window.prompt('Reason for rejecting this request:') || '';
+    if (!reason.trim()) return toast.error('Rejection reason is required');
+    const res = await rejectDharamshalaRequest(id, reason.trim());
+    if (res.success) toast.success('Request rejected');
+    else toast.error(res.error || 'Reject failed');
   };
 
   const handleAdminCancel = async () => {
@@ -145,7 +173,7 @@ const ManageBookings = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
-        {(['all', 'confirmed', 'checked_in', 'checked_out', 'pending', 'expired', 'payment_failed', 'cancelled', 'completed', 'settled'] as const).map((f) => (
+        {(['all', 'pending_property_confirmation', 'awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'pending', 'expired', 'payment_failed', 'rejected_by_property', 'expired_property_no_response', 'cancelled', 'completed', 'settled'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -305,6 +333,21 @@ const ManageBookings = () => {
                       >
                         Assign Driver
                       </button>
+                    ) : canDecideDharamshala(b) ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleAcceptDharamshala(b.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-green text-primary-foreground hover:bg-brand-green/90"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleRejectDharamshala(b.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-destructive text-primary-foreground hover:bg-destructive/90"
+                        >
+                          Reject
+                        </button>
+                      </div>
                     ) : b.paymentMethod === 'online' ? (
                       canAdminVerify(b) ? (
                         <div className="flex items-center justify-end gap-2">
@@ -331,21 +374,41 @@ const ManageBookings = () => {
                     ) : (
                       <span className="font-body text-[11px] text-muted-foreground">-</span>
                     )}
-                    {['hotel', 'room', 'room_type'].includes(b.bookingType) && b.paymentStatus === 'paid' && b.bookingStatus === 'confirmed' && (
+                    {['hotel', 'room', 'room_type'].includes(b.bookingType) && (b.paymentStatus === 'paid' || b.paymentStatus === 'not_required') && b.bookingStatus === 'confirmed' && (
+                      <>
                       <button
                         onClick={() => void handleStatusChange(b.id, 'checked_in')}
                         className="px-3 py-1.5 rounded-lg text-xs font-body bg-blue-50 text-blue-700 hover:bg-blue-100"
                       >
                         Mark Check-in
                       </button>
+                      {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
+                        <button
+                          onClick={() => void handleNoShow(b.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-destructive/10 text-destructive hover:bg-destructive/15"
+                        >
+                          No-show
+                        </button>
+                      )}
+                      </>
                     )}
-                    {['hotel', 'room', 'room_type'].includes(b.bookingType) && b.paymentStatus === 'paid' && b.bookingStatus === 'checked_in' && (
+                    {['hotel', 'room', 'room_type'].includes(b.bookingType) && (b.paymentStatus === 'paid' || b.paymentStatus === 'not_required') && b.bookingStatus === 'checked_in' && (
+                      <>
                       <button
                         onClick={() => void handleStatusChange(b.id, 'checked_out')}
                         className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-green/10 text-brand-green hover:bg-brand-green/15"
                       >
                         Mark Check-out
                       </button>
+                      {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
+                        <button
+                          onClick={() => void handleStatusChange(b.id, 'completed')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-gold/10 text-brand-gold hover:bg-brand-gold/15"
+                        >
+                          Complete
+                        </button>
+                      )}
+                      </>
                     )}
                     {!['cancelled', 'expired', 'payment_failed', 'checked_out', 'settled'].includes(b.bookingStatus) && (
                       <button

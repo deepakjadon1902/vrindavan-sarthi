@@ -201,6 +201,16 @@ const applyPartnerHotelDefaults = (body, user) => {
   const p = Number(body?.taxPercent);
   body.taxPercent = body.gstMode === 'manual' && Number.isFinite(p) && p >= 0 ? Math.min(50, p) : 0;
   body.platform_commission_percentage = 10;
+  body.showPrices = typeof body?.showPrices === 'undefined' ? true : Boolean(body.showPrices);
+  const mode = String(body?.dharamshalaPaymentMode || '').trim().toLowerCase();
+  body.dharamshalaPaymentMode = ['pay_at_dharamshala', 'full_online', 'request_only'].includes(mode) ? mode : 'pay_at_dharamshala';
+  const serviceFee = Number(body?.dharamshalaServiceFee);
+  body.dharamshalaServiceFee = Number.isFinite(serviceFee) && serviceFee >= 0 ? Math.min(100000, Math.round(serviceFee)) : 99;
+  const responseTimeout = Number(body?.dharamshalaResponseTimeoutMinutes);
+  body.dharamshalaResponseTimeoutMinutes = Number.isFinite(responseTimeout) && responseTimeout > 0 ? Math.min(7 * 24 * 60, Math.floor(responseTimeout)) : 30;
+  for (const key of ['dharamshalaTerminology', 'dharamshalaCancellationPolicy', 'dharamshalaNoShowPolicy', 'dharamshalaIdRequirement']) {
+    body[key] = String(body?.[key] || '').trim().slice(0, 2000);
+  }
   if (body.propertyType === 'dharamshala') {
     body.taxEnabled = false;
     body.taxPercent = 0;
@@ -363,7 +373,7 @@ router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerId: req.user._id })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement propertyTerms createdAt updatedAt')
       .lean();
 
     hotelQuery.limit(limit);
@@ -389,7 +399,7 @@ router.get('/requests', protect, authorize('admin'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerSubmitted: true })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement propertyTerms createdAt updatedAt')
       .lean();
     hotelQuery.limit(limit);
 

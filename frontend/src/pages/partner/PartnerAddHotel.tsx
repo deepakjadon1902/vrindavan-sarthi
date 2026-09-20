@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Search, X, Image as ImageIcon } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { IndianRupee, Plus, Pencil, Trash2, Search, X, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
@@ -26,6 +26,10 @@ interface PartnerHotel {
   checkInTime?: string;
   checkOutTime?: string;
   hotelGstin?: string;
+  showPrices?: boolean;
+  dharamshalaPaymentMode?: 'pay_at_dharamshala' | 'full_online' | 'request_only';
+  dharamshalaServiceFee?: number;
+  dharamshalaResponseTimeoutMinutes?: number;
   taxEnabled?: boolean;
   taxPercent?: number;
   gstMode?: 'manual' | 'automatic';
@@ -38,6 +42,7 @@ interface PartnerHotel {
 }
 
 const PartnerAddHotel = () => {
+  const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -57,6 +62,10 @@ const PartnerAddHotel = () => {
     taxEnabled: Boolean(user?.gstNumber),
     taxPercent: '12',
     gstMode: 'automatic' as 'manual' | 'automatic',
+    showPrices: true,
+    dharamshalaPaymentMode: 'pay_at_dharamshala' as const,
+    dharamshalaServiceFee: '99',
+    dharamshalaResponseTimeoutMinutes: '30',
     petsAllowed: false,
     propertyTerms: normalizePropertyTerms(),
     images: [] as string[],
@@ -118,6 +127,10 @@ const PartnerAddHotel = () => {
       taxEnabled: Boolean(target.taxEnabled),
       taxPercent: String(target.taxPercent ?? 12),
       gstMode: target.gstMode || 'automatic',
+      showPrices: target.showPrices !== false,
+      dharamshalaPaymentMode: target.dharamshalaPaymentMode || 'pay_at_dharamshala',
+      dharamshalaServiceFee: String(target.dharamshalaServiceFee ?? 99),
+      dharamshalaResponseTimeoutMinutes: String(target.dharamshalaResponseTimeoutMinutes ?? 30),
       petsAllowed: Boolean(target.petsAllowed),
       propertyTerms: normalizePropertyTerms(target.propertyTerms),
       images: [target.image, ...(target.images || [])].filter(Boolean) as string[],
@@ -175,6 +188,10 @@ const PartnerAddHotel = () => {
       taxEnabled: isDharamshalaType(form.propertyType) ? false : Boolean(form.hotelGstin.trim()) && Boolean(form.taxEnabled),
       taxPercent: isDharamshalaType(form.propertyType) ? 0 : form.gstMode === 'manual' ? Number(form.taxPercent || 12) : 0,
       gstMode: isDharamshalaType(form.propertyType) ? 'manual' : form.gstMode,
+      showPrices: Boolean(form.showPrices),
+      dharamshalaPaymentMode: form.dharamshalaPaymentMode,
+      dharamshalaServiceFee: Number(form.dharamshalaServiceFee || 0),
+      dharamshalaResponseTimeoutMinutes: Number(form.dharamshalaResponseTimeoutMinutes || 30),
       amenities: form.amenities
         .split(',')
         .map((a) => a.trim())
@@ -225,12 +242,20 @@ const PartnerAddHotel = () => {
       taxEnabled: Boolean(item.taxEnabled),
       taxPercent: String(item.taxPercent ?? 12),
       gstMode: item.gstMode || 'automatic',
+      showPrices: item.showPrices !== false,
+      dharamshalaPaymentMode: item.dharamshalaPaymentMode || 'pay_at_dharamshala',
+      dharamshalaServiceFee: String(item.dharamshalaServiceFee ?? 99),
+      dharamshalaResponseTimeoutMinutes: String(item.dharamshalaResponseTimeoutMinutes ?? 30),
       petsAllowed: Boolean(item.petsAllowed),
       propertyTerms: normalizePropertyTerms(item.propertyTerms),
       images: [item.image, ...(item.images || [])].filter(Boolean) as string[],
     });
     setEditingId(item._id);
     setShowForm(true);
+  };
+
+  const handlePrices = (item: PartnerHotel) => {
+    navigate(`/partner/inventory?hotelId=${encodeURIComponent(item._id)}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -472,6 +497,58 @@ const PartnerAddHotel = () => {
                   Dharamshala bookings collect only a fixed 10% platform fee. GST and other customer charges are not applied.
                 </div>
               )}
+              {isDharamshalaForm && (
+                <div className="md:col-span-2 grid gap-3 rounded-lg border border-border bg-muted/30 p-3 md:grid-cols-3">
+                  <label className="font-body text-sm font-medium text-foreground">
+                    Booking Mode
+                    <select
+                      value={form.dharamshalaPaymentMode}
+                      onChange={(e) => setForm({ ...form, dharamshalaPaymentMode: e.target.value as typeof form.dharamshalaPaymentMode })}
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="pay_at_dharamshala">Service fee online, stay amount at Dharamshala</option>
+                      <option value="full_online">Full amount online</option>
+                      <option value="request_only">Request only, no online payment</option>
+                    </select>
+                  </label>
+                  <label className="font-body text-sm font-medium text-foreground">
+                    Service Fee
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.dharamshalaServiceFee}
+                      onChange={(e) => setForm({ ...form, dharamshalaServiceFee: e.target.value })}
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="font-body text-sm font-medium text-foreground">
+                    Response Timeout Minutes
+                    <input
+                      type="number"
+                      min="1"
+                      value={form.dharamshalaResponseTimeoutMinutes}
+                      onChange={(e) => setForm({ ...form, dharamshalaResponseTimeoutMinutes: e.target.value })}
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </label>
+                </div>
+              )}
+              <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
+                <label className="flex items-start gap-3 font-body text-sm font-medium text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={form.showPrices}
+                    onChange={(e) => setForm({ ...form, showPrices: e.target.checked })}
+                    className="mt-1"
+                  />
+                  <span>
+                    Show prices and online booking on this property
+                    <span className="block text-xs font-normal text-muted-foreground mt-1">
+                      Turn this off when bookings should happen only by call or WhatsApp.
+                    </span>
+                  </span>
+                </label>
+              </div>
               {!isDharamshalaForm && form.hotelGstin.trim() && (
                 <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
                   <label className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
@@ -644,6 +721,13 @@ const PartnerAddHotel = () => {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handlePrices(h)}
+                        className="p-1.5 rounded hover:bg-brand-gold/10 transition-colors text-muted-foreground hover:text-brand-gold"
+                        title="Add or edit prices"
+                      >
+                        <IndianRupee size={14} />
+                      </button>
                       <button
                         onClick={() => handleEdit(h)}
                         className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"

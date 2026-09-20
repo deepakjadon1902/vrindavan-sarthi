@@ -30,7 +30,14 @@ export interface Booking {
   paymentOption?: 'advance_30' | 'full_100';
   platformCommissionPercent?: number;
   platformCommissionAmount?: number;
-  service_billing_model?: 'hotel_marketplace' | 'taxi_direct' | 'tour_direct' | 'ecommerce_direct';
+  service_billing_model?: 'hotel_marketplace' | 'dharamshala_booking' | 'taxi_direct' | 'tour_direct' | 'ecommerce_direct';
+  propertyType?: 'hotel' | 'dharamshala' | 'home_stay' | 'guest_house';
+  paymentMode?: 'pay_at_dharamshala' | 'full_online' | 'request_only';
+  dharamshalaAmount?: number;
+  vrindavanSarthiServiceFee?: number;
+  amountPaidOnline?: number;
+  amountPayableAtProperty?: number;
+  amountPaidToProperty?: number;
   grossForHotel?: number;
   paymentGatewayFeeAmount?: number;
   partnerNetPayout?: number;
@@ -38,8 +45,8 @@ export interface Booking {
   hotel_gstin?: string;
   hotel_invoice_number?: string;
   paymentMethod: 'online' | 'doorstep';
-  paymentStatus: 'pending' | 'paid' | 'failed' | 'expired';
-  bookingStatus: 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled' | 'expired' | 'payment_failed';
+  paymentStatus: 'pending' | 'paid' | 'failed' | 'expired' | 'not_required';
+  bookingStatus: 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled' | 'expired' | 'payment_failed' | 'pending_property_confirmation' | 'awaiting_customer_payment' | 'rejected_by_property' | 'expired_property_no_response' | 'no_show';
   checkedInAt?: string;
   checkedInByPartnerId?: string;
   checkedInByPartnerName?: string;
@@ -54,6 +61,10 @@ export interface Booking {
   razorpayStatus?: string;
   paidAt?: string;
   paymentHoldExpiresAt?: string;
+  requestExpiresAt?: string;
+  propertyRespondedAt?: string;
+  propertyDecisionRole?: string;
+  propertyDecisionReason?: string;
   confirmedAt?: string;
   checkedOutAt?: string;
   paymentFailedAt?: string;
@@ -186,6 +197,13 @@ const normalizeBooking = (b: unknown): Booking => {
     platformCommissionPercent: getNumber(obj, 'platformCommissionPercent') || getNumber(obj, 'commission_rate') || undefined,
     platformCommissionAmount: getNumber(obj, 'platformCommissionAmount') || getNumber(obj, 'commission_amount') || undefined,
     service_billing_model: (getString(obj, 'service_billing_model') as Booking['service_billing_model']) || undefined,
+    propertyType: (getString(obj, 'propertyType') as Booking['propertyType']) || undefined,
+    paymentMode: (getString(obj, 'paymentMode') as Booking['paymentMode']) || undefined,
+    dharamshalaAmount: getNumber(obj, 'dharamshalaAmount') || undefined,
+    vrindavanSarthiServiceFee: getNumber(obj, 'vrindavanSarthiServiceFee') || undefined,
+    amountPaidOnline: getNumber(obj, 'amountPaidOnline') || undefined,
+    amountPayableAtProperty: getNumber(obj, 'amountPayableAtProperty') || undefined,
+    amountPaidToProperty: getNumber(obj, 'amountPaidToProperty') || undefined,
     grossForHotel: getNumber(obj, 'grossForHotel') || getNumber(obj, 'gross_for_hotel') || undefined,
     paymentGatewayFeeAmount: getNumber(obj, 'paymentGatewayFeeAmount') || getNumber(obj, 'payment_gateway_fee') || undefined,
     partnerNetPayout: getNumber(obj, 'partnerNetPayout') || getNumber(obj, 'hotel_net_payout') || undefined,
@@ -209,6 +227,10 @@ const normalizeBooking = (b: unknown): Booking => {
     razorpayStatus: getString(obj, 'razorpayStatus') || undefined,
     paidAt: getString(obj, 'paidAt') || undefined,
     paymentHoldExpiresAt: getString(obj, 'paymentHoldExpiresAt') || undefined,
+    requestExpiresAt: getString(obj, 'requestExpiresAt') || undefined,
+    propertyRespondedAt: getString(obj, 'propertyRespondedAt') || undefined,
+    propertyDecisionRole: getString(obj, 'propertyDecisionRole') || undefined,
+    propertyDecisionReason: getString(obj, 'propertyDecisionReason') || undefined,
     confirmedAt: getString(obj, 'confirmedAt') || undefined,
     checkedOutAt: getString(obj, 'checkedOutAt') || undefined,
     paymentFailedAt: getString(obj, 'paymentFailedAt') || undefined,
@@ -304,6 +326,10 @@ interface BookingState {
   rejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerVerifyPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerRejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  acceptDharamshalaRequest: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  rejectDharamshalaRequest: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  markDharamshalaNoShow: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  completeDharamshalaBooking: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerCheckIn: (id: string, guestDigitalSignature: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
 }
 
@@ -530,6 +556,74 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
       return { success: true, data: updated };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Reject failed') };
+    }
+  },
+
+  acceptDharamshalaRequest: async (id) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/dharamshala/accept`, {}, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Accept failed') };
+    }
+  },
+
+  rejectDharamshalaRequest: async (id, reason) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/dharamshala/reject`, { reason }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Reject failed') };
+    }
+  },
+
+  markDharamshalaNoShow: async (id, reason) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/no-show`, { reason }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'No-show update failed') };
+    }
+  },
+
+  completeDharamshalaBooking: async (id, reason) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/dharamshala/complete`, { reason }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Complete failed') };
     }
   },
 

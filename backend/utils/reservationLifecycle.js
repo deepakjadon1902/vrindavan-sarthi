@@ -4,13 +4,18 @@ const { enumerateDatesUTC, isValidDate } = require('./date');
 const { processRoomTypeWaitlist } = require('./waitlist');
 
 const LODGING_TYPES = new Set(['hotel', 'room', 'room_type']);
-const TERMINAL_BOOKING_STATUSES = new Set(['cancelled', 'expired', 'payment_failed', 'checked_out']);
+const TERMINAL_BOOKING_STATUSES = new Set(['cancelled', 'expired', 'payment_failed', 'checked_out', 'rejected_by_property', 'expired_property_no_response']);
 
 const BOOKING_TRANSITIONS = {
   pending: new Set(['confirmed', 'payment_failed', 'expired', 'cancelled']),
-  confirmed: new Set(['checked_in', 'cancelled']),
-  checked_in: new Set(['checked_out']),
-  checked_out: new Set([]),
+  pending_property_confirmation: new Set(['awaiting_customer_payment', 'confirmed', 'rejected_by_property', 'expired_property_no_response', 'cancelled']),
+  awaiting_customer_payment: new Set(['confirmed', 'payment_failed', 'expired', 'cancelled']),
+  rejected_by_property: new Set([]),
+  expired_property_no_response: new Set([]),
+  confirmed: new Set(['checked_in', 'cancelled', 'no_show']),
+  checked_in: new Set(['checked_out', 'completed']),
+  no_show: new Set(['cancelled', 'completed']),
+  checked_out: new Set(['completed']),
   cancelled: new Set([]),
   expired: new Set([]),
   payment_failed: new Set([]),

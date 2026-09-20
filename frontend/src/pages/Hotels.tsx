@@ -188,6 +188,7 @@ type HotelListItem = {
   taxEnabled?: boolean;
   taxPercent?: number;
   gstMode?: 'manual' | 'automatic';
+  showPrices?: boolean;
 };
 
 const Hotels = () => {
@@ -273,6 +274,7 @@ const Hotels = () => {
   );
 
   const getHotelStartingPrice = (hotel: HotelListItem) => {
+    if (hotel.showPrices === false) return undefined;
     const prices = [
       hotel.pricePerNight,
       hotel.pricePerBed,

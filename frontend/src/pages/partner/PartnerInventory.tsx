@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
@@ -9,7 +10,7 @@ import { getApiErrorMessage } from '@/lib/apiError';
 import { getPropertyTypeLabel, type StayPropertyType } from '@/lib/propertyTypes';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
-type Hotel = { _id: string; name: string; propertyType?: StayPropertyType; status?: string; approvalStatus?: string };
+type Hotel = { _id: string; name: string; propertyType?: StayPropertyType; status?: string; approvalStatus?: string; showPrices?: boolean };
 
 type RoomType = {
   _id: string;
@@ -38,6 +39,8 @@ type BlockKind = 'available' | 'offline_booking' | 'unavailable' | 'closed';
 type BlockScope = 'room' | 'room_type';
 
 const PartnerInventory = () => {
+  const [searchParams] = useSearchParams();
+  const requestedHotelId = searchParams.get('hotelId') || '';
   const token = useAuthStore((s) => s.token);
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [selectedHotelId, setSelectedHotelId] = useState<string>('');
@@ -88,7 +91,7 @@ const PartnerInventory = () => {
     const list = Array.isArray(data.hotels) ? data.hotels : [];
     setHotels(
       list
-        .map((h: any) => ({ _id: h._id, name: h.name, propertyType: h.propertyType || 'hotel', status: h.status, approvalStatus: h.approvalStatus }))
+        .map((h: any) => ({ _id: h._id, name: h.name, propertyType: h.propertyType || 'hotel', status: h.status, approvalStatus: h.approvalStatus, showPrices: h.showPrices !== false }))
         .filter((h: any) => h._id && h.name)
     );
   };
@@ -184,6 +187,13 @@ const PartnerInventory = () => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  useEffect(() => {
+    if (!requestedHotelId) return;
+    if (hotels.some((hotel) => hotel._id === requestedHotelId)) {
+      setSelectedHotelId(requestedHotelId);
+    }
+  }, [hotels, requestedHotelId]);
 
   useEffect(() => {
     const unsub = subscribeAppEvent('listing:changed', () => {
@@ -509,6 +519,15 @@ const PartnerInventory = () => {
           </div>
         )}
       </div>
+
+      {selectedHotel && selectedHotel.showPrices === false && (
+        <div className="rounded-xl border border-brand-gold/25 bg-brand-gold/10 p-4">
+          <p className="font-body text-sm font-semibold text-foreground">Call/WhatsApp booking is active for this property.</p>
+          <p className="mt-1 font-body text-xs text-muted-foreground">
+            You can add room prices here, but guests will see them only after you enable price display in the listing form.
+          </p>
+        </div>
+      )}
 
       {/* Room Types */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

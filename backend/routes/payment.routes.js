@@ -23,16 +23,13 @@ const {
 } = require('../utils/razorpayWebhook');
 const { reconcileRefundOperation } = require('../utils/refundOperations');
 const { enqueuePaymentReconciliation } = require('../utils/paymentReconciliation');
+const { payableAmountForBooking } = require('../utils/bookingPayable');
 const router = express.Router();
 
 router.param('id', (req, res, next, id) => {
   if (rejectInvalidObjectId(res, id, 'payment id')) return;
   next();
 });
-
-const payableAmountForBooking = (booking) => Math.max(0, Math.round(Number(
-  booking?.advanceAmount || booking?.advance_paid || booking?.totalAmount || 0
-)));
 
 const markBookingPaid = markBookingPaidFromRazorpay;
 const markBookingFailed = markBookingFailedFromRazorpay;
@@ -57,6 +54,9 @@ router.post('/razorpay/fail', protect, async (req, res) => {
     if (booking.paymentStatus === 'paid') {
       return res.status(400).json({ success: false, message: 'Paid booking cannot be marked failed' });
     }
+    if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.bookingStatus !== 'awaiting_customer_payment') {
+      return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
+    }
 
     if (razorpayPaymentId) booking.razorpayPaymentId = razorpayPaymentId;
     const updated = await markBookingFailed(
@@ -77,8 +77,11 @@ router.post('/razorpay/orders', protect, async (req, res) => {
     const booking = await Booking.findOne({ _id: bookingMongoId, userId: req.user._id });
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     if (booking.paymentStatus === 'paid') return res.status(409).json({ success: false, message: 'PAYMENT_ALREADY_PROCESSED' });
-    if (['cancelled', 'expired', 'payment_failed'].includes(String(booking.bookingStatus || ''))) {
+    if (['cancelled', 'expired', 'payment_failed', 'rejected_by_property', 'expired_property_no_response'].includes(String(booking.bookingStatus || ''))) {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
+    if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.bookingStatus !== 'awaiting_customer_payment') {
+      return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
     }
 
     const amountRupees = payableAmountForBooking(booking);
@@ -145,8 +148,11 @@ router.post('/razorpay/verify', protect, async (req, res) => {
       }
       return res.json({ success: true, data: booking, message: 'PAYMENT_ALREADY_PROCESSED' });
     }
-    if (['cancelled', 'expired', 'payment_failed'].includes(String(booking.bookingStatus || ''))) {
+    if (['cancelled', 'expired', 'payment_failed', 'rejected_by_property', 'expired_property_no_response'].includes(String(booking.bookingStatus || ''))) {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
+    if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.bookingStatus !== 'awaiting_customer_payment') {
+      return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
     }
 
     const signatureOk = verifyPaymentSignature({

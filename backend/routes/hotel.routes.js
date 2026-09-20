@@ -91,6 +91,23 @@ const normalizeHotelTaxControls = (body) => {
     body.gstMode = 'manual';
     body.platform_commission_percentage = 10;
   }
+  const mode = String(body.dharamshalaPaymentMode || '').trim().toLowerCase();
+  if (mode) {
+    body.dharamshalaPaymentMode = ['pay_at_dharamshala', 'full_online', 'request_only'].includes(mode)
+      ? mode
+      : 'pay_at_dharamshala';
+  }
+  if (typeof body.dharamshalaServiceFee !== 'undefined') {
+    const fee = Number(body.dharamshalaServiceFee);
+    body.dharamshalaServiceFee = Number.isFinite(fee) && fee >= 0 ? Math.min(100000, Math.round(fee)) : 99;
+  }
+  if (typeof body.dharamshalaResponseTimeoutMinutes !== 'undefined') {
+    const minutes = Number(body.dharamshalaResponseTimeoutMinutes);
+    body.dharamshalaResponseTimeoutMinutes = Number.isFinite(minutes) && minutes > 0 ? Math.min(7 * 24 * 60, Math.floor(minutes)) : 30;
+  }
+  for (const key of ['dharamshalaTerminology', 'dharamshalaCancellationPolicy', 'dharamshalaNoShowPolicy', 'dharamshalaIdRequirement']) {
+    if (typeof body[key] !== 'undefined') body[key] = String(body[key] || '').trim().slice(0, 2000);
+  }
   return body;
 };
 
@@ -110,6 +127,14 @@ const publicHotelListProjection = {
   taxPercent: 1,
   gstMode: 1,
   hotelGstin: 1,
+  showPrices: 1,
+  dharamshalaPaymentMode: 1,
+  dharamshalaServiceFee: 1,
+  dharamshalaTerminology: 1,
+  dharamshalaResponseTimeoutMinutes: 1,
+  dharamshalaCancellationPolicy: 1,
+  dharamshalaNoShowPolicy: 1,
+  dharamshalaIdRequirement: 1,
   googleMapLink: 1,
   nearestTemple: 1,
   reviewCount: 1,
@@ -327,6 +352,20 @@ const attachHotelReviewStats = async (hotels) => {
   }
 };
 
+const attachHotelStartingPrices = async (hotels) => {
+  const ids = hotels.map((h) => h._id).filter(Boolean);
+  if (!ids.length) return;
+  const rows = await RoomType.aggregate([
+    { $match: { hotelId: { $in: ids }, status: 'active', pricePerNight: { $gt: 0 } } },
+    { $group: { _id: '$hotelId', pricePerNight: { $min: '$pricePerNight' } } },
+  ]);
+  const byHotel = new Map(rows.map((row) => [String(row._id), Number(row.pricePerNight || 0)]));
+  for (const h of hotels) {
+    const price = byHotel.get(String(h._id));
+    if (Number.isFinite(price) && price > 0) h.pricePerNight = price;
+  }
+};
+
 // Get all active hotels (public)
 router.get('/', async (req, res) => {
   try {
@@ -354,6 +393,7 @@ router.get('/', async (req, res) => {
       Object.assign(h, normalized);
     }
     await attachHotelReviewStats(hotels);
+    await attachHotelStartingPrices(hotels);
 
     if (!withAvailability || hotels.length === 0) {
       return res.json({ success: true, data: hotels });
@@ -449,7 +489,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
-      .select('name propertyType location rating image status approvalStatus partnerName taxEnabled taxPercent gstMode platform_commission_percentage hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image status approvalStatus partnerName taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
       .lean();
 
     for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
@@ -535,6 +575,7 @@ router.get('/:id', async (req, res) => {
           taxPercent: 1,
           gstMode: 1,
           hotelGstin: 1,
+          showPrices: 1,
           googleMapLink: 1,
           nearestTemple: 1,
           checkInTime: 1,
@@ -546,6 +587,7 @@ router.get('/:id', async (req, res) => {
     ]).option({ maxTimeMS: 7000 });
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
     await attachHotelReviewStats([hotel]);
+    await attachHotelStartingPrices([hotel]);
     res.json({ success: true, data: normalizePublicHotel(hotel) });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

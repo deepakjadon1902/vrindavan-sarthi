@@ -65,6 +65,18 @@ const hotelSchema = new mongoose.Schema({
   taxPercent: { type: Number, default: 12 },
   gstMode: { type: String, enum: ['manual', 'automatic'], default: 'automatic' },
   platform_commission_percentage: { type: Number, default: 10 },
+  showPrices: { type: Boolean, default: true },
+  dharamshalaPaymentMode: {
+    type: String,
+    enum: ['pay_at_dharamshala', 'full_online', 'request_only'],
+    default: 'pay_at_dharamshala',
+  },
+  dharamshalaServiceFee: { type: Number, default: 99 },
+  dharamshalaTerminology: { type: String, default: 'Dharamshala Contribution / Stay Amount' },
+  dharamshalaResponseTimeoutMinutes: { type: Number, default: 30 },
+  dharamshalaCancellationPolicy: { type: String, default: '' },
+  dharamshalaNoShowPolicy: { type: String, default: '' },
+  dharamshalaIdRequirement: { type: String, default: '' },
   // Pets allowed at hotel level (room type / room unit can still restrict further)
   petsAllowed: { type: Boolean, default: false },
   status: { type: String, enum: ['active', 'inactive'], default: 'inactive' },

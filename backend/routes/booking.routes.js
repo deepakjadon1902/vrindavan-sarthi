@@ -40,6 +40,11 @@ const {
 } = require('../utils/pricing');
 const { createBookingQuote } = require('../utils/rateEngine');
 const {
+  createDharamshalaRequest,
+  acceptDharamshalaRequest,
+  rejectDharamshalaRequest,
+} = require('../utils/dharamshalaLifecycle');
+const {
   buildModificationPreview,
   createModification,
   verifyModificationPayment,
@@ -170,7 +175,7 @@ const enqueueBookingNotifications = async (booking, { invoice = false, partnerAl
 
 const bookingDetailFields = [
   'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName partnerPhone',
-  'service_billing_model',
+  'service_billing_model propertyType paymentMode dharamshalaAmount vrindavanSarthiServiceFee amountPaidOnline amountPayableAtProperty amountPaidToProperty requestExpiresAt propertyRespondedAt propertyDecisionRole propertyDecisionReason',
   'hotelId roomTypeId ratePlanId ratePlanName ratePlanCode ratePlanMealPlan nightlyBreakdown roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
   'assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail',
@@ -382,8 +387,38 @@ router.post('/room-type', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid date range' });
     }
 
-    // Server-side quote calculation (date rates + existing GST/fee formulas).
     const isDharamshala = String(hotel.propertyType || '').trim().toLowerCase() === 'dharamshala';
+    if (isDharamshala) {
+      const result = await createDharamshalaRequest({
+        req,
+        hotel,
+        roomType,
+        checkIn,
+        checkOut,
+        roomQuantity,
+        totalAdults,
+        totalChildren,
+        hasPet,
+        guestDetails,
+        customerFullName,
+        customerMobile,
+        customerEmail,
+        acceptedTermsSnapshot,
+      });
+      try {
+        await enqueueBookingNotifications(result.booking, { partnerAlert: !result.idempotent });
+      } catch (notifyErr) {
+        console.warn('[dharamshala.request.notification_failed]', notifyErr?.message || notifyErr);
+      }
+      return res.status(result.idempotent ? 200 : 201).json({
+        success: true,
+        data: sanitizeCustomerBooking(result.booking),
+        idempotent: result.idempotent,
+        message: 'Dharamshala request submitted. The property will confirm availability before any online payment.',
+      });
+    }
+
+    // Server-side quote calculation (date rates + existing GST/fee formulas).
     const paymentOption = isDharamshala ? 'full_100' : getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']);
     if (!paymentOption) return res.status(400).json({ success: false, message: 'Please select 30% advance or 100% full online payment' });
     if (isDharamshala && req.body?.paymentOption && String(req.body.paymentOption).trim() !== 'full_100') {
@@ -582,7 +617,17 @@ router.post('/room-type', protect, async (req, res) => {
       });
     }
   } catch (err) {
-    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment verification failed' });
+    const isDharamshalaRequest = String(req.body?.propertyType || '').toLowerCase() === 'dharamshala' ||
+      Boolean(req.body?.hotelId && req.body?.roomTypeId);
+    console.error('[booking.room_type.create_failed]', err?.message || err);
+    res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.statusCode
+        ? err.message
+        : isDharamshalaRequest
+          ? (err.message || 'Booking request failed')
+          : 'Payment verification failed',
+    });
   }
 });
 
@@ -776,6 +821,43 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+const findDharamshalaBookingForDecision = async (req) => {
+  const query = req.user.role === 'admin'
+    ? { _id: req.params.id, propertyType: 'dharamshala' }
+    : { _id: req.params.id, propertyType: 'dharamshala', partnerId: req.user._id };
+  return Booking.findOne(query);
+};
+
+router.put('/:id/dharamshala/accept', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const booking = await findDharamshalaBookingForDecision(req);
+    if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala request not found' });
+    const result = await acceptDharamshalaRequest({ booking, actor: req.user });
+    res.json({
+      success: true,
+      data: req.user.role === 'user' ? sanitizeCustomerBooking(result.booking) : result.booking,
+      idempotent: result.idempotent,
+      message: result.booking.bookingStatus === 'awaiting_customer_payment'
+        ? 'Request accepted. Customer can now complete the online payment.'
+        : 'Request accepted and confirmed.',
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Dharamshala request acceptance failed' });
+  }
+});
+
+router.put('/:id/dharamshala/reject', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const booking = await findDharamshalaBookingForDecision(req);
+    if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala request not found' });
+    const reason = normalize(req.body?.reason || req.body?.propertyDecisionReason || 'Rejected by property');
+    const result = await rejectDharamshalaRequest({ booking, actor: req.user, reason });
+    res.json({ success: true, data: result.booking, idempotent: result.idempotent });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Dharamshala request rejection failed' });
+  }
+});
+
 // Admin/system-safe maintenance hook: expire stale pending payment holds in bounded batches.
 router.post('/maintenance/expire-pending', protect, authorize('admin'), async (req, res) => {
   try {
@@ -911,7 +993,10 @@ const cancelBookingNow = async (booking, reason, reviewedByAdmin = false, meta =
   booking.cancelledAt = booking.cancelledAt || new Date();
   booking.payout_status = 'cancelled';
   booking.cancellationDetails = meta.cancellationDetails || booking.cancellationDetails || '';
-  Object.assign(booking, cancellationMoney(booking.totalAmount));
+  const refundableBase = String(booking.propertyType || '').toLowerCase() === 'dharamshala'
+    ? booking.amountPaidOnline
+    : booking.totalAmount;
+  Object.assign(booking, cancellationMoney(refundableBase));
   await executeBookingRefund({
     booking,
     amount: booking.refundableAmount,
@@ -1128,12 +1213,12 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     const nextStatus = normalize(req.body?.bookingStatus || req.body?.status);
-    const allowed = ['checked_in', 'checked_out', 'settled'];
+    const allowed = ['checked_in', 'checked_out', 'completed', 'settled', 'no_show'];
     if (!allowed.includes(nextStatus)) return res.status(400).json({ success: false, message: 'Invalid booking status' });
     if (nextStatus === 'settled' && booking.bookingStatus !== 'checked_out') {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
     }
-    if (nextStatus !== 'settled' && booking.paymentStatus !== 'paid') {
+    if (nextStatus !== 'settled' && booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'not_required') {
       return res.status(409).json({ success: false, message: 'Payment must be verified before stay status changes' });
     }
 
@@ -1148,11 +1233,59 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
     }
     if (nextStatus === 'checked_in') booking.payout_status = 'checked_in';
     if (nextStatus === 'checked_out') booking.payout_status = 'checked_out';
+    if (nextStatus === 'completed') booking.payout_status = 'checked_out';
+    if (nextStatus === 'no_show') booking.payout_status = 'cancelled';
     if (nextStatus === 'settled') booking.payout_status = 'settled';
     await booking.save();
     res.json({ success: true, data: booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.put('/:id/no-show', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const query = req.user.role === 'admin'
+      ? { _id: req.params.id, propertyType: 'dharamshala' }
+      : { _id: req.params.id, propertyType: 'dharamshala', partnerId: req.user._id };
+    const booking = await Booking.findOne(query);
+    if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala booking not found' });
+    if (booking.bookingStatus !== 'confirmed') return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    await transitionBookingStatus(booking, 'no_show', {
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      reason: normalize(req.body?.reason || 'dharamshala_no_show'),
+    });
+    booking.payout_status = 'cancelled';
+    booking.propertyDecisionReason = booking.propertyDecisionReason || normalize(req.body?.reason || 'Guest did not arrive');
+    await booking.save();
+    await releaseBookingInventory(booking);
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'No-show update failed' });
+  }
+});
+
+router.put('/:id/dharamshala/complete', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const query = req.user.role === 'admin'
+      ? { _id: req.params.id, propertyType: 'dharamshala' }
+      : { _id: req.params.id, propertyType: 'dharamshala', partnerId: req.user._id };
+    const booking = await Booking.findOne(query);
+    if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala booking not found' });
+    if (!['checked_in', 'checked_out'].includes(String(booking.bookingStatus || ''))) {
+      return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
+    await transitionBookingStatus(booking, 'completed', {
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      reason: normalize(req.body?.reason || 'dharamshala_completed'),
+    });
+    booking.payout_status = 'checked_out';
+    await booking.save();
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Completion update failed' });
   }
 });
 
@@ -1165,7 +1298,7 @@ router.put('/:id/partner-check-in', protect, authorize('partner'), async (req, r
       return res.status(400).json({ success: false, message: 'Check-in is only available for lodging bookings' });
     }
     if (booking.bookingStatus !== 'confirmed') return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
-    if (booking.paymentStatus !== 'paid') {
+    if (booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'not_required') {
       return res.status(400).json({ success: false, message: 'Payment must be verified before check-in' });
     }
 
