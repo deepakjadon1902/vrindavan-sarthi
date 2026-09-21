@@ -16,8 +16,8 @@ export default {
     extend: {
       fontFamily: {
         brand: ['"Cinzel Decorative"', 'serif'],
-        heading: ['"Cormorant Garamond"', 'serif'],
-        body: ['"DM Sans"', 'sans-serif'],
+        heading: ['"DM Serif Display"', '"Cormorant Garamond"', 'serif'],
+        body: ['"Manrope"', '"Inter"', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

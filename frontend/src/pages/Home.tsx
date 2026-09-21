@@ -12,6 +12,9 @@ import { prefetchDetail } from '@/lib/detailCache';
 import { COMPANY_PHONE_DIGITS } from '@/lib/brand';
 import { useSettingsStore } from '@/store/settingsStore';
 import { getPropertyTypeLabel, isDharamshalaType } from '@/lib/propertyTypes';
+import hotelRoomBackdrop from '@/assets/images/hotel-1.jpg';
+import templeInteriorBackdrop from '@/assets/images/temple-about.jpg';
+import parikramaBackdrop from '@/assets/images/tour-1.jpg';
 
 const heroImg = '/backgrounds/braj-govardhan-hero.jpeg';
 
@@ -501,8 +504,8 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED HOTELS ===== */}
-      <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
-        <img src="/backgrounds/hotel-room.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
+      <section className="py-4 lg:py-5 relative overflow-hidden bg-royal-dark">
+        <img src={hotelRoomBackdrop} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
         <div className="absolute inset-0 bg-white/75" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle
@@ -512,7 +515,7 @@ const Home = () => {
           />
           {hotels.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {hotels.map((hotel) => (
                   <ListingCard
                     key={hotel._id}
@@ -534,7 +537,7 @@ const Home = () => {
                   />
                 ))}
               </div>
-              <div className="text-center mt-4">
+              <div className="text-center mt-3">
                 <Link to="/hotels" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
                   View All Hotels <ArrowRight size={18} />
                 </Link>
@@ -552,7 +555,7 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED ROOMS ===== */}
-      <section className="py-5 lg:py-7 bg-royal-dark">
+      <section className="py-3 lg:py-4 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle
             label="Room Options"
@@ -561,7 +564,7 @@ const Home = () => {
           />
           {roomTypes.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {roomTypes.map((roomType) => (
                   <ListingCard
                     key={roomType._id}
@@ -576,7 +579,8 @@ const Home = () => {
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}
                     meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
                     badge={getPropertyTypeLabel(roomType?.hotel?.propertyType)}
-                    ctaLabel="Book Room"
+                    variant="room"
+                    ctaLabel="Book room"
                     onViewDetails={() => {
                       prefetchDetail('roomTypes', roomType._id, roomType);
                       navigate(`/room-types/${roomType._id}`);
@@ -584,7 +588,7 @@ const Home = () => {
                   />
                 ))}
               </div>
-              <div className="text-center mt-4">
+              <div className="text-center mt-3">
                 <Link to="/rooms" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
                   View All Rooms <ArrowRight size={18} />
                 </Link>
@@ -602,7 +606,7 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED CABS ===== */}
-      <section className="py-5 lg:py-7 bg-royal-dark">
+      <section className="py-3 lg:py-4 bg-royal-dark">
         <div className="container mx-auto px-4">
           <SectionTitle
             label="Transportation"
@@ -611,7 +615,7 @@ const Home = () => {
           />
           {cabs.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {cabs.map((cab) => (
                   <ListingCard
                     key={cab._id}
@@ -623,9 +627,11 @@ const Home = () => {
                     priceLabel=""
                     rating={0}
                     reviewCount={0}
-                    amenities={[cab.vehicleType, `${cab.capacity} Seater`]}
+                    amenities={[cab.vehicleType, cab.capacity ? `${cab.capacity} Seater` : undefined].filter(Boolean) as string[]}
                     badge="30% Advance"
                     badgeColor="green"
+                    variant="cab"
+                    ctaLabel="Book Cab"
                     onViewDetails={() => {
                       prefetchDetail('cabs', cab._id, cab);
                       navigate(`/cabs/${cab._id}`);
@@ -633,7 +639,7 @@ const Home = () => {
                   />
                 ))}
               </div>
-              <div className="text-center mt-4">
+              <div className="text-center mt-3">
                 <Link to="/cabs" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
                   View All Cabs <ArrowRight size={18} />
                 </Link>
@@ -651,31 +657,33 @@ const Home = () => {
       </section>
 
       {/* ===== FEATURED TOURS ===== */}
-      <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
-        <img src="/backgrounds/parikrama.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-14" />
+      <section className="py-3 lg:py-4 relative overflow-hidden bg-royal-dark">
+        <img src={parikramaBackdrop} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-14" />
         <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle
             label="Spiritual Journeys"
-            title="Popular Tour Packages"
+            title="Tour Packages"
             subtitle="Experience the divine essence of Braj with our guided tours"
           />
           {tours.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {tours.map((tour) => (
                   <ListingCard
                     key={tour._id}
                     image={tour.image}
                     images={tour.images}
                     name={tour.name}
-                    location={tour.duration}
+                    location={tour.destination || ''}
                     price={tour.pricePerPerson}
                     priceLabel="/person"
                     rating={0}
                     reviewCount={0}
                     badge={tour.duration}
                     amenities={tour.includes || []}
+                    variant="tour"
+                    ctaLabel="Explore Tour"
                     onViewDetails={() => {
                       prefetchDetail('tours', tour._id, tour);
                       navigate(`/tours/${tour._id}`);
@@ -683,7 +691,7 @@ const Home = () => {
                   />
                 ))}
               </div>
-              <div className="text-center mt-4">
+              <div className="text-center mt-3">
                 <Link to="/tours" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
                   View All Tours <ArrowRight size={18} />
                 </Link>
@@ -752,7 +760,7 @@ const Home = () => {
 
       {/* ===== WHY US ===== */}
       <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
-        <img src="/backgrounds/temple-interior.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
+        <img src={templeInteriorBackdrop} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
         <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle label="Why Choose Us" title="Your Trusted Companion in Braj" />

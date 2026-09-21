@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight, Heart, MapPin, Star } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowRight, BedDouble, CarFront, Heart, IndianRupee, MapPin, Route, Star, Users } from 'lucide-react';
 import { resolveBackendAssetUrl } from '@/lib/api';
 
 interface ListingCardProps {
@@ -15,11 +15,398 @@ interface ListingCardProps {
   badgeColor?: 'green' | 'saffron' | 'crimson';
   meta?: string;
   amenities?: string[];
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
   onViewDetails?: () => void;
   ctaLabel?: string;
   intervalMs?: number;
-  variant?: 'default' | 'hotel' | 'compact' | 'tour';
+  variant?: 'default' | 'hotel' | 'room' | 'cab' | 'compact' | 'tour';
 }
+
+type CardKind = 'hotel' | 'room' | 'cab' | 'tour' | 'default';
+
+const cardCopy: Record<CardKind, { fallbackBadge: string; context: string; emptyPrice: string; emptyPriceHelp: string; cta: string }> = {
+  hotel: {
+    fallbackBadge: 'Stay',
+    context: 'Stay option',
+    emptyPrice: 'Price on request',
+    emptyPriceHelp: 'Contact support',
+    cta: 'View rooms',
+  },
+  room: {
+    fallbackBadge: 'Room',
+    context: 'Room option',
+    emptyPrice: 'Price on request',
+    emptyPriceHelp: 'Contact support',
+    cta: 'Select room',
+  },
+  cab: {
+    fallbackBadge: 'Cab',
+    context: 'Private transport',
+    emptyPrice: 'Route-wise fare',
+    emptyPriceHelp: 'See route details',
+    cta: 'Book cab',
+  },
+  tour: {
+    fallbackBadge: 'Tour',
+    context: 'Curated journey',
+    emptyPrice: 'Price on request',
+    emptyPriceHelp: 'Contact support',
+    cta: 'Explore tour',
+  },
+  default: {
+    fallbackBadge: 'Listing',
+    context: 'Listing option',
+    emptyPrice: 'Price on request',
+    emptyPriceHelp: 'Contact support',
+    cta: 'View details',
+  },
+};
+
+const getCardKind = (variant: ListingCardProps['variant'], ctaLabel: string, priceLabel: string): CardKind => {
+  if (variant === 'hotel') return 'hotel';
+  if (variant === 'tour') return 'tour';
+  if (variant === 'cab' || ctaLabel.toLowerCase().includes('cab')) return 'cab';
+  if (variant === 'room' || ctaLabel.toLowerCase().includes('room') || priceLabel.toLowerCase().includes('night')) return 'room';
+  return 'default';
+};
+
+const badgeToneClass: Record<NonNullable<ListingCardProps['badgeColor']>, string> = {
+  green: 'text-brand-green',
+  saffron: 'text-brand-saffron',
+  crimson: 'text-brand-crimson',
+};
+
+const VRSFavoriteButton = ({ name, isFavorite, onToggleFavorite }: { name: string; isFavorite: boolean; onToggleFavorite: () => void }) => (
+  <button
+    type="button"
+    aria-label={isFavorite ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
+    aria-pressed={isFavorite}
+    onClick={(e) => {
+      e.stopPropagation();
+      onToggleFavorite();
+    }}
+    className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/70 bg-white/[0.94] text-foreground shadow-[0_2px_8px_rgba(16,24,44,0.08)] transition-colors duration-200 ease-out hover:text-brand-crimson focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+  >
+    <Heart size={18} className={isFavorite ? 'fill-brand-crimson text-brand-crimson' : undefined} />
+  </button>
+);
+
+const VRSBadge = ({ children, tone, className = '' }: { children: ReactNode; tone?: ListingCardProps['badgeColor']; className?: string }) => (
+  <span className={`inline-flex max-w-full items-center truncate rounded-full border border-white/70 bg-white/[0.94] px-3 py-1 font-body text-[11px] font-bold text-foreground shadow-[0_2px_8px_rgba(16,24,44,0.08)] ${tone ? badgeToneClass[tone] : ''} ${className}`}>
+    {children}
+  </span>
+);
+
+const VRSMetadataChip = ({ icon, children }: { icon?: ReactNode; children: ReactNode }) => (
+  <span className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-lg border border-border bg-secondary/55 px-2.5 font-body text-[12px] font-semibold text-foreground">
+    {icon}
+    <span className="truncate">{children}</span>
+  </span>
+);
+
+const VRSRating = ({ rating, reviewCount }: { rating: number; reviewCount: number }) => {
+  if (rating <= 0) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 font-body text-[12px] font-bold text-white">
+      {rating.toFixed(1)}
+      <Star size={12} className="fill-brand-gold text-brand-gold" />
+      {reviewCount > 0 && <span className="font-medium text-white/80">- {reviewCount}</span>}
+    </span>
+  );
+};
+
+const VRSPrice = ({ kind, price, unit }: { kind: CardKind; price?: number; unit: string }) => {
+  const copy = cardCopy[kind];
+  const hasPrice = typeof price === 'number' && Number.isFinite(price) && price > 0;
+
+  if (!hasPrice) {
+    return (
+      <div>
+        <span className="font-body text-[15px] font-semibold text-foreground">{copy.emptyPrice}</span>
+        <span className="mt-1 block font-body text-[12px] text-muted-foreground">{copy.emptyPriceHelp}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <span className="flex items-center font-body text-[22px] font-bold leading-none text-foreground">
+        <IndianRupee size={18} />
+        {price.toLocaleString('en-IN')}
+      </span>
+      <span className="mt-1 block font-body text-[13px] font-medium text-muted-foreground">{unit}</span>
+    </div>
+  );
+};
+
+const VRSCardImage = ({ src, alt }: { src: string; alt: string }) => {
+  const [readySrc, setReadySrc] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    const img = new Image();
+    const id = window.setTimeout(() => {
+      if (active) setReadySrc('');
+    }, 900);
+
+    setReadySrc('');
+    img.decoding = 'async';
+    img.onload = () => {
+      if (!active) return;
+      window.clearTimeout(id);
+      setReadySrc(img.naturalWidth > 0 ? src : '');
+    };
+    img.onerror = () => {
+      if (!active) return;
+      window.clearTimeout(id);
+      setReadySrc('');
+    };
+    img.src = src;
+
+    return () => {
+      active = false;
+      window.clearTimeout(id);
+    };
+  }, [src]);
+
+  if (!readySrc) {
+    return (
+      <div className="absolute inset-0 flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-gold/10 via-white to-brand-crimson/10">
+        <span className="px-5 text-center font-body text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+          Vrindavan Sarthi
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      key={readySrc}
+      src={readySrc}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className="vrs-listing-image absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 ease-out group-hover:scale-[1.02]"
+    />
+  );
+};
+
+const VRSCardMedia = ({
+  active,
+  badgeColor,
+  gallery,
+  imageRatio,
+  isFavorite,
+  name,
+  onToggleFavorite,
+  typeLabel,
+  onPauseChange,
+}: {
+  active: number;
+  badgeColor?: ListingCardProps['badgeColor'];
+  gallery: string[];
+  imageRatio: string;
+  isFavorite: boolean;
+  name: string;
+  onToggleFavorite?: () => void;
+  typeLabel: string;
+  onPauseChange: (paused: boolean) => void;
+}) => (
+  <div
+    className={`relative overflow-hidden bg-muted ${imageRatio}`}
+    onMouseEnter={() => onPauseChange(true)}
+    onMouseLeave={() => onPauseChange(false)}
+  >
+    <VRSCardImage src={gallery[active] || '/placeholder.svg'} alt={`${name} ${active + 1}`} />
+
+    {typeLabel && (
+      <div className="absolute left-3 top-3 z-10 max-w-[70%]">
+        <VRSBadge tone={badgeColor}>{typeLabel}</VRSBadge>
+      </div>
+    )}
+    {onToggleFavorite && <VRSFavoriteButton name={name} isFavorite={isFavorite} onToggleFavorite={onToggleFavorite} />}
+
+    {gallery.length > 1 && (
+      <span className="absolute bottom-3 left-3 z-10 rounded-md bg-white/[0.94] px-2 py-1 font-body text-[10px] font-semibold text-foreground shadow-sm">
+        {active + 1} / {gallery.length}
+      </span>
+    )}
+  </div>
+);
+
+const VRSAmenities = ({ kind, items }: { kind: CardKind; items: string[] }) => {
+  if (!items.length) return null;
+
+  if (kind === 'cab') {
+    return (
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {items.slice(0, 2).map((item, index) => (
+          <VRSMetadataChip key={`${item}-${index}`} icon={index === 0 ? <CarFront size={14} className="text-brand-saffron" /> : <Users size={14} className="text-brand-saffron" />}>
+            {item}
+          </VRSMetadataChip>
+        ))}
+      </div>
+    );
+  }
+
+  if (kind === 'room') {
+    return (
+      <div className="mt-3 flex min-h-[30px] flex-wrap content-start gap-1.5">
+        {items.slice(0, 3).map((item) => (
+          <span key={item} className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/55 px-2 py-1 font-body text-[11px] font-semibold text-secondary-foreground">
+            <BedDouble size={12} className="text-brand-saffron" />
+            <span className="max-w-[9rem] truncate">{item}</span>
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  if (kind === 'tour') {
+    return (
+      <div className="mt-3 flex min-h-[30px] flex-wrap content-start gap-1.5">
+        {items.slice(0, 3).map((item) => (
+          <span key={item} className="max-w-full truncate rounded-full border border-border bg-secondary/55 px-2.5 py-1 font-body text-[11px] font-semibold text-secondary-foreground">
+            {item}
+          </span>
+        ))}
+        {items.length > 3 && (
+          <span className="rounded-full border border-border bg-secondary/55 px-2.5 py-1 font-body text-[11px] font-semibold text-muted-foreground">
+            +{items.length - 3} more
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+};
+
+interface VRSCardShellProps {
+  kind: CardKind;
+  gallery: string[];
+  active: number;
+  badgeColor?: ListingCardProps['badgeColor'];
+  name: string;
+  location: string;
+  typeLabel: string;
+  context: string;
+  rating: number;
+  reviewCount: number;
+  meta?: string;
+  amenities: string[];
+  price?: number;
+  priceUnit: string;
+  actionLabel: string;
+  imageRatio: string;
+  cardMinHeight: string;
+  isFavorite: boolean;
+  onPauseChange: (paused: boolean) => void;
+  onToggleFavorite?: () => void;
+  onViewDetails?: () => void;
+}
+
+const VRSLocation = ({ kind, location }: { kind: CardKind; location: string }) => {
+  if (!location.trim()) return null;
+
+  return (
+    <p className="mt-2 inline-flex min-h-5 items-start gap-1.5 font-body text-[13px] leading-5 text-muted-foreground">
+      {kind === 'cab' ? <Route size={14} className="mt-0.5 shrink-0 text-brand-saffron" /> : <MapPin size={14} className="mt-0.5 shrink-0 text-brand-saffron" />}
+      <span className="line-clamp-2">{location}</span>
+    </p>
+  );
+};
+
+const VRSCardFooter = ({
+  kind,
+  price,
+  priceUnit,
+  actionLabel,
+  onViewDetails,
+}: Pick<VRSCardShellProps, 'kind' | 'price' | 'priceUnit' | 'actionLabel' | 'onViewDetails'>) => (
+  <div className="mt-auto pt-4">
+    <div>
+      <VRSPrice kind={kind} price={price} unit={priceUnit} />
+    </div>
+
+    <button
+      type="button"
+      onClick={onViewDetails}
+      className="vrs-card-action mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 font-body text-[14px] font-bold text-primary-foreground transition-colors duration-200 ease-out hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.99]"
+    >
+      {actionLabel}
+      <ArrowRight size={15} />
+    </button>
+  </div>
+);
+
+const VRSCardShell = ({
+  kind,
+  gallery,
+  active,
+  badgeColor,
+  name,
+  location,
+  typeLabel,
+  context,
+  rating,
+  reviewCount,
+  meta,
+  amenities,
+  price,
+  priceUnit,
+  actionLabel,
+  imageRatio,
+  cardMinHeight,
+  isFavorite,
+  onPauseChange,
+  onToggleFavorite,
+  onViewDetails,
+}: VRSCardShellProps) => (
+  <article
+    className={`vrs-listing-card group flex min-w-0 self-start overflow-hidden rounded-2xl border border-border bg-white shadow-[0_4px_16px_rgba(16,24,44,0.06)] transition-all duration-200 ease-out hover:border-brand-gold/45 hover:shadow-[0_8px_24px_rgba(16,24,44,0.09)] ${cardMinHeight}`}
+  >
+    <div className="flex w-full flex-col">
+      <VRSCardMedia
+        active={active}
+        badgeColor={badgeColor}
+        gallery={gallery}
+        imageRatio={imageRatio}
+        isFavorite={isFavorite}
+        name={name}
+        onToggleFavorite={onToggleFavorite}
+        typeLabel={typeLabel}
+        onPauseChange={onPauseChange}
+      />
+
+      <div className="flex flex-1 flex-col p-4">
+        <div className="mb-2 flex min-h-5 items-center justify-between gap-2">
+          {rating > 0 ? (
+            <VRSRating rating={rating} reviewCount={reviewCount} />
+          ) : (
+            <span className="font-body text-[12px] font-semibold text-muted-foreground">{context}</span>
+          )}
+          {kind === 'room' && meta && <span className="font-body text-[12px] font-semibold text-muted-foreground">{meta}</span>}
+        </div>
+
+        <h3 className="line-clamp-2 font-body text-[17px] font-semibold leading-snug text-foreground">{name || 'Listing'}</h3>
+        <VRSLocation kind={kind} location={location} />
+        <VRSAmenities kind={kind} items={amenities} />
+        <VRSCardFooter kind={kind} price={price} priceUnit={priceUnit} actionLabel={actionLabel} onViewDetails={onViewDetails} />
+      </div>
+    </div>
+  </article>
+);
+
+type SpecializedCardProps = Omit<VRSCardShellProps, 'kind'>;
+
+const VRSHotelCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="hotel" />;
+const VRSRoomCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="room" />;
+const VRSCabCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="cab" />;
+const VRSTourCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="tour" />;
+const VRSDefaultCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="default" />;
 
 const ListingCard = ({
   image,
@@ -31,8 +418,11 @@ const ListingCard = ({
   rating,
   reviewCount = 0,
   badge,
+  badgeColor,
   meta,
   amenities,
+  isFavorite = false,
+  onToggleFavorite,
   onViewDetails,
   ctaLabel = 'View Details',
   intervalMs = 2800,
@@ -69,162 +459,52 @@ const ListingCard = ({
     img.src = next;
   }, [active, safeGallery]);
 
-  const ratingLabel = rating >= 4.5 ? 'Wonderful' : rating >= 4 ? 'Very Good' : rating >= 3 ? 'Good' : 'Trusted';
-  const isHotelCard = variant === 'hotel';
-  const isRoomCard = !isHotelCard && (ctaLabel.toLowerCase().includes('room') || priceLabel.toLowerCase().includes('night'));
-  const isStayCard = isHotelCard || isRoomCard;
-  const typeLabel = badge || (isHotelCard ? 'Hotel' : isRoomCard ? 'Room' : meta || 'Listing');
+  const kind = getCardKind(variant, ctaLabel, priceLabel);
+  const copy = cardCopy[kind];
+  const typeLabel = badge || copy.fallbackBadge;
+  const visibleAmenities = (amenities || []).filter(Boolean).slice(0, kind === 'tour' ? 4 : 3);
+  const imageRatio = kind === 'hotel' || kind === 'tour' ? 'aspect-[16/10]' : 'aspect-[16/9]';
+  const cardMinHeight =
+    kind === 'hotel'
+      ? 'min-h-[410px]'
+      : kind === 'tour'
+        ? 'min-h-[400px]'
+        : kind === 'cab'
+          ? 'min-h-[330px]'
+          : kind === 'room'
+            ? 'min-h-[390px]'
+            : 'min-h-[360px]';
+  const actionLabel = kind === 'hotel' || kind === 'cab' || kind === 'tour' ? copy.cta : ctaLabel || copy.cta;
+  const priceUnit = priceLabel || (kind === 'cab' ? 'per trip' : kind === 'tour' ? '/person' : '/night');
 
-  return (
-    <div
-      onClick={onViewDetails}
-      role={onViewDetails ? 'button' : undefined}
-      tabIndex={onViewDetails ? 0 : undefined}
-      onKeyDown={(e) => {
-        if (!onViewDetails) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onViewDetails();
-        }
-      }}
-      className={`premium-tilt-card group min-w-0 self-start overflow-hidden rounded-lg border bg-white transition-colors focus-visible:ring-2 focus-visible:ring-brand-gold/60 ${onViewDetails ? 'cursor-pointer' : ''} ${
-        isStayCard
-          ? 'border-border shadow-[0_2px_12px_rgba(15,23,42,0.10)] hover:border-border hover:shadow-[0_10px_28px_rgba(15,23,42,0.16)]'
-          : 'border-border/90 shadow-[0_10px_26px_rgba(15,23,42,0.07)] hover:border-brand-gold/45 hover:shadow-[0_18px_42px_rgba(15,23,42,0.13)]'
-      } ${variant === 'tour' || isStayCard ? 'h-auto' : 'h-full'}`}
-    >
-      <div
-        className={`relative overflow-hidden bg-muted ${
-          isStayCard ? 'aspect-[16/9] sm:aspect-[4/3]' : variant === 'tour' ? 'aspect-[16/11]' : 'aspect-[16/11]'
-        }`}
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-      >
-        <img
-          key={`${safeGallery[active] || ''}-${active}`}
-          src={safeGallery[active]}
-          alt={`${name} ${active + 1}`}
-          loading="lazy"
-          decoding="async"
-          className="premium-depth-image absolute inset-0 h-full w-full object-cover object-center"
-          onError={(e) => ((e.target as HTMLImageElement).src = '/placeholder.svg')}
-        />
+  const shellProps: SpecializedCardProps = {
+    gallery: safeGallery,
+    active,
+    badgeColor,
+    name,
+    location,
+    typeLabel,
+    context: copy.context,
+    rating,
+    reviewCount,
+    meta,
+    amenities: visibleAmenities,
+    price,
+    priceUnit,
+    actionLabel,
+    imageRatio,
+    cardMinHeight,
+    isFavorite,
+    onPauseChange: setPaused,
+    onToggleFavorite,
+    onViewDetails,
+  };
 
-        {!isStayCard && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/25 to-transparent opacity-80" />}
-
-        <button
-          type="button"
-          aria-label={`Save ${name}`}
-          onClick={(e) => e.stopPropagation()}
-          className="premium-icon-button absolute right-2.5 top-2.5 z-10 h-9 w-9 hover:text-brand-crimson"
-        >
-          <Heart size={18} />
-        </button>
-
-        {!isStayCard && safeGallery.length > 1 && (
-          <span className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-white/95 text-[10px] font-body font-semibold text-foreground shadow-sm z-10">
-            {active + 1} / {safeGallery.length}
-          </span>
-        )}
-
-        {!isStayCard && safeGallery.length > 1 && (
-          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-10">
-            {safeGallery.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActive(i);
-                }}
-                aria-label={`Show image ${i + 1}`}
-                className={`h-1 rounded-full transition-all ${
-                  i === active ? 'w-4 bg-brand-gold' : 'w-1.5 bg-primary-foreground/60'
-                }`}
-              />
-            ))}
-          </div>
-        )}
-
-        {isStayCard && safeGallery.length > 1 && (
-          <span className="absolute bottom-2 left-2 z-10 rounded-md bg-white/95 px-2 py-1 font-body text-[10px] font-semibold text-foreground shadow-sm">
-            {active + 1} / {safeGallery.length}
-          </span>
-        )}
-      </div>
-
-      <div className={`premium-depth-content flex flex-col ${isStayCard ? 'p-3 sm:p-3' : 'flex-1 p-3.5'}`}>
-        <div className="mb-1 flex min-h-5 items-center gap-1.5">
-          <span className={`font-body text-[11px] ${isStayCard ? 'font-medium normal-case tracking-normal text-muted-foreground' : 'font-semibold uppercase tracking-[0.08em] text-muted-foreground'}`}>
-            {typeLabel}{isRoomCard && meta ? ` - ${meta}` : ''}
-          </span>
-          {rating > 0 && (
-            <span className="flex items-center gap-0.5">
-              {Array.from({ length: Math.min(5, Math.max(1, Math.round(rating))) }).map((_, i) => (
-                <Star key={i} size={11} className="fill-brand-gold text-brand-gold" />
-              ))}
-            </span>
-          )}
-        </div>
-        <h3
-          className="font-body text-base font-bold leading-snug text-foreground line-clamp-2 sm:text-[15px]"
-        >
-          {name}
-        </h3>
-        <p className={`mt-1 inline-flex items-start gap-1.5 font-body text-xs leading-snug text-muted-foreground ${isStayCard ? 'line-clamp-1' : 'line-clamp-2'}`}>
-          {!isStayCard && <MapPin size={12} className="mt-0.5 shrink-0 text-brand-saffron" />} <span>{location || 'Braj'}</span>
-        </p>
-
-        {(rating > 0 || reviewCount > 0) && (
-          <div className={`${isStayCard ? 'mt-2 flex items-start gap-2' : 'mt-2 flex items-center gap-2 rounded-lg border border-border bg-secondary/45 p-2'}`}>
-            <span className={`inline-flex h-6 min-w-8 items-center justify-center rounded-sm px-1.5 font-body text-xs font-bold text-white ${isStayCard ? 'bg-primary' : 'bg-brand-green'}`}>
-              {rating > 0 ? rating.toFixed(1) : 'New'}
-            </span>
-            <span className="font-body text-xs leading-tight text-muted-foreground">
-              <span className={isStayCard ? 'block font-medium text-foreground' : ''}>{rating > 0 ? ratingLabel : 'New'}</span>
-              {reviewCount > 0 ? <span className={isStayCard ? 'block' : ''}>{isStayCard ? `${reviewCount} reviews` : ` - ${reviewCount} reviews`}</span> : null}
-            </span>
-          </div>
-        )}
-
-        {!isStayCard && amenities && amenities.length > 0 && (
-          <div className="mt-2 flex min-h-[24px] flex-wrap content-start gap-1 overflow-hidden">
-            {amenities.slice(0, 2).map((a) => (
-              <span
-                key={a}
-                className="max-w-full truncate rounded-md border border-border bg-secondary/70 px-2 py-1 font-body text-[10px] text-secondary-foreground"
-              >
-                {a}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {((typeof price === 'number' && Number.isFinite(price) && price > 0) || !isStayCard) && (
-        <div className={`${variant === 'tour' || isStayCard ? 'mt-2' : 'mt-auto'} ${isStayCard ? 'flex items-end justify-between gap-3 pt-1' : 'flex flex-col items-stretch gap-1.5 pt-2.5'}`}>
-          {typeof price === 'number' && Number.isFinite(price) && price > 0 ? (
-            <div className="ml-auto text-right">
-              <span className="font-body text-[11px] text-muted-foreground">Starting from</span>
-              <span className="ml-1 font-body text-[17px] font-bold text-foreground sm:text-base"> Rs. {price.toLocaleString('en-IN')}</span>
-              {priceLabel && !isStayCard && <span className="font-body text-[11px] text-muted-foreground"> {priceLabel}</span>}
-            </div>
-          ) : (
-            <div />
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewDetails?.();
-            }}
-            className={`${isStayCard ? 'sr-only' : 'inline-flex'} items-center justify-center gap-1 rounded-md border border-brand-gold/50 bg-brand-gold/10 px-3 py-2.5 font-body text-xs font-bold text-foreground transition-colors hover:bg-brand-gold`}
-          >
-            {ctaLabel} <ChevronRight size={13} />
-          </button>
-        </div>
-        )}
-      </div>
-    </div>
-  );
+  if (kind === 'hotel') return <VRSHotelCard {...shellProps} />;
+  if (kind === 'room') return <VRSRoomCard {...shellProps} />;
+  if (kind === 'cab') return <VRSCabCard {...shellProps} />;
+  if (kind === 'tour') return <VRSTourCard {...shellProps} />;
+  return <VRSDefaultCard {...shellProps} />;
 };
 
 export default ListingCard;

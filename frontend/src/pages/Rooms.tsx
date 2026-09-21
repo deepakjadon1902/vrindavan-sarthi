@@ -199,7 +199,7 @@ const Rooms = () => {
                         {dharamshalaCount > 0 ? ` - ${dharamshalaCount} dharamshala room${dharamshalaCount === 1 ? '' : 's'}` : ''}
                       </p>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {locationRoomTypes.map((rt: any) => (
                         <ListingCard
                           key={rt._id}
@@ -213,9 +213,9 @@ const Rooms = () => {
                           reviewCount={0}
                           amenities={rt?.amenities || rt?.hotel?.amenities || []}
                           meta={Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined}
-                          variant="compact"
+                          variant="room"
                           badge={getPropertyTypeLabel(rt?.hotel?.propertyType)}
-                          ctaLabel="Book Room"
+                          ctaLabel="Book room"
                           onViewDetails={() => {
                             prefetchDetail('roomTypes', rt._id, rt);
                             navigate(`/room-types/${rt._id}`);

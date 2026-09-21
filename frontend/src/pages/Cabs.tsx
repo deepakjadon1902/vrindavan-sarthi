@@ -142,22 +142,23 @@ const Cabs = () => {
               <p className="font-body text-sm text-muted-foreground">Cabs will appear here once listed.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map((cab) => (
                 <ListingCard
                   key={cab._id}
                   image={cab.image}
                   images={cab.images}
                   name={cab.vehicleName}
-                  location={cab.routes?.join(' • ') || ''}
+                  location={cab.routes?.join(' - ') || ''}
                   price={0}
                   priceLabel=""
                   rating={0}
                   reviewCount={0}
-                  amenities={[cab.vehicleType, `${cab.capacity} Seater`]}
+                  amenities={[cab.vehicleType, cab.capacity ? `${cab.capacity} Seater` : undefined].filter(Boolean) as string[]}
                   badge="30% Advance"
                   badgeColor="green"
-                  variant="compact"
+                  variant="cab"
+                  ctaLabel="Book Cab"
                   onViewDetails={() => {
                     prefetchDetail('cabs', cab._id, cab);
                     navigate(`/cabs/${cab._id}`);

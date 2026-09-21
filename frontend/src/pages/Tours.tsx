@@ -179,7 +179,7 @@ const Tours = () => {
               <p className="font-body text-sm text-muted-foreground">Tour packages will appear here once the admin adds them.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map((tour) => (
                 <ListingCard
                   key={tour._id}
@@ -194,7 +194,7 @@ const Tours = () => {
                   badge={tour.duration}
                   amenities={(tour.placesCovered || tour.includes || []).slice(0, 2)}
                   variant="tour"
-                  ctaLabel="Book Tour"
+                  ctaLabel="Explore Tour"
                   onViewDetails={() => {
                     prefetchDetail('tours', tour._id, tour);
                     navigate(`/tours/${tour._id}`);

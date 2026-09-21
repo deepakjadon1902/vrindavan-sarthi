@@ -4,60 +4,67 @@
 
 @layer base {
   :root {
-    --background: 42 40% 97%;
-    --foreground: 224 34% 12%;
+    --background: 40 41% 97%;
+    --foreground: 222 17% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 34% 12%;
+    --card-foreground: 222 17% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 34% 12%;
+    --popover-foreground: 222 17% 15%;
 
-    --primary: 216 52% 17%;
-    --primary-foreground: 42 56% 97%;
+    --primary: 222 43% 17%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 42 30% 94%;
-    --secondary-foreground: 222 34% 12%;
+    --secondary: 40 40% 93%;
+    --secondary-foreground: 222 17% 15%;
 
-    --muted: 218 20% 93%;
-    --muted-foreground: 222 14% 38%;
+    --muted: 39 29% 94%;
+    --muted-foreground: 221 9% 42%;
 
-    --accent: 38 88% 52%;
-    --accent-foreground: 222 34% 12%;
+    --accent: 40 56% 51%;
+    --accent-foreground: 222 17% 15%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 45% 49%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 218 22% 84%;
-    --input: 218 22% 84%;
-    --ring: 38 88% 52%;
+    --border: 39 29% 87%;
+    --input: 39 29% 87%;
+    --ring: 222 43% 17%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --brand-gold: 38 88% 52%;
-    --brand-crimson: 348 54% 34%;
-    --brand-black: 224 38% 10%;
-    --brand-saffron: 28 82% 50%;
-    --brand-green: 164 43% 28%;
-    --brand-cream: 42 40% 97%;
+    --brand-gold: 40 56% 51%;
+    --brand-crimson: 343 38% 48%;
+    --brand-black: 223 47% 12%;
+    --brand-saffron: 24 37% 54%;
+    --brand-green: 149 43% 32%;
+    --brand-cream: 40 41% 97%;
+    --brand-plum: 277 30% 28%;
+    --brand-indigo: 222 43% 17%;
+    --brand-indigo-deep: 224 39% 21%;
+    --status-success: 149 43% 32%;
+    --status-warning: 35 66% 43%;
+    --status-error: 0 45% 49%;
+    --status-info: 210 41% 43%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(43 90% 66%), hsl(36 84% 48%));
-    --gradient-crimson: linear-gradient(135deg, hsl(348 54% 34%), hsl(22 74% 43%));
-    --gradient-saffron: linear-gradient(135deg, hsl(216 52% 17%), hsl(164 43% 24%), hsl(38 88% 52%));
+    --gradient-gold: linear-gradient(135deg, hsl(40 56% 56%), hsl(40 56% 45%));
+    --gradient-crimson: linear-gradient(135deg, hsl(222 43% 17%), hsl(224 39% 21%));
+    --gradient-saffron: linear-gradient(135deg, hsl(222 43% 17%), hsl(277 30% 28%), hsl(40 56% 51%));
 
-    --shadow-gold: 0 14px 34px hsl(38 88% 52% / 0.16);
-    --shadow-card: 0 16px 42px hsl(224 34% 12% / 0.075);
-    --shadow-card-hover: 0 22px 58px hsl(224 34% 12% / 0.12);
-    --shadow-crimson: 0 14px 34px hsl(348 54% 34% / 0.16);
+    --shadow-gold: 0 8px 24px hsl(40 56% 51% / 0.14);
+    --shadow-card: 0 8px 24px hsl(223 47% 12% / 0.08);
+    --shadow-card-hover: 0 16px 40px hsl(223 47% 12% / 0.10);
+    --shadow-crimson: 0 8px 24px hsl(222 43% 17% / 0.12);
 
-    --sidebar-background: 224 42% 10%;
-    --sidebar-foreground: 42 62% 97%;
-    --sidebar-primary: 39 92% 56%;
-    --sidebar-primary-foreground: 222 34% 10%;
-    --sidebar-accent: 215 38% 17%;
-    --sidebar-accent-foreground: 42 62% 97%;
-    --sidebar-border: 216 32% 23%;
-    --sidebar-ring: 39 92% 56%;
+    --sidebar-background: 223 47% 12%;
+    --sidebar-foreground: 40 41% 97%;
+    --sidebar-primary: 40 56% 51%;
+    --sidebar-primary-foreground: 222 17% 15%;
+    --sidebar-accent: 224 39% 21%;
+    --sidebar-accent-foreground: 40 41% 97%;
+    --sidebar-border: 0 0% 100% / 0.12;
+    --sidebar-ring: 40 56% 51%;
   }
 
   .dark {
@@ -118,9 +125,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background:
-      linear-gradient(135deg, hsl(var(--brand-gold) / 0.055), transparent 34%),
-      linear-gradient(225deg, hsl(var(--brand-green) / 0.055), transparent 36%),
-      linear-gradient(180deg, hsl(var(--background)), hsl(218 28% 96%));
+      linear-gradient(135deg, hsl(var(--brand-gold) / 0.045), transparent 34%),
+      linear-gradient(225deg, hsl(var(--brand-indigo) / 0.035), transparent 36%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(40 40% 95%));
     min-width: 320px;
     overflow-x: hidden;
   }
@@ -143,7 +150,8 @@
     outline-offset: 2px;
   }
   h1, h2, h3 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'DM Serif Display', 'Cormorant Garamond', serif;
+    letter-spacing: 0;
   }
 
   img,
@@ -184,10 +192,10 @@
     font-family: 'Cinzel Decorative', serif;
   }
   .font-heading {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'DM Serif Display', 'Cormorant Garamond', serif;
   }
   .font-body {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
   }
 
   .text-gradient-gold {
@@ -198,13 +206,14 @@
   }
 
   .btn-gold {
-    @apply relative overflow-hidden font-body font-semibold tracking-wide;
+    @apply relative inline-flex items-center justify-center overflow-hidden font-body font-semibold tracking-normal;
     background: var(--gradient-gold);
-    color: hsl(22 31% 12%);
-    transition: transform 0.18s ease, border-color 0.18s ease, filter 0.18s ease;
-    border: 1px solid hsl(37 80% 38% / 0.34);
+    color: hsl(var(--foreground));
+    transition: transform 0.18s ease, border-color 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+    border: 1px solid hsl(var(--brand-gold) / 0.36);
     box-shadow: var(--shadow-gold);
     min-height: 2.75rem;
+    border-radius: 0.75rem;
   }
   .btn-gold:hover {
     transform: translateY(-1px);
@@ -212,12 +221,13 @@
   }
 
   .btn-crimson {
-    @apply font-body font-semibold tracking-wide;
+    @apply inline-flex items-center justify-center font-body font-semibold tracking-normal;
     background: var(--gradient-crimson);
-    color: hsl(40 33% 98%);
+    color: hsl(var(--primary-foreground));
     transition: transform 0.18s ease, filter 0.18s ease;
     box-shadow: var(--shadow-crimson);
     min-height: 2.75rem;
+    border-radius: 0.75rem;
   }
   .btn-crimson:hover {
     transform: translateY(-1px);
@@ -250,7 +260,7 @@
 
   .nav-dark {
     background:
-      linear-gradient(90deg, hsl(224 42% 10% / 0.97), hsl(216 52% 17% / 0.95), hsl(164 43% 18% / 0.92));
+      linear-gradient(90deg, hsl(var(--brand-black) / 0.97), hsl(var(--brand-indigo) / 0.95), hsl(var(--brand-indigo-deep) / 0.92));
     border-bottom: 1px solid hsl(var(--brand-gold) / 0.22);
     box-shadow: 0 14px 44px hsl(224 42% 10% / 0.26);
     backdrop-filter: blur(18px);
@@ -264,10 +274,10 @@
   }
 
   .font-display {
-    font-family: 'Playfair Display', serif;
+    font-family: 'DM Serif Display', 'Cormorant Garamond', serif;
   }
   .font-ui {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
   }
 
   /* === Glass / glossy / metallic surfaces === */
@@ -384,9 +394,9 @@
   .braj-page {
     min-height: 100vh;
     background:
-      linear-gradient(135deg, hsl(var(--brand-gold) / 0.055), transparent 34%),
-      linear-gradient(225deg, hsl(var(--brand-green) / 0.055), transparent 36%),
-      linear-gradient(180deg, hsl(42 40% 97%), hsl(218 28% 96%)),
+      linear-gradient(135deg, hsl(var(--brand-gold) / 0.045), transparent 34%),
+      linear-gradient(225deg, hsl(var(--brand-indigo) / 0.035), transparent 36%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(40 40% 95%)),
       url("./assets/backgrounds/royal-pattern-light.svg");
     background-size: auto, 560px 560px;
   }
@@ -470,16 +480,16 @@
   }
 
   .premium-kicker {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
     font-size: 0.72rem;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: hsl(var(--brand-crimson));
+    color: hsl(var(--brand-gold));
   }
 
   .premium-copy {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
     color: hsl(var(--muted-foreground));
     line-height: 1.72;
   }
@@ -487,14 +497,14 @@
   .premium-toolbar {
     background: hsl(0 0% 100% / 0.88);
     border: 1px solid hsl(var(--border));
-    border-radius: 0.5rem;
+    border-radius: 1rem;
     box-shadow: var(--shadow-card);
     backdrop-filter: blur(16px);
   }
 
   .premium-field {
     min-height: 3rem;
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     border: 1px solid hsl(var(--border));
     background: hsl(0 0% 100%);
   }
@@ -507,14 +517,14 @@
   }
 
   .premium-metric {
-    border-radius: 0.5rem;
+    border-radius: 1rem;
     border: 1px solid hsl(var(--border));
     background: linear-gradient(180deg, hsl(0 0% 100% / 0.94), hsl(42 28% 97% / 0.88));
     box-shadow: var(--shadow-card);
   }
 
   .premium-focus-card {
-    border-radius: 0.5rem;
+    border-radius: 1rem;
     border: 1px solid hsl(var(--border));
     background: linear-gradient(180deg, hsl(0 0% 100% / 0.96), hsl(42 28% 97% / 0.92));
     box-shadow: var(--shadow-card);
@@ -529,14 +539,14 @@
 
   .premium-surface {
     border: 1px solid hsl(var(--border));
-    border-radius: 0.5rem;
+    border-radius: 1rem;
     background: linear-gradient(180deg, hsl(0 0% 100% / 0.98), hsl(42 28% 97% / 0.94));
-    box-shadow: 0 14px 34px hsl(224 34% 12% / 0.06);
+    box-shadow: var(--shadow-card);
   }
 
   .premium-subtle-card {
     border: 1px solid hsl(var(--border));
-    border-radius: 0.5rem;
+    border-radius: 1rem;
     background: hsl(0 0% 100% / 0.82);
   }
 
@@ -628,6 +638,11 @@
     .premium-tilt-card:hover,
     .premium-depth-image,
     .premium-tilt-card:hover .premium-depth-image,
+    .vrs-listing-card,
+    .vrs-listing-card:hover,
+    .vrs-listing-image,
+    .group:hover .vrs-listing-image,
+    .vrs-card-action,
     .card-hover,
     .water-hover {
       transform: none;
