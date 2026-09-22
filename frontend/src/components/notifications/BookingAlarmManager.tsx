@@ -51,14 +51,15 @@ const getDeviceId = () => {
 
 const getPermissionStatus = () => {
   if (!('Notification' in window)) return 'unsupported';
+  if (!window.isSecureContext) return 'unsupported';
   return Notification.permission;
 };
 
 const permissionCopy = {
-  default: 'Important: allow notifications on every admin/partner device so booking alarms can appear in the device notification center.',
-  granted: 'Device notifications are enabled on this browser.',
-  denied: 'Important: device notifications are blocked in this browser. Enable them from site settings to receive booking alarms.',
-  unsupported: 'This browser does not support device notifications. In-app booking alarms still work.',
+  default: 'Important: allow notifications on this device. Repeat this on every mobile, laptop, desktop, and tablet used by admins or partners.',
+  granted: 'Device notification permission is granted on this browser and device.',
+  denied: 'Important: notifications are blocked in this device permission manager. Enable them from browser or site settings to receive booking alarms.',
+  unsupported: 'Device notifications need a supported browser on HTTPS or localhost. In-app booking alarms still work while the app is open.',
 };
 
 const getPlatform = () => navigator.platform || 'Browser';
@@ -232,7 +233,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
   const requestPermission = async () => {
     let permission = getPermissionStatus();
     if (permission === 'unsupported') {
-      toast.info('This browser does not support device notifications');
+      toast.info('Device notifications require a supported browser on HTTPS or localhost');
       await registerDevice(permission).catch(() => undefined);
       return;
     }
