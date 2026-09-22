@@ -162,7 +162,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
     }, withAuth(token));
   }, [deviceId, enabled, permissionStatus, soundEnabled, token]);
 
-  const ensurePushSubscription = useCallback(async (): Promise<PushRegistrationResult> => {
+  const ensurePushSubscription = useCallback(async (forceRefresh = false): Promise<PushRegistrationResult> => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !window.isSecureContext) {
       return { subscription: null, configured: false };
     }
@@ -171,9 +171,11 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
     const configured = Boolean(configRes.data?.data?.configured && publicKey);
     if (!configured) return { subscription: null, configured: false };
 
-    const registration = await navigator.serviceWorker.register('/vrs-service-worker.js');
+    await navigator.serviceWorker.register('/vrs-service-worker.js');
+    const registration = await navigator.serviceWorker.ready;
     const existing = await registration.pushManager.getSubscription();
-    if (existing) return { subscription: existing.toJSON(), configured: true };
+    if (existing && !forceRefresh) return { subscription: existing.toJSON(), configured: true };
+    if (existing && forceRefresh) await existing.unsubscribe().catch(() => undefined);
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(publicKey),
@@ -289,7 +291,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
     setPermissionStatus(permission);
     let pushSubscription: PushSubscriptionJSON | null = null;
     if (permission === 'granted') {
-      const result = await ensurePushSubscription().catch(() => ({ subscription: null, configured: false }));
+      const result = await ensurePushSubscription(true).catch(() => ({ subscription: null, configured: false }));
       pushSubscription = result.subscription;
       if (!result.configured) toast.info('Web Push is not configured on this server yet');
       if (result.configured && !pushSubscription) toast.error('Could not register this device for push notifications');
@@ -356,7 +358,24 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
       toast.success('Test notification sent to this device notification center');
       await loadDevices();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Could not send test notification to this device');
+      if (id === deviceId && permissionStatus === 'granted') {
+        const result = await ensurePushSubscription(true).catch(() => ({ subscription: null, configured: false }));
+        if (result.subscription) {
+          await registerDevice('granted', soundEnabled, result.subscription).catch(() => undefined);
+          try {
+            await api.post(`/notifications/devices/${encodeURIComponent(id)}/test-push`, {}, withAuth(token));
+            toast.success('Fresh mobile subscription saved. Test notification sent.');
+            await loadDevices();
+            return;
+          } catch (retryErr: any) {
+            toast.error(retryErr?.response?.data?.message || 'Could not send test notification after refreshing this device');
+          }
+        } else {
+          toast.error('Could not create a fresh push subscription on this mobile browser');
+        }
+      } else {
+        toast.error(err?.response?.data?.message || 'Could not send test notification to this device');
+      }
       await loadDevices();
     }
   };

@@ -15,6 +15,12 @@ const alarmPublicFields = '-__v';
 
 const sanitizeDeviceId = (value) => String(value || '').trim().slice(0, 128);
 const sanitizeText = (value, max = 240) => String(value || '').trim().slice(0, max);
+const safePushErrorMessage = (err) => {
+  const statusCode = Number(err?.statusCode || err?.status || 0);
+  const body = sanitizeText(err?.body || err?.message || err || 'Push provider rejected this device subscription', 300);
+  const suffix = statusCode ? ` (provider status ${statusCode})` : '';
+  return `${body}${suffix}`.slice(0, 360);
+};
 const validPermission = (value) => ['default', 'granted', 'denied', 'unsupported'].includes(String(value || ''))
   ? String(value)
   : 'default';
@@ -211,9 +217,10 @@ router.post('/devices/:deviceId/test-push', protect, authorize('admin', 'partner
     res.json({ success: true, data: { providerMessageId: result.providerMessageId } });
   } catch (err) {
     const deviceId = sanitizeDeviceId(req.params.deviceId);
+    const message = safePushErrorMessage(err);
     const update = {
       lastPushFailureAt: new Date(),
-      pushSubscriptionError: sanitizeText(err?.message || err, 500),
+      pushSubscriptionError: message,
     };
     if (isInvalidSubscriptionError(err)) {
       update.notificationEnabled = false;
@@ -224,7 +231,7 @@ router.post('/devices/:deviceId/test-push', protect, authorize('admin', 'partner
       { userId: req.user._id, deviceId },
       { $set: update, $inc: { failureCount: 1 } }
     ).catch(() => undefined);
-    res.status(502).json({ success: false, message: 'Test push could not be delivered to this device' });
+    res.status(502).json({ success: false, message: `Test push failed: ${message}` });
   }
 });
 
