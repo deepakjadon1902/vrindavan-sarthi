@@ -69,6 +69,13 @@ const permissionCopy = {
   unsupported: 'Device notifications need a supported browser on HTTPS or localhost. In-app booking alarms still work while the app is open.',
 };
 
+const lockScreenCopy = {
+  default: 'Allow browser notifications so booking alerts can appear in this device notification center when supported by the browser and OS.',
+  granted: 'Notification center alerts are enabled for this browser. Lock-screen display depends on this device and OS settings.',
+  denied: 'This device is blocking notification center alerts. Re-enable this site in browser or OS notification settings.',
+  unsupported: 'Lock-screen notification center alerts need a supported browser on HTTPS or localhost.',
+};
+
 const getPlatform = () => navigator.platform || 'Browser';
 const getBrowser = () => {
   const ua = navigator.userAgent;
@@ -356,53 +363,63 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
           )}
         </button>
         {settingsOpen && (
-          <div className="absolute right-0 top-11 z-50 w-[min(92vw,360px)] rounded-lg border border-border bg-card p-4 text-foreground shadow-xl">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-base font-semibold">Booking Alerts</h2>
-              <button type="button" onClick={() => setSettingsOpen(false)} className="rounded p-1 hover:bg-muted" aria-label="Close settings">
+          <div className="fixed inset-x-3 bottom-4 top-16 z-50 flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-2xl sm:absolute sm:inset-auto sm:right-0 sm:top-11 sm:w-[min(92vw,390px)] sm:max-h-[min(82vh,680px)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+              <div className="min-w-0">
+                <h2 className="font-heading text-base font-semibold">Booking Alerts</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">Notifications, alarm sound, and registered devices</p>
+              </div>
+              <button type="button" onClick={() => setSettingsOpen(false)} className="ml-3 rounded p-2 hover:bg-muted" aria-label="Close settings">
                 <X size={16} />
               </button>
             </div>
-            <div className="mt-4 space-y-3 text-sm">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 text-sm">
+              <div className="space-y-3">
               {shouldShowPermissionPrompt && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950">
                   <p className="text-sm font-semibold">Notification permission is important</p>
                   <p className="mt-1 text-xs">Please enable it on every admin and partner device that uses this application.</p>
                 </div>
               )}
-              <button type="button" onClick={requestPermission} className="flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-left hover:bg-muted">
-                <span>Browser Notifications</span>
-                <span className="text-xs uppercase text-muted-foreground">{permissionStatus}</span>
+              <button type="button" onClick={requestPermission} className="flex w-full items-start justify-between gap-3 rounded-md border border-border px-3 py-3 text-left hover:bg-muted">
+                <span className="min-w-0">
+                  <span className="block font-medium">Device notification center</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">{lockScreenCopy[permissionStatus as keyof typeof lockScreenCopy]}</span>
+                </span>
+                <span className="shrink-0 rounded bg-muted px-2 py-1 text-[10px] font-semibold uppercase text-muted-foreground">{permissionStatus}</span>
               </button>
-              <p className="text-xs text-muted-foreground">{permissionCopy[permissionStatus as keyof typeof permissionCopy]}</p>
-              <button type="button" onClick={toggleSound} className="flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-left hover:bg-muted">
-                <span>Alarm Sound</span>
-                <span className="text-xs uppercase text-muted-foreground">{soundEnabled ? 'ON' : 'OFF'}</span>
+              <p className="text-xs leading-5 text-muted-foreground">{permissionCopy[permissionStatus as keyof typeof permissionCopy]}</p>
+              <button type="button" onClick={toggleSound} className="flex w-full items-start justify-between gap-3 rounded-md border border-border px-3 py-3 text-left hover:bg-muted">
+                <span className="min-w-0">
+                  <span className="block font-medium">In-app alarm sound</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">Plays the booking alarm while this app is open and the browser allows audio playback.</span>
+                </span>
+                <span className="shrink-0 rounded bg-muted px-2 py-1 text-[10px] font-semibold uppercase text-muted-foreground">{soundEnabled ? 'ON' : 'OFF'}</span>
               </button>
-            </div>
-            <div className="mt-4 border-t border-border pt-3">
-              <div className="mb-3">
+              </div>
+              <div className="mt-4 border-t border-border pt-4">
+                <div className="mb-4">
                 <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
                   <BellRing size={14} /> Recent Booking Alerts
                 </div>
-                <div className="max-h-44 space-y-2 overflow-y-auto">
+                <div className="space-y-2">
                   {recentCritical.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No booking alerts yet.</p>
+                    <p className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">No booking alerts yet.</p>
                   ) : recentCritical.map((item) => {
                     const active = isActiveAlarm(item, nowTick);
                     return (
                       <div key={item._id} className="rounded-md border border-border px-3 py-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{item.title}</p>
-                            <p className="line-clamp-2 text-xs text-muted-foreground">{item.message}</p>
+                            <p className="break-words text-sm font-medium leading-5">{item.title}</p>
+                            <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{item.message}</p>
                           </div>
                           <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
                             {item.acknowledgedAt ? 'ack' : active ? 'active' : 'missed'}
                           </span>
                         </div>
                         {!item.acknowledgedAt && (
-                          <button type="button" onClick={() => acknowledge(item._id)} className="mt-2 text-xs font-semibold text-red-700">
+                          <button type="button" onClick={() => acknowledge(item._id)} className="mt-3 inline-flex min-h-9 items-center rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50">
                             Accept Alert
                           </button>
                         )}
@@ -410,21 +427,21 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
                     );
                   })}
                 </div>
-              </div>
+                </div>
               <div className="border-t border-border pt-3">
                 <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
                   <MonitorSmartphone size={14} /> Registered Devices
                 </div>
-                <div className="max-h-48 space-y-2 overflow-y-auto">
+                <div className="space-y-2">
                   {devices.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">This device will appear after alerts are enabled.</p>
+                    <p className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">This device will appear after alerts are enabled.</p>
                   ) : devices.map((device) => (
-                    <div key={device._id} className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
+                    <div key={device._id} className="flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{device.browser || 'Browser'} - {device.platform || 'Device'}</p>
-                        <p className="text-xs text-muted-foreground">{device.permissionStatus || 'default'}</p>
+                        <p className="break-words text-sm font-medium leading-5">{device.browser || 'Browser'} - {device.platform || 'Device'}</p>
+                        <p className="mt-1 text-xs uppercase text-muted-foreground">{device.permissionStatus || 'default'}</p>
                       </div>
-                      <button type="button" onClick={() => revokeDevice(device.deviceId)} className="rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground" aria-label="Revoke device">
+                      <button type="button" onClick={() => revokeDevice(device.deviceId)} className="shrink-0 rounded p-2 text-muted-foreground hover:bg-background hover:text-foreground" aria-label="Revoke device">
                         <X size={14} />
                       </button>
                     </div>
@@ -432,6 +449,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
                 </div>
               </div>
             </div>
+          </div>
           </div>
         )}
       </div>
@@ -447,11 +465,11 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
               <h2 className="font-heading text-lg font-semibold">{activeAlarm.title}</h2>
               <p className="mt-1 text-sm text-slate-700">{activeAlarm.message}</p>
             </div>
-            <div className="flex shrink-0 gap-2">
-              <button type="button" onClick={viewBooking} className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+              <button type="button" onClick={viewBooking} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">
                 <Settings size={15} /> View Booking
               </button>
-              <button type="button" onClick={() => acknowledge(activeAlarm._id)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100">
+              <button type="button" onClick={() => acknowledge(activeAlarm._id)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100">
                 <Check size={15} /> Accept Alert
               </button>
             </div>
