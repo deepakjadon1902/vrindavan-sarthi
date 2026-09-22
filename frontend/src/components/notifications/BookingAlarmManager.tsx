@@ -44,6 +44,8 @@ type Props = {
 };
 
 const pollMs = 15_000;
+const alarmSoundPath = '/alarm.mp3';
+const alarmEventTypes = new Set(['BOOKING_CONFIRMED', 'DHARAMSHALA_PROPERTY_REVIEW', 'BOOKING_REQUIRES_ACTION']);
 
 const getDeviceId = () => {
   const key = 'vvs_notification_device_id';
@@ -85,7 +87,7 @@ const urlBase64ToUint8Array = (base64String: string) => {
 };
 
 const isActiveAlarm = (n: NotificationItem, now = Date.now()) => {
-  if (n.priority !== 'critical' || n.eventType !== 'BOOKING_CONFIRMED') return false;
+  if (n.priority !== 'critical' || !alarmEventTypes.has(String(n.eventType || ''))) return false;
   if (n.acknowledgedAt || n.alarmStatus === 'acknowledged') return false;
   const expires = n.alarmExpiresAt ? new Date(n.alarmExpiresAt).getTime() : 0;
   return !expires || expires > now;
@@ -94,8 +96,7 @@ const isActiveAlarm = (n: NotificationItem, now = Date.now()) => {
 const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooking }: Props) => {
   const navigate = useNavigate();
   const deviceId = useMemo(getDeviceId, []);
-  const audioRef = useRef<AudioContext | null>(null);
-  const intervalRef = useRef<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [devices, setDevices] = useState<DeviceItem[]>([]);
@@ -105,44 +106,32 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
   const [nowTick, setNowTick] = useState(Date.now());
   const activeAlarm = notifications.find((n) => isActiveAlarm(n, nowTick));
   const unreadCriticalCount = notifications.filter((n) => n.priority === 'critical' && !n.acknowledgedAt).length;
-  const recentCritical = notifications.filter((n) => n.priority === 'critical' && n.eventType === 'BOOKING_CONFIRMED').slice(0, 5);
+  const recentCritical = notifications.filter((n) => n.priority === 'critical' && alarmEventTypes.has(String(n.eventType || ''))).slice(0, 5);
   const shouldShowPermissionPrompt = permissionStatus !== 'granted';
 
   const stopSound = useCallback(() => {
-    if (intervalRef.current) window.clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    void audioRef.current?.close().catch(() => undefined);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
     audioRef.current = null;
   }, []);
 
-  const playPulse = useCallback(() => {
-    try {
-      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!Ctx) return;
-      const ctx = audioRef.current || new Ctx();
-      audioRef.current = ctx;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.setValueAtTime(660, ctx.currentTime + 0.18);
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.55);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.6);
-    } catch {
-      // Browser autoplay policy can block sound. Visual and persisted alerts remain active.
-    }
-  }, []);
-
   const startSound = useCallback(() => {
-    if (!soundEnabled || intervalRef.current || !activeAlarm) return;
-    playPulse();
-    intervalRef.current = window.setInterval(playPulse, 1800);
-  }, [activeAlarm, playPulse, soundEnabled]);
+    if (!soundEnabled || audioRef.current || !activeAlarm) return;
+    try {
+      const audio = new Audio(alarmSoundPath);
+      audio.loop = true;
+      audio.preload = 'auto';
+      audioRef.current = audio;
+      void audio.play().catch(() => {
+        // Browser autoplay policy can block sound. Visual and persisted alerts remain active.
+        if (audioRef.current === audio) audioRef.current = null;
+      });
+    } catch {
+      // Visual and persisted alerts remain active if audio cannot be initialized.
+    }
+  }, [activeAlarm, soundEnabled]);
 
   const registerDevice = useCallback(async (
     permission = permissionStatus,
@@ -198,7 +187,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
       const list = Array.isArray(res.data?.data) ? res.data.data : [];
       setNotifications(list);
       setNowTick(Date.now());
-      const latestCritical = list.find((n: NotificationItem) => n.priority === 'critical' && n.eventType === 'BOOKING_CONFIRMED');
+      const latestCritical = list.find((n: NotificationItem) => n.priority === 'critical' && alarmEventTypes.has(String(n.eventType || '')));
       if (latestCritical?._id && !seenRef.current.has(latestCritical._id)) {
         seenRef.current.add(latestCritical._id);
         if (!sessionStorage.getItem(`vvs_seen_alarm_${latestCritical._id}`)) {

@@ -31,6 +31,8 @@ const PROCESSING_STALE_MS = 15 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 5;
 const DEFAULT_RECOVERY_BATCH_SIZE = 50;
 const BOOKING_CONFIRMED_EVENT = 'BOOKING_CONFIRMED';
+const DHARAMSHALA_PROPERTY_REVIEW_EVENT = 'DHARAMSHALA_PROPERTY_REVIEW';
+const BOOKING_REQUIRES_ACTION_EVENT = 'BOOKING_REQUIRES_ACTION';
 
 let notificationProvider = null;
 
@@ -268,6 +270,41 @@ const bookingConfirmedMessage = (booking) => {
   return `${item} confirmed for ${guest}. Amount INR ${amount.toLocaleString('en-IN')}.`;
 };
 
+const dharamshalaPropertyReviewMessage = (booking) => {
+  const guest = booking.customerFullName || booking.userName || 'Guest';
+  const item = booking.itemName || 'Dharamshala booking';
+  const checkIn = booking.checkIn ? new Date(booking.checkIn).toISOString().slice(0, 10) : '';
+  return `${item} needs property review for ${guest}${checkIn ? `, check-in ${checkIn}` : ''}.`;
+};
+
+const bookingRequiresActionMessage = (booking) => {
+  const guest = booking.customerFullName || booking.userName || 'Guest';
+  const item = booking.itemName || 'Booking';
+  const status = String(booking.bookingStatus || 'pending').replace(/_/g, ' ');
+  return `${item} needs review for ${guest}. Current status: ${status}.`;
+};
+
+const terminalBookingStatuses = new Set([
+  'cancelled',
+  'completed',
+  'checked_out',
+  'expired',
+  'rejected',
+  'rejected_by_property',
+  'expired_property_no_response',
+  'payment_failed',
+  'refund_completed',
+]);
+
+const isBookingActionAlarmEligible = (booking) => {
+  if (!booking) return false;
+  const status = String(booking.bookingStatus || '').trim().toLowerCase();
+  if (!status || status === 'confirmed' || terminalBookingStatuses.has(status)) return false;
+  const propertyType = String(booking.propertyType || '').trim().toLowerCase();
+  if (propertyType === 'dharamshala' && status === 'pending_property_confirmation') return false;
+  return true;
+};
+
 const bookingNotificationDeepLink = (recipientRole) =>
   recipientRole === 'partner' ? '/partner/bookings' : '/admin/bookings';
 
@@ -377,14 +414,22 @@ const deliverBookingConfirmedWebPush = async (delivery) => {
   };
 };
 
-const createBookingConfirmedAlarmNotification = async ({ booking, recipientUserId, recipientRole, partnerId }) => {
+const createBookingAlarmNotification = async ({
+  booking,
+  recipientUserId,
+  recipientRole,
+  partnerId,
+  eventType = BOOKING_CONFIRMED_EVENT,
+  title,
+  message,
+}) => {
   const now = new Date();
   const alarmExpiresAt = new Date(now.getTime() + getBookingAlarmDurationSeconds() * 1000);
-  const eventKey = `${BOOKING_CONFIRMED_EVENT}:${booking._id}:${recipientUserId}`;
+  const eventKey = `${eventType}:${booking._id}:${recipientUserId}`;
   const doc = {
     eventKey,
-    title: `Booking confirmed ${booking.bookingId}`,
-    message: bookingConfirmedMessage(booking),
+    title,
+    message,
     type: 'notification',
     audience: recipientRole === 'admin' ? 'admin' : 'partner',
     recipientUserId,
@@ -392,7 +437,7 @@ const createBookingConfirmedAlarmNotification = async ({ booking, recipientUserI
     partnerId: partnerId || booking.partnerId,
     hotelId: booking.hotelId,
     bookingId: booking._id,
-    eventType: BOOKING_CONFIRMED_EVENT,
+    eventType,
     priority: 'critical',
     entityType: 'booking',
     entityId: String(booking._id),
@@ -409,6 +454,9 @@ const createBookingConfirmedAlarmNotification = async ({ booking, recipientUserI
       checkIn: booking.checkIn,
       checkOut: booking.checkOut,
       totalAmount: booking.totalAmount,
+      bookingStatus: booking.bookingStatus,
+      paymentMode: booking.paymentMode,
+      requestExpiresAt: booking.requestExpiresAt,
     },
   };
 
@@ -419,7 +467,7 @@ const createBookingConfirmedAlarmNotification = async ({ booking, recipientUserI
       bookingId: booking._id,
       recipientUserId,
       recipientRole,
-      eventType: BOOKING_CONFIRMED_EVENT,
+      eventType,
       timestamp: now.toISOString(),
     }));
     return created;
@@ -456,7 +504,13 @@ const ensureBookingConfirmedAlarmNotifications = async (booking, options = {}) =
   }
 
   const notifications = await Promise.all(recipients.map((recipient) =>
-    createBookingConfirmedAlarmNotification({ booking, ...recipient })
+    createBookingAlarmNotification({
+      booking,
+      ...recipient,
+      eventType: BOOKING_CONFIRMED_EVENT,
+      title: `Booking confirmed ${booking.bookingId}`,
+      message: bookingConfirmedMessage(booking),
+    })
   ));
 
   const deliveries = [];
@@ -477,6 +531,144 @@ const ensureBookingConfirmedAlarmNotifications = async (booking, options = {}) =
       eventType: 'booking.confirmed',
       channel: 'web_push',
       template: 'booking_confirmed_web_push',
+      recipientUserId: notification.recipientUserId,
+      bookingId: booking._id,
+      partnerId,
+      hotelId: booking.hotelId,
+      payload: { notificationId: notification._id },
+      provider: 'web_push',
+    }, options));
+  }
+
+  await Promise.all(deliveries);
+  return notifications;
+};
+
+const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, options = {}) => {
+  if (!booking ||
+      String(booking.propertyType || '').toLowerCase() !== 'dharamshala' ||
+      String(booking.bookingStatus || '') !== 'pending_property_confirmation') {
+    return [];
+  }
+  if (mongoose.connection.readyState !== 1) {
+    console.warn('[dharamshala.review.notification_skipped]', JSON.stringify({
+      bookingId: booking._id,
+      reason: 'database_not_connected',
+      eventType: DHARAMSHALA_PROPERTY_REVIEW_EVENT,
+      timestamp: new Date().toISOString(),
+    }));
+    return [];
+  }
+
+  const partnerId = await resolveBookingPartnerId(booking);
+  const admins = await User.find({ role: 'admin' }).select('_id role email').lean();
+  const recipients = admins.map((admin) => ({
+    recipientUserId: admin._id,
+    recipientRole: 'admin',
+  }));
+  if (partnerId) {
+    recipients.push({
+      recipientUserId: partnerId,
+      recipientRole: 'partner',
+      partnerId,
+    });
+  }
+
+  const notifications = await Promise.all(recipients.map((recipient) =>
+    createBookingAlarmNotification({
+      booking,
+      ...recipient,
+      eventType: DHARAMSHALA_PROPERTY_REVIEW_EVENT,
+      title: `Dharamshala review ${booking.bookingId}`,
+      message: dharamshalaPropertyReviewMessage(booking),
+    })
+  ));
+
+  const deliveries = [];
+  for (const notification of notifications.filter(Boolean)) {
+    deliveries.push(ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('dharamshala-review', booking._id, notification.recipientUserId, 'panel'),
+      eventType: 'dharamshala.property_review',
+      channel: 'in_app',
+      template: notification.recipientRole === 'admin' ? 'dharamshala_review_admin_panel' : 'dharamshala_review_partner_panel',
+      recipientUserId: notification.recipientUserId,
+      bookingId: booking._id,
+      partnerId,
+      hotelId: booking.hotelId,
+      payload: { notificationId: notification._id },
+    }, options));
+    deliveries.push(ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('dharamshala-review', booking._id, notification.recipientUserId, 'web-push'),
+      eventType: 'dharamshala.property_review',
+      channel: 'web_push',
+      template: 'booking_alarm_web_push',
+      recipientUserId: notification.recipientUserId,
+      bookingId: booking._id,
+      partnerId,
+      hotelId: booking.hotelId,
+      payload: { notificationId: notification._id },
+      provider: 'web_push',
+    }, options));
+  }
+
+  await Promise.all(deliveries);
+  return notifications;
+};
+
+const ensureBookingRequiresActionAlarmNotifications = async (booking, options = {}) => {
+  if (!isBookingActionAlarmEligible(booking)) return [];
+  if (mongoose.connection.readyState !== 1) {
+    console.warn('[booking.requires_action.notification_skipped]', JSON.stringify({
+      bookingId: booking._id,
+      reason: 'database_not_connected',
+      eventType: BOOKING_REQUIRES_ACTION_EVENT,
+      timestamp: new Date().toISOString(),
+    }));
+    return [];
+  }
+
+  const partnerId = await resolveBookingPartnerId(booking);
+  const admins = await User.find({ role: 'admin' }).select('_id role email').lean();
+  const recipients = admins.map((admin) => ({
+    recipientUserId: admin._id,
+    recipientRole: 'admin',
+  }));
+  if (partnerId) {
+    recipients.push({
+      recipientUserId: partnerId,
+      recipientRole: 'partner',
+      partnerId,
+    });
+  }
+
+  const notifications = await Promise.all(recipients.map((recipient) =>
+    createBookingAlarmNotification({
+      booking,
+      ...recipient,
+      eventType: BOOKING_REQUIRES_ACTION_EVENT,
+      title: `Booking needs review ${booking.bookingId}`,
+      message: bookingRequiresActionMessage(booking),
+    })
+  ));
+
+  const deliveries = [];
+  for (const notification of notifications.filter(Boolean)) {
+    deliveries.push(ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('booking-requires-action', booking._id, notification.recipientUserId, 'panel'),
+      eventType: 'booking.requires_action',
+      channel: 'in_app',
+      template: notification.recipientRole === 'admin' ? 'booking_action_required_admin_panel' : 'booking_action_required_partner_panel',
+      recipientUserId: notification.recipientUserId,
+      bookingId: booking._id,
+      partnerId,
+      hotelId: booking.hotelId,
+      payload: { notificationId: notification._id },
+    }, options));
+    deliveries.push(ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('booking-requires-action', booking._id, notification.recipientUserId, 'web-push'),
+      eventType: 'booking.requires_action',
+      channel: 'web_push',
+      template: 'booking_alarm_web_push',
       recipientUserId: notification.recipientUserId,
       bookingId: booking._id,
       partnerId,
@@ -528,10 +720,15 @@ const deliverWithDefaultProvider = async (delivery) => {
     if (template === 'booking_partner_panel') {
       return createPanelNotification({ delivery, booking, audience: 'partner', partnerId: booking.partnerId });
     }
-    if (template === 'booking_confirmed_admin_panel' || template === 'booking_confirmed_partner_panel') {
+    if (template === 'booking_confirmed_admin_panel' ||
+        template === 'booking_confirmed_partner_panel' ||
+        template === 'booking_action_required_admin_panel' ||
+        template === 'booking_action_required_partner_panel' ||
+        template === 'dharamshala_review_admin_panel' ||
+        template === 'dharamshala_review_partner_panel') {
       return { provider: 'mongodb', providerMessageId: String(delivery.payload?.notificationId || delivery._id) };
     }
-    if (template === 'booking_confirmed_web_push') {
+    if (template === 'booking_confirmed_web_push' || template === 'booking_alarm_web_push') {
       return deliverBookingConfirmedWebPush(delivery);
     }
   }
@@ -750,6 +947,8 @@ module.exports = {
   enqueueNotificationDelivery,
   ensureBookingCancellationNotification,
   ensureBookingConfirmedAlarmNotifications,
+  ensureBookingRequiresActionAlarmNotifications,
+  ensureDharamshalaPropertyReviewAlarmNotifications,
   ensureBookingCreatedNotifications,
   ensureBookingInvoiceNotification,
   ensureNotificationDelivery,

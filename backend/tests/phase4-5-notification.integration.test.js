@@ -12,6 +12,8 @@ const {
   buildNotificationKey,
   createOrGetNotificationDelivery,
   ensureBookingConfirmedAlarmNotifications,
+  ensureBookingRequiresActionAlarmNotifications,
+  ensureDharamshalaPropertyReviewAlarmNotifications,
 } = require('../utils/notificationDelivery');
 
 const TEST_DB_NAME = 'vrindavan_sarthi_test';
@@ -182,6 +184,125 @@ dbTest('confirmed booking alarm routes to admin and exact property partner idemp
   assert.equal(bookingADeliveries.filter((delivery) => delivery.channel === 'web_push').length, adminIds.size + 1);
   assert.equal(await NotificationDelivery.countDocuments({ bookingId: bookingA._id, recipientUserId: partnerA._id, channel: 'in_app' }), 1);
   assert.equal(await NotificationDelivery.countDocuments({ bookingId: bookingA._id, recipientUserId: partnerA._id, channel: 'web_push' }), 1);
+});
+
+dbTest('dharamshala property review request raises critical alarm for admin and exact partner', async () => {
+  const [admin, partnerA, partnerB, customer] = await User.create([
+    { name: 'DR Admin', email: `dr-admin@${TEST_RUN}.test`, password: 'x', role: 'admin', phone: '11' },
+    { name: 'DR Partner A', email: `dr-partner-a@${TEST_RUN}.test`, password: 'x', role: 'partner', partnerStatus: 'approved', phone: '12' },
+    { name: 'DR Partner B', email: `dr-partner-b@${TEST_RUN}.test`, password: 'x', role: 'partner', partnerStatus: 'approved', phone: '13' },
+    { name: 'DR Customer', email: `dr-customer@${TEST_RUN}.test`, password: 'x', role: 'user', phone: '14' },
+  ]);
+  const hotelA = await Hotel.create({
+    name: `${TEST_RUN} Dharamshala A`,
+    propertyType: 'dharamshala',
+    location: 'Vrindavan',
+    googleMapLink: 'Vrindavan',
+    nearestTemple: 'Banke Bihari',
+    partnerId: partnerA._id,
+    partnerName: partnerA.name,
+    status: 'active',
+    approvalStatus: 'approved',
+  });
+  const booking = await Booking.create({
+    bookingId: `${TEST_RUN}-DR-1`,
+    bookingType: 'room_type',
+    service_billing_model: 'dharamshala_booking',
+    propertyType: 'dharamshala',
+    paymentMode: 'pay_at_dharamshala',
+    itemId: String(hotelA._id),
+    itemName: `${hotelA.name} - Double Bed`,
+    userId: customer._id,
+    userName: customer.name,
+    userEmail: customer.email,
+    userPhone: customer.phone,
+    partnerId: partnerA._id,
+    hotelId: hotelA._id,
+    checkIn: new Date('2026-09-29T00:00:00.000Z'),
+    checkOut: new Date('2026-09-30T00:00:00.000Z'),
+    customerFullName: 'Dharamshala Guest',
+    customerMobile: '9000000000',
+    customerEmail: 'guest@example.test',
+    roomQuantity: 1,
+    guests: 1,
+    totalAdults: 1,
+    bookingStatus: 'pending_property_confirmation',
+    paymentStatus: 'pending',
+    totalAmount: 1299,
+    requestExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
+  });
+
+  for (let i = 0; i < 5; i += 1) {
+    await ensureDharamshalaPropertyReviewAlarmNotifications(booking, { queueFactory: () => null });
+  }
+
+  const adminIds = new Set((await User.find({ role: 'admin' }).select('_id').lean()).map((user) => String(user._id)));
+  const notifications = await PartnerNotification.find({ bookingId: booking._id, eventType: 'DHARAMSHALA_PROPERTY_REVIEW' }).lean();
+  assert.equal(notifications.length, adminIds.size + 1);
+  assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(admin._id)).length, 1);
+  assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(partnerA._id)).length, 1);
+  assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(partnerB._id)).length, 0);
+  assert.ok(notifications.every((n) => n.priority === 'critical' && n.alarmStatus === 'alarming'));
+
+  const deliveries = await NotificationDelivery.find({ bookingId: booking._id, eventType: 'dharamshala.property_review' }).lean();
+  assert.equal(deliveries.length, (adminIds.size + 1) * 2);
+  assert.equal(deliveries.filter((delivery) => delivery.channel === 'in_app').length, adminIds.size + 1);
+  assert.equal(deliveries.filter((delivery) => delivery.channel === 'web_push').length, adminIds.size + 1);
+});
+
+dbTest('pending booking that needs action raises critical alarm for admin and exact partner', async () => {
+  const [admin, partnerA, partnerB, customer] = await User.create([
+    { name: 'Action Admin', email: `action-admin@${TEST_RUN}.test`, password: 'x', role: 'admin', phone: '21' },
+    { name: 'Action Partner A', email: `action-partner-a@${TEST_RUN}.test`, password: 'x', role: 'partner', partnerStatus: 'approved', phone: '22' },
+    { name: 'Action Partner B', email: `action-partner-b@${TEST_RUN}.test`, password: 'x', role: 'partner', partnerStatus: 'approved', phone: '23' },
+    { name: 'Action Customer', email: `action-customer@${TEST_RUN}.test`, password: 'x', role: 'user', phone: '24' },
+  ]);
+  const hotelA = await Hotel.create({
+    name: `${TEST_RUN} Action Hotel A`,
+    location: 'Vrindavan',
+    googleMapLink: 'Vrindavan',
+    nearestTemple: 'Banke Bihari',
+    partnerId: partnerA._id,
+    partnerName: partnerA.name,
+    status: 'active',
+    approvalStatus: 'approved',
+  });
+  const booking = await Booking.create({
+    bookingId: `${TEST_RUN}-ACTION-1`,
+    bookingType: 'room_type',
+    propertyType: 'hotel',
+    itemId: String(hotelA._id),
+    itemName: `${hotelA.name} - Deluxe Room`,
+    userId: customer._id,
+    userName: customer.name,
+    userEmail: customer.email,
+    userPhone: customer.phone,
+    partnerId: partnerA._id,
+    hotelId: hotelA._id,
+    customerFullName: 'Pending Guest',
+    customerMobile: '9000000001',
+    customerEmail: 'pending@example.test',
+    bookingStatus: 'pending',
+    paymentStatus: 'pending',
+    totalAmount: 1899,
+  });
+
+  for (let i = 0; i < 5; i += 1) {
+    await ensureBookingRequiresActionAlarmNotifications(booking, { queueFactory: () => null });
+  }
+
+  const adminIds = new Set((await User.find({ role: 'admin' }).select('_id').lean()).map((user) => String(user._id)));
+  const notifications = await PartnerNotification.find({ bookingId: booking._id, eventType: 'BOOKING_REQUIRES_ACTION' }).lean();
+  assert.equal(notifications.length, adminIds.size + 1);
+  assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(admin._id)).length, 1);
+  assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(partnerA._id)).length, 1);
+  assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(partnerB._id)).length, 0);
+  assert.ok(notifications.every((n) => n.priority === 'critical' && n.alarmStatus === 'alarming'));
+
+  const deliveries = await NotificationDelivery.find({ bookingId: booking._id, eventType: 'booking.requires_action' }).lean();
+  assert.equal(deliveries.length, (adminIds.size + 1) * 2);
+  assert.equal(deliveries.filter((delivery) => delivery.channel === 'in_app').length, adminIds.size + 1);
+  assert.equal(deliveries.filter((delivery) => delivery.channel === 'web_push').length, adminIds.size + 1);
 });
 
 dbTest('notification devices are unique per authenticated user and device id', async () => {

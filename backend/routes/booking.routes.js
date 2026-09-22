@@ -33,6 +33,8 @@ const {
   ensureBookingCancellationNotification,
   ensureBookingConfirmedAlarmNotifications,
   ensureBookingCreatedNotifications,
+  ensureBookingRequiresActionAlarmNotifications,
+  ensureDharamshalaPropertyReviewAlarmNotifications,
   ensureBookingInvoiceNotification,
 } = require('../utils/notificationDelivery');
 const {
@@ -172,6 +174,7 @@ const enqueueBookingNotifications = async (booking, { invoice = false, partnerAl
     await ensureBookingInvoiceNotification(booking);
   }
   await ensureBookingCreatedNotifications(booking, { partnerAlert });
+  await ensureBookingRequiresActionAlarmNotifications(booking);
 };
 
 const bookingDetailFields = [
@@ -407,6 +410,7 @@ router.post('/room-type', protect, async (req, res) => {
         acceptedTermsSnapshot,
       });
       try {
+        await ensureDharamshalaPropertyReviewAlarmNotifications(result.booking);
         await enqueueBookingNotifications(result.booking, { partnerAlert: !result.idempotent });
       } catch (notifyErr) {
         console.warn('[dharamshala.request.notification_failed]', notifyErr?.message || notifyErr);
