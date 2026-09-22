@@ -21,6 +21,7 @@ const TEST_MONGO_URI = process.env.PHASE_2_1_MONGO_URI;
 const TEST_CONNECT_TIMEOUT_MS = 10_000;
 const TEST_SERVER_SELECTION_TIMEOUT_MS = 15_000;
 const TEST_RUN = `P45-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const ALARM_PUSH_ATTEMPTS_PER_RECIPIENT = 6;
 let setupError = null;
 
 const getConfiguredTestDbName = () => {
@@ -179,11 +180,11 @@ dbTest('confirmed booking alarm routes to admin and exact property partner idemp
   assert.equal(bookingBNotifications.filter((n) => n.recipientRole === 'admin' && adminIds.has(String(n.recipientUserId))).length, adminIds.size);
 
   const bookingADeliveries = await NotificationDelivery.find({ bookingId: bookingA._id, eventType: 'booking.confirmed' }).lean();
-  assert.equal(bookingADeliveries.length, (adminIds.size + 1) * 2);
+  assert.equal(bookingADeliveries.length, (adminIds.size + 1) * (1 + ALARM_PUSH_ATTEMPTS_PER_RECIPIENT));
   assert.equal(bookingADeliveries.filter((delivery) => delivery.channel === 'in_app').length, adminIds.size + 1);
-  assert.equal(bookingADeliveries.filter((delivery) => delivery.channel === 'web_push').length, adminIds.size + 1);
+  assert.equal(bookingADeliveries.filter((delivery) => delivery.channel === 'web_push').length, (adminIds.size + 1) * ALARM_PUSH_ATTEMPTS_PER_RECIPIENT);
   assert.equal(await NotificationDelivery.countDocuments({ bookingId: bookingA._id, recipientUserId: partnerA._id, channel: 'in_app' }), 1);
-  assert.equal(await NotificationDelivery.countDocuments({ bookingId: bookingA._id, recipientUserId: partnerA._id, channel: 'web_push' }), 1);
+  assert.equal(await NotificationDelivery.countDocuments({ bookingId: bookingA._id, recipientUserId: partnerA._id, channel: 'web_push' }), ALARM_PUSH_ATTEMPTS_PER_RECIPIENT);
 });
 
 dbTest('dharamshala property review request raises critical alarm for admin and exact partner', async () => {
@@ -245,9 +246,9 @@ dbTest('dharamshala property review request raises critical alarm for admin and 
   assert.ok(notifications.every((n) => n.priority === 'critical' && n.alarmStatus === 'alarming'));
 
   const deliveries = await NotificationDelivery.find({ bookingId: booking._id, eventType: 'dharamshala.property_review' }).lean();
-  assert.equal(deliveries.length, (adminIds.size + 1) * 2);
+  assert.equal(deliveries.length, (adminIds.size + 1) * (1 + ALARM_PUSH_ATTEMPTS_PER_RECIPIENT));
   assert.equal(deliveries.filter((delivery) => delivery.channel === 'in_app').length, adminIds.size + 1);
-  assert.equal(deliveries.filter((delivery) => delivery.channel === 'web_push').length, adminIds.size + 1);
+  assert.equal(deliveries.filter((delivery) => delivery.channel === 'web_push').length, (adminIds.size + 1) * ALARM_PUSH_ATTEMPTS_PER_RECIPIENT);
 });
 
 dbTest('pending booking that needs action raises critical alarm for admin and exact partner', async () => {
@@ -300,9 +301,9 @@ dbTest('pending booking that needs action raises critical alarm for admin and ex
   assert.ok(notifications.every((n) => n.priority === 'critical' && n.alarmStatus === 'alarming'));
 
   const deliveries = await NotificationDelivery.find({ bookingId: booking._id, eventType: 'booking.requires_action' }).lean();
-  assert.equal(deliveries.length, (adminIds.size + 1) * 2);
+  assert.equal(deliveries.length, (adminIds.size + 1) * (1 + ALARM_PUSH_ATTEMPTS_PER_RECIPIENT));
   assert.equal(deliveries.filter((delivery) => delivery.channel === 'in_app').length, adminIds.size + 1);
-  assert.equal(deliveries.filter((delivery) => delivery.channel === 'web_push').length, adminIds.size + 1);
+  assert.equal(deliveries.filter((delivery) => delivery.channel === 'web_push').length, (adminIds.size + 1) * ALARM_PUSH_ATTEMPTS_PER_RECIPIENT);
 });
 
 dbTest('notification devices are unique per authenticated user and device id', async () => {

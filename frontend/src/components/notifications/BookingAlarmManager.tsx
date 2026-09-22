@@ -73,10 +73,10 @@ const permissionCopy = {
 };
 
 const lockScreenCopy = {
-  default: 'Allow browser notifications so booking alerts can appear in this device notification center when supported by the browser and OS.',
-  granted: 'Notification center alerts are enabled for this browser. Lock-screen display depends on this device and OS settings.',
+  default: 'Allow browser notifications so locked-device alerts can use this phone or computer notification sound and vibration.',
+  granted: 'Locked-device alerts use this browser or phone notification sound and vibration. The custom MP3 plays when the app is open.',
   denied: 'This device is blocking notification center alerts. Re-enable this site in browser or OS notification settings.',
-  unsupported: 'Lock-screen notification center alerts need a supported browser on HTTPS or localhost.',
+  unsupported: 'Locked-device notification sound needs a supported browser on HTTPS or localhost.',
 };
 
 const getPlatform = () => navigator.platform || 'Browser';
@@ -455,7 +455,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
                 <button type="button" onClick={() => sendTestPush()} className="flex w-full items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-left text-emerald-950 hover:bg-emerald-100">
                   <span className="min-w-0">
                     <span className="block font-medium">Send test phone notification</span>
-                    <span className="mt-1 block text-xs leading-5">A real notification should appear in this device notification bar.</span>
+                    <span className="mt-1 block text-xs leading-5">A real notification should appear in this device notification bar using the device notification sound.</span>
                   </span>
                   <Bell size={16} className="shrink-0" />
                 </button>
@@ -465,7 +465,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
                 <span className="min-w-0">
                   <span className="block font-medium">Alarm ring playback</span>
                   <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                    Tap to grant and test MP3 alarm playback on this device. Browser audio permission is only valid after a real user tap.
+                    Tap to grant and test custom MP3 playback. This custom sound plays when the app is open; locked devices use the phone notification sound.
                   </span>
                 </span>
                 <span className="shrink-0 rounded bg-muted px-2 py-1 text-[10px] font-semibold uppercase text-muted-foreground">

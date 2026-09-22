@@ -34,6 +34,7 @@ const DEFAULT_RECOVERY_BATCH_SIZE = 50;
 const BOOKING_CONFIRMED_EVENT = 'BOOKING_CONFIRMED';
 const DHARAMSHALA_PROPERTY_REVIEW_EVENT = 'DHARAMSHALA_PROPERTY_REVIEW';
 const BOOKING_REQUIRES_ACTION_EVENT = 'BOOKING_REQUIRES_ACTION';
+const ALARM_PUSH_REPEAT_SECONDS = [30, 60, 90, 120, 150];
 
 let notificationProvider = null;
 
@@ -91,6 +92,7 @@ const createOrGetNotificationDelivery = async ({
   hotelId,
   payload = {},
   provider = 'internal',
+  nextAttemptAt,
 }) => {
   const doc = {
     notificationKey,
@@ -107,7 +109,7 @@ const createOrGetNotificationDelivery = async ({
     payload,
     provider,
     status: 'queued',
-    nextAttemptAt: new Date(),
+    nextAttemptAt: nextAttemptAt || new Date(),
   };
 
   try {
@@ -123,12 +125,14 @@ const createOrGetNotificationDelivery = async ({
 const enqueueNotificationDelivery = async (delivery, { queueFactory = createQueue } = {}) => {
   const queue = queueFactory(QUEUE_NAMES.notification, { required: false });
   if (!queue) return { queued: false, reason: 'redis_not_configured' };
+  const delay = Math.max(0, new Date(delivery.nextAttemptAt || Date.now()).getTime() - Date.now());
   await queue.add(
     JOB_NAMES.notificationDeliverySend,
     { notificationDeliveryId: String(delivery._id) },
     {
       jobId: notificationJobId(delivery._id),
       attempts: 1,
+      delay,
       removeOnComplete: { age: 7 * 24 * 60 * 60, count: 1000 },
       removeOnFail: { age: 30 * 24 * 60 * 60, count: 5000 },
     }
@@ -148,6 +152,30 @@ const ensureNotificationDelivery = async (input, options = {}) => {
   }
   return delivery;
 };
+
+const ensureBookingAlarmPushDeliveries = ({
+  notificationKeyPrefix,
+  eventType,
+  recipientUserId,
+  bookingId,
+  partnerId,
+  hotelId,
+  notificationId,
+  template = 'booking_alarm_web_push',
+}, options = {}) =>
+  bookingAlarmPushOffsets().map((offsetSeconds) => ensureNotificationDelivery({
+    notificationKey: buildNotificationKey(notificationKeyPrefix, bookingId, recipientUserId, offsetSeconds ? `web-push-repeat-${offsetSeconds}` : 'web-push'),
+    eventType,
+    channel: 'web_push',
+    template,
+    recipientUserId,
+    bookingId,
+    partnerId,
+    hotelId,
+    payload: { notificationId, alarmPushOffsetSeconds: offsetSeconds },
+    provider: 'web_push',
+    nextAttemptAt: offsetSeconds ? new Date(Date.now() + offsetSeconds * 1000) : new Date(),
+  }, offsetSeconds ? { ...options, immediateWebPush: false } : options));
 
 const claimNotificationDelivery = async ({ notificationDeliveryId, now = new Date(), Model = NotificationDelivery }) => {
   if (!mongoose.Types.ObjectId.isValid(String(notificationDeliveryId || ''))) {
@@ -259,6 +287,11 @@ const getBookingAlarmDurationSeconds = () => {
   const configured = Number(process.env.BOOKING_ALARM_DURATION_SECONDS || 180);
   if (!Number.isFinite(configured) || configured <= 0) return 180;
   return Math.min(10 * 60, Math.floor(configured));
+};
+
+const bookingAlarmPushOffsets = () => {
+  const duration = getBookingAlarmDurationSeconds();
+  return [0, ...ALARM_PUSH_REPEAT_SECONDS.filter((seconds) => seconds < duration)];
 };
 
 const resolveBookingPartnerId = async (booking) => {
@@ -532,17 +565,15 @@ const ensureBookingConfirmedAlarmNotifications = async (booking, options = {}) =
       hotelId: booking.hotelId,
       payload: { notificationId: notification._id },
     }, options));
-    deliveries.push(ensureNotificationDelivery({
-      notificationKey: buildNotificationKey('booking-confirmed', booking._id, notification.recipientUserId, 'web-push'),
+    deliveries.push(...ensureBookingAlarmPushDeliveries({
+      notificationKeyPrefix: 'booking-confirmed',
       eventType: 'booking.confirmed',
-      channel: 'web_push',
-      template: 'booking_confirmed_web_push',
       recipientUserId: notification.recipientUserId,
       bookingId: booking._id,
       partnerId,
       hotelId: booking.hotelId,
-      payload: { notificationId: notification._id },
-      provider: 'web_push',
+      notificationId: notification._id,
+      template: 'booking_confirmed_web_push',
     }, options));
   }
 
@@ -603,17 +634,14 @@ const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, option
       hotelId: booking.hotelId,
       payload: { notificationId: notification._id },
     }, options));
-    deliveries.push(ensureNotificationDelivery({
-      notificationKey: buildNotificationKey('dharamshala-review', booking._id, notification.recipientUserId, 'web-push'),
+    deliveries.push(...ensureBookingAlarmPushDeliveries({
+      notificationKeyPrefix: 'dharamshala-review',
       eventType: 'dharamshala.property_review',
-      channel: 'web_push',
-      template: 'booking_alarm_web_push',
       recipientUserId: notification.recipientUserId,
       bookingId: booking._id,
       partnerId,
       hotelId: booking.hotelId,
-      payload: { notificationId: notification._id },
-      provider: 'web_push',
+      notificationId: notification._id,
     }, options));
   }
 
@@ -670,17 +698,14 @@ const ensureBookingRequiresActionAlarmNotifications = async (booking, options = 
       hotelId: booking.hotelId,
       payload: { notificationId: notification._id },
     }, options));
-    deliveries.push(ensureNotificationDelivery({
-      notificationKey: buildNotificationKey('booking-requires-action', booking._id, notification.recipientUserId, 'web-push'),
+    deliveries.push(...ensureBookingAlarmPushDeliveries({
+      notificationKeyPrefix: 'booking-requires-action',
       eventType: 'booking.requires_action',
-      channel: 'web_push',
-      template: 'booking_alarm_web_push',
       recipientUserId: notification.recipientUserId,
       bookingId: booking._id,
       partnerId,
       hotelId: booking.hotelId,
-      payload: { notificationId: notification._id },
-      provider: 'web_push',
+      notificationId: notification._id,
     }, options));
   }
 
