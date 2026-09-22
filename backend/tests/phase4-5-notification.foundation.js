@@ -3,12 +3,15 @@ const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 
 const NotificationDelivery = require('../models/NotificationDelivery');
+const PartnerNotification = require('../models/PartnerNotification');
+const NotificationDevice = require('../models/NotificationDevice');
 const { JOB_NAMES, QUEUE_NAMES } = require('../queues/names');
 const {
   buildNotificationKey,
   claimNotificationDelivery,
   classifyNotificationError,
   enqueueNotificationDelivery,
+  getBookingAlarmDurationSeconds,
   notificationJobId,
   processNotificationDeliveryJob,
   resetNotificationProvider,
@@ -22,6 +25,34 @@ test('NotificationDelivery schema supports controlled durable states and unique 
   assert.ok(NotificationDelivery.schema.path('status').enumValues.includes('retry_scheduled'));
   assert.ok(NotificationDelivery.schema.path('status').enumValues.includes('sent'));
   assert.ok(NotificationDelivery.schema.path('status').enumValues.includes('failed'));
+});
+
+test('booking alarm model fields and device uniqueness are explicit', () => {
+  assert.ok(PartnerNotification.schema.path('eventKey').options.unique);
+  assert.ok(PartnerNotification.schema.path('recipientUserId'));
+  assert.ok(PartnerNotification.schema.path('bookingId'));
+  assert.ok(PartnerNotification.schema.path('alarmExpiresAt'));
+  assert.ok(PartnerNotification.schema.path('alarmStatus').enumValues.includes('acknowledged'));
+  assert.ok(NotificationDevice.schema.indexes().some(([fields, opts]) =>
+    fields.userId === 1 && fields.deviceId === 1 && opts.unique === true
+  ));
+});
+
+test('booking alarm duration is centralized, defaults to 180 seconds, and is bounded', () => {
+  const original = process.env.BOOKING_ALARM_DURATION_SECONDS;
+  try {
+    delete process.env.BOOKING_ALARM_DURATION_SECONDS;
+    assert.equal(getBookingAlarmDurationSeconds(), 180);
+    process.env.BOOKING_ALARM_DURATION_SECONDS = '45';
+    assert.equal(getBookingAlarmDurationSeconds(), 45);
+    process.env.BOOKING_ALARM_DURATION_SECONDS = '99999';
+    assert.equal(getBookingAlarmDurationSeconds(), 600);
+    process.env.BOOKING_ALARM_DURATION_SECONDS = '-1';
+    assert.equal(getBookingAlarmDurationSeconds(), 180);
+  } finally {
+    if (typeof original === 'undefined') delete process.env.BOOKING_ALARM_DURATION_SECONDS;
+    else process.env.BOOKING_ALARM_DURATION_SECONDS = original;
+  }
 });
 
 test('notification keys are deterministic and scoped by event', () => {

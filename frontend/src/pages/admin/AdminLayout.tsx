@@ -10,7 +10,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { api, withAuth } from '@/lib/api';
 import { APP_LOGO_URL } from '@/lib/brand';
 import { getSessionCache, setSessionCache } from '@/lib/panelCache';
-import { toast } from 'sonner';
+import BookingAlarmManager from '@/components/notifications/BookingAlarmManager';
 
 const sidebarLinks = [
   { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -39,7 +39,6 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-  const [lastNotificationId, setLastNotificationId] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -63,50 +62,6 @@ const AdminLayout = () => {
     };
     void run();
   }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    const beep = () => {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.frequency.value = 880;
-        gain.gain.value = 0.04;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.16);
-      } catch {
-        // Browser may block audio until interaction.
-      }
-    };
-    const poll = async () => {
-      try {
-        const res = await api.get('/partner/admin-notifications', { ...withAuth(token), params: { limit: 5 } });
-        const list = Array.isArray(res.data?.data) ? res.data.data : [];
-        const latest = list[0];
-        if (!latest?._id) return;
-        const cached = sessionStorage.getItem('vvs_admin_last_notification') || '';
-        if (!lastNotificationId && !cached) {
-          setLastNotificationId(latest._id);
-          sessionStorage.setItem('vvs_admin_last_notification', latest._id);
-          return;
-        }
-        if (latest._id !== (lastNotificationId || cached)) {
-          setLastNotificationId(latest._id);
-          sessionStorage.setItem('vvs_admin_last_notification', latest._id);
-          beep();
-          toast.info(latest.title || 'New booking/order', { description: latest.message });
-        }
-      } catch {
-        // ignore notification polling errors
-      }
-    };
-    void poll();
-    const id = window.setInterval(poll, 30_000);
-    return () => window.clearInterval(id);
-  }, [lastNotificationId, token]);
 
   const handleLogout = () => {
     logout();
@@ -185,6 +140,7 @@ const AdminLayout = () => {
             {sidebarLinks.find((l) => l.path === location.pathname)?.name || 'Admin'}
           </h1>
           <div className="flex items-center gap-3">
+            <BookingAlarmManager token={token} user={user} enabled={user?.role === 'admin'} viewPath="/admin/bookings" />
             <a
               href="/?adminView=1"
               target="_blank"

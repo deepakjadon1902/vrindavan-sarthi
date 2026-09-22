@@ -2,6 +2,7 @@ const Booking = require('../models/Booking');
 const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const { enumerateDatesUTC, isValidDate } = require('./date');
 const { processRoomTypeWaitlist } = require('./waitlist');
+const { ensureBookingConfirmedAlarmNotifications } = require('./notificationDelivery');
 
 const LODGING_TYPES = new Set(['hotel', 'room', 'room_type']);
 const TERMINAL_BOOKING_STATUSES = new Set(['cancelled', 'expired', 'payment_failed', 'checked_out', 'rejected_by_property', 'expired_property_no_response']);
@@ -197,11 +198,19 @@ const markBookingPaymentPaid = async (booking, meta = {}) => {
   booking.adminPaymentVerifiedAt = booking.adminPaymentVerifiedAt || new Date();
   booking.paidAt = booking.paidAt || new Date();
 
+  const wasConfirmed = String(booking.bookingStatus || '') === 'confirmed';
   if (!isLodgingBooking(booking) || await hasExpectedInventoryLocks(booking)) {
     await transitionBookingStatus(booking, 'confirmed', meta);
   }
 
   await booking.save();
+  if (!wasConfirmed && String(booking.bookingStatus || '') === 'confirmed') {
+    try {
+      await ensureBookingConfirmedAlarmNotifications(booking);
+    } catch (err) {
+      console.warn('[booking.confirmed.notification_failed]', err?.message || err);
+    }
+  }
   return booking;
 };
 

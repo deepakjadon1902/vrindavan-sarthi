@@ -35,6 +35,7 @@ const MODIFICATION_STATUSES = {
   failed: new Set([]),
   cancelled: new Set([]),
 };
+const TERMINAL_MODIFICATION_STATUSES = new Set(['completed', 'failed', 'payment_failed', 'refund_failed', 'cancelled']);
 
 const publicModificationFields = [
   'checkInDate',
@@ -66,6 +67,8 @@ const validateIdempotencyKey = (value) => {
   return key;
 };
 
+const isDuplicateKeyError = (err) => String(err?.code) === '11000';
+
 const validateBookingId = (bookingId) => {
   if (!mongoose.Types.ObjectId.isValid(String(bookingId || ''))) {
     throw httpError('Invalid booking id', 400);
@@ -80,6 +83,7 @@ const transitionModification = (modification, nextStatus) => {
     throw httpError(`INVALID_MODIFICATION_STATE: ${current} -> ${nextStatus}`, 409);
   }
   modification.status = nextStatus;
+  if (TERMINAL_MODIFICATION_STATUSES.has(nextStatus)) modification.activeBookingModification = false;
   if (nextStatus === 'completed') modification.completedAt = modification.completedAt || new Date();
   if (['failed', 'payment_failed', 'refund_failed'].includes(nextStatus)) modification.failedAt = modification.failedAt || new Date();
 };
@@ -621,11 +625,14 @@ const createModification = async ({ bookingId, actor, changes, idempotencyKey })
       paymentStatus: amount.paymentAction === 'additional_payment' ? 'pending' : 'not_required',
       refundAmount: amount.refundAmount,
       refundStatus: amount.paymentAction === 'refund' ? 'pending' : 'not_required',
+      activeBookingModification: true,
       inventoryStatus: 'planned',
     });
   } catch (err) {
-    if (String(err?.code) === '11000') {
-      return { modification: await BookingModification.findOne({ bookingId, idempotencyKey: key }), idempotent: true };
+    if (isDuplicateKeyError(err)) {
+      const idempotent = await BookingModification.findOne({ bookingId, idempotencyKey: key });
+      if (idempotent) return { modification: idempotent, idempotent: true };
+      throw httpError('BOOKING_MODIFICATION_IN_PROGRESS', 409);
     }
     throw err;
   }

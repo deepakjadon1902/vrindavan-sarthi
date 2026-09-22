@@ -110,6 +110,7 @@ const bookingModificationSchema = new mongoose.Schema(
     refundRequestedAt: Date,
     refundProcessedAt: Date,
     refundFailureReason: String,
+    activeBookingModification: { type: Boolean, default: false },
     inventoryStatus: {
       type: String,
       enum: ['not_required', 'planned', 'held', 'applied', 'released', 'failed'],
@@ -133,5 +134,13 @@ const bookingModificationSchema = new mongoose.Schema(
 
 bookingModificationSchema.index({ bookingId: 1, createdAt: -1 });
 bookingModificationSchema.index({ bookingId: 1, idempotencyKey: 1 }, { unique: true });
+bookingModificationSchema.index(
+  { bookingId: 1, activeBookingModification: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { activeBookingModification: true },
+    name: 'booking_active_modification_unique',
+  }
+);
 
 module.exports = mongoose.model('BookingModification', bookingModificationSchema);

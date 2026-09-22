@@ -31,6 +31,7 @@ const {
 const { sendSms } = require('../utils/sms');
 const {
   ensureBookingCancellationNotification,
+  ensureBookingConfirmedAlarmNotifications,
   ensureBookingCreatedNotifications,
   ensureBookingInvoiceNotification,
 } = require('../utils/notificationDelivery');
@@ -833,6 +834,13 @@ router.put('/:id/dharamshala/accept', protect, authorize('admin', 'partner'), as
     const booking = await findDharamshalaBookingForDecision(req);
     if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala request not found' });
     const result = await acceptDharamshalaRequest({ booking, actor: req.user });
+    if (!result.idempotent && String(result.booking.bookingStatus || '') === 'confirmed') {
+      try {
+        await ensureBookingConfirmedAlarmNotifications(result.booking);
+      } catch (notifyErr) {
+        console.warn('[dharamshala.confirmed.notification_failed]', notifyErr?.message || notifyErr);
+      }
+    }
     res.json({
       success: true,
       data: req.user.role === 'user' ? sanitizeCustomerBooking(result.booking) : result.booking,
@@ -1107,6 +1115,11 @@ router.put('/:id/assign-cab', protect, authorize('admin'), async (req, res) => {
       reason: 'cab_assigned',
     });
     await booking.save();
+    try {
+      await ensureBookingConfirmedAlarmNotifications(booking);
+    } catch (notifyErr) {
+      console.warn('[cab.confirmed.notification_failed]', notifyErr?.message || notifyErr);
+    }
 
     // SMS driver (best-effort). Drivers must be notified by mobile number, not email.
     if (booking.assignedDriverPhone) {

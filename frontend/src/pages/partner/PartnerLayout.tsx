@@ -8,8 +8,7 @@ import { useEffect, useState } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { APP_LOGO_URL } from '@/lib/brand';
-import { api, withAuth } from '@/lib/api';
-import { toast } from 'sonner';
+import BookingAlarmManager from '@/components/notifications/BookingAlarmManager';
 
 const sidebarLinks = [
   { name: 'Dashboard', path: '/partner', icon: LayoutDashboard },
@@ -32,7 +31,6 @@ const PartnerLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [lastNotificationId, setLastNotificationId] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -43,52 +41,6 @@ const PartnerLayout = () => {
     if (!token || user?.partnerStatus !== 'approved') return;
     void fetchPartnerBookings();
   }, [fetchPartnerBookings, token, user?.partnerStatus]);
-
-  useEffect(() => {
-    if (!token || user?.partnerStatus !== 'approved') return;
-    const beep = () => {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.frequency.value = 740;
-        gain.gain.value = 0.04;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.16);
-      } catch {
-        // Browser may block audio until interaction.
-      }
-    };
-    const poll = async () => {
-      try {
-        const res = await api.get('/partner/notifications', { ...withAuth(token), params: { limit: 5 } });
-        const list = Array.isArray(res.data?.data) ? res.data.data : [];
-        const latest = list[0];
-        if (!latest?._id) return;
-        const cacheKey = `vvs_partner_last_notification_${user?._id || user?.email || 'me'}`;
-        const cached = sessionStorage.getItem(cacheKey) || '';
-        if (!lastNotificationId && !cached) {
-          setLastNotificationId(latest._id);
-          sessionStorage.setItem(cacheKey, latest._id);
-          return;
-        }
-        if (latest._id !== (lastNotificationId || cached)) {
-          setLastNotificationId(latest._id);
-          sessionStorage.setItem(cacheKey, latest._id);
-          beep();
-          toast.info(latest.title || 'New booking', { description: latest.message });
-          void fetchPartnerBookings();
-        }
-      } catch {
-        // ignore notification polling errors
-      }
-    };
-    void poll();
-    const id = window.setInterval(poll, 30_000);
-    return () => window.clearInterval(id);
-  }, [fetchPartnerBookings, lastNotificationId, token, user?._id, user?.email, user?.partnerStatus]);
 
   const bookingCount = partnerBookings.length;
   const isApproved = user?.partnerStatus === 'approved';
@@ -170,7 +122,13 @@ const PartnerLayout = () => {
           <h1 className="font-heading text-2xl font-semibold text-white">
             {sidebarLinks.find((l) => l.path === location.pathname)?.name || 'Partner'}
           </h1>
-          <div />
+          <BookingAlarmManager
+            token={token}
+            user={user}
+            enabled={user?.role === 'partner' && user?.partnerStatus === 'approved'}
+            viewPath="/partner/bookings"
+            onNewBooking={() => void fetchPartnerBookings()}
+          />
         </header>
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           {showApprovalGate ? (

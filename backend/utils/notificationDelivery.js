@@ -5,6 +5,8 @@ const Booking = require('../models/Booking');
 const Order = require('../models/Order');
 const PartnerNotification = require('../models/PartnerNotification');
 const NotificationDelivery = require('../models/NotificationDelivery');
+const Hotel = require('../models/Hotel');
+const User = require('../models/User');
 const { createQueue } = require('../queues/factory');
 const { QUEUE_NAMES, JOB_NAMES } = require('../queues/names');
 const { getBackoffBaseMs } = require('../config/redis');
@@ -22,6 +24,7 @@ const {
 const PROCESSING_STALE_MS = 15 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 5;
 const DEFAULT_RECOVERY_BATCH_SIZE = 50;
+const BOOKING_CONFIRMED_EVENT = 'BOOKING_CONFIRMED';
 
 let notificationProvider = null;
 
@@ -237,6 +240,128 @@ const createPanelNotification = async ({ delivery, booking, order, audience, par
   return { provider: 'mongodb', providerMessageId: String(delivery._id) };
 };
 
+const getBookingAlarmDurationSeconds = () => {
+  const configured = Number(process.env.BOOKING_ALARM_DURATION_SECONDS || 180);
+  if (!Number.isFinite(configured) || configured <= 0) return 180;
+  return Math.min(10 * 60, Math.floor(configured));
+};
+
+const resolveBookingPartnerId = async (booking) => {
+  if (booking?.hotelId) {
+    const hotel = await Hotel.findById(booking.hotelId).select('partnerId').lean();
+    if (hotel?.partnerId) return hotel.partnerId;
+  }
+  return booking?.partnerId || null;
+};
+
+const bookingConfirmedMessage = (booking) => {
+  const guest = booking.customerFullName || booking.userName || 'Guest';
+  const item = booking.itemName || 'Booking';
+  const amount = Number(booking.totalAmount || booking.customer_total || 0);
+  return `${item} confirmed for ${guest}. Amount INR ${amount.toLocaleString('en-IN')}.`;
+};
+
+const createBookingConfirmedAlarmNotification = async ({ booking, recipientUserId, recipientRole, partnerId }) => {
+  const now = new Date();
+  const alarmExpiresAt = new Date(now.getTime() + getBookingAlarmDurationSeconds() * 1000);
+  const eventKey = `${BOOKING_CONFIRMED_EVENT}:${booking._id}:${recipientUserId}`;
+  const doc = {
+    eventKey,
+    title: `Booking confirmed ${booking.bookingId}`,
+    message: bookingConfirmedMessage(booking),
+    type: 'notification',
+    audience: recipientRole === 'admin' ? 'admin' : 'partner',
+    recipientUserId,
+    recipientRole,
+    partnerId: partnerId || booking.partnerId,
+    hotelId: booking.hotelId,
+    bookingId: booking._id,
+    eventType: BOOKING_CONFIRMED_EVENT,
+    priority: 'critical',
+    entityType: 'booking',
+    entityId: String(booking._id),
+    alarmStatus: 'alarming',
+    alarmStartedAt: now,
+    alarmExpiresAt,
+    metadata: {
+      bookingCode: booking.bookingId,
+      bookingType: booking.bookingType,
+      propertyType: booking.propertyType,
+      itemName: booking.itemName,
+      guestName: booking.customerFullName || booking.userName,
+      guestPhone: booking.customerMobile || booking.userPhone,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      totalAmount: booking.totalAmount,
+    },
+  };
+
+  try {
+    const created = await PartnerNotification.create(doc);
+    console.log('[notification_created]', JSON.stringify({
+      notificationId: created._id,
+      bookingId: booking._id,
+      recipientUserId,
+      recipientRole,
+      eventType: BOOKING_CONFIRMED_EVENT,
+      timestamp: now.toISOString(),
+    }));
+    return created;
+  } catch (err) {
+    if (String(err?.code) !== '11000') throw err;
+    return PartnerNotification.findOne({ eventKey });
+  }
+};
+
+const ensureBookingConfirmedAlarmNotifications = async (booking, options = {}) => {
+  if (!booking || String(booking.bookingStatus || '') !== 'confirmed') return [];
+  if (mongoose.connection.readyState !== 1) {
+    console.warn('[booking.confirmed.notification_skipped]', JSON.stringify({
+      bookingId: booking._id,
+      reason: 'database_not_connected',
+      eventType: BOOKING_CONFIRMED_EVENT,
+      timestamp: new Date().toISOString(),
+    }));
+    return [];
+  }
+  const partnerId = await resolveBookingPartnerId(booking);
+  const admins = await User.find({ role: 'admin' }).select('_id role email').lean();
+  const recipients = admins.map((admin) => ({
+    recipientUserId: admin._id,
+    recipientRole: 'admin',
+  }));
+
+  if (partnerId) {
+    recipients.push({
+      recipientUserId: partnerId,
+      recipientRole: 'partner',
+      partnerId,
+    });
+  }
+
+  const notifications = await Promise.all(recipients.map((recipient) =>
+    createBookingConfirmedAlarmNotification({ booking, ...recipient })
+  ));
+
+  const deliveries = [];
+  for (const notification of notifications.filter(Boolean)) {
+    deliveries.push(ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('booking-confirmed', booking._id, notification.recipientUserId, 'panel'),
+      eventType: 'booking.confirmed',
+      channel: 'in_app',
+      template: notification.recipientRole === 'admin' ? 'booking_confirmed_admin_panel' : 'booking_confirmed_partner_panel',
+      recipientUserId: notification.recipientUserId,
+      bookingId: booking._id,
+      partnerId,
+      hotelId: booking.hotelId,
+      payload: { notificationId: notification._id },
+    }, options));
+  }
+
+  await Promise.all(deliveries);
+  return notifications;
+};
+
 const deliverWithDefaultProvider = async (delivery) => {
   const template = String(delivery.template || '');
   if (template.startsWith('booking_')) {
@@ -274,6 +399,9 @@ const deliverWithDefaultProvider = async (delivery) => {
     }
     if (template === 'booking_partner_panel') {
       return createPanelNotification({ delivery, booking, audience: 'partner', partnerId: booking.partnerId });
+    }
+    if (template === 'booking_confirmed_admin_panel' || template === 'booking_confirmed_partner_panel') {
+      return { provider: 'mongodb', providerMessageId: String(delivery.payload?.notificationId || delivery._id) };
     }
   }
 
@@ -490,9 +618,11 @@ module.exports = {
   createOrGetNotificationDelivery,
   enqueueNotificationDelivery,
   ensureBookingCancellationNotification,
+  ensureBookingConfirmedAlarmNotifications,
   ensureBookingCreatedNotifications,
   ensureBookingInvoiceNotification,
   ensureNotificationDelivery,
+  getBookingAlarmDurationSeconds,
   ensureOrderCancellationNotification,
   ensureOrderCreatedNotifications,
   ensureOrderInvoiceNotification,
