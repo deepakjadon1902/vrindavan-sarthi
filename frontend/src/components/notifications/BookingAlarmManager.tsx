@@ -54,6 +54,13 @@ const getPermissionStatus = () => {
   return Notification.permission;
 };
 
+const permissionCopy = {
+  default: 'Important: allow notifications on every admin/partner device so booking alarms can appear in the device notification center.',
+  granted: 'Device notifications are enabled on this browser.',
+  denied: 'Important: device notifications are blocked in this browser. Enable them from site settings to receive booking alarms.',
+  unsupported: 'This browser does not support device notifications. In-app booking alarms still work.',
+};
+
 const getPlatform = () => navigator.platform || 'Browser';
 const getBrowser = () => {
   const ua = navigator.userAgent;
@@ -86,6 +93,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
   const activeAlarm = notifications.find((n) => isActiveAlarm(n, nowTick));
   const unreadCriticalCount = notifications.filter((n) => n.priority === 'critical' && !n.acknowledgedAt).length;
   const recentCritical = notifications.filter((n) => n.priority === 'critical' && n.eventType === 'BOOKING_CONFIRMED').slice(0, 5);
+  const shouldShowPermissionPrompt = permissionStatus !== 'granted';
 
   const stopSound = useCallback(() => {
     if (intervalRef.current) window.clearInterval(intervalRef.current);
@@ -166,6 +174,8 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
               new Notification(active ? (latestCritical.title || 'Booking confirmed') : 'Missed booking alert', {
                 body: latestCritical.message,
                 tag: latestCritical._id,
+                requireInteraction: active,
+                silent: false,
               });
             } catch {
               // In-app alarm still covers unsupported browser notification delivery.
@@ -221,12 +231,19 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
 
   const requestPermission = async () => {
     let permission = getPermissionStatus();
+    if (permission === 'unsupported') {
+      toast.info('This browser does not support device notifications');
+      await registerDevice(permission).catch(() => undefined);
+      return;
+    }
     if (permission === 'default') {
       permission = await Notification.requestPermission();
     }
     setPermissionStatus(permission);
     await registerDevice(permission).catch(() => undefined);
     await loadDevices();
+    if (permission === 'granted') toast.success('Booking device notifications enabled');
+    if (permission === 'denied') toast.error('Device notifications are blocked in browser settings');
   };
 
   const acknowledge = async (id?: string) => {
@@ -271,6 +288,16 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
   return (
     <>
       <div className="relative flex items-center gap-2">
+        {shouldShowPermissionPrompt && (
+          <button
+            type="button"
+            onClick={requestPermission}
+            className="hidden rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 shadow-sm hover:bg-amber-100 lg:inline-flex"
+            title="Important: enable booking alarm notifications on this device"
+          >
+            Enable Alerts
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setSettingsOpen((v) => !v)}
@@ -294,10 +321,17 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
               </button>
             </div>
             <div className="mt-4 space-y-3 text-sm">
+              {shouldShowPermissionPrompt && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950">
+                  <p className="text-sm font-semibold">Notification permission is important</p>
+                  <p className="mt-1 text-xs">Please enable it on every admin and partner device that uses this application.</p>
+                </div>
+              )}
               <button type="button" onClick={requestPermission} className="flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-left hover:bg-muted">
                 <span>Browser Notifications</span>
                 <span className="text-xs uppercase text-muted-foreground">{permissionStatus}</span>
               </button>
+              <p className="text-xs text-muted-foreground">{permissionCopy[permissionStatus as keyof typeof permissionCopy]}</p>
               <button type="button" onClick={toggleSound} className="flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-left hover:bg-muted">
                 <span>Alarm Sound</span>
                 <span className="text-xs uppercase text-muted-foreground">{soundEnabled ? 'ON' : 'OFF'}</span>
@@ -326,7 +360,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
                         </div>
                         {!item.acknowledgedAt && (
                           <button type="button" onClick={() => acknowledge(item._id)} className="mt-2 text-xs font-semibold text-red-700">
-                            Acknowledge
+                            Accept Alert
                           </button>
                         )}
                       </div>
@@ -375,10 +409,15 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
                 <Settings size={15} /> View Booking
               </button>
               <button type="button" onClick={() => acknowledge(activeAlarm._id)} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100">
-                <Check size={15} /> Stop Alarm
+                <Check size={15} /> Accept Alert
               </button>
             </div>
           </div>
+          {shouldShowPermissionPrompt && (
+            <button type="button" onClick={requestPermission} className="mt-3 inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">
+              <Bell size={14} /> Enable device notification center alerts
+            </button>
+          )}
           {!soundEnabled && (
             <button type="button" onClick={toggleSound} className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-red-700">
               <Volume2 size={14} /> Enable alarm sound on this device
