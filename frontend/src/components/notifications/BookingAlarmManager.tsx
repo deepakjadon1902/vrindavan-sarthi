@@ -109,6 +109,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
   const [devices, setDevices] = useState<DeviceItem[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('vvs_booking_alarm_sound') !== 'off');
+  const [alarmPlaybackUnlocked, setAlarmPlaybackUnlocked] = useState(() => localStorage.getItem('vvs_booking_alarm_playback_unlocked') === 'yes');
   const [permissionStatus, setPermissionStatus] = useState(getPermissionStatus);
   const [nowTick, setNowTick] = useState(Date.now());
   const activeAlarm = notifications.find((n) => isActiveAlarm(n, nowTick));
@@ -125,7 +126,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
   }, []);
 
   const startSound = useCallback(() => {
-    if (!soundEnabled || audioRef.current || !activeAlarm) return;
+    if (!soundEnabled || !alarmPlaybackUnlocked || audioRef.current || !activeAlarm) return;
     try {
       const audio = new Audio(alarmSoundPath);
       audio.loop = true;
@@ -138,7 +139,7 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
     } catch {
       // Visual and persisted alerts remain active if audio cannot be initialized.
     }
-  }, [activeAlarm, soundEnabled]);
+  }, [activeAlarm, alarmPlaybackUnlocked, soundEnabled]);
 
   const registerDevice = useCallback(async (
     permission = permissionStatus,
@@ -296,6 +297,31 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
     if (permission === 'denied') toast.error('Device notifications are blocked in browser settings');
   };
 
+  const requestAlarmPlaybackPermission = async () => {
+    try {
+      const audio = new Audio(alarmSoundPath);
+      audio.loop = false;
+      audio.preload = 'auto';
+      audio.volume = 0.35;
+      await audio.play();
+      window.setTimeout(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      }, 900);
+      setAlarmPlaybackUnlocked(true);
+      setSoundEnabled(true);
+      localStorage.setItem('vvs_booking_alarm_playback_unlocked', 'yes');
+      localStorage.setItem('vvs_booking_alarm_sound', 'on');
+      await registerDevice(permissionStatus, true).catch(() => undefined);
+      await loadDevices();
+      toast.success('Alarm playback enabled on this device');
+    } catch {
+      setAlarmPlaybackUnlocked(false);
+      localStorage.removeItem('vvs_booking_alarm_playback_unlocked');
+      toast.error('This browser blocked alarm playback. Tap again, keep the app open, or check browser audio settings.');
+    }
+  };
+
   const acknowledge = async (id?: string) => {
     const notificationId = id || activeAlarm?._id;
     if (!token || !notificationId) return;
@@ -321,11 +347,14 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
   };
 
   const toggleSound = () => {
-    const next = !soundEnabled;
-    setSoundEnabled(next);
-    localStorage.setItem('vvs_booking_alarm_sound', next ? 'on' : 'off');
-    if (!next) stopSound();
-    void registerDevice(permissionStatus, next).catch(() => undefined);
+    if (!soundEnabled || !alarmPlaybackUnlocked) {
+      void requestAlarmPlaybackPermission();
+      return;
+    }
+    setSoundEnabled(false);
+    localStorage.setItem('vvs_booking_alarm_sound', 'off');
+    stopSound();
+    void registerDevice(permissionStatus, false).catch(() => undefined);
   };
 
   const viewBooking = () => {
@@ -391,10 +420,14 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
               <p className="text-xs leading-5 text-muted-foreground">{permissionCopy[permissionStatus as keyof typeof permissionCopy]}</p>
               <button type="button" onClick={toggleSound} className="flex w-full items-start justify-between gap-3 rounded-md border border-border px-3 py-3 text-left hover:bg-muted">
                 <span className="min-w-0">
-                  <span className="block font-medium">In-app alarm sound</span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">Plays the booking alarm while this app is open and the browser allows audio playback.</span>
+                  <span className="block font-medium">Alarm ring playback</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                    Tap to grant and test MP3 alarm playback on this device. Browser audio permission is only valid after a real user tap.
+                  </span>
                 </span>
-                <span className="shrink-0 rounded bg-muted px-2 py-1 text-[10px] font-semibold uppercase text-muted-foreground">{soundEnabled ? 'ON' : 'OFF'}</span>
+                <span className="shrink-0 rounded bg-muted px-2 py-1 text-[10px] font-semibold uppercase text-muted-foreground">
+                  {soundEnabled && alarmPlaybackUnlocked ? 'GRANTED' : 'ENABLE'}
+                </span>
               </button>
               </div>
               <div className="mt-4 border-t border-border pt-4">
@@ -479,9 +512,9 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
               <Bell size={14} /> Enable device notification center alerts
             </button>
           )}
-          {!soundEnabled && (
+          {(!soundEnabled || !alarmPlaybackUnlocked) && (
             <button type="button" onClick={toggleSound} className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-red-700">
-              <Volume2 size={14} /> Enable alarm sound on this device
+              <Volume2 size={14} /> Grant alarm playback on this device
             </button>
           )}
         </div>
