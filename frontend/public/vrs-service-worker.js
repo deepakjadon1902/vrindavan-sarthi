@@ -28,9 +28,16 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(self.registration.showNotification(title, {
     body,
+    icon: '/vrindasarthi logo.jpeg',
+    badge: '/favicon.ico',
     tag: notificationId || undefined,
     renotify: Boolean(notificationId),
     requireInteraction: payload.priority === 'critical',
+    silent: false,
+    vibrate: payload.priority === 'critical' ? [500, 150, 500, 150, 800] : [200],
+    actions: [
+      { action: 'open', title: 'View Booking' },
+    ],
     data: {
       notificationId,
       bookingId: String(payload.bookingId || ''),

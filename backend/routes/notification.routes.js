@@ -6,7 +6,7 @@ const NotificationDevice = require('../models/NotificationDevice');
 const { protect, authorize } = require('../middleware/auth');
 const { rejectInvalidObjectId } = require('../utils/security');
 const { enqueueNotificationDelivery, getBookingAlarmDurationSeconds } = require('../utils/notificationDelivery');
-const { getWebPushConfig } = require('../utils/webPushProvider');
+const { getWebPushConfig, sendWebPush, isInvalidSubscriptionError } = require('../utils/webPushProvider');
 
 const router = express.Router();
 
@@ -169,6 +169,62 @@ router.delete('/devices/:deviceId', protect, authorize('admin', 'partner'), asyn
     res.json({ success: true, data: device });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Device could not be revoked' });
+  }
+});
+
+router.post('/devices/:deviceId/test-push', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const config = getWebPushConfig();
+    if (!config.configured) {
+      return res.status(503).json({ success: false, message: 'Web Push is not configured on this server' });
+    }
+    const deviceId = sanitizeDeviceId(req.params.deviceId);
+    const device = await NotificationDevice.findOne({
+      userId: req.user._id,
+      deviceId,
+      revokedAt: null,
+      notificationEnabled: true,
+      permissionStatus: 'granted',
+      'pushSubscription.endpoint': { $exists: true, $ne: '' },
+    });
+    if (!device) {
+      return res.status(404).json({ success: false, message: 'No active push subscription found for this device' });
+    }
+
+    const result = await sendWebPush(device.pushSubscription, {
+      version: 1,
+      notificationId: `test-${Date.now()}`,
+      type: 'BOOKING_PUSH_TEST',
+      priority: 'critical',
+      title: 'Vrindavan Sarthi booking alerts enabled',
+      body: 'This is a test notification for this device notification center.',
+      deepLink: req.user.role === 'partner' ? '/partner/bookings' : '/admin/bookings',
+    }, {
+      ttl: Math.max(30, getBookingAlarmDurationSeconds()),
+      urgency: 'high',
+    });
+
+    await NotificationDevice.updateOne(
+      { _id: device._id },
+      { $set: { lastPushSuccessAt: new Date(), pushSubscriptionError: '' } }
+    );
+    res.json({ success: true, data: { providerMessageId: result.providerMessageId } });
+  } catch (err) {
+    const deviceId = sanitizeDeviceId(req.params.deviceId);
+    const update = {
+      lastPushFailureAt: new Date(),
+      pushSubscriptionError: sanitizeText(err?.message || err, 500),
+    };
+    if (isInvalidSubscriptionError(err)) {
+      update.notificationEnabled = false;
+      update.pushSubscription = null;
+      update.pushSubscriptionRevokedAt = new Date();
+    }
+    await NotificationDevice.updateOne(
+      { userId: req.user._id, deviceId },
+      { $set: update, $inc: { failureCount: 1 } }
+    ).catch(() => undefined);
+    res.status(502).json({ success: false, message: 'Test push could not be delivered to this device' });
   }
 });
 

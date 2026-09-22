@@ -26,7 +26,10 @@ type DeviceItem = {
   platform?: string;
   browser?: string;
   permissionStatus?: string;
+  notificationEnabled?: boolean;
   alarmEnabled?: boolean;
+  lastPushSuccessAt?: string;
+  pushSubscriptionError?: string;
   lastSeenAt?: string;
 };
 
@@ -346,6 +349,18 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
     }
   };
 
+  const sendTestPush = async (id = deviceId) => {
+    if (!token) return;
+    try {
+      await api.post(`/notifications/devices/${encodeURIComponent(id)}/test-push`, {}, withAuth(token));
+      toast.success('Test notification sent to this device notification center');
+      await loadDevices();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Could not send test notification to this device');
+      await loadDevices();
+    }
+  };
+
   const toggleSound = () => {
     if (!soundEnabled || !alarmPlaybackUnlocked) {
       void requestAlarmPlaybackPermission();
@@ -417,6 +432,15 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
                 </span>
                 <span className="shrink-0 rounded bg-muted px-2 py-1 text-[10px] font-semibold uppercase text-muted-foreground">{permissionStatus}</span>
               </button>
+              {permissionStatus === 'granted' && (
+                <button type="button" onClick={() => sendTestPush()} className="flex w-full items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-left text-emerald-950 hover:bg-emerald-100">
+                  <span className="min-w-0">
+                    <span className="block font-medium">Send test phone notification</span>
+                    <span className="mt-1 block text-xs leading-5">A real notification should appear in this device notification bar.</span>
+                  </span>
+                  <Bell size={16} className="shrink-0" />
+                </button>
+              )}
               <p className="text-xs leading-5 text-muted-foreground">{permissionCopy[permissionStatus as keyof typeof permissionCopy]}</p>
               <button type="button" onClick={toggleSound} className="flex w-full items-start justify-between gap-3 rounded-md border border-border px-3 py-3 text-left hover:bg-muted">
                 <span className="min-w-0">
@@ -472,11 +496,26 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
                     <div key={device._id} className="flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-3">
                       <div className="min-w-0">
                         <p className="break-words text-sm font-medium leading-5">{device.browser || 'Browser'} - {device.platform || 'Device'}</p>
-                        <p className="mt-1 text-xs uppercase text-muted-foreground">{device.permissionStatus || 'default'}</p>
+                        <p className="mt-1 text-xs uppercase text-muted-foreground">
+                          {device.permissionStatus || 'default'} / {device.notificationEnabled ? 'push on' : 'push off'}
+                        </p>
+                        {device.lastPushSuccessAt && (
+                          <p className="mt-1 text-xs text-emerald-700">Last push sent: {new Date(device.lastPushSuccessAt).toLocaleString()}</p>
+                        )}
+                        {device.pushSubscriptionError && (
+                          <p className="mt-1 break-words text-xs text-red-700">{device.pushSubscriptionError}</p>
+                        )}
                       </div>
-                      <button type="button" onClick={() => revokeDevice(device.deviceId)} className="shrink-0 rounded p-2 text-muted-foreground hover:bg-background hover:text-foreground" aria-label="Revoke device">
-                        <X size={14} />
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {device.notificationEnabled && (
+                          <button type="button" onClick={() => sendTestPush(device.deviceId)} className="rounded p-2 text-emerald-700 hover:bg-background" aria-label="Send test notification">
+                            <Bell size={14} />
+                          </button>
+                        )}
+                        <button type="button" onClick={() => revokeDevice(device.deviceId)} className="rounded p-2 text-muted-foreground hover:bg-background hover:text-foreground" aria-label="Revoke device">
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

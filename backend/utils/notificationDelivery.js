@@ -25,6 +25,7 @@ const {
   sendWebPush,
   isInvalidSubscriptionError,
   validateWebPushConfig,
+  getWebPushConfig,
 } = require('./webPushProvider');
 
 const PROCESSING_STALE_MS = 15 * 60 * 1000;
@@ -139,6 +140,11 @@ const ensureNotificationDelivery = async (input, options = {}) => {
   const delivery = await createOrGetNotificationDelivery(input);
   if (!['sent', 'failed', 'cancelled', 'reconciliation_required'].includes(String(delivery.status))) {
     await enqueueNotificationDelivery(delivery, options);
+    if (input.channel === 'web_push' && options.immediateWebPush !== false && getWebPushConfig().configured) {
+      await processNotificationDeliveryJob({ notificationDeliveryId: String(delivery._id) }).catch((err) => {
+        console.warn('[notification.web_push.immediate_failed]', err?.message || err);
+      });
+    }
   }
   return delivery;
 };
