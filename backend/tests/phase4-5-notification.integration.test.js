@@ -177,8 +177,11 @@ dbTest('confirmed booking alarm routes to admin and exact property partner idemp
   assert.equal(bookingBNotifications.filter((n) => n.recipientRole === 'admin' && adminIds.has(String(n.recipientUserId))).length, adminIds.size);
 
   const bookingADeliveries = await NotificationDelivery.find({ bookingId: bookingA._id, eventType: 'booking.confirmed' }).lean();
-  assert.equal(bookingADeliveries.length, adminIds.size + 1);
-  assert.equal(await NotificationDelivery.countDocuments({ bookingId: bookingA._id, recipientUserId: partnerA._id }), 1);
+  assert.equal(bookingADeliveries.length, (adminIds.size + 1) * 2);
+  assert.equal(bookingADeliveries.filter((delivery) => delivery.channel === 'in_app').length, adminIds.size + 1);
+  assert.equal(bookingADeliveries.filter((delivery) => delivery.channel === 'web_push').length, adminIds.size + 1);
+  assert.equal(await NotificationDelivery.countDocuments({ bookingId: bookingA._id, recipientUserId: partnerA._id, channel: 'in_app' }), 1);
+  assert.equal(await NotificationDelivery.countDocuments({ bookingId: bookingA._id, recipientUserId: partnerA._id, channel: 'web_push' }), 1);
 });
 
 dbTest('notification devices are unique per authenticated user and device id', async () => {

@@ -8,9 +8,16 @@ const notificationDeviceSchema = new mongoose.Schema(
     deviceId: { type: String, required: true, trim: true },
     platform: { type: String, default: '', trim: true },
     browser: { type: String, default: '', trim: true },
+    userAgent: { type: String, default: '', trim: true },
     permissionStatus: { type: String, enum: ['default', 'granted', 'denied', 'unsupported'], default: 'default' },
+    notificationEnabled: { type: Boolean, default: false, index: true },
     alarmEnabled: { type: Boolean, default: true },
     pushSubscription: { type: mongoose.Schema.Types.Mixed, default: null },
+    lastPushSuccessAt: Date,
+    lastPushFailureAt: Date,
+    failureCount: { type: Number, default: 0 },
+    pushSubscriptionRevokedAt: Date,
+    pushSubscriptionError: String,
     lastSeenAt: { type: Date, default: Date.now, index: true },
     registeredAt: { type: Date, default: Date.now },
     revokedAt: Date,
@@ -20,5 +27,6 @@ const notificationDeviceSchema = new mongoose.Schema(
 
 notificationDeviceSchema.index({ userId: 1, deviceId: 1 }, { unique: true });
 notificationDeviceSchema.index({ role: 1, revokedAt: 1, lastSeenAt: -1 });
+notificationDeviceSchema.index({ userId: 1, notificationEnabled: 1, revokedAt: 1 });
 
 module.exports = mongoose.model('NotificationDevice', notificationDeviceSchema);

@@ -17,6 +17,7 @@ const {
   resetNotificationProvider,
   setNotificationProvider,
 } = require('../utils/notificationDelivery');
+const { getWebPushConfig, validateWebPushConfig, isInvalidSubscriptionError } = require('../utils/webPushProvider');
 
 test('NotificationDelivery schema supports controlled durable states and unique key', () => {
   assert.ok(NotificationDelivery.schema.path('notificationKey').options.unique);
@@ -25,6 +26,7 @@ test('NotificationDelivery schema supports controlled durable states and unique 
   assert.ok(NotificationDelivery.schema.path('status').enumValues.includes('retry_scheduled'));
   assert.ok(NotificationDelivery.schema.path('status').enumValues.includes('sent'));
   assert.ok(NotificationDelivery.schema.path('status').enumValues.includes('failed'));
+  assert.ok(NotificationDelivery.schema.path('channel').enumValues.includes('web_push'));
 });
 
 test('booking alarm model fields and device uniqueness are explicit', () => {
@@ -36,6 +38,10 @@ test('booking alarm model fields and device uniqueness are explicit', () => {
   assert.ok(NotificationDevice.schema.indexes().some(([fields, opts]) =>
     fields.userId === 1 && fields.deviceId === 1 && opts.unique === true
   ));
+  assert.ok(NotificationDevice.schema.path('pushSubscription'));
+  assert.ok(NotificationDevice.schema.path('notificationEnabled'));
+  assert.ok(NotificationDevice.schema.path('lastPushSuccessAt'));
+  assert.ok(NotificationDevice.schema.path('failureCount'));
 });
 
 test('booking alarm duration is centralized, defaults to 180 seconds, and is bounded', () => {
@@ -89,6 +95,39 @@ test('error classification separates transient and permanent provider failures',
   assert.equal(classifyNotificationError({ code: 'EMAIL_PROVIDER_NOT_CONFIGURED' }), 'permanent');
   assert.equal(classifyNotificationError({ code: 'INVALID_TEMPLATE' }), 'permanent');
   assert.equal(classifyNotificationError({ code: 'PROVIDER_OUTCOME_UNKNOWN' }), 'unknown');
+  assert.equal(classifyNotificationError({ code: 'WEB_PUSH_NOT_CONFIGURED' }), 'permanent');
+});
+
+test('web push configuration is explicit and stable', () => {
+  const originalPublic = process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
+  const originalPrivate = process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
+  const originalSubject = process.env.WEB_PUSH_VAPID_SUBJECT;
+  try {
+    delete process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
+    delete process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
+    delete process.env.WEB_PUSH_VAPID_SUBJECT;
+    assert.equal(getWebPushConfig().configured, false);
+    assert.throws(() => validateWebPushConfig({ required: true }), /WEB_PUSH_VAPID_PUBLIC_KEY/);
+    process.env.WEB_PUSH_VAPID_PUBLIC_KEY = 'public';
+    process.env.WEB_PUSH_VAPID_PRIVATE_KEY = 'private';
+    process.env.WEB_PUSH_VAPID_SUBJECT = 'mailto:test@example.com';
+    const config = getWebPushConfig();
+    assert.equal(config.configured, true);
+    assert.equal(config.publicKey, 'public');
+  } finally {
+    if (typeof originalPublic === 'undefined') delete process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
+    else process.env.WEB_PUSH_VAPID_PUBLIC_KEY = originalPublic;
+    if (typeof originalPrivate === 'undefined') delete process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
+    else process.env.WEB_PUSH_VAPID_PRIVATE_KEY = originalPrivate;
+    if (typeof originalSubject === 'undefined') delete process.env.WEB_PUSH_VAPID_SUBJECT;
+    else process.env.WEB_PUSH_VAPID_SUBJECT = originalSubject;
+  }
+});
+
+test('invalid push subscription errors are recognized for revocation', () => {
+  assert.equal(isInvalidSubscriptionError({ statusCode: 404 }), true);
+  assert.equal(isInvalidSubscriptionError({ statusCode: 410 }), true);
+  assert.equal(isInvalidSubscriptionError({ statusCode: 500 }), false);
 });
 
 test('worker claim atomically moves queued notification to processing', async () => {

@@ -6,6 +6,7 @@ const NotificationDevice = require('../models/NotificationDevice');
 const { protect, authorize } = require('../middleware/auth');
 const { rejectInvalidObjectId } = require('../utils/security');
 const { enqueueNotificationDelivery, getBookingAlarmDurationSeconds } = require('../utils/notificationDelivery');
+const { getWebPushConfig } = require('../utils/webPushProvider');
 
 const router = express.Router();
 
@@ -13,10 +14,25 @@ const publicFields = '-payload.providerHeaders -payload.secret -payload.token';
 const alarmPublicFields = '-__v';
 
 const sanitizeDeviceId = (value) => String(value || '').trim().slice(0, 128);
-const sanitizeText = (value, max = 120) => String(value || '').trim().slice(0, max);
+const sanitizeText = (value, max = 240) => String(value || '').trim().slice(0, max);
 const validPermission = (value) => ['default', 'granted', 'denied', 'unsupported'].includes(String(value || ''))
   ? String(value)
   : 'default';
+
+const sanitizePushSubscription = (value) => {
+  if (!value || typeof value !== 'object') return null;
+  const endpoint = sanitizeText(value.endpoint, 2000);
+  const p256dh = sanitizeText(value.keys?.p256dh, 500);
+  const auth = sanitizeText(value.keys?.auth, 500);
+  if (!endpoint || !p256dh || !auth) return null;
+  return {
+    endpoint,
+    expirationTime: value.expirationTime || null,
+    keys: { p256dh, auth },
+  };
+};
+
+const devicePublicFields = '-pushSubscription';
 
 const notificationAccessFilter = (user) => {
   if (user.role === 'admin') {
@@ -65,10 +81,25 @@ router.get('/', protect, authorize('admin', 'partner'), async (req, res) => {
   }
 });
 
+router.get('/push-config', protect, authorize('admin', 'partner'), async (req, res) => {
+  const config = getWebPushConfig();
+  res.json({
+    success: true,
+    data: {
+      configured: config.configured,
+      publicKey: config.publicKey || '',
+      requiresSecureContext: true,
+    },
+  });
+});
+
 router.post('/devices', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
     const deviceId = sanitizeDeviceId(req.body?.deviceId);
     if (!deviceId) return res.status(400).json({ success: false, message: 'deviceId is required' });
+    const permissionStatus = validPermission(req.body?.permissionStatus);
+    const hasPushSubscription = Object.prototype.hasOwnProperty.call(req.body || {}, 'pushSubscription');
+    const pushSubscription = sanitizePushSubscription(req.body?.pushSubscription);
     const update = {
       userId: req.user._id,
       role: req.user.role,
@@ -76,17 +107,25 @@ router.post('/devices', protect, authorize('admin', 'partner'), async (req, res)
       deviceId,
       platform: sanitizeText(req.body?.platform),
       browser: sanitizeText(req.body?.browser),
-      permissionStatus: validPermission(req.body?.permissionStatus),
+      userAgent: sanitizeText(req.body?.userAgent, 500),
+      permissionStatus,
       alarmEnabled: typeof req.body?.alarmEnabled === 'undefined' ? true : Boolean(req.body.alarmEnabled),
-      pushSubscription: req.body?.pushSubscription || null,
       lastSeenAt: new Date(),
       revokedAt: null,
     };
+    if (hasPushSubscription) {
+      update.pushSubscription = pushSubscription;
+      update.notificationEnabled = permissionStatus === 'granted' && Boolean(pushSubscription);
+      update.pushSubscriptionRevokedAt = null;
+      update.pushSubscriptionError = '';
+    } else if (permissionStatus !== 'granted') {
+      update.notificationEnabled = false;
+    }
     const device = await NotificationDevice.findOneAndUpdate(
       { userId: req.user._id, deviceId },
       { $set: update, $setOnInsert: { registeredAt: new Date() } },
       { new: true, upsert: true }
-    ).lean();
+    ).select(devicePublicFields).lean();
     console.log('[device_registered]', JSON.stringify({
       userId: req.user._id,
       role: req.user.role,
@@ -102,6 +141,7 @@ router.post('/devices', protect, authorize('admin', 'partner'), async (req, res)
 router.get('/devices', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
     const devices = await NotificationDevice.find({ userId: req.user._id, revokedAt: null })
+      .select(devicePublicFields)
       .sort({ lastSeenAt: -1 })
       .limit(50)
       .lean();
@@ -116,9 +156,9 @@ router.delete('/devices/:deviceId', protect, authorize('admin', 'partner'), asyn
     const deviceId = sanitizeDeviceId(req.params.deviceId);
     const device = await NotificationDevice.findOneAndUpdate(
       { userId: req.user._id, deviceId, revokedAt: null },
-      { $set: { revokedAt: new Date(), alarmEnabled: false } },
+      { $set: { revokedAt: new Date(), alarmEnabled: false, notificationEnabled: false } },
       { new: true }
-    ).lean();
+    ).select(devicePublicFields).lean();
     if (!device) return res.status(404).json({ success: false, message: 'Device not found' });
     console.log('[device_revoked]', JSON.stringify({
       userId: req.user._id,

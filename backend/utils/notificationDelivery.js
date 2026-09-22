@@ -5,6 +5,7 @@ const Booking = require('../models/Booking');
 const Order = require('../models/Order');
 const PartnerNotification = require('../models/PartnerNotification');
 const NotificationDelivery = require('../models/NotificationDelivery');
+const NotificationDevice = require('../models/NotificationDevice');
 const Hotel = require('../models/Hotel');
 const User = require('../models/User');
 const { createQueue } = require('../queues/factory');
@@ -20,6 +21,11 @@ const {
   bookingRows,
   orderRows,
 } = require('./customerMessages');
+const {
+  sendWebPush,
+  isInvalidSubscriptionError,
+  validateWebPushConfig,
+} = require('./webPushProvider');
 
 const PROCESSING_STALE_MS = 15 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -52,6 +58,7 @@ const resetNotificationProvider = () => {
 const classifyNotificationError = (err) => {
   const statusCode = Number(err?.statusCode || err?.httpStatus || 0);
   const code = normalize(err?.code).toUpperCase();
+  if (code === 'WEB_PUSH_NOT_CONFIGURED') return 'permanent';
   if (['EMAIL_PROVIDER_NOT_CONFIGURED', 'RESEND_FROM_MISSING', 'RESEND_FROM_NOT_VERIFIED', 'EAUTH'].includes(code)) {
     return 'permanent';
   }
@@ -261,6 +268,115 @@ const bookingConfirmedMessage = (booking) => {
   return `${item} confirmed for ${guest}. Amount INR ${amount.toLocaleString('en-IN')}.`;
 };
 
+const bookingNotificationDeepLink = (recipientRole) =>
+  recipientRole === 'partner' ? '/partner/bookings' : '/admin/bookings';
+
+const buildPushPayload = ({ notification, booking }) => ({
+  version: 1,
+  notificationId: String(notification._id),
+  type: notification.eventType || BOOKING_CONFIRMED_EVENT,
+  priority: notification.priority || 'critical',
+  title: notification.title || `Booking confirmed ${booking?.bookingId || ''}`.trim(),
+  body: notification.message || bookingConfirmedMessage(booking),
+  bookingId: String(notification.bookingId || booking?._id || ''),
+  deepLink: bookingNotificationDeepLink(notification.recipientRole),
+});
+
+const markDevicePushSuccess = (device) =>
+  NotificationDevice.updateOne(
+    { _id: device._id },
+    {
+      $set: { lastPushSuccessAt: new Date(), pushSubscriptionError: '' },
+    }
+  );
+
+const markDevicePushFailure = (device, err) =>
+  NotificationDevice.updateOne(
+    { _id: device._id },
+    {
+      $set: { lastPushFailureAt: new Date(), pushSubscriptionError: safeErrorMessage(err) },
+      $inc: { failureCount: 1 },
+    }
+  );
+
+const revokeInvalidPushSubscription = (device, err) =>
+  NotificationDevice.updateOne(
+    { _id: device._id },
+    {
+      $set: {
+        notificationEnabled: false,
+        pushSubscription: null,
+        pushSubscriptionRevokedAt: new Date(),
+        lastPushFailureAt: new Date(),
+        pushSubscriptionError: safeErrorMessage(err),
+      },
+      $inc: { failureCount: 1 },
+    }
+  );
+
+const deliverBookingConfirmedWebPush = async (delivery) => {
+  validateWebPushConfig({ required: true });
+  const notificationId = delivery.payload?.notificationId;
+  const notification = notificationId
+    ? await PartnerNotification.findById(notificationId).lean()
+    : null;
+  if (!notification) {
+    const err = new Error('PartnerNotification not found for Web Push delivery');
+    err.code = 'MALFORMED_NOTIFICATION_PAYLOAD';
+    throw err;
+  }
+
+  if (notification.acknowledgedAt || notification.alarmStatus === 'acknowledged') {
+    return { provider: 'web_push', providerMessageId: 'already-acknowledged', deviceResults: [] };
+  }
+
+  const booking = await Booking.findById(delivery.bookingId).lean();
+  const devices = await NotificationDevice.find({
+    userId: delivery.recipientUserId,
+    revokedAt: null,
+    notificationEnabled: true,
+    permissionStatus: 'granted',
+    'pushSubscription.endpoint': { $exists: true, $ne: '' },
+  }).lean();
+
+  const payload = buildPushPayload({ notification, booking });
+  const results = [];
+  for (const device of devices) {
+    try {
+      const result = await sendWebPush(device.pushSubscription, payload, {
+        ttl: Math.max(30, getBookingAlarmDurationSeconds()),
+        urgency: 'high',
+      });
+      await markDevicePushSuccess(device);
+      results.push({ deviceId: device.deviceId, status: 'accepted', providerMessageId: result.providerMessageId });
+      console.log('[notification_push_sent]', JSON.stringify({
+        notificationId: notification._id,
+        bookingId: delivery.bookingId,
+        recipientUserId: delivery.recipientUserId,
+        recipientRole: notification.recipientRole,
+        deviceId: device.deviceId,
+        channel: 'web_push',
+        timestamp: new Date().toISOString(),
+      }));
+    } catch (err) {
+      if (isInvalidSubscriptionError(err)) {
+        await revokeInvalidPushSubscription(device, err);
+        results.push({ deviceId: device.deviceId, status: 'revoked', error: safeErrorMessage(err) });
+      } else {
+        await markDevicePushFailure(device, err);
+        results.push({ deviceId: device.deviceId, status: 'failed', error: safeErrorMessage(err) });
+      }
+    }
+  }
+
+  delivery.payload = { ...(delivery.payload || {}), deviceResults: results, deviceAttemptedCount: results.length };
+  await delivery.save();
+  return {
+    provider: 'web_push',
+    providerMessageId: results.length ? `devices:${results.length}` : 'no-active-devices',
+  };
+};
+
 const createBookingConfirmedAlarmNotification = async ({ booking, recipientUserId, recipientRole, partnerId }) => {
   const now = new Date();
   const alarmExpiresAt = new Date(now.getTime() + getBookingAlarmDurationSeconds() * 1000);
@@ -356,6 +472,18 @@ const ensureBookingConfirmedAlarmNotifications = async (booking, options = {}) =
       hotelId: booking.hotelId,
       payload: { notificationId: notification._id },
     }, options));
+    deliveries.push(ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('booking-confirmed', booking._id, notification.recipientUserId, 'web-push'),
+      eventType: 'booking.confirmed',
+      channel: 'web_push',
+      template: 'booking_confirmed_web_push',
+      recipientUserId: notification.recipientUserId,
+      bookingId: booking._id,
+      partnerId,
+      hotelId: booking.hotelId,
+      payload: { notificationId: notification._id },
+      provider: 'web_push',
+    }, options));
   }
 
   await Promise.all(deliveries);
@@ -402,6 +530,9 @@ const deliverWithDefaultProvider = async (delivery) => {
     }
     if (template === 'booking_confirmed_admin_panel' || template === 'booking_confirmed_partner_panel') {
       return { provider: 'mongodb', providerMessageId: String(delivery.payload?.notificationId || delivery._id) };
+    }
+    if (template === 'booking_confirmed_web_push') {
+      return deliverBookingConfirmedWebPush(delivery);
     }
   }
 

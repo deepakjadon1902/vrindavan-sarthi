@@ -30,6 +30,11 @@ type DeviceItem = {
   lastSeenAt?: string;
 };
 
+type PushRegistrationResult = {
+  subscription: PushSubscriptionJSON | null;
+  configured: boolean;
+};
+
 type Props = {
   token: string | null;
   user: User | null;
@@ -70,6 +75,13 @@ const getBrowser = () => {
   if (/Firefox\//.test(ua)) return 'Firefox';
   if (/Safari\//.test(ua)) return 'Safari';
   return 'Browser';
+};
+
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = `${base64String}${padding}`.replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 };
 
 const isActiveAlarm = (n: NotificationItem, now = Date.now()) => {
@@ -132,16 +144,42 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
     intervalRef.current = window.setInterval(playPulse, 1800);
   }, [activeAlarm, playPulse, soundEnabled]);
 
-  const registerDevice = useCallback(async (permission = permissionStatus, alarmEnabled = soundEnabled) => {
+  const registerDevice = useCallback(async (
+    permission = permissionStatus,
+    alarmEnabled = soundEnabled,
+    pushSubscription?: PushSubscriptionJSON | null
+  ) => {
     if (!token || !enabled) return;
     await api.post('/notifications/devices', {
       deviceId,
       platform: getPlatform(),
       browser: getBrowser(),
+      userAgent: navigator.userAgent,
       permissionStatus: permission,
+      notificationEnabled: permission === 'granted' && Boolean(pushSubscription),
       alarmEnabled,
+      pushSubscription,
     }, withAuth(token));
   }, [deviceId, enabled, permissionStatus, soundEnabled, token]);
+
+  const ensurePushSubscription = useCallback(async (): Promise<PushRegistrationResult> => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !window.isSecureContext) {
+      return { subscription: null, configured: false };
+    }
+    const configRes = await api.get('/notifications/push-config', withAuth(token));
+    const publicKey = String(configRes.data?.data?.publicKey || '');
+    const configured = Boolean(configRes.data?.data?.configured && publicKey);
+    if (!configured) return { subscription: null, configured: false };
+
+    const registration = await navigator.serviceWorker.register('/vrs-service-worker.js');
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) return { subscription: existing.toJSON(), configured: true };
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    return { subscription: subscription.toJSON(), configured: true };
+  }, [token]);
 
   const loadDevices = useCallback(async () => {
     if (!token || !enabled) return;
@@ -214,6 +252,14 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
   }, [enabled, loadDevices, loadNotifications, registerDevice, stopSound, token]);
 
   useEffect(() => {
+    if (!token || !enabled || permissionStatus !== 'granted') return;
+    void ensurePushSubscription()
+      .then((result) => registerDevice('granted', soundEnabled, result.subscription))
+      .then(() => loadDevices())
+      .catch(() => undefined);
+  }, [enabled, ensurePushSubscription, loadDevices, permissionStatus, registerDevice, soundEnabled, token]);
+
+  useEffect(() => {
     if (activeAlarm) startSound();
     else stopSound();
     return stopSound;
@@ -241,9 +287,16 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
       permission = await Notification.requestPermission();
     }
     setPermissionStatus(permission);
-    await registerDevice(permission).catch(() => undefined);
+    let pushSubscription: PushSubscriptionJSON | null = null;
+    if (permission === 'granted') {
+      const result = await ensurePushSubscription().catch(() => ({ subscription: null, configured: false }));
+      pushSubscription = result.subscription;
+      if (!result.configured) toast.info('Web Push is not configured on this server yet');
+      if (result.configured && !pushSubscription) toast.error('Could not register this device for push notifications');
+    }
+    await registerDevice(permission, soundEnabled, pushSubscription).catch(() => undefined);
     await loadDevices();
-    if (permission === 'granted') toast.success('Booking device notifications enabled');
+    if (permission === 'granted' && pushSubscription) toast.success('Booking device notifications enabled');
     if (permission === 'denied') toast.error('Device notifications are blocked in browser settings');
   };
 

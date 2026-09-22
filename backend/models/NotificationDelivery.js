@@ -14,7 +14,7 @@ const notificationDeliverySchema = new mongoose.Schema(
   {
     notificationKey: { type: String, required: true, unique: true },
     eventType: { type: String, required: true, index: true },
-    channel: { type: String, enum: ['email', 'in_app'], required: true, index: true },
+    channel: { type: String, enum: ['email', 'in_app', 'web_push'], required: true, index: true },
     status: {
       type: String,
       enum: NOTIFICATION_DELIVERY_STATUSES,
