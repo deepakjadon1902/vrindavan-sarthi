@@ -13,6 +13,8 @@ const notificationDeviceSchema = new mongoose.Schema(
     notificationEnabled: { type: Boolean, default: false, index: true },
     alarmEnabled: { type: Boolean, default: true },
     pushSubscription: { type: mongoose.Schema.Types.Mixed, default: null },
+    fcmToken: { type: String, default: '', trim: true },
+    appPlatform: { type: String, enum: ['', 'web', 'android_native'], default: '', index: true },
     lastPushSuccessAt: Date,
     lastPushFailureAt: Date,
     failureCount: { type: Number, default: 0 },

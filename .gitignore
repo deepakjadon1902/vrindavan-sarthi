@@ -5,10 +5,14 @@
 **/dist
 **/dist-ssr
 **/.vite
+android/**/build
+android/.gradle
+android/local.properties
 
 # env files (never commit secrets)
 **/.env
 **/.env.*
+android/app/google-services.json
 
 # logs
 **/logs
@@ -24,4 +28,3 @@
 *.njsproj
 *.sln
 *.sw?
-

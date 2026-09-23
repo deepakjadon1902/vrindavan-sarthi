@@ -27,6 +27,11 @@ const {
   validateWebPushConfig,
   getWebPushConfig,
 } = require('./webPushProvider');
+const {
+  sendFcmAlarm,
+  isInvalidFcmTokenError,
+  getFcmConfig,
+} = require('./fcmProvider');
 
 const PROCESSING_STALE_MS = 15 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -390,6 +395,20 @@ const revokeInvalidPushSubscription = (device, err) =>
     }
   );
 
+const revokeInvalidFcmToken = (device, err) =>
+  NotificationDevice.updateOne(
+    { _id: device._id },
+    {
+      $set: {
+        notificationEnabled: false,
+        fcmToken: '',
+        lastPushFailureAt: new Date(),
+        pushSubscriptionError: safeErrorMessage(err),
+      },
+      $inc: { failureCount: 1 },
+    }
+  );
+
 const deliverBookingConfirmedWebPush = async (delivery) => {
   validateWebPushConfig({ required: true });
   const notificationId = delivery.payload?.notificationId;
@@ -412,32 +431,51 @@ const deliverBookingConfirmedWebPush = async (delivery) => {
     revokedAt: null,
     notificationEnabled: true,
     permissionStatus: 'granted',
-    'pushSubscription.endpoint': { $exists: true, $ne: '' },
+    $or: [
+      { 'pushSubscription.endpoint': { $exists: true, $ne: '' } },
+      { fcmToken: { $exists: true, $ne: '' } },
+    ],
   }).lean();
 
   const payload = buildPushPayload({ notification, booking });
   const results = [];
   for (const device of devices) {
     try {
-      const result = await sendWebPush(device.pushSubscription, payload, {
-        ttl: Math.max(30, getBookingAlarmDurationSeconds()),
-        urgency: 'high',
-      });
+      let result;
+      if (device.fcmToken) {
+        if (!getFcmConfig().configured) {
+          const err = new Error('FCM is not configured for native Android alarm delivery');
+          err.code = 'FCM_NOT_CONFIGURED';
+          throw err;
+        }
+        result = await sendFcmAlarm(device.fcmToken, {
+          ...payload,
+          ttl: Math.max(30, getBookingAlarmDurationSeconds()),
+        });
+      } else {
+        result = await sendWebPush(device.pushSubscription, payload, {
+          ttl: Math.max(30, getBookingAlarmDurationSeconds()),
+          urgency: 'high',
+        });
+      }
       await markDevicePushSuccess(device);
-      results.push({ deviceId: device.deviceId, status: 'accepted', providerMessageId: result.providerMessageId });
+      results.push({ deviceId: device.deviceId, status: 'accepted', provider: result.provider, providerMessageId: result.providerMessageId });
       console.log('[notification_push_sent]', JSON.stringify({
         notificationId: notification._id,
         bookingId: delivery.bookingId,
         recipientUserId: delivery.recipientUserId,
         recipientRole: notification.recipientRole,
         deviceId: device.deviceId,
-        channel: 'web_push',
+        channel: device.fcmToken ? 'fcm' : 'web_push',
         timestamp: new Date().toISOString(),
       }));
     } catch (err) {
       if (isInvalidSubscriptionError(err)) {
         await revokeInvalidPushSubscription(device, err);
         results.push({ deviceId: device.deviceId, status: 'revoked', error: safeErrorMessage(err) });
+      } else if (isInvalidFcmTokenError(err)) {
+        await revokeInvalidFcmToken(device, err);
+        results.push({ deviceId: device.deviceId, status: 'revoked', provider: 'fcm', error: safeErrorMessage(err) });
       } else {
         await markDevicePushFailure(device, err);
         results.push({ deviceId: device.deviceId, status: 'failed', error: safeErrorMessage(err) });

@@ -37,8 +37,9 @@ const sanitizePushSubscription = (value) => {
     keys: { p256dh, auth },
   };
 };
+const sanitizeFcmToken = (value) => sanitizeText(value, 4096);
 
-const devicePublicFields = '-pushSubscription';
+const devicePublicFields = '-pushSubscription -fcmToken';
 
 const notificationAccessFilter = (user) => {
   if (user.role === 'admin') {
@@ -106,6 +107,8 @@ router.post('/devices', protect, authorize('admin', 'partner'), async (req, res)
     const permissionStatus = validPermission(req.body?.permissionStatus);
     const hasPushSubscription = Object.prototype.hasOwnProperty.call(req.body || {}, 'pushSubscription');
     const pushSubscription = sanitizePushSubscription(req.body?.pushSubscription);
+    const fcmToken = sanitizeFcmToken(req.body?.fcmToken);
+    const appPlatform = String(req.body?.appPlatform || '') === 'android_native' ? 'android_native' : 'web';
     const update = {
       userId: req.user._id,
       role: req.user.role,
@@ -116,9 +119,15 @@ router.post('/devices', protect, authorize('admin', 'partner'), async (req, res)
       userAgent: sanitizeText(req.body?.userAgent, 500),
       permissionStatus,
       alarmEnabled: typeof req.body?.alarmEnabled === 'undefined' ? true : Boolean(req.body.alarmEnabled),
+      appPlatform,
       lastSeenAt: new Date(),
       revokedAt: null,
     };
+    if (fcmToken) {
+      update.fcmToken = fcmToken;
+      update.notificationEnabled = permissionStatus === 'granted';
+      update.pushSubscriptionError = '';
+    }
     if (hasPushSubscription) {
       update.pushSubscription = pushSubscription;
       update.notificationEnabled = permissionStatus === 'granted' && Boolean(pushSubscription);
