@@ -54,7 +54,7 @@ const safeErrorMessage = (err) =>
 const buildNotificationKey = (...parts) =>
   ['notification', ...parts.map((part) => normalize(part).replace(/:/g, '-'))].join(':');
 
-const notificationJobId = (notificationDeliveryId) => `notification:${notificationDeliveryId}`;
+const notificationJobId = (notificationDeliveryId) => `notification-${notificationDeliveryId}`;
 
 const setNotificationProvider = (provider) => {
   notificationProvider = provider;

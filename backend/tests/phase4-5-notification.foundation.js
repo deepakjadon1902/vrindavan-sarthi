@@ -82,6 +82,7 @@ test('notification queue job id is deterministic and minimal', async () => {
   assert.equal(calls[0].jobName, JOB_NAMES.notificationDeliverySend);
   assert.deepEqual(calls[0].data, { notificationDeliveryId: String(id) });
   assert.equal(calls[0].opts.jobId, notificationJobId(id));
+  assert.equal(calls[0].opts.jobId.includes(':'), false);
 });
 
 test('queue unavailable leaves durable notification recoverable', async () => {
