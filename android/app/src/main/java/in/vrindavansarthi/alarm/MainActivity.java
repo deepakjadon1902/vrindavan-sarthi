@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.Log;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -17,6 +18,7 @@ import androidx.core.content.ContextCompat;
 import com.google.firebase.messaging.FirebaseMessaging;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "VrsNativeAlarm";
     private WebView webView;
     private String fcmToken = "";
 
@@ -28,8 +30,11 @@ public class MainActivity extends AppCompatActivity {
         setupWebView();
         FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token -> {
             fcmToken = token == null ? "" : token;
+            Log.d(TAG, "FCM token received=" + !fcmToken.isEmpty());
             NativeDeviceRegistrar.saveFcmToken(this, fcmToken);
             tryRegisterNativeDevice();
+        }).addOnFailureListener(error -> {
+            Log.e(TAG, "FCM token failed", error);
         });
     }
 
@@ -45,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
+                Log.d(TAG, "Page finished " + url);
                 tryRegisterNativeDevice();
             }
         });
@@ -63,7 +69,11 @@ public class MainActivity extends AppCompatActivity {
             "(function(){try{return localStorage.getItem('vvs-auth')||'';}catch(e){return '';}})();",
             value -> {
                 String jwt = NativeDeviceRegistrar.extractJwtFromLocalStorageValue(value);
-                if (jwt.isEmpty()) return;
+                if (jwt.isEmpty()) {
+                    Log.d(TAG, "JWT not found in WebView localStorage yet");
+                    return;
+                }
+                Log.d(TAG, "JWT found; registering native alarm device");
                 NativeDeviceRegistrar.saveJwt(this, jwt);
                 NativeDeviceRegistrar.register(
                     BuildConfig.API_BASE_URL,

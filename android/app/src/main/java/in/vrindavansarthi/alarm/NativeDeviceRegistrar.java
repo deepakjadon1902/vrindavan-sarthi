@@ -2,6 +2,7 @@ package in.vrindavansarthi.alarm;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import org.json.JSONObject;
 
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 
 public final class NativeDeviceRegistrar {
     private static final String PREFS = "vrs_native_alarm";
+    private static final String TAG = "VrsNativeAlarm";
     private NativeDeviceRegistrar() {}
 
     public static void saveFcmToken(Context context, String token) {
@@ -54,6 +56,7 @@ public final class NativeDeviceRegistrar {
             HttpURLConnection conn = null;
             try {
                 URL url = new URL(apiBaseUrl.replaceAll("/+$", "") + "/notifications/devices");
+                Log.d(TAG, "Registering native device at " + url);
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setConnectTimeout(15000);
@@ -75,8 +78,10 @@ public final class NativeDeviceRegistrar {
                 try (OutputStream os = conn.getOutputStream()) {
                     os.write(bytes);
                 }
-                conn.getResponseCode();
-            } catch (Exception ignored) {
+                int status = conn.getResponseCode();
+                Log.d(TAG, "Native device registration status=" + status);
+            } catch (Exception error) {
+                Log.e(TAG, "Native device registration failed", error);
                 // Registration retries on next page load or FCM token refresh.
             } finally {
                 if (conn != null) conn.disconnect();

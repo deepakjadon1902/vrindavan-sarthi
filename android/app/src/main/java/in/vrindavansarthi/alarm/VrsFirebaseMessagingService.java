@@ -9,6 +9,7 @@ import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -20,9 +21,11 @@ import java.util.Map;
 
 public class VrsFirebaseMessagingService extends FirebaseMessagingService {
     public static final String CHANNEL_ID = "booking_alarm";
+    private static final String TAG = "VrsNativeAlarm";
 
     @Override
     public void onNewToken(String token) {
+        Log.d(TAG, "FCM token refreshed=" + (token != null && !token.isEmpty()));
         NativeDeviceRegistrar.saveFcmToken(this, token);
         String jwt = NativeDeviceRegistrar.getJwt(this);
         if (!jwt.isEmpty()) {
@@ -32,6 +35,7 @@ public class VrsFirebaseMessagingService extends FirebaseMessagingService {
 
     @Override
     public void onMessageReceived(RemoteMessage message) {
+        Log.d(TAG, "FCM message received dataKeys=" + message.getData().keySet());
         ensureAlarmChannel(this);
         Map<String, String> data = message.getData();
         String title = value(data, "title", "Vrindavan Sarthi booking alert");
@@ -65,6 +69,7 @@ public class VrsFirebaseMessagingService extends FirebaseMessagingService {
             .addAction(R.drawable.ic_vrs_notification, "View Booking", contentIntent);
 
         NotificationManagerCompat.from(this).notify(notificationId.hashCode(), builder.build());
+        Log.d(TAG, "Alarm notification posted notificationId=" + notificationId);
     }
 
     public static void ensureAlarmChannel(Context context) {
