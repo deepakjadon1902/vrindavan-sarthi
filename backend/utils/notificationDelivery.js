@@ -149,7 +149,9 @@ const ensureNotificationDelivery = async (input, options = {}) => {
   const delivery = await createOrGetNotificationDelivery(input);
   if (!['sent', 'failed', 'cancelled', 'reconciliation_required'].includes(String(delivery.status))) {
     await enqueueNotificationDelivery(delivery, options);
-    if (input.channel === 'web_push' && options.immediateWebPush !== false && getWebPushConfig().configured) {
+    if (input.channel === 'web_push' &&
+        options.immediateWebPush !== false &&
+        (getWebPushConfig().configured || getFcmConfig().configured)) {
       await processNotificationDeliveryJob({ notificationDeliveryId: String(delivery._id) }).catch((err) => {
         console.warn('[notification.web_push.immediate_failed]', err?.message || err);
       });
@@ -410,7 +412,6 @@ const revokeInvalidFcmToken = (device, err) =>
   );
 
 const deliverBookingConfirmedWebPush = async (delivery) => {
-  validateWebPushConfig({ required: true });
   const notificationId = delivery.payload?.notificationId;
   const notification = notificationId
     ? await PartnerNotification.findById(notificationId).lean()
@@ -453,6 +454,7 @@ const deliverBookingConfirmedWebPush = async (delivery) => {
           ttl: Math.max(30, getBookingAlarmDurationSeconds()),
         });
       } else {
+        validateWebPushConfig({ required: true });
         result = await sendWebPush(device.pushSubscription, payload, {
           ttl: Math.max(30, getBookingAlarmDurationSeconds()),
           urgency: 'high',
