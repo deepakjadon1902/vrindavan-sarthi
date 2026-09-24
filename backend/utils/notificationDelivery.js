@@ -67,7 +67,7 @@ const resetNotificationProvider = () => {
 const classifyNotificationError = (err) => {
   const statusCode = Number(err?.statusCode || err?.httpStatus || 0);
   const code = normalize(err?.code).toUpperCase();
-  if (code === 'WEB_PUSH_NOT_CONFIGURED') return 'permanent';
+  if (code === 'WEB_PUSH_NOT_CONFIGURED' || code === 'FCM_NOT_CONFIGURED') return 'permanent';
   if (['EMAIL_PROVIDER_NOT_CONFIGURED', 'RESEND_FROM_MISSING', 'RESEND_FROM_NOT_VERIFIED', 'EAUTH'].includes(code)) {
     return 'permanent';
   }

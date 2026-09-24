@@ -18,6 +18,7 @@ const {
   setNotificationProvider,
 } = require('../utils/notificationDelivery');
 const { getWebPushConfig, validateWebPushConfig, isInvalidSubscriptionError } = require('../utils/webPushProvider');
+const { getFcmConfig, validateFcmConfig } = require('../utils/fcmProvider');
 
 test('NotificationDelivery schema supports controlled durable states and unique key', () => {
   assert.ok(NotificationDelivery.schema.path('notificationKey').options.unique);
@@ -96,6 +97,7 @@ test('error classification separates transient and permanent provider failures',
   assert.equal(classifyNotificationError({ code: 'INVALID_TEMPLATE' }), 'permanent');
   assert.equal(classifyNotificationError({ code: 'PROVIDER_OUTCOME_UNKNOWN' }), 'unknown');
   assert.equal(classifyNotificationError({ code: 'WEB_PUSH_NOT_CONFIGURED' }), 'permanent');
+  assert.equal(classifyNotificationError({ code: 'FCM_NOT_CONFIGURED' }), 'permanent');
 });
 
 test('web push configuration is explicit and stable', () => {
@@ -128,6 +130,50 @@ test('invalid push subscription errors are recognized for revocation', () => {
   assert.equal(isInvalidSubscriptionError({ statusCode: 404 }), true);
   assert.equal(isInvalidSubscriptionError({ statusCode: 410 }), true);
   assert.equal(isInvalidSubscriptionError({ statusCode: 500 }), false);
+});
+
+test('native Android FCM configuration is independent from browser Web Push', () => {
+  const originalFcmProject = process.env.FCM_PROJECT_ID;
+  const originalFcmEmail = process.env.FCM_CLIENT_EMAIL;
+  const originalFcmKey = process.env.FCM_PRIVATE_KEY;
+  const originalWebPublic = process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
+  const originalWebPrivate = process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
+  const originalWebSubject = process.env.WEB_PUSH_VAPID_SUBJECT;
+  try {
+    delete process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
+    delete process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
+    delete process.env.WEB_PUSH_VAPID_SUBJECT;
+    delete process.env.FCM_PROJECT_ID;
+    delete process.env.FCM_CLIENT_EMAIL;
+    delete process.env.FCM_PRIVATE_KEY;
+
+    assert.equal(getWebPushConfig().configured, false);
+    assert.equal(getFcmConfig().configured, false);
+    assert.throws(() => validateFcmConfig({ required: true }), /FCM_PROJECT_ID/);
+
+    process.env.FCM_PROJECT_ID = 'vrindavan-test';
+    process.env.FCM_CLIENT_EMAIL = 'firebase-adminsdk@example.iam.gserviceaccount.com';
+    process.env.FCM_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n';
+
+    const fcmConfig = getFcmConfig();
+    assert.equal(getWebPushConfig().configured, false);
+    assert.equal(fcmConfig.configured, true);
+    assert.equal(fcmConfig.privateKey.includes('\\n'), false);
+    assert.doesNotThrow(() => validateFcmConfig({ required: true }));
+  } finally {
+    if (typeof originalFcmProject === 'undefined') delete process.env.FCM_PROJECT_ID;
+    else process.env.FCM_PROJECT_ID = originalFcmProject;
+    if (typeof originalFcmEmail === 'undefined') delete process.env.FCM_CLIENT_EMAIL;
+    else process.env.FCM_CLIENT_EMAIL = originalFcmEmail;
+    if (typeof originalFcmKey === 'undefined') delete process.env.FCM_PRIVATE_KEY;
+    else process.env.FCM_PRIVATE_KEY = originalFcmKey;
+    if (typeof originalWebPublic === 'undefined') delete process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
+    else process.env.WEB_PUSH_VAPID_PUBLIC_KEY = originalWebPublic;
+    if (typeof originalWebPrivate === 'undefined') delete process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
+    else process.env.WEB_PUSH_VAPID_PRIVATE_KEY = originalWebPrivate;
+    if (typeof originalWebSubject === 'undefined') delete process.env.WEB_PUSH_VAPID_SUBJECT;
+    else process.env.WEB_PUSH_VAPID_SUBJECT = originalWebSubject;
+  }
 });
 
 test('worker claim atomically moves queued notification to processing', async () => {
