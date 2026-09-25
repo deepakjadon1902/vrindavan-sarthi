@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { toast } from 'sonner';
 import templeImg from '@/assets/images/temple-about.jpg';
 import PasswordInput from '@/components/shared/PasswordInput';
+import { startGoogleSignIn } from '@/lib/oauth';
 
 type StaffLoginRole = 'admin' | 'partner';
 
@@ -16,12 +17,14 @@ const Login = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const roleParam = searchParams.get('role');
+  const isStaffLogin = searchParams.get('staff') === '1';
   const [loginRole, setLoginRole] = useState<StaffLoginRole>(roleParam === 'admin' ? 'admin' : 'partner');
-  const isPartnerLogin = loginRole === 'partner';
+  const isPartnerLogin = isStaffLogin && loginRole === 'partner';
 
   useEffect(() => {
+    if (!isStaffLogin) return;
     if (roleParam === 'admin' || roleParam === 'partner') setLoginRole(roleParam);
-  }, [roleParam]);
+  }, [isStaffLogin, roleParam]);
 
   useEffect(() => {
     const error = searchParams.get('error');
@@ -34,17 +37,21 @@ const Login = () => {
     setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams]);
 
+  const handleGoogle = () => {
+    startGoogleSignIn('/');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const result = await login({ email, password });
     if (result.success) {
       const user = useAuthStore.getState().user;
-      if (loginRole === 'partner' && user?.role !== 'partner') {
+      if (isStaffLogin && loginRole === 'partner' && user?.role !== 'partner') {
         logout();
         toast.error('Please use a partner account to access Partner Login.');
         return;
       }
-      if (loginRole === 'admin' && user?.role !== 'admin') {
+      if (isStaffLogin && loginRole === 'admin' && user?.role !== 'admin') {
         logout();
         toast.error('Please use an admin account to access Admin Login.');
         return;
@@ -63,11 +70,11 @@ const Login = () => {
         toast.success('Welcome back!');
       }
       if (user?.role === 'partner') {
-        navigate('/partner');
+        navigate('/partner', { replace: true });
       } else if (user?.role === 'admin') {
-        navigate('/admin');
+        navigate('/admin', { replace: true });
       } else {
-        navigate('/');
+        navigate('/', { replace: true });
       }
     } else {
       toast.error(result.error || 'Login failed');
@@ -95,14 +102,17 @@ const Login = () => {
           </div>
 
           <h1 className="font-heading text-3xl font-semibold text-foreground mb-2">
-            {loginRole === 'admin' ? 'Admin Login' : 'Partner Login'}
+            {isStaffLogin ? (loginRole === 'admin' ? 'Admin Login' : 'Partner Login') : 'Welcome Back'}
           </h1>
           <p className="font-body text-muted-foreground mb-8">
-            {loginRole === 'admin'
-              ? 'Sign in to manage the admin panel'
-              : 'Sign in to manage your listings and bookings'}
+            {isStaffLogin
+              ? loginRole === 'admin'
+                ? 'Sign in to manage the admin panel'
+                : 'Sign in to manage your listings and bookings'
+              : 'Sign in to continue your booking journey'}
           </p>
 
+          {isStaffLogin ? (
           <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/30 p-1">
             {([
               ['partner', 'Partner'],
@@ -113,7 +123,7 @@ const Login = () => {
                 type="button"
                 onClick={() => {
                   setLoginRole(role);
-                  setSearchParams({ role }, { replace: true });
+                  setSearchParams({ staff: '1', role }, { replace: true });
                 }}
                 className={`min-h-11 rounded-lg font-body text-sm font-bold transition-colors ${
                   loginRole === role
@@ -125,6 +135,23 @@ const Login = () => {
               </button>
             ))}
           </div>
+          ) : (
+            <>
+              <button
+                onClick={handleGoogle}
+                className="w-full flex items-center justify-center gap-3 border border-border rounded-xl py-3 font-body text-sm hover:bg-muted transition-colors mb-6"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
+                Continue with Google
+              </button>
+
+              <div className="flex items-center gap-4 mb-6">
+                <div className="flex-1 h-px bg-border" />
+                <span className="font-body text-xs text-muted-foreground">OR</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+            </>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -151,9 +178,9 @@ const Login = () => {
           </form>
 
           <p className="font-body text-sm text-muted-foreground text-center mt-6">
-            {loginRole === 'partner' ? 'New partner?' : 'Need a partner account?'}{' '}
-            <Link to="/register?role=partner" className="text-brand-gold font-semibold hover:underline">
-              Register as Partner
+            {isStaffLogin ? (loginRole === 'partner' ? 'New partner?' : 'Need a partner account?') : `New to ${settings.siteName}?`}{' '}
+            <Link to={isStaffLogin ? '/register?role=partner' : '/register'} className="text-brand-gold font-semibold hover:underline">
+              {isStaffLogin ? 'Register as Partner' : 'Register'}
             </Link>
           </p>
         </div>

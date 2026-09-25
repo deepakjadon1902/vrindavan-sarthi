@@ -252,7 +252,7 @@ const Register = () => {
             <div className="bg-brand-cream border border-brand-gold/20 rounded-xl p-4 mb-6">
               <p className="font-body text-sm text-foreground font-medium">Register as Partner</p>
               <p className="font-body text-xs text-muted-foreground mt-1">List your hotel or dharamshala on {settings.siteName}. Your listing will be reviewed by admin before going live.</p>
-              <Link to="/login?role=partner" className="mt-3 inline-flex font-body text-xs font-semibold text-brand-crimson hover:underline">
+              <Link to="/login?staff=1&role=partner" className="mt-3 inline-flex font-body text-xs font-semibold text-brand-crimson hover:underline">
                 Already approved? Partner Login
               </Link>
             </div>
@@ -482,7 +482,7 @@ const Register = () => {
 
           <p className="font-body text-sm text-muted-foreground text-center mt-6">
             Already have an account?{' '}
-            <Link to={isPartnerRegistration ? '/login?role=partner' : '/login'} className="text-brand-gold font-semibold hover:underline">
+            <Link to={isPartnerRegistration ? '/login?staff=1&role=partner' : '/login'} className="text-brand-gold font-semibold hover:underline">
               {isPartnerRegistration ? 'Partner Login' : 'Login'}
             </Link>
           </p>
