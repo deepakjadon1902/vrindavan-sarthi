@@ -108,17 +108,45 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
   const deviceId = useMemo(getDeviceId, []);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
+  const dismissedRef = useRef<Set<string>>(new Set());
+  const dismissedStorageKey = useMemo(() => `vvs_dismissed_booking_alerts_${user?.id || user?.email || 'guest'}`, [user?.id, user?.email]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(new Set());
   const [devices, setDevices] = useState<DeviceItem[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('vvs_booking_alarm_sound') !== 'off');
   const [alarmPlaybackUnlocked, setAlarmPlaybackUnlocked] = useState(() => localStorage.getItem('vvs_booking_alarm_playback_unlocked') === 'yes');
   const [permissionStatus, setPermissionStatus] = useState(getPermissionStatus);
   const [nowTick, setNowTick] = useState(Date.now());
-  const activeAlarm = notifications.find((n) => isActiveAlarm(n, nowTick));
-  const unreadCriticalCount = notifications.filter((n) => n.priority === 'critical' && !n.acknowledgedAt).length;
-  const recentCritical = notifications.filter((n) => n.priority === 'critical' && alarmEventTypes.has(String(n.eventType || ''))).slice(0, 5);
+  const visibleNotifications = useMemo(
+    () => notifications.filter((n) => !dismissedNotificationIds.has(n._id)),
+    [dismissedNotificationIds, notifications]
+  );
+  const activeAlarm = visibleNotifications.find((n) => isActiveAlarm(n, nowTick));
+  const unreadCriticalCount = visibleNotifications.filter((n) => n.priority === 'critical' && !n.acknowledgedAt).length;
+  const recentCritical = visibleNotifications.filter((n) => n.priority === 'critical' && alarmEventTypes.has(String(n.eventType || ''))).slice(0, 5);
   const shouldShowPermissionPrompt = permissionStatus !== 'granted';
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(dismissedStorageKey) || '[]');
+      const ids = new Set<string>(Array.isArray(stored) ? stored.filter((id) => typeof id === 'string') : []);
+      dismissedRef.current = ids;
+      setDismissedNotificationIds(ids);
+    } catch {
+      dismissedRef.current = new Set();
+      setDismissedNotificationIds(new Set());
+    }
+  }, [dismissedStorageKey]);
+
+  const persistDismissedNotifications = useCallback((ids: Set<string>) => {
+    const compactIds = Array.from(ids).slice(-200);
+    try {
+      localStorage.setItem(dismissedStorageKey, JSON.stringify(compactIds));
+    } catch {
+      // Dismiss still works for the current page even if browser storage is unavailable.
+    }
+  }, [dismissedStorageKey]);
 
   const stopSound = useCallback(() => {
     if (audioRef.current) {
@@ -200,7 +228,11 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
       const list = Array.isArray(res.data?.data) ? res.data.data : [];
       setNotifications(list);
       setNowTick(Date.now());
-      const latestCritical = list.find((n: NotificationItem) => n.priority === 'critical' && alarmEventTypes.has(String(n.eventType || '')));
+      const latestCritical = list.find((n: NotificationItem) => (
+        !dismissedRef.current.has(n._id)
+        && n.priority === 'critical'
+        && alarmEventTypes.has(String(n.eventType || ''))
+      ));
       if (latestCritical?._id && !seenRef.current.has(latestCritical._id)) {
         seenRef.current.add(latestCritical._id);
         if (!sessionStorage.getItem(`vvs_seen_alarm_${latestCritical._id}`)) {
@@ -338,6 +370,26 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
     } catch {
       toast.error('Could not acknowledge booking alert');
       void loadNotifications();
+    }
+  };
+
+  const dismissNotification = async (id: string) => {
+    if (!token || !id) return;
+    if (activeAlarm?._id === id) stopSound();
+
+    setDismissedNotificationIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      dismissedRef.current = next;
+      persistDismissedNotifications(next);
+      return next;
+    });
+    setNotifications((prev) => prev.filter((n) => n._id !== id));
+
+    try {
+      await api.post(`/notifications/${id}/acknowledge`, { deviceId }, withAuth(token));
+    } catch {
+      toast.error('Could not remove booking alert');
     }
   };
 
@@ -490,15 +542,25 @@ const BookingAlarmManager = ({ token, user, enabled = true, viewPath, onNewBooki
                             <p className="break-words text-sm font-medium leading-5">{item.title}</p>
                             <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{item.message}</p>
                           </div>
-                          <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
-                            {item.acknowledgedAt ? 'ack' : active ? 'active' : 'missed'}
-                          </span>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <span className="rounded bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+                              {item.acknowledgedAt ? 'ack' : active ? 'active' : 'missed'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                void dismissNotification(item._id);
+                              }}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                              aria-label="Remove booking alert"
+                              title="Remove booking alert"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
                         </div>
-                        {!item.acknowledgedAt && (
-                          <button type="button" onClick={() => acknowledge(item._id)} className="mt-3 inline-flex min-h-9 items-center rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50">
-                            Accept Alert
-                          </button>
-                        )}
                       </div>
                     );
                   })}
