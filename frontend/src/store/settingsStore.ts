@@ -61,11 +61,11 @@ Vrindavan Sarthi provides an online platform for booking hotels, rooms, cabs, an
 3. User Accounts
 You must provide accurate and complete information when creating an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.
 
-4. Bookings & Payments
-All bookings are subject to availability. Hotel and tour payments are processed via UPI. Cab fares are paid directly to the driver at the destination. Booking confirmations are sent via the platform.
+4. Bookings, Platform Fees & Payments
+All bookings are subject to availability and partner/property confirmation. Hotel room bookings may include a 10% platform fee on the room booking amount. Dharamshala booking requests carry a Rs. 99 platform fee, payable only after the Dharamshala or admin accepts the request. Dharamshala stay charges, donation, room contribution, or other property charges may vary by Dharamshala and are payable directly to the Dharamshala or property manager unless the booking screen clearly states otherwise. Booking confirmations are sent through the platform.
 
 5. Cancellation & Refunds
-Cancellation policies vary by service provider. Refunds, if applicable, will be processed within 7-10 business days. Cab bookings can be cancelled free of charge before the pickup time.
+Cancellation policies vary by service provider. Platform fees charged by Vrindavan Sarthi, including the Rs. 99 Dharamshala platform fee and the hotel room platform fee, are non-refundable when a booking is cancelled unless required by law or specifically approved by the admin team. Refunds for any other eligible amount, if applicable, will be processed within 7-10 business days after review. Dharamshala payments made directly to the Dharamshala are handled under that Dharamshala's own rules.
 
 6. Partner Responsibilities
 Partners listing hotels, rooms, cabs, or tours must provide accurate information. All listings are subject to admin verification. Misrepresentation may result in removal from the platform.
@@ -99,7 +99,7 @@ For privacy-related inquiries, contact us at vrindavansarthi108@gmail.com or thr
 Partners must list only genuine, lawful, owner-authorized hotels, rooms, cabs, and services. Images, room inventory, amenities, maps, pricing, policies, and availability must remain accurate.
 
 2. Booking Handling
-Confirmed bookings must be honored. Partners must verify payment where required, support guest arrival, and keep check-in/check-out status updated.
+Confirmed bookings must be honored. Hotel partners acknowledge that hotel room bookings may include a 10% platform fee. Dharamshala partners acknowledge that Vrindavan Sarthi collects a Rs. 99 platform fee after request acceptance, while Dharamshala stay charges or contributions are collected directly by the Dharamshala according to its own rules. Partners must verify payment where required, support guest arrival, and keep check-in/check-out status updated.
 
 3. Tax, Invoice, and Compliance
 The property partner remains responsible for accommodation tax invoices, GST filing, licenses, and local compliance wherever applicable.

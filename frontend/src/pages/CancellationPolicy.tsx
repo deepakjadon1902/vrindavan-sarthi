@@ -18,8 +18,8 @@ import { COMPANY_EMAIL, COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand'
 const highlights = [
   {
     icon: IndianRupee,
-    title: '12% standard cancellation charge',
-    text: 'For platform-managed bookings and orders, a 12% cancellation charge may be deducted before refund calculation.',
+    title: 'Platform fee is non-refundable',
+    text: 'Platform fees are service charges for processing and support. They are not refundable when a booking is cancelled.',
   },
   {
     icon: FileText,
@@ -37,12 +37,12 @@ const servicePolicies = [
   {
     icon: Building2,
     title: 'Hotels and Rooms',
-    text: 'Hotel and room bookings may be made with 30% advance payment or full payment. Refunds are calculated against the amount actually received by the platform, after applicable deduction and property-specific terms shown before payment.',
+    text: 'Hotel and room bookings may include a 10% platform fee on the room booking amount. This platform fee is non-refundable on cancellation. Any eligible room amount refund is calculated after applicable deduction and property-specific terms shown before payment.',
   },
   {
     icon: MapPinned,
-    title: 'Dharamshala Enquiries',
-    text: 'Many Dharamshala listings are handled by direct WhatsApp or call enquiry. If no online payment is collected by Vrindavan Sarthi, cancellation and refund will be handled directly by the Dharamshala or property manager.',
+    title: 'Dharamshala Bookings',
+    text: 'For Dharamshala booking requests, Vrindavan Sarthi charges a Rs. 99 platform fee only after the request is accepted. This platform fee is non-refundable on cancellation. Dharamshala stay charges, donations, room contributions, or other property charges may vary and are paid directly to the Dharamshala or property manager. Any refund or change for direct Dharamshala payment is handled by that Dharamshala according to its own rules.',
   },
   {
     icon: Car,
@@ -75,8 +75,10 @@ const requestSteps = [
 ];
 
 const importantNotes = [
+  'Platform fees charged by Vrindavan Sarthi are non-refundable once the booking is cancelled, unless required by law or specifically approved by the admin team.',
   'No-show cases, incorrect traveller details, rule violations, duplicate requests, and last-minute cancellations may be non-refundable.',
   'Property-specific cancellation rules shown on a hotel or room page will apply along with this platform policy.',
+  'Dharamshala prices and charges may vary according to the Dharamshala and are not controlled by Vrindavan Sarthi unless clearly shown as a platform-collected amount.',
   'Bank, gateway, supplier, driver, guide, packaging, or already committed service charges may be adjusted where applicable.',
   'Refund timelines depend on payment verification, bank processing, and partner confirmation.',
 ];
