@@ -989,11 +989,12 @@ const RoomTypeDetail = () => {
     : 0;
   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
   const subtotal = baseTotal + taxTotal;
-  const convenienceFeePercent = isDharamshala ? 10 : 4.45;
-  const convenienceFee = Math.round(baseTotal * (convenienceFeePercent / 100));
+  const dharamshalaServiceFee = Math.max(0, Math.round(Number(hotel?.dharamshalaServiceFee ?? 99)));
+  const convenienceFeePercent = isDharamshala ? 0 : 4.45;
+  const convenienceFee = isDharamshala ? dharamshalaServiceFee : Math.round(baseTotal * (convenienceFeePercent / 100));
   const total = subtotal + convenienceFee;
   const effectivePaymentOption = isDharamshala ? 'full_100' : paymentOption;
-  const payableNow = effectivePaymentOption === 'full_100' ? total : effectivePaymentOption === 'advance_30' ? Math.round(total * 0.3) : 0;
+  const payableNow = isDharamshala ? 0 : effectivePaymentOption === 'full_100' ? total : effectivePaymentOption === 'advance_30' ? Math.round(total * 0.3) : 0;
   const balanceLater = Math.max(0, total - payableNow);
   const availableCount = availableCountForSelection;
   const totalCount = typeof roomType.totalCount === 'number' ? roomType.totalCount : null;
@@ -1683,11 +1684,11 @@ const RoomTypeDetail = () => {
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <span>{isDharamshala ? 'Platform fee' : 'Platform convenience fee'}</span>
+                    <span>{isDharamshala ? 'Platform fee after acceptance' : 'Platform convenience fee'}</span>
                     <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
-                    <span className="text-gray-800">Total</span>
+                    <span className="text-gray-800">{isDharamshala ? 'Estimated total' : 'Total'}</span>
                     <span className="text-brand-crimson">Rs. {total.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
@@ -1697,7 +1698,7 @@ const RoomTypeDetail = () => {
                 {/* Payment options */}
                 {canShowRoomPrices && (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Payment Option *</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{isDharamshala ? 'Request Flow' : 'Payment Option *'}</p>
 
                   {!isDharamshala && (
                   <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -1715,6 +1716,14 @@ const RoomTypeDetail = () => {
                   </label>
                   )}
 
+                  {isDharamshala ? (
+                    <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
+                      <p className="font-semibold text-gray-800">Request booking first</p>
+                      <p className="mt-1 text-xs leading-5 text-gray-500">
+                        Admin or the Dharamshala partner will confirm availability first. After acceptance, pay Rs. {dharamshalaServiceFee.toLocaleString('en-IN')} platform fee from My Bookings to confirm.
+                      </p>
+                    </div>
+                  ) : (
                   <label className={`flex items-start gap-3 rounded-xl border p-3 ${isDharamshala ? 'cursor-default bg-amber-50/60' : 'cursor-pointer hover:bg-gray-50'} transition-colors`}
                     style={{ borderColor: effectivePaymentOption === 'full_100' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
                     <input type="radio" name="roomPaymentOption" checked={effectivePaymentOption === 'full_100'} onChange={() => setPaymentOption('full_100')} disabled={isDharamshala} className="mt-1 accent-[hsl(var(--brand-crimson))] disabled:opacity-80" />
@@ -1730,8 +1739,9 @@ const RoomTypeDetail = () => {
                       )}
                     </span>
                   </label>
+                  )}
 
-                  {effectivePaymentOption && (
+                  {effectivePaymentOption && !isDharamshala && (
                     <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 flex justify-between text-sm">
                       <span className="text-gray-500">Payable now</span>
                       <span className="font-bold text-brand-crimson">Rs. {payableNow.toLocaleString('en-IN')}</span>

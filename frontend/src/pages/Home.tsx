@@ -526,7 +526,7 @@ const Home = () => {
                     badge={getPropertyTypeLabel(hotel?.propertyType)}
                     location={hotel.location}
                     price={getHotelStartingPrice(hotel)}
-                    priceLabel={isDharamshalaType(hotel?.propertyType) ? '/night incl. platform fee' : hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    priceLabel={isDharamshalaType(hotel?.propertyType) ? '/night + platform fee' : hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}
                     amenities={hotel.amenities || []}
@@ -573,7 +573,7 @@ const Home = () => {
                     name={roomType.name}
                     location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` - ${roomType.hotel.location}` : ''}`}
                     price={getRoomPrice(roomType)}
-                    priceLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? '/night incl. platform fee' : roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    priceLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? '/night + platform fee' : roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={0}
                     reviewCount={0}
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}

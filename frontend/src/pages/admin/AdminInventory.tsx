@@ -557,7 +557,7 @@ const AdminInventory = () => {
                           </p>
                           <p className="font-body text-[11px] text-muted-foreground truncate">
                             {isDharamshalaType(selectedHotel?.propertyType)
-                              ? `Customer pays Rs. ${customerRoomPrice(rt.pricePerNight).toLocaleString('en-IN')} / night incl. 10% platform fee`
+                              ? `Customer pays the fixed service fee only after the request is accepted`
                               : `Customer pays Rs. ${customerRoomPrice(rt.pricePerNight).toLocaleString('en-IN')} / night incl. ${taxPercent}% GST`}
                           </p>
                         </div>

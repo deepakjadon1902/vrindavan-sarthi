@@ -420,7 +420,7 @@ const ManageHotels = () => {
                   placeholder="10"
                 />
                 <p className="font-body text-xs text-muted-foreground mt-1">
-                  {isDharamshalaType(form.propertyType) ? 'Dharamshala bookings use a fixed 10% customer platform fee.' : 'Set the platform commission for this listing.'}
+                  {isDharamshalaType(form.propertyType) ? 'Dharamshala bookings use the fixed service fee set below.' : 'Set the platform commission for this listing.'}
                 </p>
               </div>
               <div>
@@ -567,7 +567,7 @@ const ManageHotels = () => {
                 <span>
                   Apply GST to this property
                   <span className="block text-xs text-muted-foreground mt-1">
-                    {isDharamshalaType(form.propertyType) ? 'Dharamshalas collect only a 10% platform fee, with no GST or other charges.' : 'GST settings apply to hotels, home stays, and guest houses.'}
+                    {isDharamshalaType(form.propertyType) ? 'Dharamshalas collect only the fixed service fee online, with no GST or other customer charges.' : 'GST settings apply to hotels, home stays, and guest houses.'}
                   </span>
                 </span>
               </label>

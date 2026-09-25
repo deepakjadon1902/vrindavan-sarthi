@@ -202,7 +202,10 @@ router.param('id', (req, res, next, id) => {
 const sanitizeCustomerBooking = (booking) => {
   if (!booking) return booking;
   const plain = typeof booking.toObject === 'function' ? booking.toObject() : { ...booking };
-  if (plain.bookingStatus !== 'confirmed') plain.partnerPhone = '';
+  if (plain.bookingStatus !== 'confirmed') {
+    plain.partnerName = '';
+    plain.partnerPhone = '';
+  }
   delete plain.roomUnitId;
   delete plain.roomUnitIds;
   delete plain.roomNumber;

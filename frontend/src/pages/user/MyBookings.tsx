@@ -29,7 +29,7 @@ const typeIcon: Record<string, typeof Hotel> = {
 const filters = ['All', 'Upcoming', 'Pending', 'Waitlist', 'Completed', 'Expired', 'Cancelled'];
 
 const statusLabels: Record<string, string> = {
-  awaiting_customer_payment: 'Awaiting payment',
+  awaiting_customer_payment: 'Accepted - pay fee',
   checked_in: 'Checked in',
   checked_out: 'Checked out',
   expired_property_no_response: 'Expired',
@@ -52,6 +52,8 @@ const formatDate = (date?: string) => {
 };
 
 const formatStatus = (status: string) => statusLabels[status] || status.replace(/_/g, ' ');
+
+const pendingStatuses = new Set(['pending', 'pending_property_confirmation', 'awaiting_customer_payment']);
 
 const MyBookings = () => {
   const { user } = useAuthStore();
@@ -113,7 +115,7 @@ const MyBookings = () => {
     filter === 'All' ? bookings :
     filter === 'Waitlist' ? bookings.filter(b => Boolean(b.isWaitlisted) && !['cancelled', 'expired', 'payment_failed'].includes(b.bookingStatus)) :
     filter === 'Upcoming' ? bookings.filter(b => b.bookingStatus === 'confirmed') :
-    filter === 'Pending' ? bookings.filter(b => b.bookingStatus === 'pending') :
+    filter === 'Pending' ? bookings.filter(b => pendingStatuses.has(b.bookingStatus)) :
     filter === 'Completed' ? bookings.filter(b => b.bookingStatus === 'completed') :
     filter === 'Expired' ? bookings.filter(b => b.bookingStatus === 'expired' || b.bookingStatus === 'payment_failed') :
     bookings.filter(b => b.bookingStatus === 'cancelled');
@@ -121,7 +123,7 @@ const MyBookings = () => {
   const stats = [
     { label: 'Total bookings', value: bookings.length, tone: 'text-foreground' },
     { label: 'Confirmed', value: bookings.filter(b => b.bookingStatus === 'confirmed').length, tone: 'text-brand-green' },
-    { label: 'Pending', value: bookings.filter(b => b.bookingStatus === 'pending').length, tone: 'text-brand-saffron' },
+    { label: 'Pending', value: bookings.filter(b => pendingStatuses.has(b.bookingStatus)).length, tone: 'text-brand-saffron' },
     {
       label: 'Total spent',
       value: bookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + b.totalAmount, 0).toLocaleString('en-IN'),
@@ -134,7 +136,7 @@ const MyBookings = () => {
     if (tab === 'All') return bookings.length;
     if (tab === 'Waitlist') return bookings.filter(b => Boolean(b.isWaitlisted) && !['cancelled', 'expired', 'payment_failed'].includes(b.bookingStatus)).length;
     if (tab === 'Upcoming') return bookings.filter(b => b.bookingStatus === 'confirmed').length;
-    if (tab === 'Pending') return bookings.filter(b => b.bookingStatus === 'pending').length;
+    if (tab === 'Pending') return bookings.filter(b => pendingStatuses.has(b.bookingStatus)).length;
     if (tab === 'Completed') return bookings.filter(b => b.bookingStatus === 'completed').length;
     if (tab === 'Expired') return bookings.filter(b => b.bookingStatus === 'expired' || b.bookingStatus === 'payment_failed').length;
     return bookings.filter(b => b.bookingStatus === 'cancelled').length;
@@ -142,6 +144,7 @@ const MyBookings = () => {
 
   const statusBadge = (s: string) => {
     if (s === 'confirmed') return { cls: 'bg-brand-green/12 text-brand-green border-brand-green/25', icon: CheckCircle2 };
+    if (s === 'awaiting_customer_payment') return { cls: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: IndianRupee };
     if (s === 'cancelled') return { cls: 'bg-destructive/12 text-destructive border-destructive/25', icon: XCircle };
     if (s === 'expired' || s === 'payment_failed') return { cls: 'bg-destructive/12 text-destructive border-destructive/25', icon: XCircle };
     if (s === 'completed') return { cls: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CheckCircle2 };
@@ -256,6 +259,8 @@ const MyBookings = () => {
                 const Icon = typeIcon[b.bookingType] || ClipboardList;
                 const sb = statusBadge(b.bookingStatus);
                 const SIcon = sb.icon;
+                const isDharamshala = String(b.propertyType || '').toLowerCase() === 'dharamshala';
+                const platformFee = Number(b.amountPaidOnline || 0);
                 const paymentCopy = b.paymentMethod === 'doorstep' ? 'Doorstep payment' : `Online - ${b.paymentStatus.replace(/_/g, ' ')}`;
 
                 return (
@@ -301,6 +306,16 @@ const MyBookings = () => {
                             Waiting for room assignment
                           </p>
                         )}
+                        {isDharamshala && b.bookingStatus === 'pending_property_confirmation' && (
+                          <p className="mt-2 rounded-lg border border-brand-saffron/25 bg-brand-saffron/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-saffron">
+                            Request submitted. Admin or the Dharamshala partner is reviewing availability.
+                          </p>
+                        )}
+                        {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
+                          <p className="mt-2 rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-crimson">
+                            Request accepted. Pay the platform fee{platformFee > 0 ? ` of Rs. ${platformFee.toLocaleString('en-IN')}` : ''} now to confirm this booking.
+                          </p>
+                        )}
 
                         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-body text-[13px] font-semibold text-muted-foreground">
                           {b.checkIn && (
@@ -320,6 +335,11 @@ const MyBookings = () => {
                           <button onClick={(e) => openCancel(e, b.id)} className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md px-0 font-body text-xs font-bold text-destructive hover:underline">
                             <XCircle size={13} /> Cancel
                           </button>
+                        )}
+                        {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
+                          <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md font-body text-xs font-bold text-brand-crimson group-hover:underline">
+                            Pay platform fee <ArrowRight size={13} />
+                          </span>
                         )}
                       </div>
                     </div>

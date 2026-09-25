@@ -111,7 +111,7 @@ const BookingDetail = () => {
   const statusConfig = {
     confirmed: { color: 'bg-brand-green/10 text-brand-green border-brand-green/20', icon: CheckCircle2, label: 'Confirmed' },
     pending_property_confirmation: { color: 'bg-brand-saffron/10 text-brand-saffron border-brand-saffron/20', icon: Clock, label: 'Pending Property Confirmation' },
-    awaiting_customer_payment: { color: 'bg-brand-saffron/10 text-brand-saffron border-brand-saffron/20', icon: CreditCard, label: 'Awaiting Service Fee Payment' },
+    awaiting_customer_payment: { color: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CreditCard, label: 'Request Accepted - Pay Platform Fee' },
     rejected_by_property: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Rejected by Property' },
     expired_property_no_response: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Expired - Property Did Not Respond' },
     no_show: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'No-show' },
@@ -761,13 +761,21 @@ const BookingDetail = () => {
               )}
 
               {canPayAcceptedDharamshala && (
-                <button
-                  onClick={payAcceptedDharamshala}
-                  disabled={isPayingDharamshala}
-                  className="w-full py-3 rounded-xl bg-brand-gold text-foreground font-body text-sm font-semibold hover:bg-brand-gold/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  <CreditCard size={16} /> {isPayingDharamshala ? 'Opening Razorpay...' : `Pay ${formatMoney(booking.amountPaidOnline)} Online`}
-                </button>
+                <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/10 p-4">
+                  <p className="font-body text-sm font-semibold text-foreground">
+                    Your request has been accepted. Pay the Vrindavan Sarthi platform fee to confirm this Dharamshala booking.
+                  </p>
+                  <p className="mt-1 font-body text-xs leading-5 text-muted-foreground">
+                    After successful payment, your booking becomes confirmed and partner contact details will be visible here.
+                  </p>
+                  <button
+                    onClick={payAcceptedDharamshala}
+                    disabled={isPayingDharamshala}
+                    className="mt-4 w-full py-3 rounded-xl bg-brand-gold text-foreground font-body text-sm font-semibold hover:bg-brand-gold/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <CreditCard size={16} /> {isPayingDharamshala ? 'Opening Razorpay...' : `Pay ${formatMoney(booking.amountPaidOnline)} and Confirm`}
+                  </button>
+                </div>
               )}
 
               {canFindAnotherDharamshala && (

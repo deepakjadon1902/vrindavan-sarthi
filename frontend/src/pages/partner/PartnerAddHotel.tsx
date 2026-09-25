@@ -494,7 +494,7 @@ const PartnerAddHotel = () => {
               </div>
               {isDharamshalaForm && (
                 <div className="md:col-span-2 rounded-lg border border-brand-gold/25 bg-brand-gold/10 p-3 font-body text-xs text-muted-foreground">
-                  Dharamshala bookings collect only a fixed 10% platform fee. GST and other customer charges are not applied.
+                  Dharamshala bookings collect only the fixed service fee online. GST and other customer charges are not applied.
                 </div>
               )}
               {isDharamshalaForm && (

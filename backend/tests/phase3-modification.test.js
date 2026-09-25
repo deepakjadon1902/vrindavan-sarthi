@@ -105,7 +105,7 @@ test('extracted pricing preserves existing convenience and money formulas', () =
   assert.equal(money.paymentGatewayFeeAmount, 200);
 });
 
-test('dharamshala lodging pricing charges only fixed 10 percent platform fee', async () => {
+test('legacy dharamshala lodging pricing keeps GST and payout charges disabled', async () => {
   const money = await calculateLodgingPrice({
     hotel: {
       propertyType: 'dharamshala',
