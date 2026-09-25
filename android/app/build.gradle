@@ -17,7 +17,7 @@ android {
         targetSdk 35
         versionCode 1
         versionName "1.0.0"
-        buildConfigField "String", "APP_URL", "\"https://www.vrindavansarthi.in/admin\""
+        buildConfigField "String", "APP_URL", "\"https://www.vrindavansarthi.in/login\""
         buildConfigField "String", "API_BASE_URL", "\"https://www.vrindavansarthi.in/api\""
     }
 }
