@@ -719,7 +719,7 @@ const BookingDetail = () => {
 
               {booking.bookingStatus === 'confirmed' && (booking.partnerName || booking.partnerPhone) && (
                 <div className="bg-card rounded-xl border border-border p-6">
-                  <h3 className="font-heading text-sm font-semibold text-foreground mb-3">Partner Contact</h3>
+                  <h3 className="font-heading text-sm font-semibold text-foreground mb-3">Property Contact</h3>
                   <div className="space-y-2 font-body text-sm">
                     <p className="text-foreground">{booking.partnerName || '-'}</p>
                     {booking.partnerPhone && (

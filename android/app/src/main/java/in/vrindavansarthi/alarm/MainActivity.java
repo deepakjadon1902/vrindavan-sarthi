@@ -51,10 +51,19 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 Log.d(TAG, "Page finished " + url);
+                markAndroidApkSession();
                 tryRegisterNativeDevice();
             }
         });
         webView.loadUrl(BuildConfig.APP_URL);
+    }
+
+    private void markAndroidApkSession() {
+        if (webView == null) return;
+        webView.evaluateJavascript(
+            "(function(){try{sessionStorage.setItem('vrs_native_apk','1');localStorage.setItem('vrs_native_apk','1');}catch(e){}})();",
+            value -> {}
+        );
     }
 
     private void requestNotificationPermission() {

@@ -9,6 +9,15 @@ import { startGoogleSignIn } from '@/lib/oauth';
 
 type StaffLoginRole = 'admin' | 'partner';
 
+const hasNativeApkMarker = () => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage.getItem('vrs_native_apk') === '1' || window.localStorage.getItem('vrs_native_apk') === '1';
+  } catch {
+    return false;
+  }
+};
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,13 +27,29 @@ const Login = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const roleParam = searchParams.get('role');
   const isStaffLogin = searchParams.get('staff') === '1';
+  const [isNativeApk, setIsNativeApk] = useState(() => searchParams.get('vrsApk') === '1' || hasNativeApkMarker());
   const [loginRole, setLoginRole] = useState<StaffLoginRole>(roleParam === 'admin' ? 'admin' : 'partner');
   const isPartnerLogin = isStaffLogin && loginRole === 'partner';
 
   useEffect(() => {
+    if (searchParams.get('vrsApk') !== '1') return;
+    setIsNativeApk(true);
+    try {
+      window.sessionStorage.setItem('vrs_native_apk', '1');
+      window.localStorage.setItem('vrs_native_apk', '1');
+    } catch {
+      // ignore storage restrictions
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!isStaffLogin) return;
+    if (isNativeApk) {
+      setLoginRole('partner');
+      return;
+    }
     if (roleParam === 'admin' || roleParam === 'partner') setLoginRole(roleParam);
-  }, [isStaffLogin, roleParam]);
+  }, [isNativeApk, isStaffLogin, roleParam]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -127,7 +152,7 @@ const Login = () => {
               : 'Sign in to continue your booking journey'}
           </p>
 
-          {isStaffLogin ? (
+          {isStaffLogin && !isNativeApk ? (
           <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/30 p-1">
             {([
               ['partner', 'Partner'],
@@ -150,7 +175,7 @@ const Login = () => {
               </button>
             ))}
           </div>
-          ) : (
+          ) : !isStaffLogin ? (
             <>
               <button
                 onClick={handleGoogle}
@@ -166,6 +191,11 @@ const Login = () => {
                 <div className="flex-1 h-px bg-border" />
               </div>
             </>
+          ) : (
+            <div className="mb-6 rounded-xl border border-brand-gold/30 bg-brand-gold/10 px-4 py-3">
+              <p className="font-body text-sm font-semibold text-foreground">Partner access</p>
+              <p className="mt-1 font-body text-xs text-muted-foreground">Sign in with your approved partner account.</p>
+            </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -194,7 +224,7 @@ const Login = () => {
 
           <p className="font-body text-sm text-muted-foreground text-center mt-6">
             {isStaffLogin ? (loginRole === 'partner' ? 'New partner?' : 'Need a partner account?') : `New to ${settings.siteName}?`}{' '}
-            <Link to={isStaffLogin ? '/register?role=partner' : '/register'} className="text-brand-gold font-semibold hover:underline">
+            <Link to={isStaffLogin ? `/register?role=partner${isNativeApk ? '&vrsApk=1' : ''}` : '/register'} className="text-brand-gold font-semibold hover:underline">
               {isStaffLogin ? 'Register as Partner' : 'Register'}
             </Link>
           </p>

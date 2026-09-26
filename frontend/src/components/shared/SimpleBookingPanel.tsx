@@ -14,9 +14,9 @@ const copy = {
   },
   dharamshala: {
     title: 'Simple Dharamshala booking',
-    subtitle: 'Connect with the Dharamshala first and confirm the next step directly.',
-    steps: ['Check availability', 'Confirm rules', 'Continue directly'],
-    note: 'Phone and WhatsApp details are shown before the user has to take action.',
+    subtitle: 'Submit a request first. Property contact details are shown after successful confirmation.',
+    steps: ['Choose dates', 'Submit request', 'Contact after confirmation'],
+    note: 'This keeps the lister details private until the booking is confirmed.',
   },
   cab: {
     title: 'Simple cab booking',

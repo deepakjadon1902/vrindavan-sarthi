@@ -452,10 +452,6 @@ type Hotel = {
   gstMode?: 'manual' | 'automatic';
   showPrices?: boolean;
   propertyTerms?: PropertyTermsValue;
-  contactPhone?: string;
-  contactEmail?: string;
-  partnerName?: string;
-  partnerPhone?: string;
 };
 
 type RoomType = {
@@ -612,11 +608,7 @@ const HotelDetail = () => {
   const hasAnyPublicPricedRoom = roomTypes.some(hasPublicRoomPrice);
   const hasAnyBookingWorkflowRoom = roomTypes.some(hasBookingWorkflow);
   const supportDigits = supportPhone.replace(/\D/g, '');
-  const propertyPhone = String(hotel?.contactPhone || hotel?.partnerPhone || '').trim();
-  const contactDigits = propertyPhone.replace(/\D/g, '') || supportDigits;
-  const contactName = hotel?.partnerName || hotel?.name || 'Dharamshala team';
   const whatsappMessage = `Radhe Radhe, I want to book ${hotel?.name || 'this property'}${hotel?.location ? ` in ${hotel.location}` : ''}. Please share availability and price.`;
-  const dharamshalaWhatsappMessage = `Radhe Radhe, I found ${hotel?.name || 'your Dharamshala'} on Vrindavan Sarthi${hotel?.location ? ` in ${hotel.location}` : ''}. Please help me with room availability and booking.`;
   const hotelDescription = truncate(hotel?.description || `${hotel?.name || `Verified ${propertyLabel.toLowerCase()}`} in ${hotel?.location || 'Braj'} with room booking support from Vrindavan Sarthi.`);
   const hotelJsonLd = hotel ? {
     '@context': 'https://schema.org',
@@ -862,10 +854,6 @@ const HotelDetail = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              if (isDharamshalaType(rtHotel?.propertyType) && contactDigits) {
-                                window.open(`https://wa.me/${contactDigits}?text=${encodeURIComponent(`${dharamshalaWhatsappMessage} Room type: ${rt.name}.`)}`, '_blank', 'noopener,noreferrer');
-                                return;
-                              }
                               if (!roomUsesBookingWorkflow && supportDigits) {
                                 window.open(`https://wa.me/${supportDigits}?text=${encodeURIComponent(`${whatsappMessage} Room type: ${rt.name}.`)}`, '_blank', 'noopener,noreferrer');
                                 return;
@@ -948,7 +936,7 @@ const HotelDetail = () => {
                               {roomUsesBookingWorkflow ? (
                                 <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#6f5529] px-4 py-3 font-body text-sm font-bold text-white transition-colors group-hover:bg-[#5f471f]">
                                   <Check size={16} />
-                                  {isDharamshalaType(rtHotel?.propertyType) ? 'Contact Dharamshala' : 'Select Room'}
+                                  {isDharamshalaType(rtHotel?.propertyType) ? 'Request Booking' : 'Select Room'}
                                 </span>
                               ) : (
                                 <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#6f5529] px-4 py-3 font-body text-sm font-bold text-white transition-colors group-hover:bg-[#5f471f]">
@@ -1062,31 +1050,7 @@ const HotelDetail = () => {
 
               {/* CTA */}
               <div className="px-5 pb-5 pt-4 border-t border-border">
-                {isDharamshalaProperty ? (
-                  <div className="grid grid-cols-1 gap-2">
-                    <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-center">
-                      <p className="font-body text-[11px] font-bold uppercase tracking-wider text-amber-700">Dharamshala Contact</p>
-                      <p className="mt-1 font-body text-sm font-semibold text-foreground">{contactName}</p>
-                      {propertyPhone && <p className="font-body text-xs text-muted-foreground">{propertyPhone}</p>}
-                    </div>
-                    <a
-                      href={`https://wa.me/${contactDigits}?text=${encodeURIComponent(dharamshalaWhatsappMessage)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full inline-flex items-center justify-center gap-2 btn-gold px-4 py-3 rounded-xl text-[14px] font-semibold"
-                    >
-                      <MessageCircle size={16} />
-                      WhatsApp Dharamshala
-                    </a>
-                    <a
-                      href={`tel:${contactDigits}`}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-[14px] font-semibold text-foreground hover:border-brand-gold/50"
-                    >
-                      <Phone size={16} />
-                      Call Dharamshala
-                    </a>
-                  </div>
-                ) : hasAnyBookingWorkflowRoom ? (
+                {hasAnyBookingWorkflowRoom ? (
                   <a
                     href="#hotel-room-types"
                     className="w-full inline-flex items-center justify-center gap-2 btn-gold px-4 py-3 rounded-xl text-[14px] font-semibold"
@@ -1116,7 +1080,7 @@ const HotelDetail = () => {
                 )}
                 <p className="mt-2.5 font-body text-[11px] text-muted-foreground text-center flex items-center justify-center gap-1.5">
                   <CalendarDays size={12} />
-                  {hasAnyBookingWorkflowRoom ? (isDharamshalaProperty ? 'Connect directly with the Dharamshala to confirm the next step.' : 'Book a specific room type from this property page.') : 'Prices and availability are confirmed by our booking desk.'}
+                  {hasAnyBookingWorkflowRoom ? (isDharamshalaProperty ? 'Submit a request first. Contact details appear after booking confirmation.' : 'Book a specific room type from this property page.') : 'Prices and availability are confirmed by our booking desk.'}
                 </p>
               </div>
 

@@ -855,11 +855,7 @@ const RoomTypeDetail = () => {
   const roomHasPublishedPrice = Number(roomType?.pricePerNight || 0) > 0;
   const canShowRoomPrices = showPrices && (!isDharamshala || roomHasPublishedPrice);
   const supportDigits = supportPhone.replace(/\D/g, '');
-  const propertyPhone = String(hotel?.contactPhone || hotel?.partnerPhone || '').trim();
-  const contactDigits = propertyPhone.replace(/\D/g, '') || supportDigits;
-  const contactName = hotel?.partnerName || hotel?.name || 'Dharamshala team';
   const whatsappMessage = `Radhe Radhe, I want to book ${hotel?.name || 'this property'}${roomType?.name ? ` - ${roomType.name}` : ''}${hotel?.location ? ` in ${hotel.location}` : ''}. Please share availability and price.`;
-  const dharamshalaWhatsappMessage = `Radhe Radhe, I found ${hotel?.name || 'your Dharamshala'}${roomType?.name ? ` - ${roomType.name}` : ''} on Vrindavan Sarthi${hotel?.location ? ` in ${hotel.location}` : ''}. Please help me with availability and the next booking step.`;
   const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
   const mustAcceptPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
 
@@ -1724,9 +1720,9 @@ const RoomTypeDetail = () => {
 
                   {isDharamshala ? (
                     <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
-                      <p className="font-semibold text-gray-800">Contact the Dharamshala first</p>
+                      <p className="font-semibold text-gray-800">Submit request first</p>
                       <p className="mt-1 text-xs leading-5 text-gray-500">
-                        Speak with {contactName} to confirm room availability, contribution amount, ID rules, and the next payment or visit step.
+                        The Dharamshala or admin will confirm availability first. Lister contact details are shown only after successful booking confirmation.
                       </p>
                     </div>
                   ) : (
@@ -1780,27 +1776,13 @@ const RoomTypeDetail = () => {
 
                 {/* CTA */}
                 {isDharamshala ? (
-                  <div className="grid grid-cols-1 gap-2">
-                    <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Dharamshala Contact</p>
-                      <p className="mt-1 text-sm font-semibold text-gray-900">{contactName}</p>
-                      {propertyPhone && <p className="text-xs text-gray-500">{propertyPhone}</p>}
-                    </div>
-                    <a
-                      href={`https://wa.me/${contactDigits}?text=${encodeURIComponent(dharamshalaWhatsappMessage)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn-gold inline-flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold tracking-wide"
-                    >
-                      <MessageCircle size={16} /> WhatsApp Dharamshala
-                    </a>
-                    <a
-                      href={`tel:${contactDigits}`}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-3 text-sm font-bold text-gray-800 hover:border-brand-gold/50"
-                    >
-                      <Phone size={16} /> Call Dharamshala
-                    </a>
-                  </div>
+                  <button
+                    onClick={startRazorpayPayment}
+                    disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
+                    className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isStartingPayment ? 'Submitting request...' : 'Submit Booking Request'}
+                  </button>
                 ) : !showPrices ? (
                   <div className="grid grid-cols-1 gap-2">
                     <a
@@ -1868,7 +1850,7 @@ const RoomTypeDetail = () => {
                 )}
 
                 <p className="text-center text-[11px] text-gray-400">
-                  {canShowRoomPrices ? (isDharamshala ? 'The Dharamshala confirms availability and the next step directly.' : 'Secure payment with automatic booking confirmation.') : 'Prices and availability are confirmed by our booking desk.'}
+                  {canShowRoomPrices ? (isDharamshala ? 'Contact details appear in My Bookings after successful confirmation.' : 'Secure payment with automatic booking confirmation.') : 'Prices and availability are confirmed by our booking desk.'}
                 </p>
               </div>
             )}
