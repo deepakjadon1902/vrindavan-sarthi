@@ -124,7 +124,7 @@ const Rooms = () => {
     <div className="pt-16">
       <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
-          <SectionTitle label="Room Options" title="Browse Rooms Across Braj" subtitle="Filter room types by property or location like Govardhan, Barsana, Mathura, Gokul, and Vrindavan" />
+          <SectionTitle label="Room Options" title="Rooms in Braj" subtitle="Search by room, property, or location." />
           <div className="premium-toolbar mx-auto grid max-w-4xl grid-cols-1 gap-3 p-2 transition-transform duration-200 hover:-translate-y-0.5">
             <div className="relative md:col-span-3">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
@@ -169,8 +169,8 @@ const Rooms = () => {
         <div className="container mx-auto px-3 sm:px-4">
           {roomTypes.length === 0 ? (
             <div className="premium-surface mx-auto max-w-lg p-8 text-center">
-              <p className="font-heading text-2xl text-foreground mb-2">No Rooms Listed Yet</p>
-              <p className="font-body text-sm text-muted-foreground">Room types will appear here once hotels are approved and inventory is added.</p>
+              <p className="font-heading text-2xl text-foreground mb-2">No rooms listed</p>
+              <p className="font-body text-sm text-muted-foreground">Please check again soon.</p>
             </div>
           ) : (
             <div className="space-y-8">

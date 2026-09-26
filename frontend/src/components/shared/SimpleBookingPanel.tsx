@@ -1,4 +1,4 @@
-import { CalendarCheck, CheckCircle2, CreditCard, MessageCircle } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, CreditCard, MessageCircle, ShieldCheck } from 'lucide-react';
 
 type SimpleBookingPanelProps = {
   service: 'stay' | 'dharamshala' | 'cab' | 'tour';
@@ -7,28 +7,28 @@ type SimpleBookingPanelProps = {
 
 const copy = {
   stay: {
-    title: 'Simple room booking',
-    subtitle: 'Select dates, share guest details, then continue with secure confirmation.',
-    steps: ['Choose dates', 'Add guest details', 'Pay securely'],
-    note: 'Support is available by call or WhatsApp if anything is unclear.',
+    title: 'Room booking',
+    subtitle: 'Dates, guests, payment.',
+    steps: ['Dates', 'Guests', 'Secure pay'],
+    note: 'Your booking is created only through the secure booking engine.',
   },
   dharamshala: {
-    title: 'Simple Dharamshala booking',
-    subtitle: 'Submit a request first. Property contact details are shown after successful confirmation.',
-    steps: ['Choose dates', 'Submit request', 'Contact after confirmation'],
-    note: 'This keeps the lister details private until the booking is confirmed.',
+    title: 'Dharamshala request',
+    subtitle: 'Request first. Contact after confirmation.',
+    steps: ['Dates', 'Request', 'Connect'],
+    note: 'Lister details stay private until the booking is successfully confirmed.',
   },
   cab: {
-    title: 'Simple cab booking',
-    subtitle: 'Share route and time, get fare confirmation, then pay only after confirmation.',
-    steps: ['Share route', 'Confirm fare', 'Pay after confirmation'],
-    note: 'No advance is needed until the travel desk confirms the booking.',
+    title: 'Cab confirmation',
+    subtitle: 'Route and time first. Payment after confirmation.',
+    steps: ['Route', 'Confirm', 'Pay'],
+    note: 'No advance is collected before the travel desk confirms availability.',
   },
   tour: {
-    title: 'Simple tour booking',
-    subtitle: 'Share date and group size, confirm the plan, then pay after the details are clear.',
-    steps: ['Share date', 'Confirm plan', 'Pay after confirmation'],
-    note: 'The support team confirms pickup, vehicle, and final amount first.',
+    title: 'Tour confirmation',
+    subtitle: 'Date and group size first. Plan confirmed next.',
+    steps: ['Date', 'Plan', 'Pay'],
+    note: 'Pickup, vehicle, and final amount are confirmed before payment.',
   },
 } as const;
 
@@ -38,13 +38,14 @@ const SimpleBookingPanel = ({ service, className = '' }: SimpleBookingPanelProps
   const item = copy[service];
 
   return (
-    <div className={`rounded-xl border border-brand-gold/25 bg-brand-gold/10 p-4 ${className}`}>
+    <div className={`rounded-lg border border-border bg-white p-4 shadow-sm ${className}`}>
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-brand-crimson shadow-sm">
-          <CheckCircle2 size={18} />
+        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-gold/12 text-brand-crimson">
+          <ShieldCheck size={18} />
         </span>
         <div className="min-w-0">
-          <p className="font-body text-sm font-bold text-foreground">{item.title}</p>
+          <p className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Booking flow</p>
+          <p className="mt-0.5 font-body text-sm font-bold text-foreground">{item.title}</p>
           <p className="mt-1 font-body text-xs leading-5 text-muted-foreground">{item.subtitle}</p>
         </div>
       </div>
@@ -53,15 +54,18 @@ const SimpleBookingPanel = ({ service, className = '' }: SimpleBookingPanelProps
         {item.steps.map((step, index) => {
           const Icon = icons[index] || CheckCircle2;
           return (
-            <div key={step} className="rounded-lg border border-white/70 bg-white px-2 py-2 text-center shadow-sm">
-              <Icon size={15} className="mx-auto text-brand-gold" />
-              <p className="mt-1 font-body text-[11px] font-semibold leading-4 text-foreground">{step}</p>
+            <div key={step} className="rounded-lg border border-border bg-secondary/40 px-2 py-2 text-center">
+              <Icon size={14} className="mx-auto text-brand-gold" />
+              <p className="mt-1 font-body text-[11px] font-bold leading-4 text-foreground">{step}</p>
             </div>
           );
         })}
       </div>
 
-      <p className="mt-3 font-body text-[11px] leading-5 text-muted-foreground">{item.note}</p>
+      <p className="mt-3 flex items-start gap-1.5 font-body text-[11px] leading-5 text-muted-foreground">
+        <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-brand-green" />
+        <span>{item.note}</span>
+      </p>
     </div>
   );
 };

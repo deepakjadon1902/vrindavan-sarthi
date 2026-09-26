@@ -47,7 +47,7 @@ const hasNativeApkMarker = () => {
 const partnerCommitments = [
   'I will list only genuine, lawful, and owner-authorized services.',
   'I will keep prices, availability, images, policies, and guest rules accurate.',
-  'I will honor confirmed bookings, admin verification decisions, payouts, cancellations, and customer-support processes.',
+  'I will honor confirmed bookings, verification decisions, payouts, cancellations, and customer-support processes.',
   'I agree that platform commercial terms will be shown inside my authenticated Partner Dashboard after onboarding.',
 ];
 
@@ -180,7 +180,7 @@ const Register = () => {
       } : {}),
     });
     if (result.success) {
-      toast.success(role === 'partner' ? 'Partner account created! 🙏' : 'Account created successfully! 🙏');
+      toast.success(role === 'partner' ? 'Partner account created.' : 'Account created successfully.');
       navigate(role === 'partner' ? '/partner' : '/');
     } else {
       toast.error(result.error || 'Registration failed');
@@ -265,13 +265,13 @@ const Register = () => {
             {isPartnerRegistration ? 'Create Partner Account' : 'Create Account'}
           </h1>
           <p className="font-body text-muted-foreground mb-6">
-            {isPartnerRegistration ? 'Register your property for admin review' : 'Join us for a simple booking experience'}
+            {isPartnerRegistration ? 'Register your property for verification review' : 'Join us for a simple booking experience'}
           </p>
 
           {role === 'partner' && (
             <div className="bg-brand-cream border border-brand-gold/20 rounded-xl p-4 mb-6">
               <p className="font-body text-sm text-foreground font-medium">Register as Partner</p>
-              <p className="font-body text-xs text-muted-foreground mt-1">List your hotel or dharamshala on {settings.siteName}. Your listing will be reviewed by admin before going live.</p>
+              <p className="font-body text-xs text-muted-foreground mt-1">List your hotel or dharamshala on {settings.siteName}. Your listing will be reviewed before going live.</p>
               <Link to={`/login?staff=1&role=partner${isNativeApk ? '&vrsApk=1' : ''}`} className="mt-3 inline-flex font-body text-xs font-semibold text-brand-crimson hover:underline">
                 Already approved? Partner Login
               </Link>
@@ -392,7 +392,7 @@ const Register = () => {
                       <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={handleDocumentUpload} className="sr-only" />
                     </label>
                   </div>
-                  <p className="font-body text-xs text-muted-foreground mt-1">{documents.length} document(s) selected for admin verification.</p>
+                  <p className="font-body text-xs text-muted-foreground mt-1">{documents.length} document(s) selected for verification.</p>
                   {documents.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {documents.map((doc, index) => (
@@ -483,7 +483,7 @@ const Register = () => {
                       className="mt-1 h-4 w-4 rounded border-border accent-[hsl(var(--brand-gold))]"
                     />
                     <span className="font-body text-xs leading-5 text-foreground">
-                      I confirm that I am authorized to register this partner account and I agree to follow the owner Terms & Conditions, Privacy Policy, listing standards, booking rules, payout process, and admin verification decisions of {settings.siteName}.
+                      I confirm that I am authorized to register this partner account and I agree to follow the owner Terms & Conditions, Privacy Policy, listing standards, booking rules, payout process, and verification decisions of {settings.siteName}.
                       <span className="mt-1 block font-semibold text-muted-foreground">
                         Acceptance version: {PARTNER_TERMS_VERSION} / {PRIVACY_POLICY_VERSION}
                       </span>

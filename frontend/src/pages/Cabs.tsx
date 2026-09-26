@@ -82,8 +82,8 @@ const Cabs = () => {
         <div className="container mx-auto px-3 sm:px-4">
           <SectionTitle
             label="Transportation"
-            title="Book a Cab Across Braj"
-            subtitle="Reliable local and outstation cab services"
+            title="Cabs"
+            subtitle="Route, date, time. Fare confirmed before payment."
           />
           <div className="premium-toolbar mx-auto max-w-xl p-2">
             <div className="relative">
@@ -102,19 +102,10 @@ const Cabs = () => {
 
       <section className="py-3">
         <div className="container mx-auto px-3 sm:px-4">
-          <div className="bg-brand-green/10 border border-brand-green/30 rounded-lg px-5 py-4 text-center">
-            <p className="font-heading text-lg font-semibold text-foreground mb-1.5">Cab Fare Policy</p>
-            <p className="font-body text-sm text-muted-foreground">
-              Fare is fixed route-wise for the whole vehicle. Share your route first, then pay only after the travel desk confirms availability.
-            </p>
-            <p className="font-body text-sm text-muted-foreground mt-1">
-              You can choose 30% advance or full payment after confirmation.
-            </p>
-          </div>
-          <div className="mt-3 grid gap-3 rounded-lg border border-brand-gold/30 bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+          <div className="grid gap-3 rounded-lg border border-brand-gold/30 bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
             <div>
-              <p className="font-heading text-lg font-semibold text-foreground">Confirm your cab in one step</p>
-              <p className="font-body text-sm text-muted-foreground">Share pickup, drop, date, and time. Our travel desk confirms fare and payment next.</p>
+              <p className="font-heading text-lg font-semibold text-foreground">Need a cab now?</p>
+              <p className="font-body text-sm text-muted-foreground">Send route and time. Pay after confirmation.</p>
             </div>
             <a
               href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Radhe Radhe, I want to book a cab with Vrindavan Sarthi.')}`}
@@ -138,8 +129,8 @@ const Cabs = () => {
         <div className="container mx-auto px-3 sm:px-4">
           {cabs.length === 0 ? (
             <div className="text-center py-8">
-              <p className="font-heading text-2xl text-muted-foreground mb-2">No Cabs Listed Yet</p>
-              <p className="font-body text-sm text-muted-foreground">Cabs will appear here once listed.</p>
+              <p className="font-heading text-2xl text-muted-foreground mb-2">No cabs listed</p>
+              <p className="font-body text-sm text-muted-foreground">Please check again soon.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

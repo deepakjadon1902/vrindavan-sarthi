@@ -240,8 +240,8 @@ const CabDetail = () => {
           <div>
             <div className="rounded-lg border border-brand-gold/45 bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.12)] sm:p-6 lg:sticky lg:top-24">
               <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Booking desk</p>
-              <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Book in one simple step</h2>
-              <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">Our team confirms availability, driver details, final fare, and payment link. No advance is collected before confirmation.</p>
+              <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Check cab availability</h2>
+              <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">Share only date, time, and route. Driver details and payment are shared after availability is confirmed.</p>
 
               <div className="mt-5 space-y-3">
                 <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Date</label><input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>

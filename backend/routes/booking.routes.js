@@ -320,7 +320,7 @@ router.post('/cab', protect, async (req, res) => {
 });
 
 // Create booking for a room type (authenticated user)
-// Body: { hotelId, roomTypeId, checkIn, checkOut, customerFullName, customerMobile, customerEmail, arrivalMode, vehicleNumber, arrivalTime, totalAdults, totalChildren, hasPet, guestDetails[], paymentMethod, totalAmount, upiTransactionId? }
+// Body: { hotelId, roomTypeId, checkIn, checkOut, customerFullName, customerMobile, customerEmail, totalAdults, totalChildren, paymentMethod, totalAmount, upiTransactionId? }
 router.post('/room-type', protect, async (req, res) => {
   try {
     const hotelId = String(req.body?.hotelId || '').trim();
@@ -383,10 +383,12 @@ router.post('/room-type', protect, async (req, res) => {
       }))
       .filter((g) => (g.type === 'adult' || g.type === 'child') && g.name && Number.isFinite(g.age) && g.age > 0);
 
-    const adultCountFromDetails = guestDetails.filter((g) => g.type === 'adult').length;
-    const childCountFromDetails = guestDetails.filter((g) => g.type === 'child').length;
-    if (adultCountFromDetails !== totalAdults || childCountFromDetails !== totalChildren) {
-      return res.status(400).json({ success: false, message: 'guestDetails must include name/age for each adult/child' });
+    if (guestDetailsInput.length > 0) {
+      const adultCountFromDetails = guestDetails.filter((g) => g.type === 'adult').length;
+      const childCountFromDetails = guestDetails.filter((g) => g.type === 'child').length;
+      if (adultCountFromDetails !== totalAdults || childCountFromDetails !== totalChildren) {
+        return res.status(400).json({ success: false, message: 'guestDetails must include name/age for each adult/child when provided' });
+      }
     }
 
     const daysToReserve = enumerateDatesUTC(checkIn, checkOut);

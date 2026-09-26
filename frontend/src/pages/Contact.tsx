@@ -99,7 +99,7 @@ const Contact = () => {
             <div>
               {submitted ? (
                 <div className="bg-brand-green/10 border border-brand-green/30 rounded-lg p-4 text-center">
-                  <p className="font-heading text-2xl text-foreground mb-2">Thank You! 🙏</p>
+                  <p className="font-heading text-2xl text-foreground mb-2">Thank you</p>
                   <p className="font-body text-muted-foreground">We'll reply within 24 hours.</p>
                 </div>
               ) : (

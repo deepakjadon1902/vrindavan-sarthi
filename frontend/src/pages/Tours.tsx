@@ -106,7 +106,7 @@ const Tours = () => {
     <div className="pt-16">
       <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-3 sm:px-4">
-          <SectionTitle label="Spiritual Journeys" title="Explore Tour Packages" subtitle="Guided tours to experience the divine essence of Braj" />
+          <SectionTitle label="Tours" title="Tour Packages" subtitle="Date, group size, plan, then payment." />
           <div className="premium-toolbar mx-auto grid max-w-5xl gap-2 p-2 sm:grid-cols-2 lg:grid-cols-5">
             <div className="relative sm:col-span-2 lg:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
@@ -152,7 +152,7 @@ const Tours = () => {
           <div className="grid gap-3 rounded-lg border border-brand-gold/30 bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
             <div>
               <p className="font-heading text-lg font-semibold text-foreground">Plan your tour in one step</p>
-              <p className="font-body text-sm text-muted-foreground">Share travel date, group size, pickup point, and preferred Braj places. Pay after the plan is confirmed.</p>
+              <p className="font-body text-sm text-muted-foreground">Share date and group size. Confirm the plan before payment.</p>
             </div>
             <a
               href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Radhe Radhe, I want to book a tour package with Vrindavan Sarthi.')}`}
@@ -175,8 +175,8 @@ const Tours = () => {
         <div className="container mx-auto px-3 sm:px-4">
           {tours.length === 0 ? (
             <div className="text-center py-8">
-              <p className="font-heading text-2xl text-muted-foreground mb-2">No Tours Listed Yet</p>
-              <p className="font-body text-sm text-muted-foreground">Tour packages will appear here once the admin adds them.</p>
+              <p className="font-heading text-2xl text-muted-foreground mb-2">No tours listed</p>
+              <p className="font-body text-sm text-muted-foreground">Please check again soon.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

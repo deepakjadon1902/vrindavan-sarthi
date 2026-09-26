@@ -29,7 +29,7 @@ const Login = () => {
   const isStaffLogin = searchParams.get('staff') === '1';
   const [isNativeApk, setIsNativeApk] = useState(() => searchParams.get('vrsApk') === '1' || hasNativeApkMarker());
   const [loginRole, setLoginRole] = useState<StaffLoginRole>(roleParam === 'admin' ? 'admin' : 'partner');
-  const isPartnerLogin = isStaffLogin && loginRole === 'partner';
+  const isPartnerOnlyStaffLogin = isStaffLogin && (roleParam === 'partner' || isNativeApk);
 
   useEffect(() => {
     if (searchParams.get('vrsApk') !== '1') return;
@@ -44,12 +44,12 @@ const Login = () => {
 
   useEffect(() => {
     if (!isStaffLogin) return;
-    if (isNativeApk) {
+    if (isPartnerOnlyStaffLogin) {
       setLoginRole('partner');
       return;
     }
     if (roleParam === 'admin' || roleParam === 'partner') setLoginRole(roleParam);
-  }, [isNativeApk, isStaffLogin, roleParam]);
+  }, [isPartnerOnlyStaffLogin, isStaffLogin, roleParam]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -152,7 +152,7 @@ const Login = () => {
               : 'Sign in to continue your booking journey'}
           </p>
 
-          {isStaffLogin && !isNativeApk ? (
+          {isStaffLogin && !isPartnerOnlyStaffLogin ? (
           <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/30 p-1">
             {([
               ['partner', 'Partner'],

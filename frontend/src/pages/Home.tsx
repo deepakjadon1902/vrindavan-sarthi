@@ -21,29 +21,29 @@ const heroImg = '/backgrounds/braj-govardhan-hero.jpeg';
 const services = [
   {
     icon: Building2,
-    title: 'Stay Near The Temples',
-    desc: 'Verified hotels, home stays, guest houses, dharamshalas, and rooms close to Banke Bihari, ISKCON, and Prem Mandir.',
+    title: 'Stays',
+    desc: 'Verified hotels, home stays, guest houses, and dharamshalas.',
     link: '/hotels',
     cta: 'Explore stays',
   },
   {
     icon: CarTaxiFront,
-    title: 'Private Cab Support',
-    desc: 'Fixed route-wise cab booking for Braj, Govardhan, Barsana, Gokul, airport transfers, and local darshan.',
+    title: 'Cabs',
+    desc: 'Share route and time. Pay after confirmation.',
     link: '/cabs',
     cta: 'View cabs',
   },
   {
     icon: MapPinned,
-    title: 'Curated Braj Yatra',
-    desc: 'Plan guided spiritual itineraries with destinations, duration, budget, and local travel support in one flow.',
+    title: 'Tours',
+    desc: 'Guided Braj plans with clear pickup and pricing.',
     link: '/tours',
     cta: 'See packages',
   },
   {
     icon: ShoppingBag,
-    title: 'Sacred Braj Shop',
-    desc: 'Order devotional products, souvenirs, and pooja essentials with tracking and admin-verified payments.',
+    title: 'Shop',
+    desc: 'Devotional products with order tracking.',
     link: '/shop',
     cta: 'Visit shop',
   },
@@ -63,10 +63,10 @@ type PlannerServiceKey = (typeof plannerServices)[number]['key'];
 const fallbackStats = { happyPilgrims: 0, hotelsListed: 0, tourPackages: 0 };
 
 const trustItems = [
-  { icon: BadgeCheck, title: 'Trusted Services', desc: 'Reliable and secure booking' },
-  { icon: MapPinned, title: 'Many Choices', desc: 'Dharamshalas, hotels, taxis, and packages' },
-  { icon: Headphones, title: '24x7 Support', desc: 'Always here to help you' },
-  { icon: Landmark, title: 'Easy Braj Travel', desc: 'Simple, pleasant, and stress-free' },
+  { icon: BadgeCheck, title: 'Verified', desc: 'Reviewed listings' },
+  { icon: MapPinned, title: 'Clear Choice', desc: 'Stays, cabs, tours' },
+  { icon: Headphones, title: 'Support', desc: 'Help when needed' },
+  { icon: Landmark, title: 'Braj Ready', desc: 'Built for local travel' },
 ];
 
 const quickLocations = [
@@ -78,16 +78,16 @@ const quickLocations = [
 ];
 
 const testimonials = [
-  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'Vrindavan Sarthi made our family trip across Braj absolutely seamless. The hotel was right next to Banke Bihari Temple!' },
-  { name: 'Rajesh Kumar', location: 'Mumbai', rating: 5, text: 'The guided temple tour was incredible. Our guide knew every story, every detail. A truly divine experience.' },
-  { name: 'Anita Devi', location: 'Jaipur', rating: 4, text: 'Booked a cab and hotel through this platform. Everything was smooth and the prices were very reasonable.' },
+  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'Clean booking and a stay close to the temple.' },
+  { name: 'Rajesh Kumar', location: 'Mumbai', rating: 5, text: 'The tour plan was clear and easy to confirm.' },
+  { name: 'Anita Devi', location: 'Jaipur', rating: 4, text: 'Cab and room booking were handled smoothly.' },
 ];
 
 const whyUs = [
-  { icon: MapPin, title: 'Sacred Location', desc: 'Properties handpicked near the most sacred sites of Braj' },
-  { icon: Shield, title: 'Verified Listings', desc: 'Every hotel, room, and cab is personally verified for quality' },
-  { icon: Clock, title: 'Easy Booking', desc: 'Book in under 2 minutes with instant confirmation' },
-  { icon: Users, title: '24/7 Support', desc: 'Our team is always available to help during your sacred journey' },
+  { icon: MapPin, title: 'Local Areas', desc: 'Find stays and routes across Braj.' },
+  { icon: Shield, title: 'Verified Listings', desc: 'Listings are reviewed before going live.' },
+  { icon: Clock, title: 'Short Checkout', desc: 'Only key details before payment.' },
+  { icon: Users, title: 'Support', desc: 'Call or WhatsApp when needed.' },
 ];
 
 const Home = () => {
@@ -474,8 +474,8 @@ const Home = () => {
         <div className="container mx-auto px-4">
           <SectionTitle
             label="Travel Desk"
-            title="Plan The Complete Braj Journey"
-            subtitle="Useful booking paths, verified information, and local support arranged around how travellers actually decide."
+            title="Plan Your Braj Trip"
+            subtitle="Stays, cabs, tours, and support in one place."
           />
           <div className={serviceGridClass}>
             {visibleServices.map((service) => (
@@ -489,7 +489,7 @@ const Home = () => {
                     <service.icon className="text-brand-saffron" size={22} />
                   </div>
                   <span className="rounded-full bg-secondary px-3 py-1 font-body text-[11px] font-bold text-muted-foreground">
-                    Verified flow
+                    Verified
                   </span>
                 </div>
                 <h3 className="font-heading text-xl font-bold leading-tight text-foreground">{service.title}</h3>
@@ -510,8 +510,8 @@ const Home = () => {
         <div className="container mx-auto px-4 relative">
           <SectionTitle
             label="Featured Stays"
-            title="Handpicked Hotels, Home Stays & Dharamshalas in Braj"
-            subtitle="Comfortable and affordable stays near the most sacred temples"
+            title="Stays in Braj"
+            subtitle="Verified hotels, home stays, guest houses, and dharamshalas."
           />
           {hotels.length > 0 ? (
             <>
@@ -560,7 +560,7 @@ const Home = () => {
           <SectionTitle
             label="Room Options"
             title="Browse Rooms"
-            subtitle="Choose comfortable room types from verified Braj hotels, home stays, guest houses, and dharamshalas"
+            subtitle="Check dates, rooms, and pricing before booking."
           />
           {roomTypes.length > 0 ? (
             <>
@@ -611,7 +611,7 @@ const Home = () => {
           <SectionTitle
             label="Transportation"
             title="Available Cabs"
-            subtitle="Reliable cabs listed by verified partners"
+            subtitle="Confirm route, fare, and payment after availability."
           />
           {cabs.length > 0 ? (
             <>
@@ -664,7 +664,7 @@ const Home = () => {
           <SectionTitle
             label="Spiritual Journeys"
             title="Tour Packages"
-            subtitle="Experience the divine essence of Braj with our guided tours"
+            subtitle="Share date and group size, then confirm the plan."
           />
           {tours.length > 0 ? (
             <>
@@ -714,8 +714,8 @@ const Home = () => {
           <div className="container mx-auto px-4 relative">
             <SectionTitle
               label="Divine Shop"
-              title="Sacred Souvenirs from Braj"
-              subtitle="Take a piece of Braj's blessings home with you"
+              title="Braj Shop"
+              subtitle="Devotional products with tracked orders."
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {featuredProducts.map((p) => (
@@ -763,7 +763,7 @@ const Home = () => {
         <img src={templeInteriorBackdrop} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
         <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
-          <SectionTitle label="Why Choose Us" title="Your Trusted Companion in Braj" />
+          <SectionTitle label="Why Choose Us" title="Clean, Verified, Supported" />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {whyUs.map((item) => (
               <div
@@ -786,8 +786,8 @@ const Home = () => {
         <div className="container mx-auto px-4">
           <SectionTitle
             label="Testimonials"
-            title="What Our Pilgrims Say"
-            subtitle="Real experiences from real devotees"
+            title="Guest Feedback"
+            subtitle="Short notes from travellers."
           />
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((t) => (
