@@ -12,7 +12,7 @@ type StaffLoginRole = 'admin' | 'partner';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isLoading, logout } = useAuthStore();
+  const { login, isLoading, logout, isAuthenticated, user } = useAuthStore();
   const settings = useSettingsStore((s) => s.settings);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -25,6 +25,21 @@ const Login = () => {
     if (!isStaffLogin) return;
     if (roleParam === 'admin' || roleParam === 'partner') setLoginRole(roleParam);
   }, [isStaffLogin, roleParam]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    if (isStaffLogin && user.role === 'admin') {
+      navigate('/admin', { replace: true });
+      return;
+    }
+    if (isStaffLogin && user.role === 'partner') {
+      navigate('/partner', { replace: true });
+      return;
+    }
+    if (!isStaffLogin && user.role === 'user') {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, isStaffLogin, navigate, user]);
 
   useEffect(() => {
     const error = searchParams.get('error');
