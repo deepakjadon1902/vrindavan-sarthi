@@ -686,6 +686,7 @@ import type { DateRange } from 'react-day-picker';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import { useSettingsStore } from '@/store/settingsStore';
 import SEO from '@/components/SEO';
+import SimpleBookingPanel from '@/components/shared/SimpleBookingPanel';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { hasPropertyTermsText, normalizePropertyTerms } from '@/components/shared/PropertyTerms';
 import { isDharamshalaType } from '@/lib/propertyTypes';
@@ -854,7 +855,11 @@ const RoomTypeDetail = () => {
   const roomHasPublishedPrice = Number(roomType?.pricePerNight || 0) > 0;
   const canShowRoomPrices = showPrices && (!isDharamshala || roomHasPublishedPrice);
   const supportDigits = supportPhone.replace(/\D/g, '');
+  const propertyPhone = String(hotel?.contactPhone || hotel?.partnerPhone || '').trim();
+  const contactDigits = propertyPhone.replace(/\D/g, '') || supportDigits;
+  const contactName = hotel?.partnerName || hotel?.name || 'Dharamshala team';
   const whatsappMessage = `Radhe Radhe, I want to book ${hotel?.name || 'this property'}${roomType?.name ? ` - ${roomType.name}` : ''}${hotel?.location ? ` in ${hotel.location}` : ''}. Please share availability and price.`;
+  const dharamshalaWhatsappMessage = `Radhe Radhe, I found ${hotel?.name || 'your Dharamshala'}${roomType?.name ? ` - ${roomType.name}` : ''} on Vrindavan Sarthi${hotel?.location ? ` in ${hotel.location}` : ''}. Please help me with availability and the next booking step.`;
   const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
   const mustAcceptPropertyTerms = propertyTerms.isActive && hasPropertyTermsText(propertyTerms);
 
@@ -1426,6 +1431,7 @@ const RoomTypeDetail = () => {
               </div>
             ) : (
               <div className="premium-surface space-y-4 p-4 sm:p-5 lg:sticky lg:top-24">
+                <SimpleBookingPanel service={isDharamshala ? 'dharamshala' : 'stay'} />
 
                 {/* Price */}
                 <div>
@@ -1718,9 +1724,9 @@ const RoomTypeDetail = () => {
 
                   {isDharamshala ? (
                     <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
-                      <p className="font-semibold text-gray-800">Request booking first</p>
+                      <p className="font-semibold text-gray-800">Contact the Dharamshala first</p>
                       <p className="mt-1 text-xs leading-5 text-gray-500">
-                        Admin or the Dharamshala partner will confirm availability first. After acceptance, pay Rs. {dharamshalaServiceFee.toLocaleString('en-IN')} platform fee from My Bookings to confirm.
+                        Speak with {contactName} to confirm room availability, contribution amount, ID rules, and the next payment or visit step.
                       </p>
                     </div>
                   ) : (
@@ -1773,7 +1779,29 @@ const RoomTypeDetail = () => {
                 )}
 
                 {/* CTA */}
-                {!showPrices && !isDharamshala ? (
+                {isDharamshala ? (
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Dharamshala Contact</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-900">{contactName}</p>
+                      {propertyPhone && <p className="text-xs text-gray-500">{propertyPhone}</p>}
+                    </div>
+                    <a
+                      href={`https://wa.me/${contactDigits}?text=${encodeURIComponent(dharamshalaWhatsappMessage)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-gold inline-flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold tracking-wide"
+                    >
+                      <MessageCircle size={16} /> WhatsApp Dharamshala
+                    </a>
+                    <a
+                      href={`tel:${contactDigits}`}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-3 text-sm font-bold text-gray-800 hover:border-brand-gold/50"
+                    >
+                      <Phone size={16} /> Call Dharamshala
+                    </a>
+                  </div>
+                ) : !showPrices ? (
                   <div className="grid grid-cols-1 gap-2">
                     <a
                       href={`https://wa.me/${supportDigits}?text=${encodeURIComponent(whatsappMessage)}`}
@@ -1796,7 +1824,7 @@ const RoomTypeDetail = () => {
                     disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
                     className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isStartingPayment ? (isDharamshala ? 'Submitting request...' : 'Opening Razorpay...') : (isDharamshala ? 'Request Booking' : 'Pay Securely with Razorpay')}
+                    {isStartingPayment ? 'Opening secure checkout...' : 'Continue to Secure Booking'}
                   </button>
                 ) : (
                   <div className="space-y-2">
@@ -1812,13 +1840,35 @@ const RoomTypeDetail = () => {
                       disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
                       className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {isStartingPayment ? 'Opening Razorpay...' : 'Pay & Join Waitlist'}
+                      {isStartingPayment ? 'Opening secure checkout...' : 'Join Waitlist'}
                     </button>
                   </div>
                 )}
 
+                {!isDharamshala && (
+                  <div className="rounded-xl border border-gray-100 bg-white p-3">
+                    <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400">Need help before booking?</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <a
+                        href={`https://wa.me/${supportDigits}?text=${encodeURIComponent(whatsappMessage)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-800 hover:border-brand-gold/50"
+                      >
+                        <MessageCircle size={14} /> WhatsApp
+                      </a>
+                      <a
+                        href={`tel:${supportDigits}`}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-800 hover:border-brand-gold/50"
+                      >
+                        <Phone size={14} /> Call
+                      </a>
+                    </div>
+                  </div>
+                )}
+
                 <p className="text-center text-[11px] text-gray-400">
-                  {canShowRoomPrices ? (isDharamshala ? 'The Dharamshala confirms availability before any online payment.' : 'Official Razorpay Checkout - automatic server verification') : 'Prices and availability are confirmed by our booking desk.'}
+                  {canShowRoomPrices ? (isDharamshala ? 'The Dharamshala confirms availability and the next step directly.' : 'Secure payment with automatic booking confirmation.') : 'Prices and availability are confirmed by our booking desk.'}
                 </p>
               </div>
             )}

@@ -105,16 +105,16 @@ const Cabs = () => {
           <div className="bg-brand-green/10 border border-brand-green/30 rounded-lg px-5 py-4 text-center">
             <p className="font-heading text-lg font-semibold text-foreground mb-1.5">Cab Fare Policy</p>
             <p className="font-body text-sm text-muted-foreground">
-              Fare is fixed route-wise for the whole vehicle. A 30% online advance is required to confirm a request.
+              Fare is fixed route-wise for the whole vehicle. Share your route first, then pay only after the travel desk confirms availability.
             </p>
             <p className="font-body text-sm text-muted-foreground mt-1">
-              Balance 70% is paid later after admin confirmation and driver assignment.
+              You can choose 30% advance or full payment after confirmation.
             </p>
           </div>
           <div className="mt-3 grid gap-3 rounded-lg border border-brand-gold/30 bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
             <div>
-              <p className="font-heading text-lg font-semibold text-foreground">Book your cab directly</p>
-              <p className="font-body text-sm text-muted-foreground">Share your pickup, drop, date, and passenger count on WhatsApp or call our travel desk.</p>
+              <p className="font-heading text-lg font-semibold text-foreground">Confirm your cab in one step</p>
+              <p className="font-body text-sm text-muted-foreground">Share pickup, drop, date, and time. Our travel desk confirms fare and payment next.</p>
             </div>
             <a
               href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Radhe Radhe, I want to book a cab with Vrindavan Sarthi.')}`}
@@ -122,13 +122,13 @@ const Cabs = () => {
               rel="noreferrer"
               className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold"
             >
-              <MessageCircle size={16} /> WhatsApp
+              <MessageCircle size={16} /> Confirm on WhatsApp
             </a>
             <a
               href={`tel:${phoneDigits}`}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-5 py-2.5 font-body text-sm font-semibold text-foreground hover:border-brand-gold/50"
             >
-              <Phone size={16} /> Call
+              <Phone size={16} /> Call Travel Desk
             </a>
           </div>
         </div>
@@ -158,7 +158,7 @@ const Cabs = () => {
                   badge="30% Advance"
                   badgeColor="green"
                   variant="cab"
-                  ctaLabel="Book Cab"
+                  ctaLabel="Confirm cab"
                   onViewDetails={() => {
                     prefetchDetail('cabs', cab._id, cab);
                     navigate(`/cabs/${cab._id}`);

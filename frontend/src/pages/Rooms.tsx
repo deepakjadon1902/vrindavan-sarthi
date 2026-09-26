@@ -215,7 +215,7 @@ const Rooms = () => {
                           meta={Number(rt?.totalCount || 0) > 0 ? `${rt.totalCount} rooms` : undefined}
                           variant="room"
                           badge={getPropertyTypeLabel(rt?.hotel?.propertyType)}
-                          ctaLabel="Book room"
+                          ctaLabel="Check availability"
                           onViewDetails={() => {
                             prefetchDetail('roomTypes', rt._id, rt);
                             navigate(`/room-types/${rt._id}`);

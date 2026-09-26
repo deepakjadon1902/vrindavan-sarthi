@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, Phone } from 'lucide-react';
 import ImageCarousel from '@/components/shared/ImageCarousel';
+import SimpleBookingPanel from '@/components/shared/SimpleBookingPanel';
 import SEO from '@/components/SEO';
 import { api } from '@/lib/api';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
@@ -153,20 +154,13 @@ const TourDetail = () => {
               </div>
             )}
 
-            <div className="rounded-lg border border-brand-gold/35 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] sm:p-6">
-              <p className="font-display text-xl font-semibold text-foreground">Simple booking flow</p>
-              <div className="mt-4 grid gap-3 font-body text-sm sm:grid-cols-3">
-                <div><p className="font-bold text-foreground">1. Confirm</p><p className="mt-1 text-muted-foreground">Share date, persons, pickup need, and tour preference.</p></div>
-                <div><p className="font-bold text-foreground">2. Pay</p><p className="mt-1 text-muted-foreground">After confirmation, pay 30% advance or the full amount.</p></div>
-                <div><p className="font-bold text-foreground">3. Visit</p><p className="mt-1 text-muted-foreground">Final pickup plan and support details are shared by the team.</p></div>
-              </div>
-            </div>
+            <SimpleBookingPanel service="tour" className="bg-white shadow-[0_14px_34px_rgba(15,23,42,0.05)]" />
           </div>
 
           <div>
             <div className="rounded-lg border border-brand-gold/45 bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.12)] sm:p-6 lg:sticky lg:top-24">
               <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Booking desk</p>
-              <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Confirm by call or WhatsApp</h2>
+              <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Book in one simple step</h2>
               <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">Our team confirms date, pickup plan, vehicle, final amount, and payment link. Payment is collected only after confirmation.</p>
 
               <div className="mt-5 space-y-3">
@@ -188,10 +182,10 @@ const TourDetail = () => {
 
               <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
                 <a href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-body text-sm font-bold">
-                  <MessageCircle size={17} /> WhatsApp Booking
+                  <MessageCircle size={17} /> Confirm on WhatsApp
                 </a>
                 <a href={`tel:${phoneDigits}`} className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-5 py-3 font-body text-sm font-bold text-foreground hover:border-brand-gold/50">
-                  <Phone size={17} /> Call to Confirm
+                  <Phone size={17} /> Call Tour Desk
                 </a>
               </div>
 

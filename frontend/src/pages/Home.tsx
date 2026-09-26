@@ -580,7 +580,7 @@ const Home = () => {
                     meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
                     badge={getPropertyTypeLabel(roomType?.hotel?.propertyType)}
                     variant="room"
-                    ctaLabel="Book room"
+                    ctaLabel="Check availability"
                     onViewDetails={() => {
                       prefetchDetail('roomTypes', roomType._id, roomType);
                       navigate(`/room-types/${roomType._id}`);
@@ -631,7 +631,7 @@ const Home = () => {
                     badge="30% Advance"
                     badgeColor="green"
                     variant="cab"
-                    ctaLabel="Book Cab"
+                    ctaLabel="Confirm cab"
                     onViewDetails={() => {
                       prefetchDetail('cabs', cab._id, cab);
                       navigate(`/cabs/${cab._id}`);
@@ -683,7 +683,7 @@ const Home = () => {
                     badge={tour.duration}
                     amenities={tour.includes || []}
                     variant="tour"
-                    ctaLabel="Explore Tour"
+                    ctaLabel="Plan tour"
                     onViewDetails={() => {
                       prefetchDetail('tours', tour._id, tour);
                       navigate(`/tours/${tour._id}`);

@@ -151,8 +151,8 @@ const Tours = () => {
         <div className="container mx-auto px-3 sm:px-4">
           <div className="grid gap-3 rounded-lg border border-brand-gold/30 bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
             <div>
-              <p className="font-heading text-lg font-semibold text-foreground">Book a tour with support</p>
-              <p className="font-body text-sm text-muted-foreground">Tell us your travel date, group size, pickup point, and preferred Braj places.</p>
+              <p className="font-heading text-lg font-semibold text-foreground">Plan your tour in one step</p>
+              <p className="font-body text-sm text-muted-foreground">Share travel date, group size, pickup point, and preferred Braj places. Pay after the plan is confirmed.</p>
             </div>
             <a
               href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Radhe Radhe, I want to book a tour package with Vrindavan Sarthi.')}`}
@@ -160,13 +160,13 @@ const Tours = () => {
               rel="noreferrer"
               className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold"
             >
-              <MessageCircle size={16} /> WhatsApp
+              <MessageCircle size={16} /> Confirm on WhatsApp
             </a>
             <a
               href={`tel:${phoneDigits}`}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-5 py-2.5 font-body text-sm font-semibold text-foreground hover:border-brand-gold/50"
             >
-              <Phone size={16} /> Call
+              <Phone size={16} /> Call Tour Desk
             </a>
           </div>
         </div>
@@ -194,7 +194,7 @@ const Tours = () => {
                   badge={tour.duration}
                   amenities={(tour.placesCovered || tour.includes || []).slice(0, 2)}
                   variant="tour"
-                  ctaLabel="Explore Tour"
+                  ctaLabel="Plan tour"
                   onViewDetails={() => {
                     prefetchDetail('tours', tour._id, tour);
                     navigate(`/tours/${tour._id}`);
