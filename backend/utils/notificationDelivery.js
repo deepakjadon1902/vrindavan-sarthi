@@ -312,6 +312,14 @@ const resolveBookingPartnerId = async (booking) => {
 const bookingConfirmedMessage = (booking) => {
   const guest = booking.customerFullName || booking.userName || 'Guest';
   const item = booking.itemName || 'Booking';
+  const propertyType = String(booking.propertyType || '').trim().toLowerCase();
+  if (propertyType === 'dharamshala') {
+    const checkIn = booking.checkIn ? new Date(booking.checkIn).toISOString().slice(0, 10) : '';
+    const checkOut = booking.checkOut ? new Date(booking.checkOut).toISOString().slice(0, 10) : '';
+    const confirmationFee = Number(booking.amountPaidOnline || booking.vrindavanSarthiServiceFee || 59);
+    const donation = Number(booking.amountPayableAtProperty || booking.dharamshalaAmount || 0);
+    return `${item} confirmed for ${guest}${checkIn ? `, ${checkIn}${checkOut ? ` to ${checkOut}` : ''}` : ''}. Rs. ${confirmationFee.toLocaleString('en-IN')} confirmation paid. Donation/contribution ${donation ? `INR ${donation.toLocaleString('en-IN')}` : 'as per Dharamshala'} payable directly to property.`;
+  }
   const amount = Number(booking.totalAmount || booking.customer_total || 0);
   return `${item} confirmed for ${guest}. Amount INR ${amount.toLocaleString('en-IN')}.`;
 };

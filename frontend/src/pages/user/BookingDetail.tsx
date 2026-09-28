@@ -3,7 +3,7 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { ArrowLeft, Calendar, MapPin, User, Phone, Mail, CreditCard, ClipboardList, XCircle, CheckCircle2, Clock, IndianRupee, Hotel, BedDouble, Car, Map as MapIcon } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, User, Phone, Mail, CreditCard, ClipboardList, XCircle, CheckCircle2, Clock, IndianRupee, Hotel, BedDouble, Car, Map as MapIcon, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { api, withAuth } from '@/lib/api';
@@ -111,7 +111,7 @@ const BookingDetail = () => {
   const statusConfig = {
     confirmed: { color: 'bg-brand-green/10 text-brand-green border-brand-green/20', icon: CheckCircle2, label: 'Confirmed' },
     pending_property_confirmation: { color: 'bg-brand-saffron/10 text-brand-saffron border-brand-saffron/20', icon: Clock, label: 'Pending Property Confirmation' },
-    awaiting_customer_payment: { color: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CreditCard, label: 'Request Accepted - Pay Platform Fee' },
+    awaiting_customer_payment: { color: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CreditCard, label: 'Request Accepted - Pay Confirmation Amount' },
     rejected_by_property: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Rejected by Property' },
     expired_property_no_response: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Expired - Property Did Not Respond' },
     no_show: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'No-show' },
@@ -177,8 +177,10 @@ const BookingDetail = () => {
   const customerName = booking.customerFullName || booking.userName || '-';
   const customerPhone = booking.customerMobile || booking.userPhone || '-';
   const customerEmail = booking.customerEmail || booking.userEmail || '-';
+  const partnerWhatsapp = String(booking.partnerWhatsapp || booking.partnerPhone || '').replace(/\D/g, '');
   const documentLabel = isHotelMarketplace ? 'Booking Confirmation & Payment Receipt' : 'Tax Invoice';
   const voucherLabel = isDharamshalaBooking ? 'VRINDAVAN SARTHI - BOOKING CONFIRMATION' : documentLabel;
+  const isConfirmedDharamshala = isDharamshalaBooking && ['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(booking.bookingStatus || ''));
   const canModify =
     booking.bookingType === 'room_type' &&
     booking.bookingStatus === 'confirmed' &&
@@ -631,25 +633,29 @@ const BookingDetail = () => {
                   {isDharamshalaBooking ? (
                     <>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Dharamshala Contribution / Stay Amount</span>
-                        <span className="font-semibold text-foreground">{formatMoney(roomAmount)}</span>
+                        <span className="text-muted-foreground">Donation / contribution</span>
+                        <span className="text-right font-semibold text-foreground">
+                          {isConfirmedDharamshala ? formatMoney(roomAmount) : 'Visible after confirmation'}
+                        </span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
                         <span className="text-muted-foreground">Payment</span>
                         <span className="text-right font-semibold text-foreground">
-                          {String(booking.paymentMode) === 'full_online' ? 'Paid online after confirmation' : 'Pay at Dharamshala'}
+                          Pay at Dharamshala
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Vrindavan Sarthi Booking Service Fee</span>
+                        <span className="text-muted-foreground">Booking confirmation payment</span>
                         <span className="font-semibold text-foreground">{formatMoney(convenienceFee)}</span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Amount payable at Dharamshala</span>
-                        <span className="font-bold text-foreground">{formatMoney(balancePayable)}</span>
+                        <span className="text-muted-foreground">Donation payable at check-in / as per Dharamshala</span>
+                        <span className="text-right font-bold text-foreground">
+                          {isConfirmedDharamshala ? formatMoney(balancePayable) : 'Visible after confirmation'}
+                        </span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Amount paid to Vrindavan Sarthi</span>
+                        <span className="text-muted-foreground">Paid online</span>
                         <span className="font-bold text-brand-green">{formatMoney(advancePaid)}</span>
                       </div>
                     </>
@@ -703,28 +709,50 @@ const BookingDetail = () => {
                     <span className="text-right text-foreground">{verificationLabel}</span>
                   </div>
                   <div className="h-px bg-border" />
-                  <div className="flex justify-between font-body text-base">
+                  <div className={`flex justify-between font-body text-base ${isDharamshalaBooking && !isConfirmedDharamshala ? 'hidden' : ''}`}>
                     <span className="font-semibold text-foreground">{isDharamshalaBooking ? 'Total booking value' : 'Booking Total'}</span>
                     <span className="font-bold text-brand-crimson text-lg">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
                   </div>
                   {isHotelMarketplace && (
                     <p className="rounded-lg border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-relaxed text-muted-foreground">
                       {isDharamshalaBooking
-                        ? "Dharamshala contribution/stay amount is payable directly to the property according to its applicable terms. The property will issue its applicable receipt. Vrindavan Sarthi's service fee is separate."
+                        ? 'Dharamshala donation or contribution is payable directly to the property according to its applicable terms. The property will issue its applicable receipt.'
                         : 'This is not a tax invoice for accommodation. The property partner will issue the hotel tax invoice where applicable.'}
                     </p>
                   )}
                 </div>
               </div>
 
-              {booking.bookingStatus === 'confirmed' && (booking.partnerName || booking.partnerPhone) && (
+              {booking.bookingStatus === 'confirmed' && (booking.partnerName || booking.partnerPhone || booking.partnerEmail) && (
                 <div className="bg-card rounded-xl border border-border p-6">
-                  <h3 className="font-heading text-sm font-semibold text-foreground mb-3">Property Contact</h3>
+                  <h3 className="font-heading text-sm font-semibold text-foreground mb-3">
+                    {isDharamshalaBooking ? 'Confirmed Dharamshala Contact' : 'Property Contact'}
+                  </h3>
+                  {isDharamshalaBooking && (
+                    <p className="mb-3 rounded-lg border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-5 text-muted-foreground">
+                      Your Rs. 59 booking confirmation payment is verified. Donation or contribution for the room may be payable directly to the Dharamshala in advance or at check-in, as per Dharamshala rules.
+                    </p>
+                  )}
                   <div className="space-y-2 font-body text-sm">
-                    <p className="text-foreground">{booking.partnerName || '-'}</p>
+                    <p className="font-semibold text-foreground">{booking.partnerName || '-'}</p>
                     {booking.partnerPhone && (
                       <a href={`tel:${booking.partnerPhone}`} className="inline-flex items-center gap-2 text-brand-crimson hover:underline">
                         <Phone size={14} /> {booking.partnerPhone}
+                      </a>
+                    )}
+                    {partnerWhatsapp && (
+                      <a
+                        href={`https://wa.me/${partnerWhatsapp}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 text-brand-green hover:underline"
+                      >
+                        <MessageCircle size={14} /> WhatsApp {booking.partnerWhatsapp || booking.partnerPhone}
+                      </a>
+                    )}
+                    {booking.partnerEmail && (
+                      <a href={`mailto:${booking.partnerEmail}`} className="flex items-center gap-2 text-foreground hover:underline">
+                        <Mail size={14} /> {booking.partnerEmail}
                       </a>
                     )}
                   </div>
@@ -763,7 +791,7 @@ const BookingDetail = () => {
               {canPayAcceptedDharamshala && (
                 <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/10 p-4">
                   <p className="font-body text-sm font-semibold text-foreground">
-                    Your request has been accepted. Pay the Vrindavan Sarthi platform fee to confirm this Dharamshala booking.
+                    Your request has been accepted. Pay the booking confirmation amount to confirm this Dharamshala booking.
                   </p>
                   <p className="mt-1 font-body text-xs leading-5 text-muted-foreground">
                     After successful payment, your booking becomes confirmed and partner contact details will be visible here.

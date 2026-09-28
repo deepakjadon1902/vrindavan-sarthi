@@ -25,6 +25,27 @@ const protect = async (req, res, next) => {
   }
 };
 
+const optionalProtect = async (req, res, next) => {
+  const authorization = String(req.headers.authorization || '');
+  if (!authorization) return next();
+
+  const [scheme, value, extra] = authorization.split(/\s+/);
+  if (scheme !== 'Bearer' || !value || extra) {
+    return res.status(401).json({ success: false, message: 'Token invalid' });
+  }
+
+  try {
+    if (!process.env.JWT_SECRET) return res.status(500).json({ success: false, message: 'Authentication is not configured' });
+    const decoded = jwt.verify(value, process.env.JWT_SECRET);
+    if (!decoded?.id) return res.status(401).json({ success: false, message: 'Token invalid' });
+    req.user = await User.findById(decoded.id).select('-password');
+    if (!req.user) return res.status(401).json({ success: false, message: 'User no longer exists' });
+    next();
+  } catch {
+    res.status(401).json({ success: false, message: 'Token invalid' });
+  }
+};
+
 const authorize = (...roles) => (req, res, next) => {
   if (!req.user) return res.status(401).json({ success: false, message: 'Not authorized' });
   if (!roles.includes(req.user.role)) {
@@ -36,4 +57,4 @@ const authorize = (...roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { protect, authorize };
+module.exports = { protect, optionalProtect, authorize };

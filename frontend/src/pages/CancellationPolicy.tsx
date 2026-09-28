@@ -42,7 +42,7 @@ const servicePolicies = [
   {
     icon: MapPinned,
     title: 'Dharamshala Bookings',
-    text: 'For Dharamshala booking requests, Vrindavan Sarthi charges a Rs. 99 platform fee only after the request is accepted. This platform fee is non-refundable on cancellation. Dharamshala stay charges, donations, room contributions, or other property charges may vary and are paid directly to the Dharamshala or property manager. Any refund or change for direct Dharamshala payment is handled by that Dharamshala according to its own rules.',
+    text: 'For Dharamshala booking requests, Vrindavan Sarthi charges a Rs. 59 booking confirmation payment only after the request is accepted. This confirmation payment is non-refundable on cancellation. Dharamshala donation, room contribution, or other property amount may vary and is paid directly to the Dharamshala or property manager. Any refund or change for direct Dharamshala payment is handled by that Dharamshala according to its own rules.',
   },
   {
     icon: Car,
@@ -78,7 +78,7 @@ const importantNotes = [
   'Platform fees charged by Vrindavan Sarthi are non-refundable once the booking is cancelled, unless required by law or specifically approved by the admin team.',
   'No-show cases, incorrect traveller details, rule violations, duplicate requests, and last-minute cancellations may be non-refundable.',
   'Property-specific cancellation rules shown on a hotel or room page will apply along with this platform policy.',
-  'Dharamshala prices and charges may vary according to the Dharamshala and are not controlled by Vrindavan Sarthi unless clearly shown as a platform-collected amount.',
+  'Dharamshala donation or contribution may vary according to the Dharamshala and is not controlled by Vrindavan Sarthi unless clearly shown as a platform-collected amount.',
   'Bank, gateway, supplier, driver, guide, packaging, or already committed service charges may be adjusted where applicable.',
   'Refund timelines depend on payment verification, bank processing, and partner confirmation.',
 ];

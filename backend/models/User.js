@@ -41,6 +41,7 @@ const userSchema = new mongoose.Schema({
   googleId: String,
   authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
   role: { type: String, enum: ['user', 'admin', 'partner'], default: 'user' },
+  isGuest: { type: Boolean, default: false, index: true },
   // Partner fields
   businessName: String,
   gstNumber: String,

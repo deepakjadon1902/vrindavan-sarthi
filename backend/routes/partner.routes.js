@@ -202,10 +202,8 @@ const applyPartnerHotelDefaults = (body, user) => {
   body.taxPercent = body.gstMode === 'manual' && Number.isFinite(p) && p >= 0 ? Math.min(50, p) : 0;
   body.platform_commission_percentage = 10;
   body.showPrices = typeof body?.showPrices === 'undefined' ? true : Boolean(body.showPrices);
-  const mode = String(body?.dharamshalaPaymentMode || '').trim().toLowerCase();
-  body.dharamshalaPaymentMode = ['pay_at_dharamshala', 'full_online', 'request_only'].includes(mode) ? mode : 'pay_at_dharamshala';
-  const serviceFee = Number(body?.dharamshalaServiceFee);
-  body.dharamshalaServiceFee = Number.isFinite(serviceFee) && serviceFee >= 0 ? Math.min(100000, Math.round(serviceFee)) : 99;
+  body.dharamshalaPaymentMode = 'pay_at_dharamshala';
+  body.dharamshalaServiceFee = 59;
   const responseTimeout = Number(body?.dharamshalaResponseTimeoutMinutes);
   body.dharamshalaResponseTimeoutMinutes = Number.isFinite(responseTimeout) && responseTimeout > 0 ? Math.min(7 * 24 * 60, Math.floor(responseTimeout)) : 30;
   for (const key of ['dharamshalaTerminology', 'dharamshalaCancellationPolicy', 'dharamshalaNoShowPolicy', 'dharamshalaIdRequirement']) {

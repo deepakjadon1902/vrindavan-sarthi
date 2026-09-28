@@ -2,7 +2,7 @@ const express = require('express');
 const Booking = require('../models/Booking');
 const RefundOperation = require('../models/RefundOperation');
 const PaymentReconciliation = require('../models/PaymentReconciliation');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, optionalProtect, authorize } = require('../middleware/auth');
 const { rejectInvalidObjectId } = require('../utils/security');
 const {
   markBookingPaymentPaid,
@@ -24,6 +24,7 @@ const {
 const { reconcileRefundOperation } = require('../utils/refundOperations');
 const { enqueuePaymentReconciliation } = require('../utils/paymentReconciliation');
 const { payableAmountForBooking } = require('../utils/bookingPayable');
+const { findBookingForCustomerPayment } = require('../utils/guestBookingAccess');
 const router = express.Router();
 
 router.param('id', (req, res, next, id) => {
@@ -34,7 +35,7 @@ router.param('id', (req, res, next, id) => {
 const markBookingPaid = markBookingPaidFromRazorpay;
 const markBookingFailed = markBookingFailedFromRazorpay;
 
-router.post('/razorpay/fail', protect, async (req, res) => {
+router.post('/razorpay/fail', optionalProtect, async (req, res) => {
   try {
     const bookingId = String(req.body?.bookingId || '').trim();
     const razorpayPaymentId = String(req.body?.razorpay_payment_id || '').trim();
@@ -46,7 +47,7 @@ router.post('/razorpay/fail', protect, async (req, res) => {
     }
     if (rejectInvalidObjectId(res, bookingId, 'booking id')) return;
 
-    const booking = await Booking.findOne({ _id: bookingId, userId: req.user._id });
+    const booking = await findBookingForCustomerPayment(req, bookingId);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     if (booking.paymentProvider !== 'razorpay') {
       return res.status(400).json({ success: false, message: 'Only Razorpay bookings can be auto-failed here' });
@@ -69,12 +70,12 @@ router.post('/razorpay/fail', protect, async (req, res) => {
   }
 });
 
-router.post('/razorpay/orders', protect, async (req, res) => {
+router.post('/razorpay/orders', optionalProtect, async (req, res) => {
   try {
     const { keyId } = getRazorpayConfig();
     const bookingMongoId = String(req.body?.bookingId || req.body?.id || '').trim();
     if (rejectInvalidObjectId(res, bookingMongoId, 'booking id')) return;
-    const booking = await Booking.findOne({ _id: bookingMongoId, userId: req.user._id });
+    const booking = await findBookingForCustomerPayment(req, bookingMongoId);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     if (booking.paymentStatus === 'paid') return res.status(409).json({ success: false, message: 'PAYMENT_ALREADY_PROCESSED' });
     if (['cancelled', 'expired', 'payment_failed', 'rejected_by_property', 'expired_property_no_response'].includes(String(booking.bookingStatus || ''))) {
@@ -124,7 +125,7 @@ router.post('/razorpay/orders', protect, async (req, res) => {
   }
 });
 
-router.post('/razorpay/verify', protect, async (req, res) => {
+router.post('/razorpay/verify', optionalProtect, async (req, res) => {
   try {
     const { keySecret } = getRazorpayConfig();
     const bookingId = String(req.body?.bookingId || '').trim();
@@ -137,7 +138,7 @@ router.post('/razorpay/verify', protect, async (req, res) => {
     }
     if (rejectInvalidObjectId(res, bookingId, 'booking id')) return;
 
-    const booking = await Booking.findOne({ _id: bookingId, userId: req.user._id });
+    const booking = await findBookingForCustomerPayment(req, bookingId);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     if (booking.razorpayOrderId !== razorpayOrderId) {
       return res.status(400).json({ success: false, message: 'Razorpay order does not match this booking' });

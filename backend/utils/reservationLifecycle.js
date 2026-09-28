@@ -1,4 +1,5 @@
 const Booking = require('../models/Booking');
+const Hotel = require('../models/Hotel');
 const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const { enumerateDatesUTC, isValidDate } = require('./date');
 const { processRoomTypeWaitlist } = require('./waitlist');
@@ -197,6 +198,15 @@ const markBookingPaymentPaid = async (booking, meta = {}) => {
   booking.adminPaymentVerified = true;
   booking.adminPaymentVerifiedAt = booking.adminPaymentVerifiedAt || new Date();
   booking.paidAt = booking.paidAt || new Date();
+  if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.hotelId) {
+    const hotel = await Hotel.findById(booking.hotelId).select('partnerName partnerPhone partnerEmail partnerWhatsapp').lean();
+    if (hotel) {
+      booking.partnerName = booking.partnerName || hotel.partnerName || '';
+      booking.partnerPhone = booking.partnerPhone || hotel.partnerPhone || '';
+      booking.partnerEmail = booking.partnerEmail || hotel.partnerEmail || '';
+      booking.partnerWhatsapp = booking.partnerWhatsapp || hotel.partnerWhatsapp || hotel.partnerPhone || '';
+    }
+  }
 
   const wasConfirmed = String(booking.bookingStatus || '') === 'confirmed';
   if (!isLodgingBooking(booking) || await hasExpectedInventoryLocks(booking)) {

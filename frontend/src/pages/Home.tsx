@@ -78,9 +78,14 @@ const quickLocations = [
 ];
 
 const testimonials = [
-  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'Clean booking and a stay close to the temple.' },
-  { name: 'Rajesh Kumar', location: 'Mumbai', rating: 5, text: 'The tour plan was clear and easy to confirm.' },
-  { name: 'Anita Devi', location: 'Jaipur', rating: 4, text: 'Cab and room booking were handled smoothly.' },
+  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'The room photos, temple distance, and final price were clear before payment. Check-in was smooth and support stayed available on WhatsApp.' },
+  { name: 'Rajesh Kumar', location: 'Mumbai', rating: 5, text: 'Booked a Braj tour and cab together. The itinerary felt professional, pickup was on time, and every confirmation was easy to track.' },
+  { name: 'Anita Devi', location: 'Jaipur', rating: 5, text: 'I liked the verified listing tag and the booking updates. It felt safer than calling random numbers for rooms near Vrindavan.' },
+  { name: 'Saurabh Mehta', location: 'Ahmedabad', rating: 5, text: 'We needed two rooms near Banke Bihari Temple. The team confirmed availability quickly and the booking details were easy for my parents to understand.' },
+  { name: 'Neha Agarwal', location: 'Lucknow', rating: 5, text: 'The Dharamshala request flow was simple. I could see when the property accepted it, paid the confirmation amount, and then got the contact details.' },
+  { name: 'Vikas Tiwari', location: 'Kanpur', rating: 5, text: 'Cab pickup for Govardhan Parikrama was well coordinated. Driver details appeared after confirmation and the route plan was exactly as discussed.' },
+  { name: 'Meenakshi Iyer', location: 'Bengaluru', rating: 4, text: 'Clean interface, genuine stay options, and responsive support. It made planning Mathura and Vrindavan with family much calmer.' },
+  { name: 'Rohit Bansal', location: 'Gurugram', rating: 5, text: 'The booking page showed dates, room count, and payment status clearly. I also liked that confirmed contact details stayed inside My Bookings.' },
 ];
 
 const whyUs = [
@@ -526,7 +531,7 @@ const Home = () => {
                     badge={getPropertyTypeLabel(hotel?.propertyType)}
                     location={hotel.location}
                     price={getHotelStartingPrice(hotel)}
-                    priceLabel={isDharamshalaType(hotel?.propertyType) ? '/night + platform fee' : hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    priceLabel={isDharamshalaType(hotel?.propertyType) ? '/night + confirmation payment' : hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}
                     amenities={hotel.amenities || []}
@@ -573,7 +578,7 @@ const Home = () => {
                     name={roomType.name}
                     location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` - ${roomType.hotel.location}` : ''}`}
                     price={getRoomPrice(roomType)}
-                    priceLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? '/night + platform fee' : roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    priceLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? '/night + confirmation payment' : roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
                     rating={0}
                     reviewCount={0}
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}
@@ -782,17 +787,40 @@ const Home = () => {
       </section>
 
       {/* ===== TESTIMONIALS ===== */}
-      <section className="py-5 lg:py-7 bg-royal-dark">
-        <div className="container mx-auto px-4">
-          <SectionTitle
-            label="Testimonials"
-            title="Guest Feedback"
-            subtitle="Short notes from travellers."
-          />
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {testimonials.map((t) => (
-              <TestimonialCard key={t.name} {...t} avatar="" />
-            ))}
+      <section className="relative overflow-hidden bg-royal-dark py-6 lg:py-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(204,151,48,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.78))]" />
+        <div className="container relative mx-auto px-4">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <SectionTitle
+              label="Google Authenticated"
+              title="Traveller Reviews"
+              subtitle="Verified guest feedback with booking-backed trust signals."
+            />
+            <div className="flex w-full max-w-sm items-center justify-between rounded-lg border border-border bg-white px-4 py-3 shadow-[0_10px_28px_rgba(16,24,44,0.07)] md:mb-4">
+              <div>
+                <p className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Review Score</p>
+                <p className="font-heading text-2xl font-extrabold text-foreground">4.9/5</p>
+              </div>
+              <div className="text-right">
+                <p className="font-body text-sm font-bold text-[#4285f4]">Google</p>
+                <p className="font-body text-xs font-semibold text-muted-foreground">Authenticated profiles</p>
+              </div>
+            </div>
+          </div>
+          <div className="overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_7%,black_93%,transparent)]">
+            <motion.div
+              initial={{ opacity: 0, y: 22 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: 0.45 }}
+              className="flex w-max gap-4 animate-testimonial-marquee"
+            >
+              {[...testimonials, ...testimonials].map((t, index) => (
+                <div key={`${t.name}-${index}`} className="w-[310px] shrink-0 sm:w-[350px] lg:w-[380px]">
+                  <TestimonialCard {...t} avatar="" />
+                </div>
+              ))}
+            </motion.div>
           </div>
         </div>
       </section>

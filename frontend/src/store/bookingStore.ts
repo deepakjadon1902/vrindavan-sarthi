@@ -14,9 +14,13 @@ export interface Booking {
   userName: string;
   userEmail: string;
   userPhone: string;
+  isGuestBooking?: boolean;
+  guestAccessToken?: string;
   partnerId?: string;
   partnerName?: string;
   partnerPhone?: string;
+  partnerEmail?: string;
+  partnerWhatsapp?: string;
   checkIn?: string;
   checkOut?: string;
   guests?: number;
@@ -180,9 +184,13 @@ const normalizeBooking = (b: unknown): Booking => {
     userName: getString(obj, 'userName'),
     userEmail: getString(obj, 'userEmail'),
     userPhone: getString(obj, 'userPhone'),
+    isGuestBooking: Boolean(obj.isGuestBooking),
+    guestAccessToken: getString(obj, 'guestAccessToken') || undefined,
     partnerId: getString(obj, 'partnerId') || undefined,
     partnerName: getString(obj, 'partnerName') || undefined,
     partnerPhone: getString(obj, 'partnerPhone') || undefined,
+    partnerEmail: getString(obj, 'partnerEmail') || undefined,
+    partnerWhatsapp: getString(obj, 'partnerWhatsapp') || undefined,
     checkIn: getString(obj, 'checkIn') || undefined,
     checkOut: getString(obj, 'checkOut') || undefined,
     guests: getNumber(obj, 'guests') || undefined,
@@ -415,11 +423,10 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
 
   createRoomTypeBooking: async (data) => {
     const token = useAuthStore.getState().token;
-    if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const res = await api.post('/bookings/room-type', data, withAuth(token));
+      const res = await api.post('/bookings/room-type', data, token ? withAuth(token) : undefined);
       const booking = normalizeBooking(res.data?.data);
-      set((state) => ({ myBookings: [booking, ...state.myBookings] }));
+      if (token) set((state) => ({ myBookings: [booking, ...state.myBookings] }));
       return { success: true, data: booking };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Booking failed') };

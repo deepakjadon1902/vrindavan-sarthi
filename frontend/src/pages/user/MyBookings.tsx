@@ -260,7 +260,7 @@ const MyBookings = () => {
                 const sb = statusBadge(b.bookingStatus);
                 const SIcon = sb.icon;
                 const isDharamshala = String(b.propertyType || '').toLowerCase() === 'dharamshala';
-                const platformFee = Number(b.amountPaidOnline || 0);
+                const confirmationAmount = Number(b.amountPaidOnline || 0);
                 const paymentCopy = b.paymentMethod === 'doorstep' ? 'Doorstep payment' : `Online - ${b.paymentStatus.replace(/_/g, ' ')}`;
 
                 return (
@@ -308,13 +308,20 @@ const MyBookings = () => {
                         )}
                         {isDharamshala && b.bookingStatus === 'pending_property_confirmation' && (
                           <p className="mt-2 rounded-lg border border-brand-saffron/25 bg-brand-saffron/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-saffron">
-                            Request submitted. Admin or the Dharamshala partner is reviewing availability.
+                            Request submitted. The Dharamshala team is reviewing availability.
                           </p>
                         )}
                         {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
                           <p className="mt-2 rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-crimson">
-                            Request accepted. Pay the platform fee{platformFee > 0 ? ` of Rs. ${platformFee.toLocaleString('en-IN')}` : ''} now to confirm this booking.
+                            Request accepted. Pay the booking confirmation amount{confirmationAmount > 0 ? ` of Rs. ${confirmationAmount.toLocaleString('en-IN')}` : ''} now to confirm this booking.
                           </p>
+                        )}
+                        {isDharamshala && b.bookingStatus === 'confirmed' && (b.partnerName || b.partnerPhone) && (
+                          <div className="mt-2 rounded-lg border border-brand-green/20 bg-brand-green/10 px-3 py-2 font-body text-xs leading-5 text-foreground">
+                            <p className="font-bold text-brand-green">Confirmed. Dharamshala contact is now available.</p>
+                            <p className="mt-0.5 font-semibold">{b.partnerName || 'Dharamshala partner'}{b.partnerPhone ? ` - ${b.partnerPhone}` : ''}</p>
+                            <p className="mt-0.5 text-muted-foreground">Donation/contribution may be payable directly in advance or at check-in as per Dharamshala rules.</p>
+                          </div>
                         )}
 
                         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-body text-[13px] font-semibold text-muted-foreground">
@@ -338,7 +345,7 @@ const MyBookings = () => {
                         )}
                         {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
                           <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md font-body text-xs font-bold text-brand-crimson group-hover:underline">
-                            Pay platform fee <ArrowRight size={13} />
+                            Pay confirmation amount <ArrowRight size={13} />
                           </span>
                         )}
                       </div>

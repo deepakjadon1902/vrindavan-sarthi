@@ -27,6 +27,8 @@ const maskEmail = (value?: string) => {
 const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
   const canShowEmail = viewer !== 'partner' || booking.bookingStatus === 'confirmed';
   const guestDetails = booking.guestDetails || [];
+  const isDharamshala = String(booking.propertyType || '').toLowerCase() === 'dharamshala';
+  const isConfirmedDharamshala = isDharamshala && ['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(booking.bookingStatus || ''));
   const isHotelMarketplace =
     booking.service_billing_model === 'hotel_marketplace' ||
     ['hotel', 'room', 'room_type'].includes(booking.bookingType);
@@ -93,26 +95,44 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
 
       <div className="rounded-lg border border-border bg-background/70 p-4">
         <p className="font-body text-xs font-semibold text-foreground mb-3">
-          {isHotelMarketplace ? 'Booking Financial Summary' : 'Tax Invoice Payment Summary'}
+          {isDharamshala && viewer !== 'admin'
+            ? 'Dharamshala Payment Details'
+            : isHotelMarketplace ? 'Booking Financial Summary' : 'Tax Invoice Payment Summary'}
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <Field label="Base Amount" value={formatMoney(baseAmount)} />
-          <Field label={isHotelMarketplace ? `Hotel Taxes${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}` : `GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={formatMoney(hotelGst)} />
-          <Field label={isHotelMarketplace ? 'Platform Convenience Fee' : 'Convenience Fee'} value={formatMoney(booking.convenienceFeeAmount || 0)} />
-          <Field label={isHotelMarketplace ? 'Customer Grand Total' : 'Grand Total'} value={formatMoney(booking.totalAmount)} />
-          <Field label={isHotelMarketplace ? 'Online Advance Received' : 'Advance Paid'} value={formatMoney(booking.advanceAmount || 0)} />
-          <Field label={isHotelMarketplace ? 'Balance to Collect at Property' : 'Balance Payable'} value={formatMoney(booking.balanceAmount || 0)} />
-          <Field label="Payment option" value={booking.paymentOption === 'full_100' ? '100% full online' : '30% advance online'} />
-          <Field label="UPI transaction" value={booking.upiTransactionId} />
-        </div>
-        {isHotelMarketplace && (
+        {isDharamshala && viewer !== 'admin' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Field label="Booking confirmation paid online" value={formatMoney(booking.amountPaidOnline || 0)} />
+            <Field
+              label="Donation / contribution"
+              value={isConfirmedDharamshala ? formatMoney(booking.dharamshalaAmount || booking.baseAmount || 0) : 'Visible after confirmation'}
+            />
+            <Field
+              label="Donation payable at check-in / as per Dharamshala"
+              value={isConfirmedDharamshala ? formatMoney(booking.amountPayableAtProperty || 0) : 'Visible after confirmation'}
+            />
+            <Field label="Payment status" value={String(booking.paymentStatus || '').replace(/_/g, ' ')} />
+            <Field label="Booking status" value={String(booking.bookingStatus || '').replace(/_/g, ' ')} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Field label="Base Amount" value={formatMoney(baseAmount)} />
+            <Field label={isHotelMarketplace ? `Hotel Taxes${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}` : `GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={formatMoney(hotelGst)} />
+            <Field label={isHotelMarketplace ? 'Platform Convenience Fee' : 'Convenience Fee'} value={formatMoney(booking.convenienceFeeAmount || 0)} />
+            <Field label={isHotelMarketplace ? 'Customer Grand Total' : 'Grand Total'} value={formatMoney(booking.totalAmount)} />
+            <Field label={isHotelMarketplace ? 'Online Advance Received' : 'Advance Paid'} value={formatMoney(booking.advanceAmount || 0)} />
+            <Field label={isHotelMarketplace ? 'Balance to Collect at Property' : 'Balance Payable'} value={formatMoney(booking.balanceAmount || 0)} />
+            <Field label="Payment option" value={booking.paymentOption === 'full_100' ? '100% full online' : '30% advance online'} />
+            <Field label="UPI transaction" value={booking.upiTransactionId} />
+          </div>
+        )}
+        {isHotelMarketplace && !(isDharamshala && viewer !== 'admin') && (
           <p className="mt-3 rounded-md border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-relaxed text-muted-foreground">
             Booking Confirmation only. The hotel/property partner is responsible for accommodation tax invoice and applicable GST filing.
           </p>
         )}
       </div>
 
-      {viewer === 'partner' && (
+      {viewer === 'partner' && !isDharamshala && (
         <div className="rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-4">
           <p className="font-body text-xs font-semibold text-foreground mb-3">Partner Settlement Summary</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

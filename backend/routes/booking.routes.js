@@ -9,7 +9,7 @@ const Cab = require('../models/Cab');
 const CabFare = require('../models/CabFare');
 const Tour = require('../models/Tour');
 const User = require('../models/User');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, optionalProtect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const {
   assertValidBookingTransition,
@@ -53,6 +53,10 @@ const {
   verifyModificationPayment,
   executeBookingRefund,
 } = require('../utils/bookingModification');
+const {
+  resolveBookingCustomer,
+  withGuestAccessToken,
+} = require('../utils/guestBookingAccess');
 const router = express.Router();
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
@@ -178,7 +182,7 @@ const enqueueBookingNotifications = async (booking, { invoice = false, partnerAl
 };
 
 const bookingDetailFields = [
-  'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone partnerId partnerName partnerPhone',
+  'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone isGuestBooking partnerId partnerName partnerPhone partnerEmail partnerWhatsapp',
   'service_billing_model propertyType paymentMode dharamshalaAmount vrindavanSarthiServiceFee amountPaidOnline amountPayableAtProperty amountPaidToProperty requestExpiresAt propertyRespondedAt propertyDecisionRole propertyDecisionReason',
   'hotelId roomTypeId ratePlanId ratePlanName ratePlanCode ratePlanMealPlan nightlyBreakdown roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
@@ -205,7 +209,10 @@ const sanitizeCustomerBooking = (booking) => {
   if (plain.bookingStatus !== 'confirmed') {
     plain.partnerName = '';
     plain.partnerPhone = '';
+    plain.partnerEmail = '';
+    plain.partnerWhatsapp = '';
   }
+  delete plain.guestAccessTokenHash;
   delete plain.roomUnitId;
   delete plain.roomUnitIds;
   delete plain.roomNumber;
@@ -319,9 +326,9 @@ router.post('/cab', protect, async (req, res) => {
   }
 });
 
-// Create booking for a room type (authenticated user)
+// Create booking for a room type (logged-in or guest customer)
 // Body: { hotelId, roomTypeId, checkIn, checkOut, customerFullName, customerMobile, customerEmail, totalAdults, totalChildren, paymentMethod, totalAmount, upiTransactionId? }
-router.post('/room-type', protect, async (req, res) => {
+router.post('/room-type', optionalProtect, async (req, res) => {
   try {
     const hotelId = String(req.body?.hotelId || '').trim();
     const roomTypeId = String(req.body?.roomTypeId || '').trim();
@@ -331,17 +338,6 @@ router.post('/room-type', protect, async (req, res) => {
 
     const hotel = await Hotel.findById(hotelId).lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
-    const acceptedTermsSnapshot = getActivePropertyTermsSnapshot(hotel, req.user._id);
-    if (acceptedTermsSnapshot) {
-      const accepted = Boolean(req.body?.propertyTermsAccepted);
-      const acceptedVersion = Number(req.body?.acceptedPropertyTermsVersion || 0);
-      if (!accepted || acceptedVersion !== acceptedTermsSnapshot.version) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please read and accept this property terms and policies before booking.',
-        });
-      }
-    }
 
     const roomType = await RoomType.findOne({ _id: roomTypeId, hotelId: hotel._id, status: 'active' }).lean();
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
@@ -357,6 +353,19 @@ router.post('/room-type', protect, async (req, res) => {
     const customerEmail = String(req.body?.customerEmail || '').trim();
     if (!customerFullName || !customerMobile || !customerEmail) {
       return res.status(400).json({ success: false, message: 'customerFullName, customerMobile and customerEmail are required' });
+    }
+    const bookingCustomer = await resolveBookingCustomer({ req, customerFullName, customerMobile, customerEmail });
+    const customerUser = bookingCustomer.user;
+    const acceptedTermsSnapshot = getActivePropertyTermsSnapshot(hotel, customerUser._id);
+    if (acceptedTermsSnapshot) {
+      const accepted = Boolean(req.body?.propertyTermsAccepted);
+      const acceptedVersion = Number(req.body?.acceptedPropertyTermsVersion || 0);
+      if (!accepted || acceptedVersion !== acceptedTermsSnapshot.version) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please read and accept this property terms and policies before booking.',
+        });
+      }
     }
 
     const totalAdults = Number(req.body?.totalAdults || 0);
@@ -413,6 +422,9 @@ router.post('/room-type', protect, async (req, res) => {
         customerMobile,
         customerEmail,
         acceptedTermsSnapshot,
+        customerUser,
+        isGuestBooking: bookingCustomer.isGuestBooking,
+        guestAccessTokenHash: bookingCustomer.guestAccessTokenHash,
       });
       try {
         await ensureDharamshalaPropertyReviewAlarmNotifications(result.booking);
@@ -422,7 +434,7 @@ router.post('/room-type', protect, async (req, res) => {
       }
       return res.status(result.idempotent ? 200 : 201).json({
         success: true,
-        data: sanitizeCustomerBooking(result.booking),
+        data: withGuestAccessToken(sanitizeCustomerBooking(result.booking), result.idempotent ? '' : bookingCustomer.guestAccessToken),
         idempotent: result.idempotent,
         message: 'Dharamshala request submitted. The property will confirm availability before any online payment.',
       });
@@ -483,14 +495,18 @@ router.post('/room-type', protect, async (req, res) => {
       itemName: `${hotel.name} - ${roomType.name}`,
       itemImage: (roomType.images && roomType.images[0]) || hotel.image,
 
-      userId: req.user._id,
-      userName: req.user.name,
-      userEmail: req.user.email,
-      userPhone: req.user.phone,
+      userId: customerUser._id,
+      userName: customerUser.name,
+      userEmail: customerUser.email,
+      userPhone: customerUser.phone,
+      isGuestBooking: bookingCustomer.isGuestBooking,
+      guestAccessTokenHash: bookingCustomer.guestAccessTokenHash || undefined,
 
       partnerId: hotel.partnerId,
       partnerName: hotel.partnerName,
       partnerPhone: hotel.partnerPhone,
+      partnerEmail: hotel.partnerEmail || '',
+      partnerWhatsapp: hotel.partnerWhatsapp || hotel.partnerPhone || '',
 
       hotelId: hotel._id,
       roomTypeId: roomType._id,
@@ -530,6 +546,7 @@ router.post('/room-type', protect, async (req, res) => {
       adminPaymentVerified: false,
       upiTransactionId,
       paymentProvider,
+      bookingSource: bookingCustomer.isGuestBooking ? 'guest_web' : 'web',
       additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
       acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
     });
@@ -558,7 +575,10 @@ router.post('/room-type', protect, async (req, res) => {
       }
 
       await enqueueBookingNotifications(booking, { partnerAlert: true });
-      return res.status(201).json({ success: true, data: sanitizeCustomerBooking(booking) });
+      return res.status(201).json({
+        success: true,
+        data: withGuestAccessToken(sanitizeCustomerBooking(booking), bookingCustomer.guestAccessToken),
+      });
     }
 
     await RoomUnitBookingDay.deleteMany({ bookingId: booking._id });
@@ -572,14 +592,18 @@ router.post('/room-type', protect, async (req, res) => {
         itemName: `${hotel.name} - ${roomType.name}`,
         itemImage: (roomType.images && roomType.images[0]) || hotel.image,
 
-        userId: req.user._id,
-        userName: req.user.name,
-        userEmail: req.user.email,
-        userPhone: req.user.phone,
+        userId: customerUser._id,
+        userName: customerUser.name,
+        userEmail: customerUser.email,
+        userPhone: customerUser.phone,
+        isGuestBooking: bookingCustomer.isGuestBooking,
+        guestAccessTokenHash: bookingCustomer.guestAccessTokenHash || undefined,
 
         partnerId: hotel.partnerId,
         partnerName: hotel.partnerName,
         partnerPhone: hotel.partnerPhone,
+        partnerEmail: hotel.partnerEmail || '',
+        partnerWhatsapp: hotel.partnerWhatsapp || hotel.partnerPhone || '',
 
         hotelId: hotel._id,
         roomTypeId: roomType._id,
@@ -614,6 +638,7 @@ router.post('/room-type', protect, async (req, res) => {
         adminPaymentVerified: false,
         upiTransactionId,
         paymentProvider,
+        bookingSource: bookingCustomer.isGuestBooking ? 'guest_web' : 'web',
         additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
         acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
         isWaitlisted: true,
@@ -622,7 +647,7 @@ router.post('/room-type', protect, async (req, res) => {
       await enqueueBookingNotifications(waitlistedBooking, { partnerAlert: true });
       return res.status(201).json({
         success: true,
-        data: sanitizeCustomerBooking(waitlistedBooking),
+        data: withGuestAccessToken(sanitizeCustomerBooking(waitlistedBooking), bookingCustomer.guestAccessToken),
         message: `Only ${selectedUnits.length} room(s) are available for selected dates. Added to waitlist; we will auto-assign rooms if slots open.`,
       });
     }

@@ -49,15 +49,11 @@ const Navbar = () => {
   const navBg = isHomeHero
     ? 'border-transparent bg-transparent shadow-none'
     : 'border-border/80 bg-white/[0.92] shadow-[0_2px_8px_rgba(16,24,44,0.06)] backdrop-blur-xl';
-  const navPanelClass = isHomeHero
-    ? 'border border-white/35 bg-white/[0.12] text-brand-black shadow-none backdrop-blur-[2px]'
-    : 'border border-border bg-secondary/45';
+  const navPanelClass = 'bg-transparent text-black';
   const navItemClass = (active: boolean) =>
     active
-      ? 'bg-primary text-primary-foreground shadow-[0_2px_8px_rgba(16,24,44,0.10)]'
-      : isHomeHero
-        ? 'text-brand-black hover:bg-white/25 hover:text-primary'
-        : 'text-muted-foreground hover:bg-white hover:text-primary';
+      ? 'text-black underline decoration-brand-gold decoration-2 underline-offset-8'
+      : 'text-black hover:text-brand-crimson';
   const sideLinkClass = isHomeHero
     ? 'text-brand-black hover:bg-white/20 hover:text-primary'
     : 'text-muted-foreground hover:bg-secondary hover:text-primary';
@@ -66,7 +62,7 @@ const Navbar = () => {
     <>
       <nav className={`fixed top-0 left-0 right-0 z-50 border-b transition-all duration-300 ${navBg} ${scrolled ? 'border-brand-gold/35' : ''}`}>
         <div className="mx-auto w-full max-w-[1440px] px-3 sm:px-5 xl:px-5 2xl:px-7">
-          <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-3 xl:h-20 xl:grid-cols-[88px_minmax(0,1fr)_auto] xl:gap-4 2xl:grid-cols-[110px_minmax(0,1fr)_auto] 2xl:gap-5">
+          <div className="relative grid h-16 grid-cols-[1fr_auto] items-center gap-3 xl:h-20 xl:grid-cols-[88px_minmax(0,1fr)_auto] xl:gap-4 2xl:grid-cols-[110px_minmax(0,1fr)_auto] 2xl:gap-5">
             <Link to="/" className="group flex min-w-0 items-center gap-2.5" aria-label={COMPANY_NAME}>
               <img
                 src={APP_LOGO_URL}
@@ -75,7 +71,7 @@ const Navbar = () => {
               />
             </Link>
 
-            <div className={`hidden w-fit min-w-0 justify-self-center items-center justify-center gap-0.5 rounded-xl px-1 py-1 xl:flex 2xl:gap-1 ${navPanelClass}`}>
+            <div className={`hidden w-fit min-w-0 items-center justify-center gap-0.5 px-1 py-1 xl:absolute xl:left-1/2 xl:flex xl:-translate-x-1/2 2xl:gap-1 ${navPanelClass}`}>
               {visibleNavLinks.map((link) => {
                 const Icon = link.icon;
                 const active = location.pathname === link.path;
@@ -97,7 +93,6 @@ const Navbar = () => {
             <div className="hidden shrink-0 items-center justify-end gap-2 xl:flex 2xl:gap-2.5">
               {isAuthenticated && user ? (
                 <>
-                  <Link to="/contact" className={`whitespace-nowrap rounded-[10px] px-3 py-2 font-body text-[13px] font-bold transition-colors ${sideLinkClass}`}>Help</Link>
                   <Link to="/bookings" className={`whitespace-nowrap rounded-[10px] px-3 py-2 font-body text-[13px] font-bold transition-colors ${isHomeHero ? 'text-brand-black hover:bg-white/20 hover:text-primary' : 'text-primary hover:bg-secondary'}`}>My Bookings</Link>
                   {shopEnabled && <Link to="/my-orders" className={`whitespace-nowrap rounded-[10px] px-3 py-2 font-body text-[13px] font-bold transition-colors ${sideLinkClass}`}>My Orders</Link>}
                   <div className="relative">
@@ -148,13 +143,13 @@ const Navbar = () => {
                 </>
               ) : (
                 <>
-                  <Link to="/contact" className={`whitespace-nowrap rounded-[10px] px-3 py-2 font-body text-[13px] font-bold transition-colors ${sideLinkClass}`}>Help</Link>
                   <Link to="/bookings" className={`whitespace-nowrap rounded-[10px] px-3 py-2 font-body text-[13px] font-bold transition-colors ${sideLinkClass}`}>My Bookings</Link>
-                  <Link to="/login" className={`whitespace-nowrap rounded-[10px] px-3 py-2 font-body text-[13px] font-bold transition-colors ${isHomeHero ? 'text-brand-black hover:bg-white/20 hover:text-primary' : 'text-primary hover:bg-secondary'}`}>Login</Link>
                   <Link to="/contact" className="btn-gold inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2 text-[13px] 2xl:px-4">
                     <MessageCircle size={15} /> Enquire
                   </Link>
-                  <Link to="/register" className="btn-crimson inline-flex min-h-10 items-center justify-center whitespace-nowrap px-3 py-2 text-[13px] 2xl:px-4">Sign Up</Link>
+                  <Link to="/login" className="btn-crimson inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2 text-[13px] 2xl:px-4">
+                    <User size={14} /> Login / Sign Up
+                  </Link>
                 </>
               )}
             </div>
@@ -211,8 +206,9 @@ const Navbar = () => {
               ) : (
                 <>
                   <Link to="/bookings" className="rounded-lg px-3 py-2 font-body text-sm font-semibold text-white">My Bookings</Link>
-                  <Link to="/login" className="rounded-lg px-3 py-2 font-body text-sm font-semibold text-white">Login</Link>
-                  <Link to="/register" className="btn-crimson mt-2 rounded-lg px-6 py-3 text-center">Sign Up</Link>
+                  <Link to="/login" className="btn-crimson mt-2 inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-center">
+                    <User size={16} /> Login / Sign Up
+                  </Link>
                 </>
               )}
             </div>

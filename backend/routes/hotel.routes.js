@@ -90,16 +90,18 @@ const normalizeHotelTaxControls = (body) => {
     body.taxPercent = 0;
     body.gstMode = 'manual';
     body.platform_commission_percentage = 10;
+    body.dharamshalaPaymentMode = 'pay_at_dharamshala';
+    body.dharamshalaServiceFee = 59;
   }
   const mode = String(body.dharamshalaPaymentMode || '').trim().toLowerCase();
-  if (mode) {
+  if (mode && String(body.propertyType || '').trim().toLowerCase() !== 'dharamshala') {
     body.dharamshalaPaymentMode = ['pay_at_dharamshala', 'full_online', 'request_only'].includes(mode)
       ? mode
       : 'pay_at_dharamshala';
   }
-  if (typeof body.dharamshalaServiceFee !== 'undefined') {
+  if (typeof body.dharamshalaServiceFee !== 'undefined' && String(body.propertyType || '').trim().toLowerCase() !== 'dharamshala') {
     const fee = Number(body.dharamshalaServiceFee);
-    body.dharamshalaServiceFee = Number.isFinite(fee) && fee >= 0 ? Math.min(100000, Math.round(fee)) : 99;
+    body.dharamshalaServiceFee = Number.isFinite(fee) && fee >= 0 ? Math.min(100000, Math.round(fee)) : 59;
   }
   if (typeof body.dharamshalaResponseTimeoutMinutes !== 'undefined') {
     const minutes = Number(body.dharamshalaResponseTimeoutMinutes);

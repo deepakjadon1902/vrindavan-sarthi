@@ -263,10 +263,13 @@ const PartnerBookings = () => {
                   )}
 
                   {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
-                    <div className="mt-3 grid gap-1 rounded-lg border border-brand-gold/25 bg-brand-cream/40 px-3 py-2 font-body text-xs text-foreground sm:grid-cols-3">
-                      <span>Online: Rs. {Number(b.amountPaidOnline || 0).toLocaleString('en-IN')}</span>
-                      <span>At Dharamshala: Rs. {Number(b.amountPayableAtProperty || 0).toLocaleString('en-IN')}</span>
-                      <span className="capitalize">Mode: {String(b.paymentMode || '').replace(/_/g, ' ') || '-'}</span>
+                    <div className="mt-3 grid gap-1 rounded-lg border border-brand-gold/25 bg-brand-cream/40 px-3 py-2 font-body text-xs text-foreground sm:grid-cols-2">
+                      <span>Confirmation paid online: Rs. {Number(b.amountPaidOnline || 0).toLocaleString('en-IN')}</span>
+                      <span>
+                        Donation: {['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(b.bookingStatus || ''))
+                          ? `Rs. ${Number(b.amountPayableAtProperty || b.dharamshalaAmount || 0).toLocaleString('en-IN')}`
+                          : 'Visible after confirmation'}
+                      </span>
                     </div>
                   )}
 

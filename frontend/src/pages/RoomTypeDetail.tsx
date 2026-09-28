@@ -1,14 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, Star, Landmark, BedDouble, Minus, Plus, MessageCircle, Phone } from 'lucide-react';
+import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, Star, Landmark, BedDouble, Minus, Plus, MessageCircle, Phone, CalendarDays, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import ImageCarousel from '@/components/shared/ImageCarousel';
-import { Calendar } from '@/components/ui/calendar';
-import type { DateRange } from 'react-day-picker';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import { useSettingsStore } from '@/store/settingsStore';
 import SEO from '@/components/SEO';
@@ -56,12 +53,6 @@ const getNextDateKey = (value: string) => {
   return getLocalDateKey(date);
 };
 
-const dateKeyToLocalDate = (value: string) => {
-  const [year, month, day] = value.split('-').map(Number);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return undefined;
-  return new Date(year, month - 1, day);
-};
-
 const RoomTypeDetail = () => {
   const { id } = useParams();
   const location = useLocation();
@@ -93,22 +84,30 @@ const RoomTypeDetail = () => {
   const [bookingId, setBookingId] = useState('');
   const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
   const [booked, setBooked] = useState(false);
-  const [showAvailability, setShowAvailability] = useState(false);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityCalendar, setAvailabilityCalendar] = useState<any[] | null>(null);
-  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(() => {
-    const from = checkIn ? new Date(`${checkIn}T00:00:00.000Z`) : undefined;
-    const to = checkOut ? new Date(`${checkOut}T00:00:00.000Z`) : undefined;
-    if (from && Number.isFinite(from.getTime()) && to && Number.isFinite(to.getTime()) && to > from) return { from, to };
-    if (from && Number.isFinite(from.getTime())) return { from };
-    return undefined;
-  });
+  const mainColumnRef = useRef<HTMLDivElement | null>(null);
+  const [bookingPanelHeight, setBookingPanelHeight] = useState<number | null>(null);
 
   useEffect(() => {
     setCustomerFullName(user?.name || '');
     setCustomerMobile(user?.phone || '');
     setCustomerEmail(user?.email || '');
   }, [user]);
+
+  useEffect(() => {
+    const el = mainColumnRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const updateHeight = () => setBookingPanelHeight(Math.ceil(el.getBoundingClientRect().height));
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(el);
+    window.addEventListener('resize', updateHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, [data]);
 
   useEffect(() => {
     if (!id) return;
@@ -141,14 +140,6 @@ const RoomTypeDetail = () => {
   }, [id, checkIn, checkOut]);
 
   useEffect(() => {
-    const from = checkIn ? new Date(`${checkIn}T00:00:00.000Z`) : undefined;
-    const to = checkOut ? new Date(`${checkOut}T00:00:00.000Z`) : undefined;
-    if (from && Number.isFinite(from.getTime()) && to && Number.isFinite(to.getTime()) && to > from) setSelectedRange({ from, to });
-    else if (from && Number.isFinite(from.getTime())) setSelectedRange({ from });
-    else setSelectedRange(undefined);
-  }, [checkIn, checkOut]);
-
-  useEffect(() => {
     if (!id || !checkIn || !checkOut) {
       setSelectedRoomAvailability([]);
       return;
@@ -173,7 +164,7 @@ const RoomTypeDetail = () => {
   const isDharamshala = isDharamshalaType(hotel?.propertyType);
   const showPrices = hotel?.showPrices !== false;
   const roomHasPublishedPrice = Number(roomType?.pricePerNight || 0) > 0;
-  const canShowRoomPrices = showPrices && (!isDharamshala || roomHasPublishedPrice);
+  const canShowRoomPrices = showPrices && !isDharamshala && roomHasPublishedPrice;
   const supportDigits = supportPhone.replace(/\D/g, '');
   const whatsappMessage = `Radhe Radhe, I want to book ${hotel?.name || 'this property'}${roomType?.name ? ` - ${roomType.name}` : ''}${hotel?.location ? ` in ${hotel.location}` : ''}. Please share availability and price.`;
   const propertyTerms = normalizePropertyTerms(hotel?.propertyTerms);
@@ -215,7 +206,6 @@ const RoomTypeDetail = () => {
         const to = new Date(new Date(`${anchor}T00:00:00.000Z`).getTime() + 30 * 86400000).toISOString().slice(0, 10);
         const res = await api.get(`/room-types/${id}/calendar`, { params: { from: anchor, to } });
         setAvailabilityCalendar(res.data?.data?.calendar || []);
-        setShowAvailability(true);
       } catch {
         // ignore
       } finally {
@@ -239,10 +229,6 @@ const RoomTypeDetail = () => {
     return map;
   }, [availabilityCalendar]);
 
-  const todayUtc = useMemo(() => {
-    const now = new Date();
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  }, []);
   const todayKey = useMemo(() => getLocalDateKey(), []);
   const checkOutMinKey = useMemo(() => (checkIn ? getNextDateKey(checkIn) : todayKey), [checkIn, todayKey]);
 
@@ -253,9 +239,6 @@ const RoomTypeDetail = () => {
     }
     setCheckIn(value);
     if (checkOut && value && checkOut <= value) setCheckOut('');
-    const from = value ? dateKeyToLocalDate(value) : undefined;
-    const to = checkOut && value && checkOut > value ? dateKeyToLocalDate(checkOut) : undefined;
-    setSelectedRange(from ? { from, ...(to ? { to } : {}) } : undefined);
   };
 
   const handleCheckOutDateChange = (value: string) => {
@@ -268,9 +251,6 @@ const RoomTypeDetail = () => {
       return;
     }
     setCheckOut(value);
-    const from = checkIn ? dateKeyToLocalDate(checkIn) : undefined;
-    const to = value ? dateKeyToLocalDate(value) : undefined;
-    setSelectedRange(from ? { from, ...(to ? { to } : {}) } : undefined);
   };
 
   if (loading && !roomType) {
@@ -302,7 +282,7 @@ const RoomTypeDetail = () => {
     : 0;
   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
   const subtotal = baseTotal + taxTotal;
-  const dharamshalaServiceFee = Math.max(0, Math.round(Number(hotel?.dharamshalaServiceFee ?? 99)));
+  const dharamshalaServiceFee = 59;
   const convenienceFeePercent = isDharamshala ? 0 : 4.45;
   const convenienceFee = isDharamshala ? dharamshalaServiceFee : Math.round(baseTotal * (convenienceFeePercent / 100));
   const total = subtotal + convenienceFee;
@@ -318,6 +298,22 @@ const RoomTypeDetail = () => {
       : [];
   const isFullyBookedSelectedDates = Boolean(checkIn && checkOut && availableCount !== null && availableCount <= 0);
   const isRequestedQuantityUnavailable = Boolean(checkIn && checkOut && availableCount !== null && roomQuantity > availableCount);
+  const checkInAvailability = checkIn ? availabilityByDate.get(checkIn) : undefined;
+  const checkOutAvailability = checkOut ? availabilityByDate.get(checkOut) : undefined;
+  const visibleCalendarDays = availabilityCalendar || [];
+  const lowAvailabilityDays = visibleCalendarDays.filter((day) => Number(day?.availableCount || 0) > 0 && Number(day?.availableCount || 0) <= 2).length;
+  const fullyBookedDays = visibleCalendarDays.filter((day) => Number(day?.availableCount || 0) <= 0).length;
+  const nextOpenDay = visibleCalendarDays.find((day) => Number(day?.availableCount || 0) > 0)?.date;
+  const inventoryPulse = availableCount !== null
+    ? availableCount <= 0
+      ? { label: 'Sold out for selected dates', tone: 'border-red-100 bg-red-50 text-red-700', bar: 'bg-red-500', width: '100%' }
+      : availableCount <= 2
+        ? { label: `Only ${availableCount} room(s) left`, tone: 'border-amber-100 bg-amber-50 text-amber-800', bar: 'bg-amber-500', width: '42%' }
+        : { label: `${availableCount} room(s) available`, tone: 'border-emerald-100 bg-emerald-50 text-emerald-700', bar: 'bg-emerald-500', width: '78%' }
+    : { label: availabilityLoading ? 'Checking live inventory' : 'Select dates for live inventory', tone: 'border-gray-100 bg-gray-50 text-gray-600', bar: 'bg-gray-300', width: '28%' };
+  const formatStayDate = (value: string) => value
+    ? new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+    : 'Select';
 
   const loadAvailabilityCalendar = async (opts?: { from?: string; to?: string }) => {
     if (!id) return;
@@ -331,7 +327,6 @@ const RoomTypeDetail = () => {
       const to = opts?.to || fallbackTo;
       const res = await api.get(`/room-types/${id}/calendar`, { params: { from, to } });
       setAvailabilityCalendar(res.data?.data?.calendar || []);
-      setShowAvailability(true);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Failed to load availability calendar');
     } finally {
@@ -340,11 +335,13 @@ const RoomTypeDetail = () => {
   };
 
   const validateBookingForm = () => {
-    if (!isAuthenticated) { toast.error('Please login to book'); navigate('/login'); return false; }
     if (!checkIn || !checkOut) { toast.error('Please select check-in and check-out dates'); return false; }
     if (checkIn < todayKey) { toast.error('Check-in date cannot be in the past'); return false; }
     if (checkOut <= checkIn) { toast.error('Check-out must be after check-in'); return false; }
     if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) { toast.error('Please fill your name, mobile and email'); return false; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) { toast.error('Please enter a valid email address'); return false; }
+    const mobileDigits = customerMobile.replace(/\D/g, '');
+    if (mobileDigits.length < 7 || mobileDigits.length > 15) { toast.error('Please enter a valid mobile number'); return false; }
     if (canShowRoomPrices && !effectivePaymentOption) { toast.error('Please select a payment option'); return false; }
     if (roomQuantity < 1) { toast.error('Please select at least 1 room'); return false; }
     if (availableCount !== null && roomQuantity > availableCount) {
@@ -388,9 +385,7 @@ const RoomTypeDetail = () => {
       toast.error('Prices are not published for this room. Please book by call or WhatsApp.');
       return;
     }
-    if (!token) { toast.error('Please login to book'); navigate('/login'); return; }
     if (availableCount !== null && roomQuantity > availableCount) {
-      setShowAvailability(true);
       void loadAvailabilityCalendar();
       toast.error('Selected room count is not available for these dates. Please reduce rooms or choose other dates.');
       return;
@@ -398,6 +393,7 @@ const RoomTypeDetail = () => {
 
     setIsStartingPayment(true);
     let pendingRazorpayBookingId = '';
+    let pendingGuestAccessToken = '';
     try {
       const bookingResult = await createRoomTypeBooking(buildBookingPayload());
       if (!bookingResult.success || !bookingResult.data?.id) {
@@ -407,6 +403,8 @@ const RoomTypeDetail = () => {
       }
 
       const pendingBooking = bookingResult.data;
+      const guestAccessToken = pendingBooking.guestAccessToken || '';
+      pendingGuestAccessToken = guestAccessToken;
       pendingRazorpayBookingId = pendingBooking.id;
       setBookingId(String(pendingBooking.bookingId));
       setIsWaitlistedBooking(Boolean(pendingBooking.isWaitlisted));
@@ -424,15 +422,16 @@ const RoomTypeDetail = () => {
         try {
           await api.post('/payments/razorpay/fail', {
             bookingId: pendingBooking.id,
+            guestAccessToken,
             razorpay_payment_id: razorpayPaymentId,
             status,
-          }, withAuth(token));
+          }, token ? withAuth(token) : undefined);
         } catch {
           // Webhook may still settle the final payment state.
         }
       };
 
-      const orderRes = await api.post('/payments/razorpay/orders', { bookingId: pendingBooking.id }, withAuth(token));
+      const orderRes = await api.post('/payments/razorpay/orders', { bookingId: pendingBooking.id, guestAccessToken }, token ? withAuth(token) : undefined);
       const data = orderRes.data?.data || {};
       const order = data.order || {};
       const keyId = String(data.keyId || '');
@@ -469,10 +468,11 @@ const RoomTypeDetail = () => {
           try {
             const verifyRes = await api.post('/payments/razorpay/verify', {
               bookingId: pendingBooking.id,
+              guestAccessToken,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-            }, withAuth(token));
+            }, token ? withAuth(token) : undefined);
             const verified = verifyRes.data?.data || pendingBooking;
             if (verified.bookingId) setBookingId(String(verified.bookingId));
             setBooked(true);
@@ -496,8 +496,9 @@ const RoomTypeDetail = () => {
         try {
           await api.post('/payments/razorpay/fail', {
             bookingId: pendingRazorpayBookingId,
+            guestAccessToken: pendingGuestAccessToken,
             status: 'failed',
-          }, withAuth(token));
+          }, token ? withAuth(token) : undefined);
         } catch {
           // Keep the original startup error visible to the customer.
         }
@@ -572,9 +573,9 @@ const RoomTypeDetail = () => {
           Back to Hotels
         </button>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_400px]">
           {/* ── Left / Main ──────────────────────────────────────────────── */}
-          <div className="lg:col-span-2 space-y-5">
+          <div ref={mainColumnRef} className="min-w-0 space-y-5">
 
             {/* Image carousel */}
             <div className="overflow-hidden rounded-lg shadow-sm">
@@ -680,31 +681,10 @@ const RoomTypeDetail = () => {
                 </div>
               )}
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="premium-surface p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <BedDouble size={18} className="text-brand-gold" />
-                  <h2 className="font-display text-xl font-bold text-foreground">Room Count Rule</h2>
-                </div>
-                <p className="text-sm leading-6 text-gray-500">
-                  This room type has {totalCount || maxRoomQuantity} room(s) listed by the property. A family booking can select multiple rooms in one booking, but never more than the listed or available inventory.
-                </p>
-              </div>
-              <div className="premium-surface p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <Shield size={18} className="text-brand-green" />
-                  <h2 className="font-display text-xl font-bold text-foreground">After Booking</h2>
-                </div>
-                <p className="text-sm leading-6 text-gray-500">
-                  Your booking confirmation is shown to you after payment verification. Exact room numbers remain visible only to the admin and the respective property partner.
-                </p>
-              </div>
-            </div>
           </div>
 
           {/* ── Right / Booking sidebar ───────────────────────────────────── */}
-          <div className="lg:col-span-1">
+          <div className="min-w-0 lg:flex lg:h-full">
             {booked ? (
             <div className="premium-surface p-6 text-center">
                 <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
@@ -713,7 +693,7 @@ const RoomTypeDetail = () => {
                 <p className="text-lg font-bold text-gray-900">{isDharamshala ? 'Request Submitted' : 'Booking Successful'}</p>
                 <p className="text-sm text-gray-500 mt-1">
                   {isDharamshala
-                    ? 'Your booking request has been sent to the Dharamshala for confirmation.'
+                  ? 'Your booking request has been sent to the Dharamshala for confirmation.'
                     : isWaitlistedBooking ? 'Payment verified. You are on the waitlist.' : 'Your payment is verified and room booking is confirmed.'}
                 </p>
                 {bookingId && <p className="text-xs text-gray-400 mt-2">Booking ID: <span className="text-gray-700 font-medium">{bookingId}</span></p>}
@@ -722,7 +702,10 @@ const RoomTypeDetail = () => {
                 </Link>
               </div>
             ) : (
-              <div className="premium-surface space-y-4 p-4 sm:p-5 lg:sticky lg:top-24">
+              <div
+                className="premium-surface premium-sidebar-scroll space-y-4 p-4 sm:p-5 lg:h-[var(--booking-panel-height)] lg:max-h-[var(--booking-panel-height)] lg:w-full lg:overflow-y-auto"
+                style={bookingPanelHeight ? ({ '--booking-panel-height': `${bookingPanelHeight}px` } as CSSProperties) : undefined}
+              >
                 <SimpleBookingPanel service={isDharamshala ? 'dharamshala' : 'stay'} />
 
                 {/* Price */}
@@ -745,94 +728,70 @@ const RoomTypeDetail = () => {
 
                 <hr className="border-gray-100" />
 
-                {/* Date pickers */}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Check-in</label>
-                    <input type="date" min={todayKey} value={checkIn} onChange={(e) => handleCheckInDateChange(e.target.value)} className={inputCls} />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Check-out</label>
-                    <input type="date" min={checkOutMinKey} value={checkOut} onChange={(e) => handleCheckOutDateChange(e.target.value)} className={inputCls} />
-                  </div>
-                </div>
-
-                {/* Availability strip */}
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  <button
-                    type="button"
-                    onClick={() => void loadAvailabilityCalendar()}
-                    disabled={availabilityLoading}
-                    className="mt-1.5 text-xs font-medium text-brand-crimson hover:underline disabled:opacity-50"
-                  >
-                    {availabilityLoading ? 'Loading calendar...' : 'Refresh availability calendar'}
-                  </button>
-
-                  {showAvailability && (
-                    <div className="mt-3 rounded-lg border border-gray-200 bg-white overflow-hidden">
-                      <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
-                        <p className="text-[11px] text-gray-500">Tap dates to select check-in / check-out.</p>
-                        <div className="mt-1.5 flex flex-wrap gap-2 text-[11px] text-gray-400">
-                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-400" /> Available</span>
-                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" /> Low</span>
-                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400" /> Full</span>
-                        </div>
+                {/* Date and availability intelligence */}
+                <div className="space-y-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-gold/12 text-brand-crimson">
+                        <CalendarDays size={17} />
+                      </span>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Stay Dates</p>
+                        <p className="text-sm font-bold text-gray-900">{formatStayDate(checkIn)} - {formatStayDate(checkOut)}</p>
                       </div>
-                      <Calendar
-                        mode="range"
-                        selected={selectedRange}
-                        onSelect={(range) => {
-                          setSelectedRange(range);
-                          const from = range?.from ? format(range.from, 'yyyy-MM-dd') : '';
-                          const to = range?.to ? format(range.to, 'yyyy-MM-dd') : '';
-                          if (from && from < todayKey) return;
-                          setCheckIn(from);
-                          setCheckOut(from && to && to > from ? to : '');
-                        }}
-                        numberOfMonths={1}
-                        fromDate={todayUtc}
-                        disabled={(date) => date < todayUtc}
-                        modifiers={{
-                          fullyBooked: (date) => {
-                            const key = format(date, 'yyyy-MM-dd');
-                            const item = availabilityByDate.get(key);
-                            return typeof item?.availableCount === 'number' && item.availableCount <= 0;
-                          },
-                          lowAvailability: (date) => {
-                            const key = format(date, 'yyyy-MM-dd');
-                            const item = availabilityByDate.get(key);
-                            return typeof item?.availableCount === 'number' && item.availableCount > 0 && item.availableCount <= 2;
-                          },
-                          available: (date) => {
-                            const key = format(date, 'yyyy-MM-dd');
-                            const item = availabilityByDate.get(key);
-                            return typeof item?.availableCount === 'number' && item.availableCount > 2;
-                          },
-                        }}
-                        modifiersClassNames={{
-                          fullyBooked: 'bg-red-50 text-red-600 hover:bg-red-100',
-                          lowAvailability: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
-                          available: 'bg-green-50 text-green-700 hover:bg-green-100',
-                        }}
-                        components={{
-                          DayContent: (props) => {
-                            const key = format(props.date, 'yyyy-MM-dd');
-                            const item = availabilityByDate.get(key);
-                            const count = item ? item.availableCount : null;
-                            return (
-                              <div className="flex flex-col items-center justify-center leading-none">
-                                <div>{props.date.getDate()}</div>
-                                {typeof count === 'number' && (
-                                  <div className="mt-0.5 text-[9px] text-gray-400">{count}</div>
-                                )}
-                              </div>
-                            );
-                          },
-                        }}
-                        className="w-full"
-                      />
                     </div>
-                  )}
+                    <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                      Live check
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <label className="block rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Check-in</span>
+                      <input type="date" min={todayKey} value={checkIn} onChange={(e) => handleCheckInDateChange(e.target.value)} className="h-9 w-full bg-transparent text-sm font-bold text-gray-900 outline-none" />
+                    </label>
+                    <label className="block rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Check-out</span>
+                      <input type="date" min={checkOutMinKey} value={checkOut} onChange={(e) => handleCheckOutDateChange(e.target.value)} className="h-9 w-full bg-transparent text-sm font-bold text-gray-900 outline-none" />
+                    </label>
+                  </div>
+
+                  <div className={`rounded-xl border p-3 ${inventoryPulse.tone}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        {availableCount !== null && availableCount > 0 ? <CheckCircle2 size={17} /> : <Clock size={17} />}
+                        <span className="text-sm font-bold">{inventoryPulse.label}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void loadAvailabilityCalendar()}
+                        disabled={availabilityLoading}
+                        className="shrink-0 rounded-lg bg-white/80 px-2.5 py-1 text-[11px] font-bold text-gray-700 shadow-sm disabled:opacity-50"
+                      >
+                        {availabilityLoading ? 'Checking...' : 'Recheck'}
+                      </button>
+                    </div>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/80">
+                      <div className={`h-full rounded-full ${inventoryPulse.bar} transition-all duration-500`} style={{ width: inventoryPulse.width }} />
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                      <div className="rounded-lg bg-white/70 px-2 py-1.5">
+                        <span className="block text-gray-500">Check-in</span>
+                        <span className="font-bold text-gray-900">{checkInAvailability ? `${checkInAvailability.availableCount}/${checkInAvailability.totalCount}` : 'Live'}</span>
+                      </div>
+                      <div className="rounded-lg bg-white/70 px-2 py-1.5">
+                        <span className="block text-gray-500">Check-out</span>
+                        <span className="font-bold text-gray-900">{checkOutAvailability ? `${checkOutAvailability.availableCount}/${checkOutAvailability.totalCount}` : 'Live'}</span>
+                      </div>
+                      <div className="rounded-lg bg-white/70 px-2 py-1.5">
+                        <span className="block text-gray-500">Next open</span>
+                        <span className="font-bold text-gray-900">{nextOpenDay ? formatStayDate(nextOpenDay) : 'Ask us'}</span>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[11px] text-gray-500">
+                      {visibleCalendarDays.length ? `${lowAvailabilityDays} low-demand alert(s), ${fullyBookedDays} full day(s) in the live 30-day window.` : 'Live availability appears after the first date check.'}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Rooms */}
@@ -887,7 +846,19 @@ const RoomTypeDetail = () => {
 
                 {/* Your Details */}
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Contact Details</p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Contact Details</p>
+                    {!isAuthenticated && (
+                      <Link to="/login" className="text-xs font-bold text-brand-crimson hover:underline">
+                        Login / Sign Up
+                      </Link>
+                    )}
+                  </div>
+                  {!isAuthenticated && (
+                    <p className="rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2 text-[11px] leading-5 text-amber-800">
+                      Continue as guest with correct name, mobile number and email.
+                    </p>
+                  )}
                   <input value={customerFullName} onChange={(e) => setCustomerFullName(e.target.value)} placeholder="Full Name" className={inputCls} />
                   <input value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="Mobile Number" className={inputCls} />
                   <input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="Email" className={inputCls} />
@@ -909,7 +880,7 @@ const RoomTypeDetail = () => {
                 </div>
 
                 {/* Price breakdown */}
-                {canShowRoomPrices && (
+                {canShowRoomPrices && !isDharamshala && (
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-1.5 text-sm">
                   <div className="flex justify-between text-gray-500">
                     <span>Rs. {Number(roomType.pricePerNight || 0).toLocaleString('en-IN')} x {nights} night(s) x {roomQuantity} room(s)</span>
@@ -922,7 +893,7 @@ const RoomTypeDetail = () => {
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <span>{isDharamshala ? 'Platform fee after acceptance' : 'Platform convenience fee'}</span>
+                    <span>{isDharamshala ? 'Booking confirmation payment after acceptance' : 'Platform convenience fee'}</span>
                     <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
@@ -934,7 +905,7 @@ const RoomTypeDetail = () => {
 
 
                 {/* Payment options */}
-                {canShowRoomPrices && (
+                {canShowRoomPrices && !isDharamshala && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{isDharamshala ? 'Request Flow' : 'Payment Option'}</p>
 
@@ -958,7 +929,7 @@ const RoomTypeDetail = () => {
                     <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
                       <p className="font-semibold text-gray-800">Submit request first</p>
                       <p className="mt-1 text-xs leading-5 text-gray-500">
-                        The Dharamshala or admin will confirm availability first. Lister contact details are shown only after successful booking confirmation.
+                        The Dharamshala team will confirm availability first. Contact details are shown only after successful booking confirmation.
                       </p>
                     </div>
                   ) : (
@@ -972,7 +943,7 @@ const RoomTypeDetail = () => {
                       </span>
                       {isDharamshala && (
                         <span className="mt-1.5 inline-block rounded-md border border-amber-100 bg-white px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                          Dharamshala charges are not refundable.
+                          Dharamshala donations are handled by the Dharamshala.
                         </span>
                       )}
                     </span>
@@ -992,6 +963,15 @@ const RoomTypeDetail = () => {
                     </div>
                   )}
                 </div>
+                )}
+
+                {isDharamshala && (
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
+                    <p className="font-semibold text-gray-800">Simple Dharamshala request</p>
+                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                      Submit your request now. After the Dharamshala accepts it, you will pay Rs. 59 online to confirm. Donation details and contact information appear after confirmation.
+                    </p>
+                  </div>
                 )}
 
                 {mustAcceptPropertyTerms && (
@@ -1048,10 +1028,10 @@ const RoomTypeDetail = () => {
                   <div className="space-y-2">
                     <button
                       type="button"
-                      onClick={() => { setShowAvailability(true); void loadAvailabilityCalendar(); }}
+                      onClick={() => void loadAvailabilityCalendar()}
                       className="w-full py-3 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                     >
-                      View availability &amp; change dates
+                      Recheck availability &amp; change dates
                     </button>
                     <button
                       onClick={startRazorpayPayment}
@@ -1092,11 +1072,30 @@ const RoomTypeDetail = () => {
             )}
           </div>
         </div>
+
+        <div className="mt-5 grid auto-rows-fr gap-4 md:grid-cols-2">
+          <div className="premium-surface flex h-full flex-col p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <BedDouble size={18} className="text-brand-gold" />
+              <h2 className="font-display text-xl font-bold text-foreground">Room Count Rule</h2>
+            </div>
+            <p className="text-sm leading-6 text-gray-500">
+              This room type has {totalCount || maxRoomQuantity} room(s) listed by the property. A family booking can select multiple rooms in one booking, but never more than the listed or available inventory.
+            </p>
+          </div>
+          <div className="premium-surface flex h-full flex-col p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Shield size={18} className="text-brand-green" />
+              <h2 className="font-display text-xl font-bold text-foreground">After Booking</h2>
+            </div>
+            <p className="text-sm leading-6 text-gray-500">
+              Your booking confirmation is shown to you after payment verification. Exact room numbers remain visible only to the admin and the respective property partner.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
 export default RoomTypeDetail;
-
-

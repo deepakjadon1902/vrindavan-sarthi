@@ -544,6 +544,24 @@
     box-shadow: var(--shadow-card);
   }
 
+  .premium-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--brand-gold) / 0.55) transparent;
+  }
+
+  .premium-sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .premium-sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .premium-sidebar-scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: hsl(var(--brand-gold) / 0.45);
+  }
+
   .premium-subtle-card {
     border: 1px solid hsl(var(--border));
     border-radius: 1rem;
@@ -724,4 +742,22 @@
     50%      { transform: translateY(-8px); }
   }
   .animate-float-slow { animation: float-slow 5s ease-in-out infinite; }
+
+  @keyframes testimonialMarquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .animate-testimonial-marquee {
+    animation: testimonialMarquee 34s linear infinite;
+  }
+  .animate-testimonial-marquee:hover {
+    animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-testimonial-marquee {
+      animation: none;
+      transform: none;
+    }
+  }
 }

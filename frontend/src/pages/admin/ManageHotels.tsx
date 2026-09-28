@@ -71,7 +71,7 @@ const ManageHotels = () => {
     platform_commission_percentage: '10',
     showPrices: true,
     dharamshalaPaymentMode: 'pay_at_dharamshala' as const,
-    dharamshalaServiceFee: '99',
+    dharamshalaServiceFee: '59',
     dharamshalaResponseTimeoutMinutes: '30',
     propertyTerms: normalizePropertyTerms(),
   });
@@ -116,7 +116,7 @@ const ManageHotels = () => {
       platform_commission_percentage: '10',
       showPrices: true,
       dharamshalaPaymentMode: 'pay_at_dharamshala',
-      dharamshalaServiceFee: '99',
+      dharamshalaServiceFee: '59',
       dharamshalaResponseTimeoutMinutes: '30',
       propertyTerms: normalizePropertyTerms(),
     });
@@ -163,7 +163,7 @@ const ManageHotels = () => {
       platform_commission_percentage: String(hotel.platform_commission_percentage ?? 10),
       showPrices: hotel.showPrices !== false,
       dharamshalaPaymentMode: hotel.dharamshalaPaymentMode || 'pay_at_dharamshala',
-      dharamshalaServiceFee: String(hotel.dharamshalaServiceFee ?? 99),
+      dharamshalaServiceFee: String(hotel.dharamshalaServiceFee ?? 59),
       dharamshalaResponseTimeoutMinutes: String(hotel.dharamshalaResponseTimeoutMinutes ?? 30),
       propertyTerms: normalizePropertyTerms(hotel.propertyTerms),
     });
@@ -420,7 +420,7 @@ const ManageHotels = () => {
                   placeholder="10"
                 />
                 <p className="font-body text-xs text-muted-foreground mt-1">
-                  {isDharamshalaType(form.propertyType) ? 'Dharamshala bookings use the fixed service fee set below.' : 'Set the platform commission for this listing.'}
+                  {isDharamshalaType(form.propertyType) ? 'Dharamshala bookings use the fixed Rs. 59 confirmation payment after acceptance.' : 'Set the platform commission for this listing.'}
                 </p>
               </div>
               <div>
@@ -519,39 +519,8 @@ const ManageHotels = () => {
             </div>
 
             {isDharamshalaType(form.propertyType) && (
-              <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-3">
-                <label className="font-body text-sm font-medium text-foreground">
-                  Booking Mode
-                  <select
-                    value={form.dharamshalaPaymentMode}
-                    onChange={(e) => setForm({ ...form, dharamshalaPaymentMode: e.target.value as typeof form.dharamshalaPaymentMode })}
-                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="pay_at_dharamshala">Service fee online, stay amount at Dharamshala</option>
-                    <option value="full_online">Full amount online</option>
-                    <option value="request_only">Request only, no online payment</option>
-                  </select>
-                </label>
-                <label className="font-body text-sm font-medium text-foreground">
-                  Service Fee
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.dharamshalaServiceFee}
-                    onChange={(e) => setForm({ ...form, dharamshalaServiceFee: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="font-body text-sm font-medium text-foreground">
-                  Response Timeout Minutes
-                  <input
-                    type="number"
-                    min="1"
-                    value={form.dharamshalaResponseTimeoutMinutes}
-                    onChange={(e) => setForm({ ...form, dharamshalaResponseTimeoutMinutes: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  />
-                </label>
+              <div className="rounded-lg border border-brand-gold/25 bg-brand-gold/10 p-4 font-body text-sm text-muted-foreground">
+                Dharamshala flow is fixed: request first, admin or partner accepts, guest pays Rs. 59 online, then booking is confirmed. Donation or contribution is handled by the Dharamshala at check-in or as per its stay rules.
               </div>
             )}
 
@@ -567,7 +536,7 @@ const ManageHotels = () => {
                 <span>
                   Apply GST to this property
                   <span className="block text-xs text-muted-foreground mt-1">
-                    {isDharamshalaType(form.propertyType) ? 'Dharamshalas collect only the fixed service fee online, with no GST or other customer charges.' : 'GST settings apply to hotels, home stays, and guest houses.'}
+                    {isDharamshalaType(form.propertyType) ? 'Dharamshala requests use a fixed Rs. 59 confirmation payment after acceptance. GST and hotel tax controls do not apply.' : 'GST settings apply to hotels, home stays, and guest houses.'}
                   </span>
                 </span>
               </label>

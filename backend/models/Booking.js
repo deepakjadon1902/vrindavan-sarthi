@@ -48,9 +48,13 @@ const bookingSchema = new mongoose.Schema({
   userName: String,
   userEmail: String,
   userPhone: String,
+  isGuestBooking: { type: Boolean, default: false, index: true },
+  guestAccessTokenHash: { type: String, select: false, index: true },
   partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   partnerName: String,
   partnerPhone: String,
+  partnerEmail: String,
+  partnerWhatsapp: String,
   propertyType: { type: String, enum: ['hotel', 'dharamshala', 'home_stay', 'guest_house'], default: 'hotel', index: true },
   paymentMode: { type: String, enum: ['pay_at_dharamshala', 'full_online', 'request_only'], default: null, index: true },
 

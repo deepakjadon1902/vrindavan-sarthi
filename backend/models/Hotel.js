@@ -71,7 +71,7 @@ const hotelSchema = new mongoose.Schema({
     enum: ['pay_at_dharamshala', 'full_online', 'request_only'],
     default: 'pay_at_dharamshala',
   },
-  dharamshalaServiceFee: { type: Number, default: 99 },
+  dharamshalaServiceFee: { type: Number, default: 59 },
   dharamshalaTerminology: { type: String, default: 'Dharamshala Contribution / Stay Amount' },
   dharamshalaResponseTimeoutMinutes: { type: Number, default: 30 },
   dharamshalaCancellationPolicy: { type: String, default: '' },

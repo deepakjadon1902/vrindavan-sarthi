@@ -64,7 +64,7 @@ const PartnerAddHotel = () => {
     gstMode: 'automatic' as 'manual' | 'automatic',
     showPrices: true,
     dharamshalaPaymentMode: 'pay_at_dharamshala' as const,
-    dharamshalaServiceFee: '99',
+    dharamshalaServiceFee: '59',
     dharamshalaResponseTimeoutMinutes: '30',
     petsAllowed: false,
     propertyTerms: normalizePropertyTerms(),
@@ -129,7 +129,7 @@ const PartnerAddHotel = () => {
       gstMode: target.gstMode || 'automatic',
       showPrices: target.showPrices !== false,
       dharamshalaPaymentMode: target.dharamshalaPaymentMode || 'pay_at_dharamshala',
-      dharamshalaServiceFee: String(target.dharamshalaServiceFee ?? 99),
+      dharamshalaServiceFee: String(target.dharamshalaServiceFee ?? 59),
       dharamshalaResponseTimeoutMinutes: String(target.dharamshalaResponseTimeoutMinutes ?? 30),
       petsAllowed: Boolean(target.petsAllowed),
       propertyTerms: normalizePropertyTerms(target.propertyTerms),
@@ -244,7 +244,7 @@ const PartnerAddHotel = () => {
       gstMode: item.gstMode || 'automatic',
       showPrices: item.showPrices !== false,
       dharamshalaPaymentMode: item.dharamshalaPaymentMode || 'pay_at_dharamshala',
-      dharamshalaServiceFee: String(item.dharamshalaServiceFee ?? 99),
+      dharamshalaServiceFee: String(item.dharamshalaServiceFee ?? 59),
       dharamshalaResponseTimeoutMinutes: String(item.dharamshalaResponseTimeoutMinutes ?? 30),
       petsAllowed: Boolean(item.petsAllowed),
       propertyTerms: normalizePropertyTerms(item.propertyTerms),
@@ -494,43 +494,7 @@ const PartnerAddHotel = () => {
               </div>
               {isDharamshalaForm && (
                 <div className="md:col-span-2 rounded-lg border border-brand-gold/25 bg-brand-gold/10 p-3 font-body text-xs text-muted-foreground">
-                  Dharamshala bookings collect only the fixed service fee online. GST and other customer charges are not applied.
-                </div>
-              )}
-              {isDharamshalaForm && (
-                <div className="md:col-span-2 grid gap-3 rounded-lg border border-border bg-muted/30 p-3 md:grid-cols-3">
-                  <label className="font-body text-sm font-medium text-foreground">
-                    Booking Mode
-                    <select
-                      value={form.dharamshalaPaymentMode}
-                      onChange={(e) => setForm({ ...form, dharamshalaPaymentMode: e.target.value as typeof form.dharamshalaPaymentMode })}
-                      className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="pay_at_dharamshala">Service fee online, stay amount at Dharamshala</option>
-                      <option value="full_online">Full amount online</option>
-                      <option value="request_only">Request only, no online payment</option>
-                    </select>
-                  </label>
-                  <label className="font-body text-sm font-medium text-foreground">
-                    Service Fee
-                    <input
-                      type="number"
-                      min="0"
-                      value={form.dharamshalaServiceFee}
-                      onChange={(e) => setForm({ ...form, dharamshalaServiceFee: e.target.value })}
-                      className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    />
-                  </label>
-                  <label className="font-body text-sm font-medium text-foreground">
-                    Response Timeout Minutes
-                    <input
-                      type="number"
-                      min="1"
-                      value={form.dharamshalaResponseTimeoutMinutes}
-                      onChange={(e) => setForm({ ...form, dharamshalaResponseTimeoutMinutes: e.target.value })}
-                      className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    />
-                  </label>
+                  Dharamshala flow is fixed and simple: guest sends request, you accept or reject it, then guest pays Rs. 59 online to confirm. Donation or contribution is handled by the Dharamshala at check-in or as per your own stay rules.
                 </div>
               )}
               <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
