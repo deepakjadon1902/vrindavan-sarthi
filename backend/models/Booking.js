@@ -179,6 +179,7 @@ const bookingSchema = new mongoose.Schema({
   propertyDecisionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   propertyDecisionRole: { type: String, enum: ['admin', 'partner', 'system'], default: null },
   propertyDecisionReason: String,
+  propertyPaymentChoice: { type: String, enum: ['pay_at_dharamshala', 'full_online', 'request_only'], default: null },
   idempotencyKey: { type: String, index: true },
   bookingSource: { type: String, default: 'web' },
   confirmedAt: Date,

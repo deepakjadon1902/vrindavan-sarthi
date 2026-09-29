@@ -28,6 +28,7 @@ interface PartnerHotel {
   hotelGstin?: string;
   showPrices?: boolean;
   dharamshalaPaymentMode?: 'pay_at_dharamshala' | 'full_online' | 'request_only';
+  dharamshalaPlatformFeeEnabled?: boolean;
   dharamshalaServiceFee?: number;
   dharamshalaResponseTimeoutMinutes?: number;
   taxEnabled?: boolean;
@@ -64,7 +65,8 @@ const PartnerAddHotel = () => {
     gstMode: 'automatic' as 'manual' | 'automatic',
     showPrices: true,
     dharamshalaPaymentMode: 'pay_at_dharamshala' as const,
-    dharamshalaServiceFee: '59',
+    dharamshalaPlatformFeeEnabled: true,
+    dharamshalaServiceFee: '79',
     dharamshalaResponseTimeoutMinutes: '30',
     petsAllowed: false,
     propertyTerms: normalizePropertyTerms(),
@@ -129,7 +131,8 @@ const PartnerAddHotel = () => {
       gstMode: target.gstMode || 'automatic',
       showPrices: target.showPrices !== false,
       dharamshalaPaymentMode: target.dharamshalaPaymentMode || 'pay_at_dharamshala',
-      dharamshalaServiceFee: String(target.dharamshalaServiceFee ?? 59),
+      dharamshalaPlatformFeeEnabled: target.dharamshalaPlatformFeeEnabled !== false,
+      dharamshalaServiceFee: String(target.dharamshalaServiceFee ?? 79),
       dharamshalaResponseTimeoutMinutes: String(target.dharamshalaResponseTimeoutMinutes ?? 30),
       petsAllowed: Boolean(target.petsAllowed),
       propertyTerms: normalizePropertyTerms(target.propertyTerms),
@@ -190,6 +193,7 @@ const PartnerAddHotel = () => {
       gstMode: isDharamshalaType(form.propertyType) ? 'manual' : form.gstMode,
       showPrices: Boolean(form.showPrices),
       dharamshalaPaymentMode: form.dharamshalaPaymentMode,
+      dharamshalaPlatformFeeEnabled: Boolean(form.dharamshalaPlatformFeeEnabled),
       dharamshalaServiceFee: Number(form.dharamshalaServiceFee || 0),
       dharamshalaResponseTimeoutMinutes: Number(form.dharamshalaResponseTimeoutMinutes || 30),
       amenities: form.amenities
@@ -244,7 +248,8 @@ const PartnerAddHotel = () => {
       gstMode: item.gstMode || 'automatic',
       showPrices: item.showPrices !== false,
       dharamshalaPaymentMode: item.dharamshalaPaymentMode || 'pay_at_dharamshala',
-      dharamshalaServiceFee: String(item.dharamshalaServiceFee ?? 59),
+      dharamshalaPlatformFeeEnabled: item.dharamshalaPlatformFeeEnabled !== false,
+      dharamshalaServiceFee: String(item.dharamshalaServiceFee ?? 79),
       dharamshalaResponseTimeoutMinutes: String(item.dharamshalaResponseTimeoutMinutes ?? 30),
       petsAllowed: Boolean(item.petsAllowed),
       propertyTerms: normalizePropertyTerms(item.propertyTerms),
@@ -494,7 +499,7 @@ const PartnerAddHotel = () => {
               </div>
               {isDharamshalaForm && (
                 <div className="md:col-span-2 rounded-lg border border-brand-gold/25 bg-brand-gold/10 p-3 font-body text-xs text-muted-foreground">
-                  Dharamshala flow is fixed and simple: guest sends request, you accept or reject it, then guest pays Rs. 59 online to confirm. Donation or contribution is handled by the Dharamshala at check-in or as per your own stay rules.
+                  Dharamshala flow: guest sends request, you accept or reject it, then choose whether the guest pays room contribution online now or at check-in. Any admin-configured platform fee is applied automatically.
                 </div>
               )}
               <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">

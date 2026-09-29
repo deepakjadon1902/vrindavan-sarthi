@@ -9,6 +9,8 @@ interface ListingCardProps {
   location: string;
   price?: number;
   priceLabel?: string;
+  pricePlaceholder?: string;
+  priceHelp?: string;
   rating: number;
   reviewCount?: number;
   badge?: string;
@@ -117,15 +119,15 @@ const VRSRating = ({ rating, reviewCount }: { rating: number; reviewCount: numbe
   );
 };
 
-const VRSPrice = ({ kind, price, unit }: { kind: CardKind; price?: number; unit: string }) => {
+const VRSPrice = ({ kind, price, unit, placeholder, help }: { kind: CardKind; price?: number; unit: string; placeholder?: string; help?: string }) => {
   const copy = cardCopy[kind];
   const hasPrice = typeof price === 'number' && Number.isFinite(price) && price > 0;
 
   if (!hasPrice) {
     return (
       <div>
-        <span className="font-body text-[15px] font-semibold text-foreground">{copy.emptyPrice}</span>
-        <span className="mt-1 block font-body text-[12px] text-muted-foreground">{copy.emptyPriceHelp}</span>
+        <span className="font-body text-[15px] font-semibold text-foreground">{placeholder || copy.emptyPrice}</span>
+        <span className="mt-1 block font-body text-[12px] text-muted-foreground">{help || copy.emptyPriceHelp}</span>
       </div>
     );
   }
@@ -299,6 +301,8 @@ interface VRSCardShellProps {
   amenities: string[];
   price?: number;
   priceUnit: string;
+  pricePlaceholder?: string;
+  priceHelp?: string;
   actionLabel: string;
   imageRatio: string;
   cardMinHeight: string;
@@ -323,12 +327,14 @@ const VRSCardFooter = ({
   kind,
   price,
   priceUnit,
+  pricePlaceholder,
+  priceHelp,
   actionLabel,
   onViewDetails,
-}: Pick<VRSCardShellProps, 'kind' | 'price' | 'priceUnit' | 'actionLabel' | 'onViewDetails'>) => (
+}: Pick<VRSCardShellProps, 'kind' | 'price' | 'priceUnit' | 'pricePlaceholder' | 'priceHelp' | 'actionLabel' | 'onViewDetails'>) => (
   <div className="mt-auto pt-4">
     <div>
-      <VRSPrice kind={kind} price={price} unit={priceUnit} />
+      <VRSPrice kind={kind} price={price} unit={priceUnit} placeholder={pricePlaceholder} help={priceHelp} />
     </div>
 
     <button
@@ -357,6 +363,8 @@ const VRSCardShell = ({
   amenities,
   price,
   priceUnit,
+  pricePlaceholder,
+  priceHelp,
   actionLabel,
   imageRatio,
   cardMinHeight,
@@ -394,7 +402,7 @@ const VRSCardShell = ({
         <h3 className="line-clamp-2 font-body text-[17px] font-semibold leading-snug text-foreground">{name || 'Listing'}</h3>
         <VRSLocation kind={kind} location={location} />
         <VRSAmenities kind={kind} items={amenities} />
-        <VRSCardFooter kind={kind} price={price} priceUnit={priceUnit} actionLabel={actionLabel} onViewDetails={onViewDetails} />
+        <VRSCardFooter kind={kind} price={price} priceUnit={priceUnit} pricePlaceholder={pricePlaceholder} priceHelp={priceHelp} actionLabel={actionLabel} onViewDetails={onViewDetails} />
       </div>
     </div>
   </article>
@@ -415,6 +423,8 @@ const ListingCard = ({
   location,
   price,
   priceLabel = '/night',
+  pricePlaceholder,
+  priceHelp,
   rating,
   reviewCount = 0,
   badge,
@@ -491,6 +501,8 @@ const ListingCard = ({
     amenities: visibleAmenities,
     price,
     priceUnit,
+    pricePlaceholder,
+    priceHelp,
     actionLabel,
     imageRatio,
     cardMinHeight,

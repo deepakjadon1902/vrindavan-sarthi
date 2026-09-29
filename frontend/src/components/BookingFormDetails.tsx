@@ -1,4 +1,5 @@
 import type { Booking } from '@/store/bookingStore';
+import { formatBookingStatus } from '@/lib/bookingStatus';
 
 type Props = {
   booking: Booking;
@@ -28,7 +29,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
   const canShowEmail = viewer !== 'partner' || booking.bookingStatus === 'confirmed';
   const guestDetails = booking.guestDetails || [];
   const isDharamshala = String(booking.propertyType || '').toLowerCase() === 'dharamshala';
-  const isConfirmedDharamshala = isDharamshala && ['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(booking.bookingStatus || ''));
+  const isAcceptedDharamshala = isDharamshala && ['awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(booking.bookingStatus || ''));
   const isHotelMarketplace =
     booking.service_billing_model === 'hotel_marketplace' ||
     ['hotel', 'room', 'room_type'].includes(booking.bookingType);
@@ -101,17 +102,17 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         </p>
         {isDharamshala && viewer !== 'admin' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <Field label="Booking confirmation paid online" value={formatMoney(booking.amountPaidOnline || 0)} />
+            <Field label="Paid online" value={formatMoney(booking.amountPaidOnline || 0)} />
             <Field
               label="Donation / contribution"
-              value={isConfirmedDharamshala ? formatMoney(booking.dharamshalaAmount || booking.baseAmount || 0) : 'Visible after confirmation'}
+              value={isAcceptedDharamshala ? formatMoney(booking.dharamshalaAmount || booking.baseAmount || 0) : 'Visible after partner acceptance'}
             />
             <Field
-              label="Donation payable at check-in / as per Dharamshala"
-              value={isConfirmedDharamshala ? formatMoney(booking.amountPayableAtProperty || 0) : 'Visible after confirmation'}
+              label="Contribution payable at check-in"
+              value={isAcceptedDharamshala ? formatMoney(booking.amountPayableAtProperty || 0) : 'Visible after partner acceptance'}
             />
             <Field label="Payment status" value={String(booking.paymentStatus || '').replace(/_/g, ' ')} />
-            <Field label="Booking status" value={String(booking.bookingStatus || '').replace(/_/g, ' ')} />
+            <Field label="Booking status" value={formatBookingStatus(booking.bookingStatus)} />
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

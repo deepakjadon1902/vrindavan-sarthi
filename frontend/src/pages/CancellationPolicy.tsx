@@ -42,7 +42,7 @@ const servicePolicies = [
   {
     icon: MapPinned,
     title: 'Dharamshala Bookings',
-    text: 'For Dharamshala booking requests, Vrindavan Sarthi charges a Rs. 59 booking confirmation payment only after the request is accepted. This confirmation payment is non-refundable on cancellation. Dharamshala donation, room contribution, or other property amount may vary and is paid directly to the Dharamshala or property manager. Any refund or change for direct Dharamshala payment is handled by that Dharamshala according to its own rules.',
+    text: 'For Dharamshala booking requests, any admin-configured platform fee is charged only after the partner accepts the request. This platform fee is non-refundable on cancellation unless approved by admin or required by law. The partner may choose whether the room donation/contribution is paid online with the platform fee or collected at check-in.',
   },
   {
     icon: Car,

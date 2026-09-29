@@ -246,6 +246,35 @@ const markBookingPaymentFailed = async (booking, meta = {}) => {
   return booking;
 };
 
+const repairPaidAwaitingCustomerPaymentBookings = async ({ actorRole = 'system', reason = 'paid_dharamshala_booking_repaired' } = {}) => {
+  const now = new Date();
+  return Booking.updateMany(
+    {
+      propertyType: 'dharamshala',
+      bookingStatus: 'awaiting_customer_payment',
+      paymentStatus: 'paid',
+    },
+    {
+      $set: {
+        bookingStatus: 'confirmed',
+        verificationStage: 'verified',
+        partnerPaymentVerified: true,
+        adminPaymentVerified: true,
+        confirmedAt: now,
+      },
+      $push: {
+        statusHistory: {
+          from: 'awaiting_customer_payment',
+          to: 'confirmed',
+          at: now,
+          actorRole,
+          reason,
+        },
+      },
+    }
+  );
+};
+
 const expirePendingBookings = async ({ now = new Date(), limit = 100, beforeExpireBooking } = {}) => {
   const safeLimit = Math.max(1, Math.min(500, Number(limit) || 100));
   const bookings = await Booking.find({
@@ -318,6 +347,7 @@ module.exports = {
   releaseBookingInventory,
   markBookingPaymentPaid,
   markBookingPaymentFailed,
+  repairPaidAwaitingCustomerPaymentBookings,
   expirePendingBookings,
   isLodgingBooking,
 };

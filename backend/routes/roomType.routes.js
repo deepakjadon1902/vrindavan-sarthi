@@ -47,6 +47,15 @@ const setMemCache = (key, value, ttlMs) => {
   memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
 };
 
+const isDharamshalaHotel = (hotel) => String(hotel?.propertyType || '').toLowerCase() === 'dharamshala';
+
+const hidePublicDharamshalaRoomContribution = (roomType, hotel) => {
+  if (roomType && isDharamshalaHotel(hotel || roomType.hotel)) {
+    delete roomType.pricePerNight;
+  }
+  return roomType;
+};
+
 const getAvailabilityStatus = ({ totalCount, availableCount, manualKinds = [], hasOnlineBookings = false }) => {
   if (availableCount > 0) return { status: 'available', label: `${availableCount} rooms available` };
   if (totalCount <= 0) return { status: 'closed', label: 'Booking closed' };
@@ -91,7 +100,7 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
       ? await User.findById(roomType.createdByUserId).select('_id role businessName profileDisplayName profileBio profilePicture').lean()
       : null;
 
-      const base = {
+  const base = hidePublicDharamshalaRoomContribution({
         ...roomType,
         images: roomImages.length ? roomImages : hotelImageSet.images,
         totalCount,
@@ -124,7 +133,7 @@ const enrichRoomType = async ({ roomType, hotel, checkIn, checkOut }) => {
           googleMapLink: hotel.googleMapLink,
           propertyTerms: hotel.propertyTerms,
         },
-      };
+      }, hotel);
 
   const withAvailability = isValidDate(checkIn) && isValidDate(checkOut) && checkIn < checkOut;
   if (!withAvailability) return base;
@@ -295,6 +304,7 @@ router.get('/', async (req, res) => {
         }
         rt.images = normalizePublicImages(rt.images, { max: 4 });
         if (!rt.images?.length && rt?.hotel?.images?.length) rt.images = rt.hotel.images;
+        hidePublicDharamshalaRoomContribution(rt);
       }
 
       if (cacheKey) setMemCache(cacheKey, data, 30_000);
@@ -396,7 +406,7 @@ router.get('/', async (req, res) => {
           hasOnlineBookings: bookedIds.length > 0,
         });
 
-        return {
+        return hidePublicDharamshalaRoomContribution({
           ...rt,
           totalCount,
           availableCount,
@@ -435,7 +445,7 @@ router.get('/', async (req, res) => {
           googleMapLink: hotel.googleMapLink,
           propertyTerms: hotel.propertyTerms,
         },
-        };
+        }, hotel);
       })
       .filter(Boolean);
 

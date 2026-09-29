@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import BookingFormDetails from '@/components/BookingFormDetails';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
+import { formatBookingStatus, formatBookingStatusFilter } from '@/lib/bookingStatus';
 
 const PartnerBookings = () => {
   const { user } = useAuthStore();
@@ -61,9 +62,15 @@ const PartnerBookings = () => {
     String(b.propertyType || '').toLowerCase() === 'dharamshala' &&
     b.bookingStatus === 'pending_property_confirmation';
 
-  const handleAcceptDharamshala = async (id: string) => {
-    const res = await acceptDharamshalaRequest(id);
-    if (res.success) toast.success(res.data?.bookingStatus === 'awaiting_customer_payment' ? 'Request accepted. Customer can pay online.' : 'Request accepted and confirmed.');
+  const handleAcceptDharamshala = async (id: string, paymentMode: 'pay_at_dharamshala' | 'full_online') => {
+    const res = await acceptDharamshalaRequest(id, paymentMode);
+    if (res.success) {
+      toast.success(
+        paymentMode === 'full_online'
+          ? 'Request accepted. Customer will pay the online amount shown for this booking.'
+          : 'Request accepted. Customer will pay any online platform fee now and contribution at check-in.'
+      );
+    }
     else toast.error(res.error || 'Accept failed');
   };
 
@@ -141,7 +148,7 @@ const PartnerBookings = () => {
               filter === f ? 'bg-brand-crimson text-primary-foreground' : 'bg-card border border-border hover:bg-muted'
             }`}
           >
-            {f} ({f === 'all' ? bookings.length : bookings.filter((b) => b.bookingStatus === f).length})
+            {formatBookingStatusFilter(f)} ({f === 'all' ? bookings.length : bookings.filter((b) => b.bookingStatus === f).length})
           </button>
         ))}
       </div>
@@ -222,7 +229,7 @@ const PartnerBookings = () => {
                       </span>
                     </div>
                     <span className={`font-body text-xs px-2 py-1 rounded-full capitalize ${statusColor(b.bookingStatus)}`}>
-                      {b.bookingStatus}
+                      {formatBookingStatus(b.bookingStatus)}
                     </span>
                   </div>
 
@@ -266,7 +273,7 @@ const PartnerBookings = () => {
                     <div className="mt-3 grid gap-1 rounded-lg border border-brand-gold/25 bg-brand-cream/40 px-3 py-2 font-body text-xs text-foreground sm:grid-cols-2">
                       <span>Confirmation paid online: Rs. {Number(b.amountPaidOnline || 0).toLocaleString('en-IN')}</span>
                       <span>
-                        Donation: {['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(b.bookingStatus || ''))
+                        Contribution: {['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(b.bookingStatus || ''))
                           ? `Rs. ${Number(b.amountPayableAtProperty || b.dharamshalaAmount || 0).toLocaleString('en-IN')}`
                           : 'Visible after confirmation'}
                       </span>
@@ -328,10 +335,16 @@ const PartnerBookings = () => {
                   {canDecideDharamshala(b) && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
-                        onClick={() => handleAcceptDharamshala(b.id)}
+                        onClick={() => handleAcceptDharamshala(b.id, 'full_online')}
                         className="px-4 py-2 rounded-lg text-xs font-body bg-brand-green text-primary-foreground hover:bg-brand-green/90"
                       >
-                        Accept Request
+                        Collect Full Amount Online
+                      </button>
+                      <button
+                        onClick={() => handleAcceptDharamshala(b.id, 'pay_at_dharamshala')}
+                        className="px-4 py-2 rounded-lg text-xs font-body bg-brand-gold text-foreground hover:bg-brand-gold/90"
+                      >
+                        Contribution at Check-in
                       </button>
                       <button
                         onClick={() => handleRejectDharamshala(b.id)}

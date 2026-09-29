@@ -8,6 +8,7 @@ import Footer from '@/components/layout/Footer';
 import { Link } from 'react-router-dom';
 import { api, resolveBackendAssetUrl, withAuth } from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { formatBookingStatus } from '@/lib/bookingStatus';
 import type { PartnerDocumentUpload, User as AuthUser } from '@/types/auth.types';
 
 const DOCUMENT_TYPES = [
@@ -479,7 +480,7 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
                             b.bookingStatus === 'confirmed' ? 'bg-brand-green/10 text-brand-green' :
                             b.bookingStatus === 'cancelled' ? 'bg-destructive/10 text-destructive' :
                             'bg-brand-gold/10 text-brand-gold'
-                          }`}>{b.bookingStatus}</span>
+                          }`}>{formatBookingStatus(b.bookingStatus)}</span>
                         </div>
                       </Link>
                     ))}

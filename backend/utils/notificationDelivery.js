@@ -316,9 +316,9 @@ const bookingConfirmedMessage = (booking) => {
   if (propertyType === 'dharamshala') {
     const checkIn = booking.checkIn ? new Date(booking.checkIn).toISOString().slice(0, 10) : '';
     const checkOut = booking.checkOut ? new Date(booking.checkOut).toISOString().slice(0, 10) : '';
-    const confirmationFee = Number(booking.amountPaidOnline || booking.vrindavanSarthiServiceFee || 59);
-    const donation = Number(booking.amountPayableAtProperty || booking.dharamshalaAmount || 0);
-    return `${item} confirmed for ${guest}${checkIn ? `, ${checkIn}${checkOut ? ` to ${checkOut}` : ''}` : ''}. Rs. ${confirmationFee.toLocaleString('en-IN')} confirmation paid. Donation/contribution ${donation ? `INR ${donation.toLocaleString('en-IN')}` : 'as per Dharamshala'} payable directly to property.`;
+    const paidOnline = Number(booking.amountPaidOnline || 0);
+    const payableAtProperty = Number(booking.amountPayableAtProperty || 0);
+    return `${item} confirmed for ${guest}${checkIn ? `, ${checkIn}${checkOut ? ` to ${checkOut}` : ''}` : ''}. Online paid INR ${paidOnline.toLocaleString('en-IN')}. ${payableAtProperty ? `Contribution payable at check-in INR ${payableAtProperty.toLocaleString('en-IN')}.` : 'No contribution balance is due at check-in.'}`;
   }
   const amount = Number(booking.totalAmount || booking.customer_total || 0);
   return `${item} confirmed for ${guest}. Amount INR ${amount.toLocaleString('en-IN')}.`;
@@ -509,6 +509,7 @@ const createBookingAlarmNotification = async ({
   eventType = BOOKING_CONFIRMED_EVENT,
   title,
   message,
+  alarm = true,
 }) => {
   const now = new Date();
   const alarmExpiresAt = new Date(now.getTime() + getBookingAlarmDurationSeconds() * 1000);
@@ -525,12 +526,12 @@ const createBookingAlarmNotification = async ({
     hotelId: booking.hotelId,
     bookingId: booking._id,
     eventType,
-    priority: 'critical',
+    priority: alarm ? 'critical' : 'normal',
     entityType: 'booking',
     entityId: String(booking._id),
-    alarmStatus: 'alarming',
-    alarmStartedAt: now,
-    alarmExpiresAt,
+    alarmStatus: alarm ? 'alarming' : 'created',
+    alarmStartedAt: alarm ? now : undefined,
+    alarmExpiresAt: alarm ? alarmExpiresAt : undefined,
     metadata: {
       bookingCode: booking.bookingId,
       bookingType: booking.bookingType,
@@ -650,12 +651,14 @@ const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, option
   const recipients = admins.map((admin) => ({
     recipientUserId: admin._id,
     recipientRole: 'admin',
+    alarm: false,
   }));
   if (partnerId) {
     recipients.push({
       recipientUserId: partnerId,
       recipientRole: 'partner',
       partnerId,
+      alarm: true,
     });
   }
 
@@ -664,8 +667,9 @@ const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, option
       booking,
       ...recipient,
       eventType: DHARAMSHALA_PROPERTY_REVIEW_EVENT,
-      title: `Dharamshala review ${booking.bookingId}`,
-      message: dharamshalaPropertyReviewMessage(booking),
+      title: recipient.recipientRole === 'admin' ? `Dharamshala booking request ${booking.bookingId}` : `Dharamshala review ${booking.bookingId}`,
+      message: recipient.recipientRole === 'admin' ? `New Dharamshala booking request ${booking.bookingId} for ${booking.itemName}. Partner will accept or reject.` : dharamshalaPropertyReviewMessage(booking),
+      alarm: recipient.alarm,
     })
   ));
 
@@ -682,15 +686,17 @@ const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, option
       hotelId: booking.hotelId,
       payload: { notificationId: notification._id },
     }, options));
-    deliveries.push(...ensureBookingAlarmPushDeliveries({
-      notificationKeyPrefix: 'dharamshala-review',
-      eventType: 'dharamshala.property_review',
-      recipientUserId: notification.recipientUserId,
-      bookingId: booking._id,
-      partnerId,
-      hotelId: booking.hotelId,
-      notificationId: notification._id,
-    }, options));
+    if (notification.recipientRole === 'partner') {
+      deliveries.push(...ensureBookingAlarmPushDeliveries({
+        notificationKeyPrefix: 'dharamshala-review',
+        eventType: 'dharamshala.property_review',
+        recipientUserId: notification.recipientUserId,
+        bookingId: booking._id,
+        partnerId,
+        hotelId: booking.hotelId,
+        notificationId: notification._id,
+      }, options));
+    }
   }
 
   await Promise.all(deliveries);

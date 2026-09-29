@@ -158,7 +158,7 @@ const HotelDetail = () => {
   const getTaxInclusivePrice = (rt: RoomType) => {
     const base = Number(rt.pricePerNight || 0);
     const rtHotel = rt.hotel || hotel;
-    if (isDharamshalaType(rtHotel?.propertyType)) return Math.round(base * 1.1);
+    if (isDharamshalaType(rtHotel?.propertyType)) return undefined;
     if (!rtHotel?.taxEnabled) return base;
     const percent = rtHotel.gstMode === 'automatic'
       ? base <= 7500 ? 5 : 18
@@ -184,7 +184,7 @@ const HotelDetail = () => {
   const showPrices = hotel?.showPrices !== false;
   const isDharamshalaProperty = isDharamshalaType(hotel?.propertyType);
   const hasPublicRoomPrice = (rt: RoomType) =>
-    showPrices && (!isDharamshalaType((rt.hotel || hotel)?.propertyType) || Number(rt.pricePerNight || 0) > 0);
+    showPrices && !isDharamshalaType((rt.hotel || hotel)?.propertyType) && Number(rt.pricePerNight || 0) > 0;
   const hasBookingWorkflow = (rt: RoomType) => showPrices || isDharamshalaType((rt.hotel || hotel)?.propertyType);
   const hasAnyPublicPricedRoom = roomTypes.some(hasPublicRoomPrice);
   const hasAnyBookingWorkflowRoom = roomTypes.some(hasBookingWorkflow);
@@ -421,14 +421,19 @@ const HotelDetail = () => {
                                   {roomShowsPrice ? (
                                     <div className="mt-3 flex items-baseline gap-1 text-foreground">
                                       <IndianRupee size={18} className="text-brand-gold" />
-                                      <span className="font-heading text-3xl font-bold">{getTaxInclusivePrice(rt).toLocaleString('en-IN')}</span>
+                                      <span className="font-heading text-3xl font-bold">{Number(getTaxInclusivePrice(rt) || 0).toLocaleString('en-IN')}</span>
                                       <span className="font-body text-sm text-muted-foreground">/night</span>
                                     </div>
                                   ) : (
                                     <div className="mt-3">
                                       <span className="font-heading text-2xl font-bold text-foreground">
-                                        {isDharamshalaType(rtHotel?.propertyType) ? 'Contribution on request' : 'Price on request'}
+                                        {isDharamshalaType(rtHotel?.propertyType) ? 'Contribution after acceptance' : 'Price on request'}
                                       </span>
+                                      {isDharamshalaType(rtHotel?.propertyType) && (
+                                        <span className="mt-1 block font-body text-xs font-medium text-muted-foreground">
+                                          Shown only after the partner accepts your booking request.
+                                        </span>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -663,7 +668,7 @@ const HotelDetail = () => {
                 )}
                 <p className="mt-2.5 font-body text-[11px] text-muted-foreground text-center flex items-center justify-center gap-1.5">
                   <CalendarDays size={12} />
-                  {hasAnyBookingWorkflowRoom ? (isDharamshalaProperty ? 'Submit a request first. Contact details appear after booking confirmation.' : 'Book a specific room type from this property page.') : 'Prices and availability are confirmed by our booking desk.'}
+                  {hasAnyBookingWorkflowRoom ? (isDharamshalaProperty ? 'Submit a request first. Contact details appear after partner acceptance.' : 'Book a specific room type from this property page.') : 'Prices and availability are confirmed by our booking desk.'}
                 </p>
               </div>
 

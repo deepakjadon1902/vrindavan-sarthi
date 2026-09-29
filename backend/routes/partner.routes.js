@@ -161,6 +161,8 @@ const stripPartnerListingProtectedFields = (body) => {
     'partnerSubmitted',
     'approvalStatus',
     'adminRemarks',
+    'dharamshalaPlatformFeeEnabled',
+    'dharamshalaServiceFee',
     'createdAt',
     'updatedAt',
     'createdByUserId',
@@ -203,7 +205,8 @@ const applyPartnerHotelDefaults = (body, user) => {
   body.platform_commission_percentage = 10;
   body.showPrices = typeof body?.showPrices === 'undefined' ? true : Boolean(body.showPrices);
   body.dharamshalaPaymentMode = 'pay_at_dharamshala';
-  body.dharamshalaServiceFee = 59;
+  body.dharamshalaPlatformFeeEnabled = true;
+  body.dharamshalaServiceFee = 79;
   const responseTimeout = Number(body?.dharamshalaResponseTimeoutMinutes);
   body.dharamshalaResponseTimeoutMinutes = Number.isFinite(responseTimeout) && responseTimeout > 0 ? Math.min(7 * 24 * 60, Math.floor(responseTimeout)) : 30;
   for (const key of ['dharamshalaTerminology', 'dharamshalaCancellationPolicy', 'dharamshalaNoShowPolicy', 'dharamshalaIdRequirement']) {
@@ -371,7 +374,7 @@ router.get('/my-listings', protect, authorize('partner'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerId: req.user._id })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaPlatformFeeEnabled dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement propertyTerms createdAt updatedAt')
       .lean();
 
     hotelQuery.limit(limit);
@@ -397,7 +400,7 @@ router.get('/requests', protect, authorize('admin'), async (req, res) => {
     const hotelQuery = Hotel.find({ partnerSubmitted: true })
       .sort({ createdAt: -1 })
       // Keep listing payload small; images may be stored as huge base64 strings.
-      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image images description amenities googleMapLink nearestTemple checkInTime checkOutTime hotelGstin status approvalStatus adminRemarks partnerId partnerName partnerEmail partnerPhone businessName petsAllowed taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaPlatformFeeEnabled dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement propertyTerms createdAt updatedAt')
       .lean();
     hotelQuery.limit(limit);
 
@@ -419,6 +422,12 @@ router.put('/hotels/:id/status', protect, authorize('admin'), async (req, res) =
     const update = { approvalStatus, adminRemarks };
     if (approvalStatus === 'approved') update.status = 'active';
     if (approvalStatus === 'rejected') update.status = 'inactive';
+    const platformFeeEnabled = typeof req.body?.dharamshalaPlatformFeeEnabled === 'undefined'
+      ? undefined
+      : Boolean(req.body.dharamshalaPlatformFeeEnabled);
+    const platformFee = Number(req.body?.dharamshalaServiceFee);
+    if (typeof platformFeeEnabled !== 'undefined') update.dharamshalaPlatformFeeEnabled = platformFeeEnabled;
+    if (Number.isFinite(platformFee) && platformFee >= 0) update.dharamshalaServiceFee = Math.min(100000, Math.round(platformFee));
     const hotel = await Hotel.findByIdAndUpdate(req.params.id, update, { new: true });
     res.json({ success: true, data: hotel });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }

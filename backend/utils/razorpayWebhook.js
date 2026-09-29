@@ -65,7 +65,7 @@ const markBookingPaidFromRazorpay = async (booking, {
   status = 'captured',
 } = {}) => {
   const alreadyPaid = booking?.paymentStatus === 'paid';
-  const updated = alreadyPaid
+  const updated = alreadyPaid && String(booking?.bookingStatus || '') === 'confirmed'
     ? booking
     : await markBookingPaymentPaid(booking, {
       paymentProvider: 'razorpay',

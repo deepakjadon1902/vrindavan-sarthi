@@ -12,7 +12,7 @@ const {
 } = require('./reservationLifecycle');
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
-const DHARAMSHALA_CONFIRMATION_FEE = 59;
+const DEFAULT_DHARAMSHALA_PLATFORM_FEE = 79;
 
 const normalizePaymentMode = () => 'pay_at_dharamshala';
 
@@ -27,12 +27,21 @@ const getDharamshalaRequestExpiresAt = (hotel, from = new Date()) =>
 
 const roundMoney = (value) => Math.max(0, Math.round(Number(value || 0)));
 
-const buildDharamshalaAccounting = ({ hotel, roomType, nights, roomQuantity }) => {
-  const paymentMode = normalizePaymentMode();
+const getDharamshalaPlatformFee = (hotel) => {
+  if (hotel?.dharamshalaPlatformFeeEnabled === false) return 0;
+  const fee = Number(hotel?.dharamshalaServiceFee);
+  return roundMoney(Number.isFinite(fee) ? fee : DEFAULT_DHARAMSHALA_PLATFORM_FEE);
+};
+
+const buildDharamshalaAccounting = ({ hotel, roomType, nights, roomQuantity, paymentMode = normalizePaymentMode() }) => {
   const dharamshalaAmount = roundMoney(Number(roomType?.pricePerNight || 0) * Math.max(1, nights) * Math.max(1, roomQuantity));
-  const vrindavanSarthiServiceFee = DHARAMSHALA_CONFIRMATION_FEE;
-  const amountPaidOnline = vrindavanSarthiServiceFee;
-  const amountPayableAtProperty = dharamshalaAmount;
+  const vrindavanSarthiServiceFee = getDharamshalaPlatformFee(hotel);
+  const amountPaidOnline = paymentMode === 'full_online'
+    ? vrindavanSarthiServiceFee + dharamshalaAmount
+    : paymentMode === 'pay_at_dharamshala'
+      ? vrindavanSarthiServiceFee
+      : 0;
+  const amountPayableAtProperty = paymentMode === 'full_online' ? 0 : dharamshalaAmount;
 
   return {
     paymentMode,
@@ -258,24 +267,51 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
   booking.propertyDecisionBy = actor?._id;
   booking.propertyDecisionRole = actor?.role || 'partner';
   booking.propertyDecisionReason = 'accepted';
-  booking.paymentMode = 'pay_at_dharamshala';
-  booking.vrindavanSarthiServiceFee = DHARAMSHALA_CONFIRMATION_FEE;
-  booking.amountPaidOnline = DHARAMSHALA_CONFIRMATION_FEE;
-  booking.amountPayableAtProperty = roundMoney(booking.dharamshalaAmount || booking.baseAmount || booking.checkoutSubtotal || 0);
-  booking.advanceAmount = DHARAMSHALA_CONFIRMATION_FEE;
-  booking.advance_paid = DHARAMSHALA_CONFIRMATION_FEE;
-  booking.balanceAmount = booking.amountPayableAtProperty;
-  booking.balance_at_property = booking.amountPayableAtProperty;
-  booking.totalAmount = booking.amountPayableAtProperty + DHARAMSHALA_CONFIRMATION_FEE;
-  booking.customer_total = booking.totalAmount;
-
-  booking.paymentStatus = 'pending';
-  booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt();
-  await transitionBookingStatus(booking, 'awaiting_customer_payment', {
-    actorId: actor?._id,
-    actorRole: actor?.role || 'partner',
-    reason: 'dharamshala_request_accepted_payment_required',
+  const requestedMode = String(actor?.paymentMode || actor?.propertyPaymentChoice || '').trim();
+  const paymentMode = requestedMode === 'full_online' ? 'full_online' : 'pay_at_dharamshala';
+  const accounting = buildDharamshalaAccounting({
+    hotel,
+    roomType,
+    nights: roomContext.daysToReserve.length,
+    roomQuantity: booking.roomQuantity,
+    paymentMode,
   });
+
+  booking.paymentMode = paymentMode;
+  booking.propertyPaymentChoice = paymentMode;
+  booking.vrindavanSarthiServiceFee = accounting.vrindavanSarthiServiceFee;
+  booking.amountPaidOnline = accounting.amountPaidOnline;
+  booking.amountPayableAtProperty = accounting.amountPayableAtProperty;
+  booking.advanceAmount = accounting.advanceAmount;
+  booking.advance_paid = accounting.advance_paid;
+  booking.balanceAmount = accounting.balanceAmount;
+  booking.balance_at_property = accounting.balance_at_property;
+  booking.totalAmount = accounting.totalAmount;
+  booking.customer_total = booking.totalAmount;
+  booking.dharamshalaAmount = accounting.dharamshalaAmount;
+  booking.checkoutSubtotal = accounting.checkoutSubtotal;
+  booking.baseAmount = accounting.baseAmount;
+  booking.base_amount = accounting.base_amount;
+
+  if (accounting.amountPaidOnline > 0) {
+    booking.paymentStatus = 'pending';
+    booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt();
+    await transitionBookingStatus(booking, 'awaiting_customer_payment', {
+      actorId: actor?._id,
+      actorRole: actor?.role || 'partner',
+      reason: paymentMode === 'full_online'
+        ? 'dharamshala_request_accepted_full_online_payment_required'
+        : 'dharamshala_request_accepted_platform_fee_required',
+    });
+  } else {
+    booking.paymentStatus = 'not_required';
+    booking.paymentHoldExpiresAt = undefined;
+    await transitionBookingStatus(booking, 'confirmed', {
+      actorId: actor?._id,
+      actorRole: actor?.role || 'partner',
+      reason: 'dharamshala_request_accepted_no_online_payment_required',
+    });
+  }
   await booking.save();
   return { booking, idempotent: false };
 };
@@ -347,4 +383,5 @@ module.exports = {
   expireDharamshalaRequests,
   getDharamshalaRequestExpiresAt,
   normalizePaymentMode,
+  getDharamshalaPlatformFee,
 };

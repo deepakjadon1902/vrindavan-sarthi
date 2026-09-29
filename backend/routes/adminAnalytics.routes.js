@@ -7,12 +7,14 @@ const Hotel = require('../models/Hotel');
 const RoomType = require('../models/RoomType');
 const Cab = require('../models/Cab');
 const Tour = require('../models/Tour');
+const { repairPaidAwaitingCustomerPaymentBookings } = require('../utils/reservationLifecycle');
 
 const router = express.Router();
 
 router.get('/analytics', protect, authorize('admin'), async (req, res) => {
   try {
     const dbReadyState = mongoose.connection.readyState;
+    await repairPaidAwaitingCustomerPaymentBookings();
 
     const [
       revenueAgg,

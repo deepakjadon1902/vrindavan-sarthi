@@ -12,7 +12,7 @@ const Terms = () => {
           <section className="rounded-lg border border-brand-gold/25 bg-brand-gold/10 p-4">
             <h2 className="font-heading text-xl font-semibold text-foreground mb-3">Platform Fees and Dharamshala Charges</h2>
             <p>
-              For Dharamshala booking requests, Vrindavan Sarthi charges a Rs. 59 booking confirmation payment after the Dharamshala accepts the request. The Dharamshala donation, room contribution, or other property amount may vary according to the Dharamshala rules and must be paid directly to the Dharamshala or property manager unless the booking screen clearly says otherwise.
+              For Dharamshala booking requests, Vrindavan Sarthi may charge an admin-configured platform fee after the Dharamshala partner accepts the request. The partner may choose whether the room donation, contribution, or other property amount is paid online with that fee or collected at check-in; the booking screen shows the final payable amount.
             </p>
             <p className="mt-3">
               For hotel room bookings, Vrindavan Sarthi may charge a 10% platform fee on the room booking amount. The final payable amount shown before payment will apply to the booking.

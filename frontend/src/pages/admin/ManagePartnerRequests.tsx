@@ -19,6 +19,8 @@ const ManagePartnerRequests = () => {
   const [noticeType, setNoticeType] = useState<'notification' | 'notice'>('notification');
   const [noticeTitle, setNoticeTitle] = useState('');
   const [noticeMessage, setNoticeMessage] = useState('');
+  const [platformFeeEnabled, setPlatformFeeEnabled] = useState(true);
+  const [platformFeeAmount, setPlatformFeeAmount] = useState(79);
 
   const getApiErrorMessage = (err: unknown, fallback: string) => {
     if (axios.isAxiosError(err)) {
@@ -61,6 +63,13 @@ const ManagePartnerRequests = () => {
   const filtered = filter === 'all' ? filteredByType : filteredByType.filter(i => i.approvalStatus === filter);
   const { page, setPage, pageItems } = useRecordPagination(filtered, [filter, typeFilter]);
 
+  const openDetails = (item: any) => {
+    setViewItem(item);
+    setRemarkText(item.adminRemarks || '');
+    setPlatformFeeEnabled(item.dharamshalaPlatformFeeEnabled !== false);
+    setPlatformFeeAmount(Number(item.dharamshalaServiceFee || 79));
+  };
+
   const updateStatus = async (item: any, status: 'approved' | 'rejected', remarks: string = '') => {
     if (!token) return;
     const url =
@@ -70,7 +79,15 @@ const ManagePartnerRequests = () => {
           ? `/partner/cabs/${item.id}/status`
           : `/partner/tours/${item.id}/status`;
     try {
-      const res = await api.put(url, { approvalStatus: status, adminRemarks: remarks }, withAuth(token));
+      const payload: Record<string, unknown> = { approvalStatus: status, adminRemarks: remarks };
+      if (item.itemType === 'hotel' && String(item.propertyType || '').toLowerCase() === 'dharamshala') {
+        const useOpenPanelValues = viewItem?.id === item.id && viewItem?.itemType === item.itemType;
+        const feeEnabled = useOpenPanelValues ? platformFeeEnabled : item.dharamshalaPlatformFeeEnabled !== false;
+        const feeAmount = useOpenPanelValues ? platformFeeAmount : Number(item.dharamshalaServiceFee || 79);
+        payload.dharamshalaPlatformFeeEnabled = feeEnabled;
+        payload.dharamshalaServiceFee = feeEnabled ? feeAmount : 0;
+      }
+      const res = await api.put(url, payload, withAuth(token));
       const updated = res.data?.data;
       setAllItems((prev) =>
         prev.map((p) => (p.id === item.id && p.itemType === item.itemType ? { ...p, ...updated, id: updated?._id || p.id, itemType: p.itemType } : p))
@@ -190,12 +207,12 @@ const ManagePartnerRequests = () => {
                   <td className="px-4 py-3"><span className={`font-body text-xs px-2 py-1 rounded-full ${statusBadge(item.approvalStatus)}`}>{item.approvalStatus}</span></td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => { setViewItem(item); setRemarkText(item.adminRemarks || ''); }} className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"><Eye size={14} /></button>
+                      <button onClick={() => openDetails(item)} className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"><Eye size={14} /></button>
                       {item.approvalStatus !== 'approved' && (
                         <button onClick={() => updateStatus(item, 'approved')} className="p-1.5 rounded hover:bg-brand-green/10 transition-colors text-muted-foreground hover:text-brand-green" title="Approve"><CheckCircle size={14} /></button>
                       )}
                       {item.approvalStatus !== 'rejected' && (
-                        <button onClick={() => { setViewItem(item); setRemarkText(''); }} className="p-1.5 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive" title="Reject"><XCircle size={14} /></button>
+                        <button onClick={() => { openDetails(item); setRemarkText(''); }} className="p-1.5 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive" title="Reject"><XCircle size={14} /></button>
                       )}
                     </div>
                   </td>
@@ -243,6 +260,30 @@ const ManagePartnerRequests = () => {
               </div>
 
               {viewItem.description && <div><span className="text-muted-foreground block text-xs mb-1">Description</span><p className="text-foreground">{viewItem.description}</p></div>}
+              {viewItem.itemType === 'hotel' && String(viewItem.propertyType || '').toLowerCase() === 'dharamshala' && (
+                <div className="rounded-lg border border-brand-gold/30 bg-brand-gold/5 p-3">
+                  <label className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={platformFeeEnabled}
+                      onChange={(e) => setPlatformFeeEnabled(e.target.checked)}
+                    />
+                    Apply platform fee on this Dharamshala
+                  </label>
+                  {platformFeeEnabled && (
+                    <label className="mt-3 block">
+                      <span className="text-muted-foreground block text-xs">Platform fee amount</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={platformFeeAmount}
+                        onChange={(e) => setPlatformFeeAmount(Math.max(0, Math.round(Number(e.target.value || 0))))}
+                        className="mt-1 w-36 rounded-lg border border-border bg-background px-3 py-2 font-body text-sm"
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
               {viewItem.amenities?.length > 0 && <div><span className="text-muted-foreground block text-xs mb-1">Amenities</span><div className="flex flex-wrap gap-1">{viewItem.amenities.map((a: string, i: number) => <span key={i} className="bg-muted px-2 py-0.5 rounded text-xs">{a}</span>)}</div></div>}
               {viewItem.features?.length > 0 && <div><span className="text-muted-foreground block text-xs mb-1">Features</span><div className="flex flex-wrap gap-1">{viewItem.features.map((a: string, i: number) => <span key={i} className="bg-muted px-2 py-0.5 rounded text-xs">{a}</span>)}</div></div>}
               {viewItem.includes?.length > 0 && <div><span className="text-muted-foreground block text-xs mb-1">Includes</span><div className="flex flex-wrap gap-1">{viewItem.includes.map((a: string, i: number) => <span key={i} className="bg-brand-green/10 px-2 py-0.5 rounded text-xs text-brand-green">{a}</span>)}</div></div>}

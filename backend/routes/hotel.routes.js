@@ -55,18 +55,31 @@ const redactCommissionFields = (value) => {
 const normalizePublicHotel = (hotel) => {
   if (!hotel) return hotel;
   const imageSet = normalizePublicImageSet(hotel, { max: 4 });
-  return {
+  const publicHotel = {
     ...redactCommissionFields(hotel),
     ...imageSet,
   };
+  if (String(publicHotel.propertyType || '').toLowerCase() === 'dharamshala') {
+    delete publicHotel.pricePerNight;
+    delete publicHotel.pricePerBed;
+    delete publicHotel.priceDoubleAC;
+    delete publicHotel.priceDoubleNonAC;
+    delete publicHotel.priceSingleAC;
+    delete publicHotel.priceSingleNonAC;
+  }
+  return publicHotel;
 };
 
-const normalizePublicRoomType = (roomType) => {
+const normalizePublicRoomType = (roomType, hotel) => {
   if (!roomType) return roomType;
-  return {
+  const publicRoomType = {
     ...roomType,
     images: normalizePublicImages(roomType.images, { max: 4 }),
   };
+  if (String((hotel || roomType.hotel)?.propertyType || '').toLowerCase() === 'dharamshala') {
+    delete publicRoomType.pricePerNight;
+  }
+  return publicRoomType;
 };
 
 const normalizeHotelTaxControls = (body) => {
@@ -91,7 +104,8 @@ const normalizeHotelTaxControls = (body) => {
     body.gstMode = 'manual';
     body.platform_commission_percentage = 10;
     body.dharamshalaPaymentMode = 'pay_at_dharamshala';
-    body.dharamshalaServiceFee = 59;
+    if (typeof body.dharamshalaPlatformFeeEnabled === 'undefined') body.dharamshalaPlatformFeeEnabled = true;
+    if (typeof body.dharamshalaServiceFee === 'undefined') body.dharamshalaServiceFee = 79;
   }
   const mode = String(body.dharamshalaPaymentMode || '').trim().toLowerCase();
   if (mode && String(body.propertyType || '').trim().toLowerCase() !== 'dharamshala') {
@@ -99,9 +113,12 @@ const normalizeHotelTaxControls = (body) => {
       ? mode
       : 'pay_at_dharamshala';
   }
-  if (typeof body.dharamshalaServiceFee !== 'undefined' && String(body.propertyType || '').trim().toLowerCase() !== 'dharamshala') {
+  if (typeof body.dharamshalaPlatformFeeEnabled !== 'undefined') {
+    body.dharamshalaPlatformFeeEnabled = Boolean(body.dharamshalaPlatformFeeEnabled);
+  }
+  if (typeof body.dharamshalaServiceFee !== 'undefined') {
     const fee = Number(body.dharamshalaServiceFee);
-    body.dharamshalaServiceFee = Number.isFinite(fee) && fee >= 0 ? Math.min(100000, Math.round(fee)) : 59;
+    body.dharamshalaServiceFee = Number.isFinite(fee) && fee >= 0 ? Math.min(100000, Math.round(fee)) : 79;
   }
   if (typeof body.dharamshalaResponseTimeoutMinutes !== 'undefined') {
     const minutes = Number(body.dharamshalaResponseTimeoutMinutes);
@@ -131,6 +148,7 @@ const publicHotelListProjection = {
   hotelGstin: 1,
   showPrices: 1,
   dharamshalaPaymentMode: 1,
+  dharamshalaPlatformFeeEnabled: 1,
   dharamshalaServiceFee: 1,
   dharamshalaTerminology: 1,
   dharamshalaResponseTimeoutMinutes: 1,
@@ -363,6 +381,10 @@ const attachHotelStartingPrices = async (hotels) => {
   ]);
   const byHotel = new Map(rows.map((row) => [String(row._id), Number(row.pricePerNight || 0)]));
   for (const h of hotels) {
+    if (String(h.propertyType || '').toLowerCase() === 'dharamshala') {
+      delete h.pricePerNight;
+      continue;
+    }
     const price = byHotel.get(String(h._id));
     if (Number.isFinite(price) && price > 0) h.pricePerNight = price;
   }
@@ -491,7 +513,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
-      .select('name propertyType location rating image status approvalStatus partnerName taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image status approvalStatus partnerName taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaPlatformFeeEnabled dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
       .lean();
 
     for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
@@ -531,7 +553,7 @@ router.get('/:id/room-types', async (req, res) => {
         data: roomTypes.map((rt) => normalizePublicRoomType({
           ...rt,
           totalCount: totalByRoomType.get(String(rt._id)) || 0,
-        })),
+        }, hotel)),
       });
     }
 
@@ -553,7 +575,7 @@ router.get('/:id/room-types', async (req, res) => {
 
         const blockedSet = new Set([...blockedByBlocks.map(String), ...blockedByBookings.map(String)]);
         const availableCount = Math.max(0, totalCount - blockedSet.size);
-        return normalizePublicRoomType({ ...rt, totalCount, availableCount });
+        return normalizePublicRoomType({ ...rt, totalCount, availableCount }, hotel);
       })
     );
 

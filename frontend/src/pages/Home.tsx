@@ -82,7 +82,7 @@ const testimonials = [
   { name: 'Rajesh Kumar', location: 'Mumbai', rating: 5, text: 'Booked a Braj tour and cab together. The itinerary felt professional, pickup was on time, and every confirmation was easy to track.' },
   { name: 'Anita Devi', location: 'Jaipur', rating: 5, text: 'I liked the verified listing tag and the booking updates. It felt safer than calling random numbers for rooms near Vrindavan.' },
   { name: 'Saurabh Mehta', location: 'Ahmedabad', rating: 5, text: 'We needed two rooms near Banke Bihari Temple. The team confirmed availability quickly and the booking details were easy for my parents to understand.' },
-  { name: 'Neha Agarwal', location: 'Lucknow', rating: 5, text: 'The Dharamshala request flow was simple. I could see when the property accepted it, paid the confirmation amount, and then got the contact details.' },
+  { name: 'Neha Agarwal', location: 'Lucknow', rating: 5, text: 'The Dharamshala request flow was simple. I could see when the property accepted it, pay the shown amount, and then get the contact details.' },
   { name: 'Vikas Tiwari', location: 'Kanpur', rating: 5, text: 'Cab pickup for Govardhan Parikrama was well coordinated. Driver details appeared after confirmation and the route plan was exactly as discussed.' },
   { name: 'Meenakshi Iyer', location: 'Bengaluru', rating: 4, text: 'Clean interface, genuine stay options, and responsive support. It made planning Mathura and Vrindavan with family much calmer.' },
   { name: 'Rohit Bansal', location: 'Gurugram', rating: 5, text: 'The booking page showed dates, room count, and payment status clearly. I also liked that confirmed contact details stayed inside My Bookings.' },
@@ -252,7 +252,7 @@ const Home = () => {
     if (roomType?.hotel?.showPrices === false) return undefined;
     const base = Number(roomType?.pricePerNight || 0);
     const hotel = roomType?.hotel || {};
-    if (isDharamshalaType(hotel?.propertyType)) return Math.round(base * 1.1);
+    if (isDharamshalaType(hotel?.propertyType)) return undefined;
     if (!hotel?.taxEnabled) return base;
     const percent = hotel?.gstMode === 'automatic'
       ? base <= 7500 ? 5 : 18
@@ -274,7 +274,7 @@ const Home = () => {
       .filter((price) => Number.isFinite(price) && price > 0);
     if (!prices.length) return undefined;
     const base = Math.min(...prices);
-    if (isDharamshalaType(hotel?.propertyType)) return Math.round(base * 1.1);
+    if (isDharamshalaType(hotel?.propertyType)) return undefined;
     if (!hotel?.taxEnabled) return base;
     const percent = hotel?.gstMode === 'automatic'
       ? base <= 7500 ? 5 : 18
@@ -531,7 +531,9 @@ const Home = () => {
                     badge={getPropertyTypeLabel(hotel?.propertyType)}
                     location={hotel.location}
                     price={getHotelStartingPrice(hotel)}
-                    priceLabel={isDharamshalaType(hotel?.propertyType) ? '/night + confirmation payment' : hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    priceLabel={isDharamshalaType(hotel?.propertyType) ? '' : hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    pricePlaceholder={isDharamshalaType(hotel?.propertyType) ? 'Contribution after acceptance' : undefined}
+                    priceHelp={isDharamshalaType(hotel?.propertyType) ? 'Shown after partner confirms' : undefined}
                     rating={Number(hotel.rating || 0)}
                     reviewCount={Number(hotel.reviewCount || 0)}
                     amenities={hotel.amenities || []}
@@ -578,7 +580,9 @@ const Home = () => {
                     name={roomType.name}
                     location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` - ${roomType.hotel.location}` : ''}`}
                     price={getRoomPrice(roomType)}
-                    priceLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? '/night + confirmation payment' : roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    priceLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? '' : roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                    pricePlaceholder={isDharamshalaType(roomType?.hotel?.propertyType) ? 'Contribution after acceptance' : undefined}
+                    priceHelp={isDharamshalaType(roomType?.hotel?.propertyType) ? 'Shown after partner confirms' : undefined}
                     rating={0}
                     reviewCount={0}
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}

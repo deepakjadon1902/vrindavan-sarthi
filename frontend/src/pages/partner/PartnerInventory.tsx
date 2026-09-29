@@ -9,6 +9,7 @@ import { clearSessionCache } from '@/lib/panelCache';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { getPropertyTypeLabel, type StayPropertyType } from '@/lib/propertyTypes';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
+import { formatBookingStatus } from '@/lib/bookingStatus';
 
 type Hotel = { _id: string; name: string; propertyType?: StayPropertyType; status?: string; approvalStatus?: string; showPrices?: boolean };
 
@@ -867,7 +868,7 @@ const PartnerInventory = () => {
                       <div key={bk._id} className="p-2 rounded border border-border">
                         <div className="flex items-center justify-between">
                           <div className="font-body text-sm font-semibold text-foreground">{bk.bookingId}</div>
-                          <div className="font-body text-xs text-muted-foreground capitalize">{bk.bookingStatus}</div>
+                          <div className="font-body text-xs text-muted-foreground">{formatBookingStatus(bk.bookingStatus)}</div>
                         </div>
                         <div className="font-body text-xs text-muted-foreground">
                           {String(bk.checkIn).slice(0, 10)} → {String(bk.checkOut).slice(0, 10)}

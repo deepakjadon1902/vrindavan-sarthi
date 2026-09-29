@@ -28,6 +28,7 @@ interface Hotel {
   hotelGstin?: string;
   showPrices?: boolean;
   dharamshalaPaymentMode?: 'pay_at_dharamshala' | 'full_online' | 'request_only';
+  dharamshalaPlatformFeeEnabled?: boolean;
   dharamshalaServiceFee?: number;
   dharamshalaResponseTimeoutMinutes?: number;
   taxEnabled?: boolean;
@@ -71,7 +72,8 @@ const ManageHotels = () => {
     platform_commission_percentage: '10',
     showPrices: true,
     dharamshalaPaymentMode: 'pay_at_dharamshala' as const,
-    dharamshalaServiceFee: '59',
+    dharamshalaPlatformFeeEnabled: true,
+    dharamshalaServiceFee: '79',
     dharamshalaResponseTimeoutMinutes: '30',
     propertyTerms: normalizePropertyTerms(),
   });
@@ -116,7 +118,8 @@ const ManageHotels = () => {
       platform_commission_percentage: '10',
       showPrices: true,
       dharamshalaPaymentMode: 'pay_at_dharamshala',
-      dharamshalaServiceFee: '59',
+      dharamshalaPlatformFeeEnabled: true,
+      dharamshalaServiceFee: '79',
       dharamshalaResponseTimeoutMinutes: '30',
       propertyTerms: normalizePropertyTerms(),
     });
@@ -163,7 +166,8 @@ const ManageHotels = () => {
       platform_commission_percentage: String(hotel.platform_commission_percentage ?? 10),
       showPrices: hotel.showPrices !== false,
       dharamshalaPaymentMode: hotel.dharamshalaPaymentMode || 'pay_at_dharamshala',
-      dharamshalaServiceFee: String(hotel.dharamshalaServiceFee ?? 59),
+      dharamshalaPlatformFeeEnabled: hotel.dharamshalaPlatformFeeEnabled !== false,
+      dharamshalaServiceFee: String(hotel.dharamshalaServiceFee ?? 79),
       dharamshalaResponseTimeoutMinutes: String(hotel.dharamshalaResponseTimeoutMinutes ?? 30),
       propertyTerms: normalizePropertyTerms(hotel.propertyTerms),
     });
@@ -208,6 +212,7 @@ const ManageHotels = () => {
       platform_commission_percentage: isDharamshalaType(form.propertyType) ? 10 : Number(form.platform_commission_percentage || 0),
       showPrices: Boolean(form.showPrices),
       dharamshalaPaymentMode: form.dharamshalaPaymentMode,
+      dharamshalaPlatformFeeEnabled: Boolean(form.dharamshalaPlatformFeeEnabled),
       dharamshalaServiceFee: Number(form.dharamshalaServiceFee || 0),
       dharamshalaResponseTimeoutMinutes: Number(form.dharamshalaResponseTimeoutMinutes || 30),
       propertyTerms: form.propertyTerms,
@@ -420,7 +425,7 @@ const ManageHotels = () => {
                   placeholder="10"
                 />
                 <p className="font-body text-xs text-muted-foreground mt-1">
-                  {isDharamshalaType(form.propertyType) ? 'Dharamshala bookings use the fixed Rs. 59 confirmation payment after acceptance.' : 'Set the platform commission for this listing.'}
+                  {isDharamshalaType(form.propertyType) ? 'Dharamshala bookings use the platform fee configured below.' : 'Set the platform commission for this listing.'}
                 </p>
               </div>
               <div>
@@ -520,7 +525,31 @@ const ManageHotels = () => {
 
             {isDharamshalaType(form.propertyType) && (
               <div className="rounded-lg border border-brand-gold/25 bg-brand-gold/10 p-4 font-body text-sm text-muted-foreground">
-                Dharamshala flow is fixed: request first, admin or partner accepts, guest pays Rs. 59 online, then booking is confirmed. Donation or contribution is handled by the Dharamshala at check-in or as per its stay rules.
+                Dharamshala flow: guest sends request, partner accepts or rejects, then partner chooses whether the guest pays room contribution online now or at check-in.
+                <label className="mt-3 flex items-start gap-3 text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.dharamshalaPlatformFeeEnabled)}
+                    onChange={(e) => setForm({ ...form, dharamshalaPlatformFeeEnabled: e.target.checked })}
+                    className="mt-1"
+                  />
+                  <span>
+                    Apply platform fee on this Dharamshala
+                    <span className="block text-xs font-normal text-muted-foreground mt-1">If disabled, bookings can confirm without a platform fee when partner chooses pay-at-check-in.</span>
+                  </span>
+                </label>
+                {form.dharamshalaPlatformFeeEnabled && (
+                  <label className="mt-3 block">
+                    <span className="block text-xs font-medium text-foreground">Platform fee amount</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.dharamshalaServiceFee}
+                      onChange={(e) => setForm({ ...form, dharamshalaServiceFee: e.target.value })}
+                      className="mt-1 w-40 px-3 py-2 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                    />
+                  </label>
+                )}
               </div>
             )}
 
@@ -536,7 +565,7 @@ const ManageHotels = () => {
                 <span>
                   Apply GST to this property
                   <span className="block text-xs text-muted-foreground mt-1">
-                    {isDharamshalaType(form.propertyType) ? 'Dharamshala requests use a fixed Rs. 59 confirmation payment after acceptance. GST and hotel tax controls do not apply.' : 'GST settings apply to hotels, home stays, and guest houses.'}
+                    {isDharamshalaType(form.propertyType) ? 'GST and hotel tax controls do not apply to Dharamshala request bookings.' : 'GST settings apply to hotels, home stays, and guest houses.'}
                   </span>
                 </span>
               </label>

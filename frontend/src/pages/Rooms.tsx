@@ -112,7 +112,7 @@ const Rooms = () => {
     const base = Number(rt?.pricePerNight || 0);
     const hotel = rt?.hotel || {};
     if (hotel?.showPrices === false) return undefined;
-    if (isDharamshalaType(hotel?.propertyType)) return Math.round(base * 1.1);
+    if (isDharamshalaType(hotel?.propertyType)) return undefined;
     if (!hotel?.taxEnabled) return base;
     const percent = hotel?.gstMode === 'automatic'
       ? base <= 7500 ? 5 : 18
@@ -208,7 +208,9 @@ const Rooms = () => {
                           name={rt.name}
                           location={`${rt?.hotel?.name || ''}${rt?.hotel?.location ? ` - ${rt.hotel.location}` : ''}`}
                           price={getTaxInclusivePrice(rt)}
-                          priceLabel={isDharamshalaType(rt?.hotel?.propertyType) ? '/night + confirmation payment' : rt?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                          priceLabel={isDharamshalaType(rt?.hotel?.propertyType) ? '' : rt?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
+                          pricePlaceholder={isDharamshalaType(rt?.hotel?.propertyType) ? 'Contribution after acceptance' : undefined}
+                          priceHelp={isDharamshalaType(rt?.hotel?.propertyType) ? 'Shown after partner confirms' : undefined}
                           rating={0}
                           reviewCount={0}
                           amenities={rt?.amenities || rt?.hotel?.amenities || []}

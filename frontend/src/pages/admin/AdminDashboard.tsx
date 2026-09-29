@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { formatBookingStatus } from '@/lib/bookingStatus';
 
 type AdminAnalytics = {
   stats: {
@@ -120,10 +121,10 @@ const AdminDashboard = () => {
       return <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 font-body text-[11px] font-bold text-amber-700 tracking-wide"><Clock size={11} /> Pending</span>;
     }
     if (v === 'confirmed' || v === 'completed' || v === 'delivered')
-      return <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-body text-[11px] font-bold text-emerald-700 capitalize tracking-wide">{v}</span>;
+      return <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-body text-[11px] font-bold text-emerald-700 tracking-wide">{formatBookingStatus(v)}</span>;
     if (v === 'cancelled')
-      return <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 font-body text-[11px] font-bold text-red-700 capitalize tracking-wide">{v}</span>;
-    return <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 font-body text-[11px] font-bold text-amber-700 capitalize tracking-wide">{v || '—'}</span>;
+      return <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 font-body text-[11px] font-bold text-red-700 tracking-wide">{formatBookingStatus(v)}</span>;
+    return <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 font-body text-[11px] font-bold text-amber-700 tracking-wide">{formatBookingStatus(v)}</span>;
   };
 
   const formatDate = (iso?: string) => {

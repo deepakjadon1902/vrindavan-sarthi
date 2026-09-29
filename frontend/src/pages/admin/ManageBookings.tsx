@@ -6,6 +6,7 @@ import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import BookingFormDetails from '@/components/BookingFormDetails';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
+import { formatBookingStatus, formatBookingStatusFilter } from '@/lib/bookingStatus';
 
 const ManageBookings = () => {
   const token = useAuthStore((s) => s.token);
@@ -17,8 +18,6 @@ const ManageBookings = () => {
     rejectPayment,
     adminCancelBooking,
     updateBookingStatus,
-    acceptDharamshalaRequest,
-    rejectDharamshalaRequest,
     markDharamshalaNoShow,
   } = useBookingStore();
   const [filter, setFilter] = useState<'all' | 'pending_property_confirmation' | 'awaiting_customer_payment' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled' | 'expired' | 'payment_failed' | 'rejected_by_property' | 'expired_property_no_response'>('all');
@@ -91,10 +90,6 @@ const ManageBookings = () => {
     b.bookingType === 'cab' &&
     b.bookingStatus === 'pending' &&
     (b.paymentMethod !== 'online' || b.paymentStatus === 'paid');
-  const canDecideDharamshala = (b: any) =>
-    String(b.propertyType || '').toLowerCase() === 'dharamshala' &&
-    b.bookingStatus === 'pending_property_confirmation';
-
   const handleVerify = async (id: string) => {
     const res = await verifyPayment(id);
     if (res.success) toast.success('Payment verified');
@@ -118,20 +113,6 @@ const ManageBookings = () => {
     const res = await markDharamshalaNoShow(id, reason.trim() || 'Guest did not arrive');
     if (res.success) toast.success('Booking marked no-show');
     else toast.error(res.error || 'No-show update failed');
-  };
-
-  const handleAcceptDharamshala = async (id: string) => {
-    const res = await acceptDharamshalaRequest(id);
-    if (res.success) toast.success(res.data?.bookingStatus === 'awaiting_customer_payment' ? 'Request accepted. Customer can pay online.' : 'Request accepted and confirmed.');
-    else toast.error(res.error || 'Accept failed');
-  };
-
-  const handleRejectDharamshala = async (id: string) => {
-    const reason = window.prompt('Reason for rejecting this request:') || '';
-    if (!reason.trim()) return toast.error('Rejection reason is required');
-    const res = await rejectDharamshalaRequest(id, reason.trim());
-    if (res.success) toast.success('Request rejected');
-    else toast.error(res.error || 'Reject failed');
   };
 
   const handleAdminCancel = async () => {
@@ -181,7 +162,7 @@ const ManageBookings = () => {
               filter === f ? 'bg-brand-crimson text-primary-foreground' : 'bg-card border border-border hover:bg-muted'
             }`}
           >
-            {f} ({f === 'all' ? bookings.length : bookings.filter((b) => b.bookingStatus === f).length})
+            {formatBookingStatusFilter(f)} ({f === 'all' ? bookings.length : bookings.filter((b) => b.bookingStatus === f).length})
           </button>
         ))}
       </div>
@@ -315,7 +296,7 @@ const ManageBookings = () => {
                     <span className="ml-2 inline-flex">{verificationBadge(b)}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`font-body text-xs px-2 py-1 rounded-full capitalize ${statusColor(b.bookingStatus)}`}>{b.bookingStatus}</span>
+                    <span className={`font-body text-xs px-2 py-1 rounded-full ${statusColor(b.bookingStatus)}`}>{formatBookingStatus(b.bookingStatus)}</span>
                   </td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">{b.partnerName || 'Admin'}</td>
                   <td className="px-4 py-3 text-right">
@@ -333,21 +314,8 @@ const ManageBookings = () => {
                       >
                         Assign Driver
                       </button>
-                    ) : canDecideDharamshala(b) ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleAcceptDharamshala(b.id)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-green text-primary-foreground hover:bg-brand-green/90"
-                        >
-                          Accept
-                        </button>
-                        <button
-                          onClick={() => handleRejectDharamshala(b.id)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-destructive text-primary-foreground hover:bg-destructive/90"
-                        >
-                          Reject
-                        </button>
-                      </div>
+                    ) : String(b.propertyType || '').toLowerCase() === 'dharamshala' && b.bookingStatus === 'pending_property_confirmation' ? (
+                      <span className="font-body text-[11px] text-muted-foreground">Waiting partner decision</span>
                     ) : b.paymentMethod === 'online' ? (
                       canAdminVerify(b) ? (
                         <div className="flex items-center justify-end gap-2">

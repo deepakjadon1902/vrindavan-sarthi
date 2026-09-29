@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
+import { formatBookingStatus } from '@/lib/bookingStatus';
 
 const typeIcon: Record<string, typeof Hotel> = {
   hotel: Hotel,
@@ -27,16 +28,6 @@ const typeIcon: Record<string, typeof Hotel> = {
 };
 
 const filters = ['All', 'Upcoming', 'Pending', 'Waitlist', 'Completed', 'Expired', 'Cancelled'];
-
-const statusLabels: Record<string, string> = {
-  awaiting_customer_payment: 'Accepted - pay fee',
-  checked_in: 'Checked in',
-  checked_out: 'Checked out',
-  expired_property_no_response: 'Expired',
-  payment_failed: 'Payment failed',
-  pending_property_confirmation: 'Property review',
-  rejected_by_property: 'Rejected',
-};
 
 const typeLabels: Record<string, string> = {
   cab: 'Cab',
@@ -51,7 +42,7 @@ const formatDate = (date?: string) => {
   return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 };
 
-const formatStatus = (status: string) => statusLabels[status] || status.replace(/_/g, ' ');
+const formatStatus = (status: string) => formatBookingStatus(status);
 
 const pendingStatuses = new Set(['pending', 'pending_property_confirmation', 'awaiting_customer_payment']);
 
@@ -262,6 +253,8 @@ const MyBookings = () => {
                 const isDharamshala = String(b.propertyType || '').toLowerCase() === 'dharamshala';
                 const confirmationAmount = Number(b.amountPaidOnline || 0);
                 const paymentCopy = b.paymentMethod === 'doorstep' ? 'Doorstep payment' : `Online - ${b.paymentStatus.replace(/_/g, ' ')}`;
+                const canShowDharamshalaAmount = !isDharamshala || ['awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(b.bookingStatus || ''));
+                const canShowDharamshalaContact = isDharamshala && ['awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(b.bookingStatus || ''));
 
                 return (
                   <Link
@@ -313,14 +306,14 @@ const MyBookings = () => {
                         )}
                         {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
                           <p className="mt-2 rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-crimson">
-                            Request accepted. Pay the booking confirmation amount{confirmationAmount > 0 ? ` of Rs. ${confirmationAmount.toLocaleString('en-IN')}` : ''} now to confirm this booking.
+                            Request accepted. Pay {confirmationAmount > 0 ? `Rs. ${confirmationAmount.toLocaleString('en-IN')}` : 'the shown amount'} now to confirm this booking.
                           </p>
                         )}
-                        {isDharamshala && b.bookingStatus === 'confirmed' && (b.partnerName || b.partnerPhone) && (
+                        {canShowDharamshalaContact && (b.partnerName || b.partnerPhone) && (
                           <div className="mt-2 rounded-lg border border-brand-green/20 bg-brand-green/10 px-3 py-2 font-body text-xs leading-5 text-foreground">
-                            <p className="font-bold text-brand-green">Confirmed. Dharamshala contact is now available.</p>
+                            <p className="font-bold text-brand-green">Accepted. Dharamshala contact is now available.</p>
                             <p className="mt-0.5 font-semibold">{b.partnerName || 'Dharamshala partner'}{b.partnerPhone ? ` - ${b.partnerPhone}` : ''}</p>
-                            <p className="mt-0.5 text-muted-foreground">Donation/contribution may be payable directly in advance or at check-in as per Dharamshala rules.</p>
+                            <p className="mt-0.5 text-muted-foreground">Any remaining contribution is payable as selected by the Dharamshala partner.</p>
                           </div>
                         )}
 
@@ -332,7 +325,7 @@ const MyBookings = () => {
                         </div>
 
                         <div className="mt-auto flex items-end justify-between gap-3 pt-5">
-                          {b.totalAmount > 0 && (
+                          {canShowDharamshalaAmount && b.totalAmount > 0 && (
                             <span className="flex items-center font-body text-[22px] font-bold leading-none text-brand-crimson"><IndianRupee size={17} />{b.totalAmount.toLocaleString('en-IN')}</span>
                           )}
                           <span className="text-right font-body text-[11px] font-semibold capitalize text-muted-foreground">{paymentCopy}</span>
@@ -345,7 +338,7 @@ const MyBookings = () => {
                         )}
                         {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
                           <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md font-body text-xs font-bold text-brand-crimson group-hover:underline">
-                            Pay confirmation amount <ArrowRight size={13} />
+                            Pay and confirm <ArrowRight size={13} />
                           </span>
                         )}
                       </div>

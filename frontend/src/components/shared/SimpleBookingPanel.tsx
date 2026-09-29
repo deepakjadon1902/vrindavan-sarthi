@@ -14,9 +14,9 @@ const copy = {
   },
   dharamshala: {
     title: 'Dharamshala request',
-    subtitle: 'Request first. Pay Rs. 59 only after acceptance.',
-    steps: ['Dates', 'Accept', 'Confirm'],
-    note: 'Contact and donation details appear after the booking is confirmed.',
+    subtitle: 'Request first. Pay only after partner acceptance.',
+    steps: ['Dates', 'Partner', 'Confirm'],
+    note: 'The partner chooses whether contribution is paid online or at check-in.',
   },
   cab: {
     title: 'Cab confirmation',

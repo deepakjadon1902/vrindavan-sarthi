@@ -282,7 +282,7 @@ const RoomTypeDetail = () => {
     : 0;
   const taxTotal = Math.round((baseTotal * taxPercent) / 100);
   const subtotal = baseTotal + taxTotal;
-  const dharamshalaServiceFee = 59;
+  const dharamshalaServiceFee = hotel?.dharamshalaPlatformFeeEnabled === false ? 0 : Math.max(0, Math.round(Number(hotel?.dharamshalaServiceFee ?? 79)));
   const convenienceFeePercent = isDharamshala ? 0 : 4.45;
   const convenienceFee = isDharamshala ? dharamshalaServiceFee : Math.round(baseTotal * (convenienceFeePercent / 100));
   const total = subtotal + convenienceFee;
@@ -539,7 +539,7 @@ const RoomTypeDetail = () => {
       name: amenity,
       value: true,
     })),
-    offers: {
+    offers: isDharamshala ? undefined : {
       '@type': 'Offer',
       url: absoluteUrl(`/room-types/${roomType._id}`),
       priceCurrency: 'INR',
@@ -710,7 +710,7 @@ const RoomTypeDetail = () => {
 
                 {/* Price */}
                 <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">Price</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">{isDharamshala ? 'Contribution' : 'Price'}</p>
                   {canShowRoomPrices ? (
                     <>
                       <p className="text-3xl font-bold text-brand-crimson">
@@ -720,8 +720,8 @@ const RoomTypeDetail = () => {
                     </>
                   ) : (
                     <>
-                      <p className="text-3xl font-bold text-brand-crimson">{isDharamshala ? 'Contribution on request' : 'Price on request'}</p>
-                      <p className="text-xs text-gray-400">{isDharamshala ? 'Dharamshala will confirm amount and availability' : 'Confirm current price by call or WhatsApp'}</p>
+                      <p className="text-3xl font-bold text-brand-crimson">{isDharamshala ? 'After partner acceptance' : 'Price on request'}</p>
+                      <p className="text-xs text-gray-400">{isDharamshala ? 'Room contribution is shown only after the Dharamshala accepts your request' : 'Confirm current price by call or WhatsApp'}</p>
                     </>
                   )}
                 </div>
@@ -830,8 +830,8 @@ const RoomTypeDetail = () => {
                       <span className="block font-semibold text-gray-800">{maxAdultsForSelection} adults · {maxChildrenForSelection} children</span>
                     </div>
                     <div className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">
-                      Price
-                      <span className="block font-semibold">{canShowRoomPrices ? `Rs. ${baseTotal.toLocaleString('en-IN')}` : 'On request'}</span>
+                      {isDharamshala ? 'Contribution' : 'Price'}
+                      <span className="block font-semibold">{canShowRoomPrices ? `Rs. ${baseTotal.toLocaleString('en-IN')}` : isDharamshala ? 'After partner acceptance' : 'On request'}</span>
                     </div>
                   </div>
                   <p className="mt-2 text-[11px] text-gray-400">
@@ -893,7 +893,7 @@ const RoomTypeDetail = () => {
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <span>{isDharamshala ? 'Booking confirmation payment after acceptance' : 'Platform convenience fee'}</span>
+                    <span>{isDharamshala ? 'Platform/payment after acceptance' : 'Platform convenience fee'}</span>
                     <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
@@ -929,7 +929,7 @@ const RoomTypeDetail = () => {
                     <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
                       <p className="font-semibold text-gray-800">Submit request first</p>
                       <p className="mt-1 text-xs leading-5 text-gray-500">
-                        The Dharamshala team will confirm availability first. Contact details are shown only after successful booking confirmation.
+                        The Dharamshala team will confirm availability first. Contact details are shown only after partner acceptance.
                       </p>
                     </div>
                   ) : (
@@ -969,7 +969,7 @@ const RoomTypeDetail = () => {
                   <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
                     <p className="font-semibold text-gray-800">Simple Dharamshala request</p>
                     <p className="mt-1 text-xs leading-5 text-gray-500">
-                      Submit your request now. After the Dharamshala accepts it, you will pay Rs. 59 online to confirm. Donation details and contact information appear after confirmation.
+                      Submit your request now. After the Dharamshala accepts it, the partner will choose whether your room contribution is paid online now or at check-in. Any platform fee set by admin is applied automatically.
                     </p>
                   </div>
                 )}
@@ -1066,7 +1066,7 @@ const RoomTypeDetail = () => {
                 )}
 
                 <p className="text-center text-[11px] text-gray-400">
-                  {canShowRoomPrices ? (isDharamshala ? 'Contact details appear in My Bookings after successful confirmation.' : 'Secure payment with automatic booking confirmation.') : 'Prices and availability are confirmed by our booking desk.'}
+                  {canShowRoomPrices ? (isDharamshala ? 'Contact details appear in My Bookings after partner acceptance.' : 'Secure payment with automatic booking confirmation.') : 'Prices and availability are confirmed by our booking desk.'}
                 </p>
               </div>
             )}

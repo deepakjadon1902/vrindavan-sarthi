@@ -18,6 +18,7 @@ const {
   releaseBookingInventory,
   markBookingPaymentPaid,
   markBookingPaymentFailed,
+  repairPaidAwaitingCustomerPaymentBookings,
   expirePendingBookings,
   tryReserveRoomUnitsForBooking,
 } = require('../utils/reservationLifecycle');
@@ -183,7 +184,7 @@ const enqueueBookingNotifications = async (booking, { invoice = false, partnerAl
 
 const bookingDetailFields = [
   'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone isGuestBooking partnerId partnerName partnerPhone partnerEmail partnerWhatsapp',
-  'service_billing_model propertyType paymentMode dharamshalaAmount vrindavanSarthiServiceFee amountPaidOnline amountPayableAtProperty amountPaidToProperty requestExpiresAt propertyRespondedAt propertyDecisionRole propertyDecisionReason',
+  'service_billing_model propertyType paymentMode propertyPaymentChoice dharamshalaAmount vrindavanSarthiServiceFee amountPaidOnline amountPayableAtProperty amountPaidToProperty requestExpiresAt propertyRespondedAt propertyDecisionRole propertyDecisionReason',
   'hotelId roomTypeId ratePlanId ratePlanName ratePlanCode ratePlanMealPlan nightlyBreakdown roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
   'assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail',
@@ -206,7 +207,10 @@ router.param('id', (req, res, next, id) => {
 const sanitizeCustomerBooking = (booking) => {
   if (!booking) return booking;
   const plain = typeof booking.toObject === 'function' ? booking.toObject() : { ...booking };
-  if (plain.bookingStatus !== 'confirmed') {
+  const isDharamshala = String(plain.propertyType || '').toLowerCase() === 'dharamshala';
+  const partnerAccepted = ['awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(plain.bookingStatus || ''));
+  const canShowPartnerContact = isDharamshala ? partnerAccepted : plain.bookingStatus === 'confirmed';
+  if (!canShowPartnerContact) {
     plain.partnerName = '';
     plain.partnerPhone = '';
     plain.partnerEmail = '';
@@ -227,6 +231,26 @@ const sanitizeCustomerBooking = (booking) => {
   delete plain.payment_gateway_fee;
   delete plain.partnerNetPayout;
   delete plain.hotel_net_payout;
+  if (isDharamshala && !partnerAccepted) {
+    for (const key of [
+      'dharamshalaAmount',
+      'vrindavanSarthiServiceFee',
+      'amountPaidOnline',
+      'amountPayableAtProperty',
+      'amountPaidToProperty',
+      'baseAmount',
+      'base_amount',
+      'checkoutSubtotal',
+      'customer_total',
+      'totalAmount',
+      'advanceAmount',
+      'advance_paid',
+      'balanceAmount',
+      'balance_at_property',
+    ]) {
+      delete plain[key];
+    }
+  }
   return plain;
 };
 
@@ -750,6 +774,7 @@ router.post('/', protect, async (req, res) => {
 router.get('/my', protect, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
+    await repairPaidAwaitingCustomerPaymentBookings();
     const limitRaw = Number(req.query?.limit || 0);
     const skipRaw = Number(req.query?.skip || 0);
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
@@ -788,6 +813,7 @@ router.get('/my', protect, async (req, res) => {
 router.get('/partner', protect, authorize('partner'), async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
+    await repairPaidAwaitingCustomerPaymentBookings();
     const limitRaw = Number(req.query?.limit || 0);
     const skipRaw = Number(req.query?.skip || 0);
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(500, Math.floor(limitRaw)) : 200;
@@ -808,9 +834,11 @@ router.get('/partner', protect, authorize('partner'), async (req, res) => {
     } else {
       for (const b of bookings) b.itemImage = stripLargeInlineImage(b.itemImage) || '/placeholder.svg';
     }
-    // Partners should only see limited customer info until booking is confirmed.
+    // Partners need Dharamshala request guest details to accept/reject availability.
+    // Non-Dharamshala bookings keep customer info hidden until confirmation.
     for (const b of bookings) {
-      if (b.bookingStatus !== 'confirmed') {
+      const isDharamshala = String(b.propertyType || '').toLowerCase() === 'dharamshala';
+      if (!isDharamshala && b.bookingStatus !== 'confirmed') {
         b.userName = '';
         b.userPhone = '';
         b.userEmail = '';
@@ -818,9 +846,11 @@ router.get('/partner', protect, authorize('partner'), async (req, res) => {
         b.customerMobile = '';
         b.customerEmail = '';
       } else {
-        // Even after confirmation, keep customer email hidden.
-        b.userEmail = '';
-        b.customerEmail = '';
+        if (!isDharamshala) {
+          // Even after confirmation, keep customer email hidden for ordinary hotel/cab/tour partner views.
+          b.userEmail = '';
+          b.customerEmail = '';
+        }
       }
     }
 
@@ -832,6 +862,7 @@ router.get('/partner', protect, authorize('partner'), async (req, res) => {
 router.get('/all', protect, authorize('admin'), async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
+    await repairPaidAwaitingCustomerPaymentBookings();
     const limitRaw = Number(req.query?.limit || 0);
     const skipRaw = Number(req.query?.skip || 0);
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(1000, Math.floor(limitRaw)) : 300;
@@ -857,17 +888,17 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 });
 
 const findDharamshalaBookingForDecision = async (req) => {
-  const query = req.user.role === 'admin'
-    ? { _id: req.params.id, propertyType: 'dharamshala' }
-    : { _id: req.params.id, propertyType: 'dharamshala', partnerId: req.user._id };
-  return Booking.findOne(query);
+  return Booking.findOne({ _id: req.params.id, propertyType: 'dharamshala', partnerId: req.user._id });
 };
 
-router.put('/:id/dharamshala/accept', protect, authorize('admin', 'partner'), async (req, res) => {
+router.put('/:id/dharamshala/accept', protect, authorize('partner'), async (req, res) => {
   try {
     const booking = await findDharamshalaBookingForDecision(req);
     if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala request not found' });
-    const result = await acceptDharamshalaRequest({ booking, actor: req.user });
+    const requestedMode = String(req.body?.paymentMode || req.body?.propertyPaymentChoice || '').trim();
+    const paymentMode = requestedMode === 'full_online' ? 'full_online' : 'pay_at_dharamshala';
+    const actor = typeof req.user.toObject === 'function' ? req.user.toObject() : req.user;
+    const result = await acceptDharamshalaRequest({ booking, actor: { ...actor, paymentMode } });
     if (!result.idempotent && String(result.booking.bookingStatus || '') === 'confirmed') {
       try {
         await ensureBookingConfirmedAlarmNotifications(result.booking);
@@ -888,7 +919,7 @@ router.put('/:id/dharamshala/accept', protect, authorize('admin', 'partner'), as
   }
 });
 
-router.put('/:id/dharamshala/reject', protect, authorize('admin', 'partner'), async (req, res) => {
+router.put('/:id/dharamshala/reject', protect, authorize('partner'), async (req, res) => {
   try {
     const booking = await findDharamshalaBookingForDecision(req);
     if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala request not found' });
@@ -1002,6 +1033,7 @@ router.post('/:id/refund', protect, authorize('admin'), async (req, res) => {
 router.get('/:id', protect, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
+    await repairPaidAwaitingCustomerPaymentBookings();
     const booking = await Booking.findById(req.params.id).lean();
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 

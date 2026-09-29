@@ -37,6 +37,7 @@ export interface Booking {
   service_billing_model?: 'hotel_marketplace' | 'dharamshala_booking' | 'taxi_direct' | 'tour_direct' | 'ecommerce_direct';
   propertyType?: 'hotel' | 'dharamshala' | 'home_stay' | 'guest_house';
   paymentMode?: 'pay_at_dharamshala' | 'full_online' | 'request_only';
+  propertyPaymentChoice?: 'pay_at_dharamshala' | 'full_online' | 'request_only';
   dharamshalaAmount?: number;
   vrindavanSarthiServiceFee?: number;
   amountPaidOnline?: number;
@@ -207,6 +208,7 @@ const normalizeBooking = (b: unknown): Booking => {
     service_billing_model: (getString(obj, 'service_billing_model') as Booking['service_billing_model']) || undefined,
     propertyType: (getString(obj, 'propertyType') as Booking['propertyType']) || undefined,
     paymentMode: (getString(obj, 'paymentMode') as Booking['paymentMode']) || undefined,
+    propertyPaymentChoice: (getString(obj, 'propertyPaymentChoice') as Booking['propertyPaymentChoice']) || undefined,
     dharamshalaAmount: getNumber(obj, 'dharamshalaAmount') || undefined,
     vrindavanSarthiServiceFee: getNumber(obj, 'vrindavanSarthiServiceFee') || undefined,
     amountPaidOnline: getNumber(obj, 'amountPaidOnline') || undefined,
@@ -334,7 +336,7 @@ interface BookingState {
   rejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerVerifyPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerRejectPayment: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
-  acceptDharamshalaRequest: (id: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  acceptDharamshalaRequest: (id: string, paymentMode?: 'pay_at_dharamshala' | 'full_online') => Promise<{ success: boolean; data?: Booking; error?: string }>;
   rejectDharamshalaRequest: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   markDharamshalaNoShow: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   completeDharamshalaBooking: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
@@ -566,11 +568,11 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     }
   },
 
-  acceptDharamshalaRequest: async (id) => {
+  acceptDharamshalaRequest: async (id, paymentMode = 'pay_at_dharamshala') => {
     const token = useAuthStore.getState().token;
     if (!token) return { success: false, error: 'Not authenticated' };
     try {
-      const res = await api.put(`/bookings/${id}/dharamshala/accept`, {}, withAuth(token));
+      const res = await api.put(`/bookings/${id}/dharamshala/accept`, { paymentMode }, withAuth(token));
       const updated = normalizeBooking(res.data?.data);
       set((state) => ({
         partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
