@@ -283,6 +283,7 @@ const ManageHotels = () => {
     [items, search]
   );
   const { page, setPage, pageItems } = useRecordPagination(filtered, [search]);
+  const actionButtonClass = 'inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-white text-muted-foreground shadow-sm transition-colors hover:border-brand-gold/50 hover:bg-brand-gold/10 hover:text-brand-crimson';
 
   return (
     <div className="space-y-6">
@@ -650,7 +651,7 @@ const ManageHotels = () => {
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">GST</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Commission</th>
                   <th className="text-left px-4 py-3 font-body text-xs font-medium text-muted-foreground hidden lg:table-cell">Listed By</th>
-                  <th className="text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
+                  <th className="min-w-[150px] text-right px-4 py-3 font-body text-xs font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -693,16 +694,19 @@ const ManageHotels = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handlePrices(hotel)}
-                          className="p-1.5 rounded hover:bg-brand-gold/10 transition-colors text-muted-foreground hover:text-brand-gold"
+                          className={actionButtonClass}
                           title="Add or edit prices"
+                          aria-label={`Add or edit prices for ${hotel.name}`}
                         >
-                          <IndianRupee size={14} />
+                          <IndianRupee size={20} strokeWidth={2.4} />
                         </button>
                         <button
                           onClick={() => handleEdit(hotel)}
-                          className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          className={actionButtonClass}
+                          title="Edit hotel"
+                          aria-label={`Edit ${hotel.name}`}
                         >
-                          <Pencil size={14} />
+                          <Pencil size={20} strokeWidth={2.4} />
                         </button>
                         {deleteConfirm === hotel._id ? (
                           <div className="flex items-center gap-1">
@@ -722,9 +726,11 @@ const ManageHotels = () => {
                         ) : (
                           <button
                             onClick={() => setDeleteConfirm(hotel._id)}
-                            className="p-1.5 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+                            className={`${actionButtonClass} hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive`}
+                            title="Delete hotel"
+                            aria-label={`Delete ${hotel.name}`}
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={20} strokeWidth={2.4} />
                           </button>
                         )}
                       </div>
