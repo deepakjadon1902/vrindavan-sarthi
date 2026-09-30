@@ -132,27 +132,27 @@ const AdminLayout = () => {
       {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="panel-hero min-h-20 border-b border-brand-gold/20 flex items-center justify-between px-4 lg:px-8">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden p-2 text-white">
+        <header className="panel-hero min-h-16 sm:min-h-20 border-b border-brand-gold/20 flex items-center justify-between gap-3 px-3 sm:px-4 lg:px-8">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden rounded-lg p-2 text-white hover:bg-white/10">
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <h1 className="font-heading text-2xl font-semibold text-white">
+          <h1 className="min-w-0 flex-1 truncate font-heading text-lg font-semibold text-white sm:text-2xl">
             {sidebarLinks.find((l) => l.path === location.pathname)?.name || 'Admin'}
           </h1>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <BookingAlarmManager token={token} user={user} enabled={user?.role === 'admin'} viewPath="/admin/bookings" />
             <a
               href="/?adminView=1"
               target="_blank"
               rel="noreferrer"
-              className="px-3 py-1.5 rounded-lg text-xs font-body border border-white/25 bg-white/10 hover:bg-white/20 transition-colors text-white"
+              className="hidden rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 font-body text-xs text-white transition-colors hover:bg-white/20 sm:inline-flex"
             >
               View App
             </a>
             <span className="hidden sm:inline font-body text-xs text-white/75">{user?.email}</span>
           </div>
         </header>
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8">
           <Outlet />
         </main>
       </div>

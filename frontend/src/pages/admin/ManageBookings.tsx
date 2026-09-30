@@ -1,5 +1,5 @@
 import { useBookingStore } from '@/store/bookingStore';
-import { ClipboardList } from 'lucide-react';
+import { Building2, ClipboardList, CreditCard, Eye, User } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
@@ -80,10 +80,10 @@ const ManageBookings = () => {
   };
 
   const canAdminVerify = (b: any) =>
+    !b.partnerId &&
     b.paymentMethod === 'online' &&
     b.paymentProvider !== 'razorpay' &&
     b.paymentStatus === 'pending' &&
-    (b.partnerId ? b.partnerPaymentVerified === true : true) &&
     b.verificationStage !== 'verified' &&
     b.verificationStage !== 'rejected';
   const canAssignCab = (b: any) =>
@@ -151,14 +151,115 @@ const ManageBookings = () => {
     }
   };
 
+  const renderBookingActions = (b: any, variant: 'mobile' | 'desktop' = 'desktop') => {
+    const canAdminOperate = !b.partnerId;
+    const buttonBase =
+      variant === 'mobile'
+        ? 'min-h-9 flex-1 rounded-lg px-3 py-1.5 font-body text-xs sm:flex-none'
+        : 'px-3 py-1.5 rounded-lg text-xs font-body';
+
+    return (
+      <div className={`flex flex-wrap gap-2 ${variant === 'desktop' ? 'items-center justify-end' : ''}`}>
+        <button
+          onClick={() => setExpandedBookingId((current) => (current === b.id ? '' : b.id))}
+          className={`${buttonBase} inline-flex items-center justify-center gap-1.5 border border-border hover:bg-muted`}
+        >
+          <Eye size={13} />
+          {expandedBookingId === b.id ? 'Hide Details' : 'View Details'}
+        </button>
+        {canAdminOperate && canAssignCab(b) ? (
+          <button
+            onClick={() => void openAssign(b.id)}
+            className={`${buttonBase} bg-brand-gold text-foreground hover:bg-brand-gold/90`}
+          >
+            Assign Driver
+          </button>
+        ) : String(b.propertyType || '').toLowerCase() === 'dharamshala' && b.bookingStatus === 'pending_property_confirmation' ? (
+          <span className="self-center font-body text-[11px] text-muted-foreground">Waiting partner decision</span>
+        ) : canAdminOperate && b.paymentMethod === 'online' ? (
+          canAdminVerify(b) ? (
+            <>
+              <button
+                onClick={() => handleVerify(b.id)}
+                className={`${buttonBase} bg-brand-green text-primary-foreground hover:bg-brand-green/90`}
+              >
+                Verify
+              </button>
+              <button
+                onClick={() => handleReject(b.id)}
+                className={`${buttonBase} bg-destructive text-primary-foreground hover:bg-destructive/90`}
+              >
+                Reject
+              </button>
+            </>
+          ) : (
+            <span className="self-center font-body text-[11px] text-muted-foreground">
+              {b.paymentProvider === 'razorpay' && b.paymentStatus === 'pending'
+                ? 'Waiting Razorpay'
+                : b.verificationStage === 'pending_partner' ? 'Waiting partner' : ''}
+            </span>
+          )
+        ) : null}
+        {canAdminOperate && ['hotel', 'room', 'room_type'].includes(b.bookingType) && (b.paymentStatus === 'paid' || b.paymentStatus === 'not_required') && b.bookingStatus === 'confirmed' && (
+          <>
+            <button
+              onClick={() => void handleStatusChange(b.id, 'checked_in')}
+              className={`${buttonBase} bg-blue-50 text-blue-700 hover:bg-blue-100`}
+            >
+              Mark Check-in
+            </button>
+            {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
+              <button
+                onClick={() => void handleNoShow(b.id)}
+                className={`${buttonBase} bg-destructive/10 text-destructive hover:bg-destructive/15`}
+              >
+                No-show
+              </button>
+            )}
+          </>
+        )}
+        {canAdminOperate && ['hotel', 'room', 'room_type'].includes(b.bookingType) && (b.paymentStatus === 'paid' || b.paymentStatus === 'not_required') && b.bookingStatus === 'checked_in' && (
+          <>
+            <button
+              onClick={() => void handleStatusChange(b.id, 'checked_out')}
+              className={`${buttonBase} bg-brand-green/10 text-brand-green hover:bg-brand-green/15`}
+            >
+              Mark Check-out
+            </button>
+            {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
+              <button
+                onClick={() => void handleStatusChange(b.id, 'completed')}
+                className={`${buttonBase} bg-brand-gold/10 text-brand-gold hover:bg-brand-gold/15`}
+              >
+                Complete
+              </button>
+            )}
+          </>
+        )}
+        {canAdminOperate && !['cancelled', 'expired', 'payment_failed', 'checked_out', 'settled'].includes(b.bookingStatus) && (
+          <button
+            onClick={() => {
+              setCancelBookingId(b.id);
+              setCancelReason('');
+              setCancelDetails('');
+            }}
+            className={`${buttonBase} bg-destructive/10 text-destructive hover:bg-destructive/15`}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {(['all', 'pending_property_confirmation', 'awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'pending', 'expired', 'payment_failed', 'rejected_by_property', 'expired_property_no_response', 'cancelled', 'completed', 'settled'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-lg font-body text-sm capitalize transition-colors ${
+            className={`min-h-9 shrink-0 rounded-lg px-3 py-2 font-body text-[11px] font-medium capitalize transition-colors sm:px-4 sm:text-sm ${
               filter === f ? 'bg-brand-crimson text-primary-foreground' : 'bg-card border border-border hover:bg-muted'
             }`}
           >
@@ -167,12 +268,12 @@ const ManageBookings = () => {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {(['all', 'hotel', 'room', 'room_type', 'cab', 'tour'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTypeFilter(t)}
-            className={`px-3 py-1.5 rounded-lg font-body text-xs capitalize transition-colors ${
+            className={`min-h-8 shrink-0 rounded-lg px-3 py-1.5 font-body text-[11px] capitalize transition-colors sm:text-xs ${
               typeFilter === t ? 'bg-brand-gold text-foreground' : 'bg-card border border-border hover:bg-muted text-muted-foreground'
             }`}
           >
@@ -193,7 +294,56 @@ const ManageBookings = () => {
         </div>
       ) : (
         <>
-        <div className="bg-card rounded-xl border border-border overflow-hidden overflow-x-auto">
+        <div className="space-y-3 md:hidden">
+          {pageItems.map((b) => (
+            <div key={b.id} className="rounded-xl border border-border bg-card p-3 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-body text-[10px] font-semibold text-brand-crimson">{b.bookingId}</p>
+                  <h3 className="mt-1 line-clamp-2 font-heading text-sm font-semibold leading-snug text-foreground">{b.itemName}</h3>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className="rounded bg-secondary px-2 py-0.5 font-body text-[10px] capitalize text-secondary-foreground">{b.bookingType.replace('_', ' ')}</span>
+                    <span className={`rounded-full px-2 py-0.5 font-body text-[10px] ${statusColor(b.bookingStatus)}`}>
+                      {formatBookingStatus(b.bookingStatus)}
+                    </span>
+                  </div>
+                </div>
+                <p className="shrink-0 text-right font-body text-sm font-semibold text-foreground">
+                  Rs. {Number(b.totalAmount || 0).toLocaleString('en-IN')}
+                </p>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-2 font-body text-[11px] text-muted-foreground">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <User size={12} className="shrink-0" />
+                  <span className="truncate">{b.customerFullName || b.userName || '-'}</span>
+                  <span className="shrink-0 text-muted-foreground/70">{b.customerMobile || b.userPhone || ''}</span>
+                </div>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <CreditCard size={12} className="shrink-0" />
+                  <span className="truncate">
+                    {b.paymentMethod === 'doorstep' ? 'Doorstep' : `${b.paymentProvider === 'razorpay' ? 'Razorpay' : 'UPI'} ${b.paymentStatus}`}
+                  </span>
+                  <span className="inline-flex shrink-0">{verificationBadge(b)}</span>
+                </div>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <Building2 size={12} className="shrink-0" />
+                  <span className="truncate">{b.partnerName || 'Admin'}</span>
+                </div>
+              </div>
+
+              <div className="mt-3">{renderBookingActions(b, 'mobile')}</div>
+
+              {expandedBookingId === b.id && (
+                <div className="mt-3">
+                  <BookingFormDetails booking={b} viewer="admin" />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden overflow-hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
           {assignOpen && (
             <div className="p-4 border-b border-border bg-muted/20">
               <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
@@ -300,97 +450,7 @@ const ManageBookings = () => {
                   </td>
                   <td className="px-4 py-3 font-body text-xs text-muted-foreground hidden lg:table-cell">{b.partnerName || 'Admin'}</td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                    <button
-                      onClick={() => setExpandedBookingId((current) => (current === b.id ? '' : b.id))}
-                      className="px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted"
-                    >
-                      {expandedBookingId === b.id ? 'Hide Details' : 'View Details'}
-                    </button>
-                    {canAssignCab(b) ? (
-                      <button
-                        onClick={() => void openAssign(b.id)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-gold text-foreground hover:bg-brand-gold/90"
-                      >
-                        Assign Driver
-                      </button>
-                    ) : String(b.propertyType || '').toLowerCase() === 'dharamshala' && b.bookingStatus === 'pending_property_confirmation' ? (
-                      <span className="font-body text-[11px] text-muted-foreground">Waiting partner decision</span>
-                    ) : b.paymentMethod === 'online' ? (
-                      canAdminVerify(b) ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleVerify(b.id)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-green text-primary-foreground hover:bg-brand-green/90"
-                          >
-                            Verify
-                          </button>
-                          <button
-                            onClick={() => handleReject(b.id)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-body bg-destructive text-primary-foreground hover:bg-destructive/90"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="font-body text-[11px] text-muted-foreground">
-                          {b.paymentProvider === 'razorpay' && b.paymentStatus === 'pending'
-                            ? 'Waiting Razorpay success/failure'
-                            : b.verificationStage === 'pending_partner' ? 'Waiting partner verification' : ''}
-                        </span>
-                      )
-                    ) : (
-                      <span className="font-body text-[11px] text-muted-foreground">-</span>
-                    )}
-                    {['hotel', 'room', 'room_type'].includes(b.bookingType) && (b.paymentStatus === 'paid' || b.paymentStatus === 'not_required') && b.bookingStatus === 'confirmed' && (
-                      <>
-                      <button
-                        onClick={() => void handleStatusChange(b.id, 'checked_in')}
-                        className="px-3 py-1.5 rounded-lg text-xs font-body bg-blue-50 text-blue-700 hover:bg-blue-100"
-                      >
-                        Mark Check-in
-                      </button>
-                      {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
-                        <button
-                          onClick={() => void handleNoShow(b.id)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-destructive/10 text-destructive hover:bg-destructive/15"
-                        >
-                          No-show
-                        </button>
-                      )}
-                      </>
-                    )}
-                    {['hotel', 'room', 'room_type'].includes(b.bookingType) && (b.paymentStatus === 'paid' || b.paymentStatus === 'not_required') && b.bookingStatus === 'checked_in' && (
-                      <>
-                      <button
-                        onClick={() => void handleStatusChange(b.id, 'checked_out')}
-                        className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-green/10 text-brand-green hover:bg-brand-green/15"
-                      >
-                        Mark Check-out
-                      </button>
-                      {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
-                        <button
-                          onClick={() => void handleStatusChange(b.id, 'completed')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-body bg-brand-gold/10 text-brand-gold hover:bg-brand-gold/15"
-                        >
-                          Complete
-                        </button>
-                      )}
-                      </>
-                    )}
-                    {!['cancelled', 'expired', 'payment_failed', 'checked_out', 'settled'].includes(b.bookingStatus) && (
-                      <button
-                        onClick={() => {
-                          setCancelBookingId(b.id);
-                          setCancelReason('');
-                          setCancelDetails('');
-                        }}
-                        className="px-3 py-1.5 rounded-lg text-xs font-body bg-destructive/10 text-destructive hover:bg-destructive/15"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                    </div>
+                    {renderBookingActions(b, 'desktop')}
                   </td>
                 </tr>
                 {expandedBookingId === b.id && (

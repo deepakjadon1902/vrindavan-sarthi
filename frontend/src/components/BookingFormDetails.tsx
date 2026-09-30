@@ -29,6 +29,73 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
   const canShowEmail = viewer !== 'partner' || booking.bookingStatus === 'confirmed';
   const guestDetails = booking.guestDetails || [];
   const isDharamshala = String(booking.propertyType || '').toLowerCase() === 'dharamshala';
+
+  if (viewer === 'partner') {
+    return (
+      <div className="mt-4 space-y-4">
+        <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
+          <p className="font-body text-xs font-semibold text-foreground mb-3">Guest Identity Profile</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-5">
+            <Field label="Customer name" value={booking.customerFullName || booking.userName} />
+            <Field label="Mobile" value={booking.customerMobile || booking.userPhone} />
+            <Field label="Email" value={canShowEmail ? maskEmail(booking.customerEmail || booking.userEmail) : 'Hidden'} />
+            <Field label="Total guests" value={booking.guests} />
+            <Field label="Pet" value={booking.hasPet} />
+          </div>
+
+          {guestDetails.length > 0 && (
+            <div className="mt-4 border-t border-border pt-4">
+              <p className="font-body text-xs font-semibold text-foreground mb-2">Passenger details</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {guestDetails.map((g, idx) => (
+                  <div key={`${g.type}-${idx}`} className="rounded-md border border-border bg-card px-3 py-2">
+                    <p className="font-body text-xs font-medium text-foreground">{g.name}</p>
+                    <p className="font-body text-[11px] text-muted-foreground capitalize">
+                      {g.type} | Age {g.age}{g.gender ? ` | ${g.gender}` : ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
+          <p className="font-body text-xs font-semibold text-foreground mb-3">Booking Information</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+            <Field label="Check-in" value={formatDate(booking.checkIn)} />
+            <Field label="Check-out" value={formatDate(booking.checkOut)} />
+            <Field label="Rooms booked" value={booking.roomQuantity || (booking.roomNumbers?.length || undefined)} />
+            <Field label="Room number" value={booking.roomNumbers?.length ? booking.roomNumbers.join(', ') : booking.roomNumber} />
+            <Field label="Vehicle number" value={booking.vehicleNumber} />
+            <Field label="Arrival time" value={booking.arrivalTime} />
+            <Field label="Guest count" value={booking.guests || `${booking.totalAdults || 0} / ${booking.totalChildren || 0}`} />
+            <Field label="Status" value={formatBookingStatus(booking.bookingStatus)} />
+          </div>
+        </div>
+
+        {booking.bookingType === 'cab' && (
+          <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
+            <p className="font-body text-xs font-semibold text-foreground mb-3">Cab Information</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+              <Field label="Pickup" value={booking.pickupLocation} />
+              <Field label="Drop" value={booking.dropLocation} />
+              <Field label="Pickup date" value={booking.pickupDate} />
+              <Field label="Pickup time" value={booking.pickupTime} />
+              <Field label="Cab type" value={booking.cabType} />
+            </div>
+          </div>
+        )}
+
+        {booking.additionalInfo && (
+          <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
+            <Field label="Additional info" value={booking.additionalInfo} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const isAcceptedDharamshala = isDharamshala && ['awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(booking.bookingStatus || ''));
   const isHotelMarketplace =
     booking.service_billing_model === 'hotel_marketplace' ||
@@ -43,9 +110,9 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="rounded-lg border border-border bg-background/70 p-4">
+      <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
         <p className="font-body text-xs font-semibold text-foreground mb-3">Guest Identity Profile</p>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-5">
           <Field label="Customer name" value={booking.customerFullName || booking.userName} />
           <Field label="Mobile" value={booking.customerMobile || booking.userPhone} />
           <Field label="Email" value={canShowEmail ? maskEmail(booking.customerEmail || booking.userEmail) : 'Hidden'} />
@@ -71,7 +138,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
       </div>
 
       {booking.checkedInAt && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4">
           <p className="font-body text-xs font-semibold text-blue-900 mb-3">Digital Check-In Audit</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Checked In" value={new Date(booking.checkedInAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })} valueClass="text-blue-900" />
@@ -81,9 +148,9 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         </div>
       )}
 
-      <div className="rounded-lg border border-border bg-background/70 p-4">
+      <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
         <p className="font-body text-xs font-semibold text-foreground mb-3">Itinerary Parameters</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <Field label="Check-in" value={formatDate(booking.checkIn)} />
           <Field label="Check-out" value={formatDate(booking.checkOut)} />
           <Field label="Rooms booked" value={booking.roomQuantity || (booking.roomNumbers?.length || undefined)} />
@@ -94,14 +161,14 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-background/70 p-4">
+      <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
         <p className="font-body text-xs font-semibold text-foreground mb-3">
           {isDharamshala && viewer !== 'admin'
             ? 'Dharamshala Payment Details'
             : isHotelMarketplace ? 'Booking Financial Summary' : 'Tax Invoice Payment Summary'}
         </p>
         {isDharamshala && viewer !== 'admin' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Paid online" value={formatMoney(booking.amountPaidOnline || 0)} />
             <Field
               label="Donation / contribution"
@@ -115,7 +182,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
             <Field label="Booking status" value={formatBookingStatus(booking.bookingStatus)} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Base Amount" value={formatMoney(baseAmount)} />
             <Field label={isHotelMarketplace ? `Hotel Taxes${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}` : `GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={formatMoney(hotelGst)} />
             <Field label={isHotelMarketplace ? 'Platform Convenience Fee' : 'Convenience Fee'} value={formatMoney(booking.convenienceFeeAmount || 0)} />
@@ -134,7 +201,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
       </div>
 
       {viewer === 'partner' && !isDharamshala && (
-        <div className="rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-4">
+        <div className="rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-3 sm:p-4">
           <p className="font-body text-xs font-semibold text-foreground mb-3">Partner Settlement Summary</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Field label="Gross Booking Value (Room + Hotel Taxes)" value={formatMoney(grossForHotel)} valueClass="text-foreground" />
@@ -147,9 +214,9 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
       )}
 
       {booking.bookingType === 'cab' && (
-        <div className="rounded-lg border border-border bg-background/70 p-4">
+        <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
           <p className="font-body text-xs font-semibold text-foreground mb-3">Cab parameters</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
             <Field label="Pickup" value={booking.pickupLocation} />
             <Field label="Drop" value={booking.dropLocation} />
             <Field label="Pickup date" value={booking.pickupDate} />
@@ -161,7 +228,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
       )}
 
       {booking.additionalInfo && (
-        <div className="rounded-lg border border-border bg-background/70 p-4">
+        <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
           <Field label="Additional info" value={booking.additionalInfo} />
         </div>
       )}

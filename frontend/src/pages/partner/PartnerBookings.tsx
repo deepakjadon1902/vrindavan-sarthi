@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
-import { ClipboardList, Calendar, User, Phone, Mail, CheckCircle2, IndianRupee } from 'lucide-react';
+import { ClipboardList, Calendar, User, Phone, Mail, CheckCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import BookingFormDetails from '@/components/BookingFormDetails';
@@ -52,8 +52,6 @@ const PartnerBookings = () => {
 
   const needsPartnerVerify = (b: any) =>
     b.paymentMethod === 'online' && b.paymentProvider !== 'razorpay' && b.paymentStatus === 'pending' && b.verificationStage === 'pending_partner';
-  const needsCashBalance = (b: any) =>
-    b.paymentOption === 'advance_30' && Number(b.balanceAmount || 0) > 0 && !['cancelled', 'settled'].includes(String(b.bookingStatus || ''));
   const canPartnerCheckIn = (b: any) =>
     ['hotel', 'room', 'room_type'].includes(String(b.bookingType || '')) &&
     (b.paymentStatus === 'paid' || b.paymentStatus === 'not_required') &&
@@ -138,13 +136,13 @@ const PartnerBookings = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-2 flex-wrap">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {(['all', 'pending_property_confirmation', 'awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'expired', 'payment_failed', 'rejected_by_property', 'expired_property_no_response', 'cancelled', 'completed', 'settled'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-lg font-body text-sm capitalize transition-colors ${
+            className={`min-h-9 shrink-0 rounded-lg px-3 py-2 font-body text-[11px] font-medium capitalize transition-colors sm:px-4 sm:text-sm ${
               filter === f ? 'bg-brand-crimson text-primary-foreground' : 'bg-card border border-border hover:bg-muted'
             }`}
           >
@@ -164,7 +162,7 @@ const PartnerBookings = () => {
           <p className="font-body text-sm text-muted-foreground">Bookings for your listings will appear here.</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {cancelBookingId && (
             <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
               <div className="flex flex-col gap-3">
@@ -208,9 +206,9 @@ const PartnerBookings = () => {
             </div>
           )}
           {pageItems.map((b) => (
-            <div key={b.id} className="bg-card rounded-xl border border-border p-5">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+            <div key={b.id} className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5">
+              <div className="flex gap-3 sm:gap-4">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted sm:h-16 sm:w-20">
                   {b.itemImage && b.itemImage !== '/placeholder.svg' ? (
                     <img src={b.itemImage} alt={b.itemName} className="w-full h-full object-cover" />
                   ) : (
@@ -219,66 +217,44 @@ const PartnerBookings = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-body text-xs text-muted-foreground">{b.bookingId}</p>
-                      <h3 className="font-heading text-lg font-semibold text-foreground">{b.itemName}</h3>
-                      <span className="font-body text-xs bg-secondary px-2 py-0.5 rounded text-secondary-foreground capitalize">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate font-body text-[10px] text-muted-foreground sm:text-xs">{b.bookingId}</p>
+                      <h3 className="line-clamp-2 font-heading text-sm font-semibold leading-snug text-foreground sm:text-lg">{b.itemName}</h3>
+                      <span className="mt-1 inline-flex rounded bg-secondary px-2 py-0.5 font-body text-[10px] capitalize text-secondary-foreground sm:text-xs">
                         {b.bookingType}
                       </span>
                     </div>
-                    <span className={`font-body text-xs px-2 py-1 rounded-full capitalize ${statusColor(b.bookingStatus)}`}>
+                    <span className={`w-fit rounded-full px-2 py-1 font-body text-[10px] capitalize sm:text-xs ${statusColor(b.bookingStatus)}`}>
                       {formatBookingStatus(b.bookingStatus)}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 font-body text-xs">
-                    <div className="flex items-center gap-1">
-                      <User size={12} className="text-muted-foreground" />
-                      <span>{b.userName}</span>
+                  <div className="mt-3 grid grid-cols-1 gap-2 font-body text-[11px] sm:grid-cols-2 sm:gap-3 sm:text-xs md:grid-cols-4">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <User size={12} className="shrink-0 text-muted-foreground" />
+                      <span className="truncate">{b.userName || '-'}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Phone size={12} className="text-muted-foreground" />
-                      <span>{b.userPhone}</span>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <Phone size={12} className="shrink-0 text-muted-foreground" />
+                      <span className="truncate">{b.userPhone || '-'}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Mail size={12} className="text-muted-foreground" />
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <Mail size={12} className="shrink-0 text-muted-foreground" />
                       <span className="truncate">{b.userEmail}</span>
                     </div>
                     {b.checkIn && (
-                      <div className="flex items-center gap-1">
-                        <Calendar size={12} className="text-muted-foreground" />
-                        <span>{new Date(b.checkIn).toLocaleDateString()}</span>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <Calendar size={12} className="shrink-0 text-muted-foreground" />
+                        <span className="truncate">{new Date(b.checkIn).toLocaleDateString()}</span>
                       </div>
                     )}
                   </div>
 
                   <div className="flex items-center gap-4 mt-2 font-body text-xs text-muted-foreground">
-                    {b.totalAmount > 0 && (
-                      <span className="font-semibold text-foreground">₹{b.totalAmount.toLocaleString('en-IN')}</span>
-                    )}
-                    <span>{b.paymentMethod === 'doorstep' ? 'Pay at Doorstep' : `${b.paymentProvider === 'razorpay' ? 'Razorpay' : 'UPI'} ${b.paymentStatus}`}</span>
                     <span>{new Date(b.createdAt).toLocaleDateString()}</span>
                   </div>
-
-                  {needsCashBalance(b) && (
-                    <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-brand-saffron/35 bg-brand-saffron/10 px-3 py-2 font-body text-sm font-extrabold text-foreground">
-                      <IndianRupee size={15} className="text-brand-saffron" />
-                      Collect 70% Balance in Cash: Rs. {Number(b.balanceAmount || 0).toLocaleString('en-IN')}
-                    </div>
-                  )}
-
-                  {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
-                    <div className="mt-3 grid gap-1 rounded-lg border border-brand-gold/25 bg-brand-cream/40 px-3 py-2 font-body text-xs text-foreground sm:grid-cols-2">
-                      <span>Confirmation paid online: Rs. {Number(b.amountPaidOnline || 0).toLocaleString('en-IN')}</span>
-                      <span>
-                        Contribution: {['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(b.bookingStatus || ''))
-                          ? `Rs. ${Number(b.amountPayableAtProperty || b.dharamshalaAmount || 0).toLocaleString('en-IN')}`
-                          : 'Visible after confirmation'}
-                      </span>
-                    </div>
-                  )}
 
                   {b.checkedInAt && (
                     <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 font-body text-xs text-blue-800">
@@ -287,36 +263,37 @@ const PartnerBookings = () => {
                     </div>
                   )}
 
-                  <button
-                    onClick={() => setExpandedBookingId((current) => (current === b.id ? '' : b.id))}
-                    className="mt-3 px-3 py-1.5 rounded-lg text-xs font-body border border-border hover:bg-muted"
-                  >
-                    {expandedBookingId === b.id ? 'Hide Details' : 'View Details'}
-                  </button>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setExpandedBookingId((current) => (current === b.id ? '' : b.id))}
+                      className="min-h-9 flex-1 rounded-lg border border-border px-3 py-1.5 font-body text-xs hover:bg-muted sm:flex-none"
+                    >
+                      {expandedBookingId === b.id ? 'Hide Details' : 'View Details'}
+                    </button>
+                    {!['cancelled', 'expired', 'payment_failed', 'checked_out', 'settled'].includes(b.bookingStatus) && (
+                      <button
+                        onClick={() => {
+                          setCancelBookingId(b.id);
+                          setCancelReason('');
+                          setCancelDetails('');
+                        }}
+                        className="min-h-9 flex-1 rounded-lg bg-destructive/10 px-3 py-1.5 font-body text-xs text-destructive hover:bg-destructive/15 sm:flex-none"
+                      >
+                        Cancel Booking
+                      </button>
+                    )}
+                  </div>
 
                   {expandedBookingId === b.id && <BookingFormDetails booking={b} viewer="partner" />}
 
-                  {!['cancelled', 'expired', 'payment_failed', 'checked_out', 'settled'].includes(b.bookingStatus) && (
-                    <button
-                      onClick={() => {
-                        setCancelBookingId(b.id);
-                        setCancelReason('');
-                        setCancelDetails('');
-                      }}
-                      className="mt-3 px-3 py-1.5 rounded-lg text-xs font-body bg-destructive/10 text-destructive hover:bg-destructive/15"
-                    >
-                      Cancel Booking
-                    </button>
-                  )}
-
                   {canPartnerCheckIn(b) && (
-                    <>
+                    <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       onClick={() => {
                         setCheckInBookingId(b.id);
                         setGuestSignature(b.customerFullName || b.userName || '');
                       }}
-                      className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 font-body text-xs font-semibold text-white hover:bg-blue-700"
+                      className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 font-body text-xs font-semibold text-white hover:bg-blue-700 sm:flex-none"
                     >
                       <CheckCircle2 size={13} />
                       Mark Guest Checked-In
@@ -324,31 +301,31 @@ const PartnerBookings = () => {
                     {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
                       <button
                         onClick={() => handleNoShow(b.id)}
-                        className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-1.5 font-body text-xs font-semibold text-destructive hover:bg-destructive/15"
+                        className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-1.5 font-body text-xs font-semibold text-destructive hover:bg-destructive/15 sm:flex-none"
                       >
                         Mark No-show
                       </button>
                     )}
-                    </>
+                    </div>
                   )}
 
                   {canDecideDharamshala(b) && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         onClick={() => handleAcceptDharamshala(b.id, 'full_online')}
-                        className="px-4 py-2 rounded-lg text-xs font-body bg-brand-green text-primary-foreground hover:bg-brand-green/90"
+                        className="min-h-9 flex-1 rounded-lg bg-brand-green px-3 py-2 font-body text-xs text-primary-foreground hover:bg-brand-green/90 sm:flex-none sm:px-4"
                       >
                         Collect Full Amount Online
                       </button>
                       <button
                         onClick={() => handleAcceptDharamshala(b.id, 'pay_at_dharamshala')}
-                        className="px-4 py-2 rounded-lg text-xs font-body bg-brand-gold text-foreground hover:bg-brand-gold/90"
+                        className="min-h-9 flex-1 rounded-lg bg-brand-gold px-3 py-2 font-body text-xs text-foreground hover:bg-brand-gold/90 sm:flex-none sm:px-4"
                       >
                         Contribution at Check-in
                       </button>
                       <button
                         onClick={() => handleRejectDharamshala(b.id)}
-                        className="px-4 py-2 rounded-lg text-xs font-body bg-destructive text-primary-foreground hover:bg-destructive/90"
+                        className="min-h-9 flex-1 rounded-lg bg-destructive px-3 py-2 font-body text-xs text-primary-foreground hover:bg-destructive/90 sm:flex-none sm:px-4"
                       >
                         Reject Request
                       </button>
@@ -358,7 +335,7 @@ const PartnerBookings = () => {
                   {String(b.propertyType || '').toLowerCase() === 'dharamshala' && b.bookingStatus === 'checked_in' && (
                     <button
                       onClick={() => handleCompleteDharamshala(b.id)}
-                      className="ml-2 mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-gold/10 px-3 py-1.5 font-body text-xs font-semibold text-brand-gold hover:bg-brand-gold/15"
+                      className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-gold/10 px-3 py-1.5 font-body text-xs font-semibold text-brand-gold hover:bg-brand-gold/15"
                     >
                       Mark Completed
                     </button>
@@ -368,18 +345,18 @@ const PartnerBookings = () => {
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         onClick={() => handlePartnerVerify(b.id)}
-                        className="px-4 py-2 rounded-lg text-xs font-body bg-brand-green text-primary-foreground hover:bg-brand-green/90"
+                        className="min-h-9 flex-1 rounded-lg bg-brand-green px-3 py-2 font-body text-xs text-primary-foreground hover:bg-brand-green/90 sm:flex-none sm:px-4"
                       >
                         Partner Verify Payment
                       </button>
                       <button
                         onClick={() => handlePartnerReject(b.id)}
-                        className="px-4 py-2 rounded-lg text-xs font-body bg-destructive text-primary-foreground hover:bg-destructive/90"
+                        className="min-h-9 flex-1 rounded-lg bg-destructive px-3 py-2 font-body text-xs text-primary-foreground hover:bg-destructive/90 sm:flex-none sm:px-4"
                       >
                         Reject Payment
                       </button>
                       <span className="text-[11px] text-muted-foreground self-center">
-                        After you verify, admin will do final verification.
+                        Payment verification will confirm this booking.
                       </span>
                     </div>
                   )}

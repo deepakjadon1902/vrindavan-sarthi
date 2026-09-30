@@ -139,6 +139,7 @@ const findBookingHotel = async (bookingType, body) => {
 };
 
 const normalize = (v) => String(v || '').trim();
+const isPartnerOwnedBooking = (booking) => Boolean(booking?.partnerId);
 const normalizeLocationKey = (v) => normalize(v).replace(/\s+/g, ' ');
 const comparableKey = (v) => normalizeLocationKey(v).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const vehicleKey = (v) => comparableKey(v).replace(/\b(seater|seat|seats|cab|car|taxi|vehicle)\b/g, '').replace(/\s+/g, ' ').trim();
@@ -1092,6 +1093,9 @@ router.put('/:id/cancel', protect, async (req, res) => {
         : { _id: req.params.id, userId: req.user._id };
     const booking = await Booking.findOne(query);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (req.user.role === 'admin' && isPartnerOwnedBooking(booking)) {
+      return res.status(403).json({ success: false, message: 'Partner listing bookings can be managed by the partner only' });
+    }
 
     const reason = normalize(req.body?.reason || req.body?.cancellationReason);
     const cancellationDetails = normalize(req.body?.details || req.body?.cancellationDetails);
@@ -1241,6 +1245,9 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
   try {
     const bookingExisting = await Booking.findById(req.params.id);
     if (!bookingExisting) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (isPartnerOwnedBooking(bookingExisting)) {
+      return res.status(403).json({ success: false, message: 'Partner listing payments can be managed by the partner only' });
+    }
     if (bookingExisting.paymentProvider === 'razorpay') {
       return res.status(400).json({ success: false, message: 'Razorpay payments are verified automatically by server/webhook.' });
     }
@@ -1270,6 +1277,9 @@ router.put('/:id/reject', protect, authorize('admin'), async (req, res) => {
   try {
     const existing = await Booking.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (isPartnerOwnedBooking(existing)) {
+      return res.status(403).json({ success: false, message: 'Partner listing payments can be managed by the partner only' });
+    }
     if (existing.paymentProvider === 'razorpay') {
       return res.status(400).json({ success: false, message: 'Razorpay payments are updated automatically by server/webhook.' });
     }
@@ -1291,6 +1301,9 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (isPartnerOwnedBooking(booking)) {
+      return res.status(403).json({ success: false, message: 'Partner listing bookings can be managed by the partner only' });
+    }
     const nextStatus = normalize(req.body?.bookingStatus || req.body?.status);
     const allowed = ['checked_in', 'checked_out', 'completed', 'settled', 'no_show'];
     if (!allowed.includes(nextStatus)) return res.status(400).json({ success: false, message: 'Invalid booking status' });
@@ -1329,6 +1342,9 @@ router.put('/:id/no-show', protect, authorize('admin', 'partner'), async (req, r
       : { _id: req.params.id, propertyType: 'dharamshala', partnerId: req.user._id };
     const booking = await Booking.findOne(query);
     if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala booking not found' });
+    if (req.user.role === 'admin' && isPartnerOwnedBooking(booking)) {
+      return res.status(403).json({ success: false, message: 'Partner listing bookings can be managed by the partner only' });
+    }
     if (booking.bookingStatus !== 'confirmed') return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
     await transitionBookingStatus(booking, 'no_show', {
       actorId: req.user._id,
@@ -1352,6 +1368,9 @@ router.put('/:id/dharamshala/complete', protect, authorize('admin', 'partner'), 
       : { _id: req.params.id, propertyType: 'dharamshala', partnerId: req.user._id };
     const booking = await Booking.findOne(query);
     if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala booking not found' });
+    if (req.user.role === 'admin' && isPartnerOwnedBooking(booking)) {
+      return res.status(403).json({ success: false, message: 'Partner listing bookings can be managed by the partner only' });
+    }
     if (!['checked_in', 'checked_out'].includes(String(booking.bookingStatus || ''))) {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
     }
@@ -1422,12 +1441,18 @@ router.put('/:id/partner-verify', protect, authorize('partner'), async (req, res
       return res.status(400).json({ success: false, message: 'Partner verification is only for online payments' });
     }
 
-    booking.partnerPaymentVerified = true;
-    booking.partnerPaymentVerifiedAt = new Date();
-    booking.verificationStage = 'pending_admin';
-    await booking.save();
+    const updated = await markBookingPaymentPaid(booking, {
+      paymentProvider: 'manual_upi',
+      actorId: req.user._id,
+      actorRole: 'partner',
+      reason: 'manual_upi_partner_verified',
+    });
+    await enqueueBookingNotifications(updated, {
+      invoice: !['cab', 'tour'].includes(String(updated.bookingType || '')),
+      partnerAlert: false,
+    });
 
-    res.json({ success: true, data: booking });
+    res.json({ success: true, data: updated });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
