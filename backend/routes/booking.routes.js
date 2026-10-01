@@ -889,10 +889,18 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 });
 
 const findDharamshalaBookingForDecision = async (req) => {
-  return Booking.findOne({ _id: req.params.id, propertyType: 'dharamshala', partnerId: req.user._id });
+  const booking = await Booking.findOne({ _id: req.params.id, propertyType: 'dharamshala' });
+  if (!booking) return null;
+  if (req.user.role === 'partner') {
+    return String(booking.partnerId || '') === String(req.user._id) ? booking : null;
+  }
+  if (req.user.role === 'admin') {
+    return booking.partnerId ? null : booking;
+  }
+  return null;
 };
 
-router.put('/:id/dharamshala/accept', protect, authorize('partner'), async (req, res) => {
+router.put('/:id/dharamshala/accept', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
     const booking = await findDharamshalaBookingForDecision(req);
     if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala request not found' });
@@ -920,7 +928,7 @@ router.put('/:id/dharamshala/accept', protect, authorize('partner'), async (req,
   }
 });
 
-router.put('/:id/dharamshala/reject', protect, authorize('partner'), async (req, res) => {
+router.put('/:id/dharamshala/reject', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
     const booking = await findDharamshalaBookingForDecision(req);
     if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala request not found' });

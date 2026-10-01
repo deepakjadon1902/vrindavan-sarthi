@@ -29,7 +29,13 @@ public class VrsFirebaseMessagingService extends FirebaseMessagingService {
         NativeDeviceRegistrar.saveFcmToken(this, token);
         String jwt = NativeDeviceRegistrar.getJwt(this);
         if (!jwt.isEmpty()) {
-            NativeDeviceRegistrar.register(BuildConfig.API_BASE_URL, jwt, getNativeDeviceId(), token);
+            NativeDeviceRegistrar.register(
+                BuildConfig.API_BASE_URL,
+                jwt,
+                getNativeDeviceId(),
+                token,
+                NotificationManagerCompat.from(this).areNotificationsEnabled()
+            );
         }
     }
 
@@ -68,7 +74,11 @@ public class VrsFirebaseMessagingService extends FirebaseMessagingService {
             .setFullScreenIntent(contentIntent, true)
             .addAction(R.drawable.ic_vrs_notification, "View Booking", contentIntent);
 
-        NotificationManagerCompat.from(this).notify(notificationId.hashCode(), builder.build());
+        if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            NotificationManagerCompat.from(this).notify(notificationId.hashCode(), builder.build());
+        } else {
+            Log.w(TAG, "Alarm notification skipped because notifications are disabled");
+        }
         Log.d(TAG, "Alarm notification posted notificationId=" + notificationId);
     }
 

@@ -5,6 +5,8 @@ import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.webkit.WebSettings;
@@ -19,8 +21,18 @@ import com.google.firebase.messaging.FirebaseMessaging;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "VrsNativeAlarm";
+    private static final int REGISTER_REQUEST_CODE = 108;
+    private static final long REGISTER_POLL_MS = 10_000L;
     private WebView webView;
     private String fcmToken = "";
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable registrationPoller = new Runnable() {
+        @Override
+        public void run() {
+            tryRegisterNativeDevice();
+            handler.postDelayed(this, REGISTER_POLL_MS);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
         VrsFirebaseMessagingService.ensureAlarmChannel(this);
         requestNotificationPermission();
         setupWebView();
+        VrsAppUpdateManager.checkForUpdates(this, false);
         FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token -> {
             fcmToken = token == null ? "" : token;
             Log.d(TAG, "FCM token received=" + !fcmToken.isEmpty());
@@ -36,6 +49,19 @@ public class MainActivity extends AppCompatActivity {
         }).addOnFailureListener(error -> {
             Log.e(TAG, "FCM token failed", error);
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        handler.removeCallbacks(registrationPoller);
+        handler.post(registrationPoller);
+    }
+
+    @Override
+    protected void onPause() {
+        handler.removeCallbacks(registrationPoller);
+        super.onPause();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -69,7 +95,13 @@ public class MainActivity extends AppCompatActivity {
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT < 33) return;
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return;
-        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 108);
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, REGISTER_REQUEST_CODE);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REGISTER_REQUEST_CODE) tryRegisterNativeDevice();
     }
 
     private void tryRegisterNativeDevice() {
@@ -88,7 +120,8 @@ public class MainActivity extends AppCompatActivity {
                     BuildConfig.API_BASE_URL,
                     jwt,
                     getNativeDeviceId(),
-                    fcmToken
+                    fcmToken,
+                    androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled()
                 );
             }
         );

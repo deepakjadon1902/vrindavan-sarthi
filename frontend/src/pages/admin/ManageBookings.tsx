@@ -19,6 +19,8 @@ const ManageBookings = () => {
     adminCancelBooking,
     updateBookingStatus,
     markDharamshalaNoShow,
+    acceptDharamshalaRequest,
+    rejectDharamshalaRequest,
   } = useBookingStore();
   const [filter, setFilter] = useState<'all' | 'pending_property_confirmation' | 'awaiting_customer_payment' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'pending' | 'settled' | 'expired' | 'payment_failed' | 'rejected_by_property' | 'expired_property_no_response'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'room' | 'room_type' | 'cab' | 'tour'>('all');
@@ -115,6 +117,27 @@ const ManageBookings = () => {
     else toast.error(res.error || 'No-show update failed');
   };
 
+  const handleAcceptDharamshala = async (id: string, paymentMode: 'pay_at_dharamshala' | 'full_online') => {
+    const res = await acceptDharamshalaRequest(id, paymentMode);
+    if (res.success) {
+      toast.success(
+        paymentMode === 'full_online'
+          ? 'Request accepted. Customer will pay advance online.'
+          : 'Request accepted. Customer will pay at Dharamshala.'
+      );
+    } else {
+      toast.error(res.error || 'Accept failed');
+    }
+  };
+
+  const handleRejectDharamshala = async (id: string) => {
+    const reason = window.prompt('Reason for rejecting this request:') || '';
+    if (!reason.trim()) return toast.error('Rejection reason is required');
+    const res = await rejectDharamshalaRequest(id, reason.trim());
+    if (res.success) toast.success('Request rejected');
+    else toast.error(res.error || 'Reject failed');
+  };
+
   const handleAdminCancel = async () => {
     if (!cancelBookingId || !cancelReason.trim()) return toast.error('Cancellation reason is required');
     if (!cancelDetails.trim()) return toast.error('Cancellation details are required');
@@ -174,6 +197,27 @@ const ManageBookings = () => {
           >
             Assign Driver
           </button>
+        ) : canAdminOperate && String(b.propertyType || '').toLowerCase() === 'dharamshala' && b.bookingStatus === 'pending_property_confirmation' ? (
+          <>
+            <button
+              onClick={() => void handleAcceptDharamshala(b.id, 'full_online')}
+              className={`${buttonBase} bg-brand-green text-primary-foreground hover:bg-brand-green/90`}
+            >
+              Advance Online
+            </button>
+            <button
+              onClick={() => void handleAcceptDharamshala(b.id, 'pay_at_dharamshala')}
+              className={`${buttonBase} bg-brand-gold text-foreground hover:bg-brand-gold/90`}
+            >
+              Pay at Dharamshala
+            </button>
+            <button
+              onClick={() => void handleRejectDharamshala(b.id)}
+              className={`${buttonBase} bg-destructive text-primary-foreground hover:bg-destructive/90`}
+            >
+              Reject Request
+            </button>
+          </>
         ) : String(b.propertyType || '').toLowerCase() === 'dharamshala' && b.bookingStatus === 'pending_property_confirmation' ? (
           <span className="self-center font-body text-[11px] text-muted-foreground">Waiting partner decision</span>
         ) : canAdminOperate && b.paymentMethod === 'online' ? (

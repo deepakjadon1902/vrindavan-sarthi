@@ -7,6 +7,7 @@ const { protect, authorize } = require('../middleware/auth');
 const { rejectInvalidObjectId } = require('../utils/security');
 const { enqueueNotificationDelivery, getBookingAlarmDurationSeconds } = require('../utils/notificationDelivery');
 const { getWebPushConfig, sendWebPush, isInvalidSubscriptionError } = require('../utils/webPushProvider');
+const { getFcmConfig, sendFcmAlarm, isInvalidFcmTokenError } = require('../utils/fcmProvider');
 
 const router = express.Router();
 
@@ -189,10 +190,6 @@ router.delete('/devices/:deviceId', protect, authorize('admin', 'partner'), asyn
 
 router.post('/devices/:deviceId/test-push', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
-    const config = getWebPushConfig();
-    if (!config.configured) {
-      return res.status(503).json({ success: false, message: 'Web Push is not configured on this server' });
-    }
     const deviceId = sanitizeDeviceId(req.params.deviceId);
     const device = await NotificationDevice.findOne({
       userId: req.user._id,
@@ -200,13 +197,16 @@ router.post('/devices/:deviceId/test-push', protect, authorize('admin', 'partner
       revokedAt: null,
       notificationEnabled: true,
       permissionStatus: 'granted',
-      'pushSubscription.endpoint': { $exists: true, $ne: '' },
+      $or: [
+        { 'pushSubscription.endpoint': { $exists: true, $ne: '' } },
+        { fcmToken: { $exists: true, $ne: '' } },
+      ],
     });
     if (!device) {
-      return res.status(404).json({ success: false, message: 'No active push subscription found for this device' });
+      return res.status(404).json({ success: false, message: 'No active push token or subscription found for this device' });
     }
 
-    const result = await sendWebPush(device.pushSubscription, {
+    const payload = {
       version: 1,
       notificationId: `test-${Date.now()}`,
       type: 'BOOKING_PUSH_TEST',
@@ -214,10 +214,26 @@ router.post('/devices/:deviceId/test-push', protect, authorize('admin', 'partner
       title: 'Vrindavan Sarthi booking alerts enabled',
       body: 'This is a test notification for this device notification center.',
       deepLink: req.user.role === 'partner' ? '/partner/bookings' : '/admin/bookings',
-    }, {
-      ttl: Math.max(30, getBookingAlarmDurationSeconds()),
-      urgency: 'high',
-    });
+    };
+    let result;
+    if (device.fcmToken) {
+      if (!getFcmConfig().configured) {
+        return res.status(503).json({ success: false, message: 'FCM is not configured on this server for Android app notifications' });
+      }
+      result = await sendFcmAlarm(device.fcmToken, {
+        ...payload,
+        ttl: Math.max(30, getBookingAlarmDurationSeconds()),
+      });
+    } else {
+      const config = getWebPushConfig();
+      if (!config.configured) {
+        return res.status(503).json({ success: false, message: 'Web Push is not configured on this server' });
+      }
+      result = await sendWebPush(device.pushSubscription, payload, {
+        ttl: Math.max(30, getBookingAlarmDurationSeconds()),
+        urgency: 'high',
+      });
+    }
 
     await NotificationDevice.updateOne(
       { _id: device._id },
@@ -235,6 +251,9 @@ router.post('/devices/:deviceId/test-push', protect, authorize('admin', 'partner
       update.notificationEnabled = false;
       update.pushSubscription = null;
       update.pushSubscriptionRevokedAt = new Date();
+    } else if (isInvalidFcmTokenError(err)) {
+      update.notificationEnabled = false;
+      update.fcmToken = '';
     }
     await NotificationDevice.updateOne(
       { userId: req.user._id, deviceId },

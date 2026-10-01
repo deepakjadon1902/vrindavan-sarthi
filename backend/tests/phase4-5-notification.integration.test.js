@@ -244,11 +244,62 @@ dbTest('dharamshala property review request raises critical alarm for admin and 
   assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(partnerA._id)).length, 1);
   assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(partnerB._id)).length, 0);
   assert.ok(notifications.every((n) => n.priority === 'critical' && n.alarmStatus === 'alarming'));
+  assert.equal(notifications.find((n) => String(n.recipientUserId) === String(admin._id))?.metadata?.canRespond, false);
+  assert.equal(notifications.find((n) => String(n.recipientUserId) === String(partnerA._id))?.metadata?.canRespond, true);
 
   const deliveries = await NotificationDelivery.find({ bookingId: booking._id, eventType: 'dharamshala.property_review' }).lean();
   assert.equal(deliveries.length, (adminIds.size + 1) * (1 + ALARM_PUSH_ATTEMPTS_PER_RECIPIENT));
   assert.equal(deliveries.filter((delivery) => delivery.channel === 'in_app').length, adminIds.size + 1);
   assert.equal(deliveries.filter((delivery) => delivery.channel === 'web_push').length, (adminIds.size + 1) * ALARM_PUSH_ATTEMPTS_PER_RECIPIENT);
+});
+
+dbTest('admin-owned dharamshala request raises actionable alarm only for admins', async () => {
+  const [admin, partner, customer] = await User.create([
+    { name: 'Owner Admin', email: `owner-admin@${TEST_RUN}.test`, password: 'x', role: 'admin', phone: '31' },
+    { name: 'Owner Partner', email: `owner-partner@${TEST_RUN}.test`, password: 'x', role: 'partner', partnerStatus: 'approved', phone: '32' },
+    { name: 'Owner Customer', email: `owner-customer@${TEST_RUN}.test`, password: 'x', role: 'user', phone: '33' },
+  ]);
+  const hotel = await Hotel.create({
+    name: `${TEST_RUN} Admin Dharamshala`,
+    propertyType: 'dharamshala',
+    location: 'Vrindavan',
+    googleMapLink: 'Vrindavan',
+    nearestTemple: 'Banke Bihari',
+    status: 'active',
+    approvalStatus: 'approved',
+  });
+  const booking = await Booking.create({
+    bookingId: `${TEST_RUN}-ADMIN-DR-1`,
+    bookingType: 'room_type',
+    service_billing_model: 'dharamshala_booking',
+    propertyType: 'dharamshala',
+    paymentMode: 'pay_at_dharamshala',
+    itemId: String(hotel._id),
+    itemName: `${hotel.name} - Seva Room`,
+    userId: customer._id,
+    userName: customer.name,
+    userEmail: customer.email,
+    userPhone: customer.phone,
+    hotelId: hotel._id,
+    checkIn: new Date('2026-10-01T00:00:00.000Z'),
+    checkOut: new Date('2026-10-02T00:00:00.000Z'),
+    bookingStatus: 'pending_property_confirmation',
+    paymentStatus: 'pending',
+    totalAmount: 799,
+    requestExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
+  });
+
+  await ensureDharamshalaPropertyReviewAlarmNotifications(booking, { queueFactory: () => null });
+
+  const adminIds = new Set((await User.find({ role: 'admin' }).select('_id').lean()).map((user) => String(user._id)));
+  const notifications = await PartnerNotification.find({ bookingId: booking._id, eventType: 'DHARAMSHALA_PROPERTY_REVIEW' }).lean();
+  assert.equal(notifications.length, adminIds.size);
+  assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(admin._id)).length, 1);
+  assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(partner._id)).length, 0);
+  assert.ok(notifications.every((n) => n.priority === 'critical' && n.alarmStatus === 'alarming' && n.metadata?.canRespond === true));
+
+  const deliveries = await NotificationDelivery.find({ bookingId: booking._id, eventType: 'dharamshala.property_review' }).lean();
+  assert.equal(deliveries.length, adminIds.size * (1 + ALARM_PUSH_ATTEMPTS_PER_RECIPIENT));
 });
 
 dbTest('pending booking that needs action raises critical alarm for admin and exact partner', async () => {
@@ -299,6 +350,8 @@ dbTest('pending booking that needs action raises critical alarm for admin and ex
   assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(partnerA._id)).length, 1);
   assert.equal(notifications.filter((n) => String(n.recipientUserId) === String(partnerB._id)).length, 0);
   assert.ok(notifications.every((n) => n.priority === 'critical' && n.alarmStatus === 'alarming'));
+  assert.equal(notifications.find((n) => String(n.recipientUserId) === String(admin._id))?.metadata?.canRespond, false);
+  assert.equal(notifications.find((n) => String(n.recipientUserId) === String(partnerA._id))?.metadata?.canRespond, true);
 
   const deliveries = await NotificationDelivery.find({ bookingId: booking._id, eventType: 'booking.requires_action' }).lean();
   assert.equal(deliveries.length, (adminIds.size + 1) * (1 + ALARM_PUSH_ATTEMPTS_PER_RECIPIENT));

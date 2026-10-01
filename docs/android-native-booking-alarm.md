@@ -76,6 +76,36 @@ cd android
 .\gradlew.bat assembleDebug
 ```
 
+## App Updates
+
+The APK includes a self-update checker. On launch it reads:
+
+`https://www.vrindavansarthi.in/android-app-update.json`
+
+When `versionCode` in that manifest is higher than the installed APK, the app downloads the APK from `apkUrl` and opens the Android installer prompt.
+
+Android does not allow a normal APK to silently install itself in the background. Fully automatic silent updates require Google Play managed updates, an enterprise device-owner/MDM setup, or rooted/system app privileges. For direct APK distribution, users must approve the Android installer prompt and may need to allow "Install unknown apps" for Vrindavan Sarthi once.
+
+Release steps for direct APK updates:
+
+1. Increase `versionCode` and `versionName` in `android/app/build.gradle`.
+2. Build the release APK.
+3. Upload the APK to the URL configured in `frontend/public/android-app-update.json`.
+4. Update `frontend/public/android-app-update.json`:
+
+```json
+{
+  "versionCode": 2,
+  "versionName": "1.0.1",
+  "apkUrl": "/downloads/vrindavan-sarthi.apk",
+  "releaseNotes": "Booking alarm and notification routing improvements.",
+  "force": false
+}
+```
+
+5. Deploy the frontend so `/android-app-update.json` is live.
+6. Existing installed APKs check for updates every 6 hours when opened.
+
 ## Phone Settings
 
 After installing:

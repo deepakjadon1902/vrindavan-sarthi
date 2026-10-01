@@ -510,6 +510,7 @@ const createBookingAlarmNotification = async ({
   title,
   message,
   alarm = true,
+  canRespond = false,
 }) => {
   const now = new Date();
   const alarmExpiresAt = new Date(now.getTime() + getBookingAlarmDurationSeconds() * 1000);
@@ -545,6 +546,8 @@ const createBookingAlarmNotification = async ({
       bookingStatus: booking.bookingStatus,
       paymentMode: booking.paymentMode,
       requestExpiresAt: booking.requestExpiresAt,
+      canRespond,
+      actionOwnerRole: canRespond ? recipientRole : undefined,
     },
   };
 
@@ -648,10 +651,12 @@ const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, option
 
   const partnerId = await resolveBookingPartnerId(booking);
   const admins = await User.find({ role: 'admin' }).select('_id role email').lean();
+  const adminCanRespond = !partnerId;
   const recipients = admins.map((admin) => ({
     recipientUserId: admin._id,
     recipientRole: 'admin',
-    alarm: false,
+    alarm: true,
+    canRespond: adminCanRespond,
   }));
   if (partnerId) {
     recipients.push({
@@ -659,6 +664,7 @@ const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, option
       recipientRole: 'partner',
       partnerId,
       alarm: true,
+      canRespond: true,
     });
   }
 
@@ -667,9 +673,16 @@ const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, option
       booking,
       ...recipient,
       eventType: DHARAMSHALA_PROPERTY_REVIEW_EVENT,
-      title: recipient.recipientRole === 'admin' ? `Dharamshala booking request ${booking.bookingId}` : `Dharamshala review ${booking.bookingId}`,
-      message: recipient.recipientRole === 'admin' ? `New Dharamshala booking request ${booking.bookingId} for ${booking.itemName}. Partner will accept or reject.` : dharamshalaPropertyReviewMessage(booking),
+      title: recipient.recipientRole === 'admin'
+        ? `Dharamshala booking request ${booking.bookingId}`
+        : `Dharamshala review ${booking.bookingId}`,
+      message: recipient.recipientRole === 'admin'
+        ? (partnerId
+          ? `New Dharamshala booking request ${booking.bookingId} for ${booking.itemName}. Partner will accept or reject.`
+          : dharamshalaPropertyReviewMessage(booking))
+        : dharamshalaPropertyReviewMessage(booking),
       alarm: recipient.alarm,
+      canRespond: recipient.canRespond,
     })
   ));
 
@@ -686,7 +699,7 @@ const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, option
       hotelId: booking.hotelId,
       payload: { notificationId: notification._id },
     }, options));
-    if (notification.recipientRole === 'partner') {
+    if (notification.priority === 'critical') {
       deliveries.push(...ensureBookingAlarmPushDeliveries({
         notificationKeyPrefix: 'dharamshala-review',
         eventType: 'dharamshala.property_review',
@@ -717,15 +730,18 @@ const ensureBookingRequiresActionAlarmNotifications = async (booking, options = 
 
   const partnerId = await resolveBookingPartnerId(booking);
   const admins = await User.find({ role: 'admin' }).select('_id role email').lean();
+  const adminCanRespond = !partnerId;
   const recipients = admins.map((admin) => ({
     recipientUserId: admin._id,
     recipientRole: 'admin',
+    canRespond: adminCanRespond,
   }));
   if (partnerId) {
     recipients.push({
       recipientUserId: partnerId,
       recipientRole: 'partner',
       partnerId,
+      canRespond: true,
     });
   }
 
@@ -734,8 +750,13 @@ const ensureBookingRequiresActionAlarmNotifications = async (booking, options = 
       booking,
       ...recipient,
       eventType: BOOKING_REQUIRES_ACTION_EVENT,
-      title: `Booking needs review ${booking.bookingId}`,
-      message: bookingRequiresActionMessage(booking),
+      title: recipient.recipientRole === 'admin' && partnerId
+        ? `Booking received ${booking.bookingId}`
+        : `Booking needs review ${booking.bookingId}`,
+      message: recipient.recipientRole === 'admin' && partnerId
+        ? `${booking.itemName || 'Booking'} needs partner review. Admin has been notified for visibility.`
+        : bookingRequiresActionMessage(booking),
+      canRespond: recipient.canRespond,
     })
   ));
 

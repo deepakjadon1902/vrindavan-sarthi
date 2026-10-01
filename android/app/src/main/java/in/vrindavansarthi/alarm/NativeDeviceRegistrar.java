@@ -49,7 +49,7 @@ public final class NativeDeviceRegistrar {
         }
     }
 
-    public static void register(String apiBaseUrl, String jwt, String deviceId, String fcmToken) {
+    public static void register(String apiBaseUrl, String jwt, String deviceId, String fcmToken, boolean notificationsAllowed) {
         if (apiBaseUrl == null || jwt == null || deviceId == null || fcmToken == null) return;
         if (apiBaseUrl.isEmpty() || jwt.isEmpty() || deviceId.isEmpty() || fcmToken.isEmpty()) return;
         new Thread(() -> {
@@ -69,8 +69,8 @@ public final class NativeDeviceRegistrar {
                 body.put("platform", "Android native");
                 body.put("browser", "Vrindavan Sarthi Android App");
                 body.put("userAgent", "VrindavanSarthiAndroid");
-                body.put("permissionStatus", "granted");
-                body.put("notificationEnabled", true);
+                body.put("permissionStatus", notificationsAllowed ? "granted" : "denied");
+                body.put("notificationEnabled", notificationsAllowed);
                 body.put("alarmEnabled", true);
                 body.put("appPlatform", "android_native");
                 body.put("fcmToken", fcmToken);
