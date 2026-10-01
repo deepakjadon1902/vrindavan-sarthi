@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { ArrowLeft, Calendar, MapPin, User, Phone, Mail, CreditCard, ClipboardList, XCircle, CheckCircle2, Clock, IndianRupee, Hotel, BedDouble, Car, Map as MapIcon, MessageCircle } from 'lucide-react';
@@ -36,6 +37,7 @@ const BookingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token } = useAuthStore();
+  const adminPhone = useSettingsStore((s) => s.settings.adminPhone);
   const { fetchBookingById, cancelBooking } = useBookingStore();
   const [booking, setBooking] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -179,6 +181,7 @@ const BookingDetail = () => {
   const customerPhone = booking.customerMobile || booking.userPhone || '-';
   const customerEmail = booking.customerEmail || booking.userEmail || '-';
   const partnerWhatsapp = String(booking.partnerWhatsapp || booking.partnerPhone || '').replace(/\D/g, '');
+  const razorpayContact = String(adminPhone).replace(/\D/g, '') || customerPhone;
   const documentLabel = isHotelMarketplace ? 'Booking Confirmation & Payment Receipt' : 'Tax Invoice';
   const voucherLabel = isDharamshalaBooking ? 'VRINDAVAN SARTHI - BOOKING CONFIRMATION' : documentLabel;
   const isAcceptedDharamshala = isDharamshalaBooking && ['awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(booking.bookingStatus || ''));
@@ -221,7 +224,7 @@ const BookingDetail = () => {
         prefill: {
           name: customerName,
           email: customerEmail,
-          contact: customerPhone,
+          contact: razorpayContact,
         },
         handler: async (response: any) => {
           try {
@@ -345,7 +348,7 @@ const BookingDetail = () => {
           prefill: {
             name: customerName,
             email: customerEmail,
-            contact: customerPhone,
+            contact: razorpayContact,
           },
         });
         rzp.open();
@@ -635,7 +638,7 @@ const BookingDetail = () => {
                   {isDharamshalaBooking ? (
                     <>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Donation / contribution</span>
+                        <span className="text-muted-foreground">Dharamshala contribution</span>
                         <span className="text-right font-semibold text-foreground">
                           {isAcceptedDharamshala ? formatMoney(roomAmount) : 'Visible after partner acceptance'}
                         </span>
@@ -643,11 +646,13 @@ const BookingDetail = () => {
                       <div className="flex justify-between gap-4 font-body text-sm">
                         <span className="text-muted-foreground">Payment</span>
                         <span className="text-right font-semibold text-foreground">
-                          {booking.paymentMode === 'full_online' ? 'Paid online' : 'Pay at check-in'}
+                          {booking.paymentMode === 'full_online'
+                            ? (booking.paymentStatus === 'paid' ? 'Paid online' : 'Pending online')
+                            : 'Pay at Dharamshala'}
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Online amount after acceptance</span>
+                        <span className="text-muted-foreground">Plateform fee</span>
                         <span className="font-semibold text-foreground">{formatMoney(convenienceFee)}</span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
@@ -657,7 +662,7 @@ const BookingDetail = () => {
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Paid online</span>
+                        <span className="text-muted-foreground">{booking.paymentStatus === 'paid' ? 'Paid online' : 'Pending online'}</span>
                         <span className="font-bold text-brand-green">{formatMoney(advancePaid)}</span>
                       </div>
                     </>
@@ -672,7 +677,7 @@ const BookingDetail = () => {
                         <span className="font-semibold text-foreground">{formatMoney(hotelTaxes)}</span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Platform Convenience Fee</span>
+                        <span className="text-muted-foreground">Plateform fee</span>
                         <span className="font-semibold text-foreground">{formatMoney(convenienceFee)}</span>
                       </div>
                     </>
@@ -725,7 +730,7 @@ const BookingDetail = () => {
                 </div>
               </div>
 
-              {(isDharamshalaBooking ? isAcceptedDharamshala : booking.bookingStatus === 'confirmed') && (booking.partnerName || booking.partnerPhone || booking.partnerEmail) && (
+              {(isDharamshalaBooking ? isConfirmedDharamshala : booking.bookingStatus === 'confirmed') && (booking.partnerName || booking.partnerPhone || booking.partnerEmail) && (
                 <div className="bg-card rounded-xl border border-border p-6">
                   <h3 className="font-heading text-sm font-semibold text-foreground mb-3">
                     {isDharamshalaBooking ? 'Dharamshala Contact' : 'Property Contact'}
@@ -796,7 +801,7 @@ const BookingDetail = () => {
                     Your request has been accepted. Pay the shown amount to confirm this Dharamshala booking.
                   </p>
                   <p className="mt-1 font-body text-xs leading-5 text-muted-foreground">
-                    Partner contact details are now visible above. After successful payment, your booking becomes confirmed.
+                    Dharamshala contact details will be visible after successful payment and booking confirmation.
                   </p>
                   <button
                     onClick={payAcceptedDharamshala}

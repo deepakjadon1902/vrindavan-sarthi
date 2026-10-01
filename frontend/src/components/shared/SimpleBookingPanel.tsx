@@ -14,7 +14,7 @@ const copy = {
   },
   dharamshala: {
     title: 'Dharamshala request',
-    subtitle: 'Request first. Pay only after partner acceptance.',
+    subtitle: 'Request first. Confirm before contact details.',
     steps: ['Dates', 'Partner', 'Confirm'],
     note: 'The partner chooses whether contribution is paid online or at check-in.',
   },

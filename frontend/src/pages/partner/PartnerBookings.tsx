@@ -65,8 +65,8 @@ const PartnerBookings = () => {
     if (res.success) {
       toast.success(
         paymentMode === 'full_online'
-          ? 'Request accepted. Customer will pay the online amount shown for this booking.'
-          : 'Request accepted. Customer will pay any online platform fee now and contribution at check-in.'
+          ? 'Request accepted. Customer will pay advance online for this booking.'
+          : 'Request accepted. Customer will pay at Dharamshala as selected.'
       );
     }
     else toast.error(res.error || 'Accept failed');
@@ -315,13 +315,13 @@ const PartnerBookings = () => {
                         onClick={() => handleAcceptDharamshala(b.id, 'full_online')}
                         className="min-h-9 flex-1 rounded-lg bg-brand-green px-3 py-2 font-body text-xs text-primary-foreground hover:bg-brand-green/90 sm:flex-none sm:px-4"
                       >
-                        Collect Full Amount Online
+                        Advance Online
                       </button>
                       <button
                         onClick={() => handleAcceptDharamshala(b.id, 'pay_at_dharamshala')}
                         className="min-h-9 flex-1 rounded-lg bg-brand-gold px-3 py-2 font-body text-xs text-foreground hover:bg-brand-gold/90 sm:flex-none sm:px-4"
                       >
-                        Contribution at Check-in
+                        Pay at Dharamshala
                       </button>
                       <button
                         onClick={() => handleRejectDharamshala(b.id)}

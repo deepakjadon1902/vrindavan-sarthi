@@ -668,7 +668,7 @@ const HotelDetail = () => {
                 )}
                 <p className="mt-2.5 font-body text-[11px] text-muted-foreground text-center flex items-center justify-center gap-1.5">
                   <CalendarDays size={12} />
-                  {hasAnyBookingWorkflowRoom ? (isDharamshalaProperty ? 'Submit a request first. Contact details appear after partner acceptance.' : 'Book a specific room type from this property page.') : 'Prices and availability are confirmed by our booking desk.'}
+                  {hasAnyBookingWorkflowRoom ? (isDharamshalaProperty ? 'Submit a request first. Contact details appear after booking confirmation.' : 'Book a specific room type from this property page.') : 'Prices and availability are confirmed by our booking desk.'}
                 </p>
               </div>
 

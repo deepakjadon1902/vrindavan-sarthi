@@ -448,7 +448,7 @@ const RoomTypeDetail = () => {
         prefill: {
           name: customerFullName,
           email: customerEmail,
-          contact: customerMobile,
+          contact: supportDigits || customerMobile,
         },
         notes: {
           bookingId: pendingBooking.bookingId,
@@ -893,7 +893,7 @@ const RoomTypeDetail = () => {
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <span>{isDharamshala ? 'Platform/payment after acceptance' : 'Platform convenience fee'}</span>
+                    <span>{isDharamshala ? 'Plateform fee after acceptance' : 'Plateform fee'}</span>
                     <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
@@ -929,7 +929,7 @@ const RoomTypeDetail = () => {
                     <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
                       <p className="font-semibold text-gray-800">Submit request first</p>
                       <p className="mt-1 text-xs leading-5 text-gray-500">
-                        The Dharamshala team will confirm availability first. Contact details are shown only after partner acceptance.
+                        The Dharamshala team will confirm availability first. Contact details are shown only after booking confirmation.
                       </p>
                     </div>
                   ) : (
@@ -1066,7 +1066,7 @@ const RoomTypeDetail = () => {
                 )}
 
                 <p className="text-center text-[11px] text-gray-400">
-                  {canShowRoomPrices ? (isDharamshala ? 'Contact details appear in My Bookings after partner acceptance.' : 'Secure payment with automatic booking confirmation.') : 'Prices and availability are confirmed by our booking desk.'}
+                  {canShowRoomPrices ? (isDharamshala ? 'Contact details appear in My Bookings after booking confirmation.' : 'Secure payment with automatic booking confirmation.') : 'Prices and availability are confirmed by our booking desk.'}
                 </p>
               </div>
             )}
