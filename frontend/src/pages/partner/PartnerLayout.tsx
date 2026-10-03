@@ -9,6 +9,7 @@ import { useBookingStore } from '@/store/bookingStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { APP_LOGO_URL } from '@/lib/brand';
 import BookingAlarmManager from '@/components/notifications/BookingAlarmManager';
+import AndroidApkDownloadPrompt from '@/components/AndroidApkDownloadPrompt';
 
 const sidebarLinks = [
   { name: 'Dashboard', path: '/partner', icon: LayoutDashboard },
@@ -131,6 +132,7 @@ const PartnerLayout = () => {
           />
         </header>
         <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8">
+          <AndroidApkDownloadPrompt role="partner" />
           {showApprovalGate ? (
             <div className="max-w-3xl bg-card border border-border rounded-xl p-6">
               <div className="flex items-start gap-4">

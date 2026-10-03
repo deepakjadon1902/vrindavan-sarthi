@@ -11,6 +11,7 @@ import { api, withAuth } from '@/lib/api';
 import { APP_LOGO_URL } from '@/lib/brand';
 import { getSessionCache, setSessionCache } from '@/lib/panelCache';
 import BookingAlarmManager from '@/components/notifications/BookingAlarmManager';
+import AndroidApkDownloadPrompt from '@/components/AndroidApkDownloadPrompt';
 
 const sidebarLinks = [
   { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -153,6 +154,7 @@ const AdminLayout = () => {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8">
+          <AndroidApkDownloadPrompt role="admin" />
           <Outlet />
         </main>
       </div>
