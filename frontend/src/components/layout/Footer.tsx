@@ -54,6 +54,10 @@ const Footer = () => {
               <img
                 src={APP_LOGO_URL}
                 alt={settings.siteName}
+                width={36}
+                height={36}
+                loading="lazy"
+                decoding="async"
                 className="h-9 w-9 rounded-full object-cover border border-brand-gold/30"
               />
               <span className="font-brand text-xl text-brand-gold">{settings.siteName}</span>

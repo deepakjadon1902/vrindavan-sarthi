@@ -21,7 +21,7 @@ const About = () => {
   return (
     <div className="pt-16">
       <section className="relative min-h-[560px] overflow-hidden">
-        <img src={heroImg} alt="Vrindavan temple view" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={heroImg} alt="Vrindavan temple view" width={1600} height={900} loading="eager" decoding="async" fetchPriority="high" sizes="100vw" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-brand-black/86 via-brand-black/58 to-transparent" />
         <div className="container relative mx-auto flex min-h-[560px] items-center px-4">
           <div className="max-w-3xl py-16 text-white">
@@ -47,7 +47,7 @@ const About = () => {
       <section className="bg-white py-10 lg:py-14">
         <div className="container mx-auto grid gap-8 px-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div className="overflow-hidden rounded-lg border border-border">
-            <img src={templeImg} alt="Braj region temple architecture" className="aspect-[4/3] h-full w-full object-cover" loading="lazy" />
+            <img src={templeImg} alt="Braj region temple architecture" width={900} height={675} className="aspect-[4/3] h-full w-full object-cover" loading="lazy" decoding="async" sizes="(min-width: 1024px) 45vw, 100vw" />
           </div>
           <div>
             <p className="font-body text-xs font-bold uppercase tracking-[0.2em] text-brand-crimson">Our Work</p>

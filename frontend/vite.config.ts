@@ -40,6 +40,9 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             react: ["react", "react-dom", "react-router-dom"],
             query: ["@tanstack/react-query", "axios", "zustand"],
+            motion: ["framer-motion"],
+            forms: ["react-hook-form", "@hookform/resolvers", "zod"],
+            charts: ["recharts"],
             ui: ["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-select", "lucide-react"],
           },
         },

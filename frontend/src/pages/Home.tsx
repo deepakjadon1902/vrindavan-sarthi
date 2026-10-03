@@ -5,6 +5,7 @@ import { Building2, CarTaxiFront, MapPinned, Users, Shield, Clock, MapPin, Chevr
 import SectionTitle from '@/components/shared/SectionTitle';
 import ListingCard from '@/components/shared/ListingCard';
 import TestimonialCard from '@/components/shared/TestimonialCard';
+import OptimizedImage from '@/components/shared/OptimizedImage';
 import { useProductStore } from '@/store/productStore';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
@@ -287,7 +288,16 @@ const Home = () => {
 
       {/* ===== HERO ===== */}
       <section className="relative flex min-h-[660px] items-center justify-center overflow-hidden pb-5 pt-20 sm:min-h-[720px] lg:min-h-[690px] lg:pt-20">
-        <img src={heroImg} alt="Govardhan hill and Braj sunset view" className="absolute inset-x-0 -top-[10%] h-[114%] w-full object-cover object-bottom" width={1600} height={897} />
+        <OptimizedImage
+          src={heroImg}
+          alt="Govardhan hill and Braj sunset view"
+          className="absolute inset-x-0 -top-[10%] h-[114%] w-full object-cover object-bottom"
+          width={1600}
+          height={897}
+          loading="eager"
+          fetchPriority="high"
+          sizes="100vw"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-brand-black/68" />
         <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/30 to-transparent" />
         <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 text-center">
@@ -510,7 +520,7 @@ const Home = () => {
 
       {/* ===== FEATURED HOTELS ===== */}
       <section className="py-4 lg:py-5 relative overflow-hidden bg-royal-dark">
-        <img src={hotelRoomBackdrop} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
+        <OptimizedImage src={hotelRoomBackdrop} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-10" sizes="100vw" />
         <div className="absolute inset-0 bg-white/75" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle
@@ -667,7 +677,7 @@ const Home = () => {
 
       {/* ===== FEATURED TOURS ===== */}
       <section className="py-3 lg:py-4 relative overflow-hidden bg-royal-dark">
-        <img src={parikramaBackdrop} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-14" />
+        <OptimizedImage src={parikramaBackdrop} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-14" sizes="100vw" />
         <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle
@@ -734,10 +744,11 @@ const Home = () => {
                   className="premium-surface overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 group"
                 >
                   <div className="aspect-[4/3] overflow-hidden relative bg-white">
-                    <img
+                    <OptimizedImage
                       src={p.images[0] || '/placeholder.svg'}
                       alt={p.name}
                       className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500"
+                      sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
                     />
                     <span className="absolute top-2 left-2 rounded-full border border-white/60 bg-white/95 px-2.5 py-1 font-body text-[10px] capitalize font-semibold text-foreground shadow-sm">
                       {p.category}
@@ -769,7 +780,7 @@ const Home = () => {
 
       {/* ===== WHY US ===== */}
       <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
-        <img src={templeInteriorBackdrop} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-10" />
+        <OptimizedImage src={templeInteriorBackdrop} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-10" sizes="100vw" />
         <div className="absolute inset-0 bg-white/80" />
         <div className="container mx-auto px-4 relative">
           <SectionTitle label="Why Choose Us" title="Clean, Verified, Supported" />
@@ -835,10 +846,11 @@ const Home = () => {
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_50px_hsl(222_42%_10%_/_0.08)]">
             <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
               <div className="relative min-h-[320px] overflow-hidden p-6 sm:p-8 lg:p-10">
-                <img
+                <OptimizedImage
                   src={heroImg}
                   alt="Govardhan and Braj landscape"
                   className="absolute -top-[12%] left-0 h-[114%] w-full object-cover object-center"
+                  sizes="(min-width: 1024px) 50vw, 100vw"
                 />
                 <div className="absolute inset-0 bg-brand-black/76" />
                 <div className="relative max-w-2xl">

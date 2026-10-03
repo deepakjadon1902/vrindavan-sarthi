@@ -67,6 +67,11 @@ const Navbar = () => {
               <img
                 src={APP_LOGO_URL}
                 alt={COMPANY_NAME}
+                width={56}
+                height={56}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
                 className="h-12 w-12 shrink-0 rounded-full border border-brand-gold/45 object-cover shadow-[0_2px_8px_rgba(16,24,44,0.08)] transition-transform duration-300 group-hover:scale-105 xl:h-14 xl:w-14 2xl:h-[4.15rem] 2xl:w-[4.15rem]"
               />
             </Link>
@@ -172,7 +177,7 @@ const Navbar = () => {
               <X size={20} />
             </button>
             <div className="mb-5 flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.08] p-3">
-              <img src={APP_LOGO_URL} alt="" className="h-10 w-10 rounded-full border border-brand-gold/35 object-cover" />
+              <img src={APP_LOGO_URL} alt="" width={40} height={40} loading="eager" decoding="async" className="h-10 w-10 rounded-full border border-brand-gold/35 object-cover" />
               <div className="min-w-0">
                 <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-gold">Vrindavan Sarthi</p>
                 <p className="truncate font-body text-sm font-semibold text-white/90">Hotels, rooms, cabs and tours</p>

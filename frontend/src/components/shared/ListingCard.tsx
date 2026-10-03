@@ -190,6 +190,7 @@ const VRSCardImage = ({ src, alt }: { src: string; alt: string }) => {
       alt={alt}
       loading="lazy"
       decoding="async"
+      sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
       className="vrs-listing-image absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 ease-out group-hover:scale-[1.02]"
     />
   );

@@ -155,11 +155,20 @@
   }
 
   img,
+  picture,
   video,
   canvas,
   svg {
     max-width: 100%;
     image-rendering: auto;
+  }
+
+  img {
+    height: auto;
+  }
+
+  picture {
+    display: block;
   }
 
   svg {
@@ -468,6 +477,11 @@
     background-size: auto, 560px 560px;
   }
 
+  .content-auto-section {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 720px;
+  }
+
   .premium-banner {
     background:
       linear-gradient(135deg, hsl(224 42% 10% / 0.95), hsl(216 52% 18% / 0.90), hsl(164 43% 20% / 0.86)),
@@ -639,6 +653,17 @@
       transform: translateZ(0);
       backface-visibility: hidden;
       -webkit-backface-visibility: hidden;
+    }
+
+    h1,
+    h2,
+    h3,
+    p,
+    a,
+    button,
+    span,
+    label {
+      overflow-wrap: anywhere;
     }
   }
 
