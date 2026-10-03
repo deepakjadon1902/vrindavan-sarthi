@@ -8,6 +8,9 @@
 android/**/build
 android/.gradle
 android/local.properties
+android/keystore.properties
+android/*.jks
+android/*.keystore
 
 # env files (never commit secrets)
 **/.env
