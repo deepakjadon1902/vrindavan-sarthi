@@ -68,7 +68,7 @@ const PartnerAddHotel = lazy(() => import("@/pages/partner/PartnerAddHotel"));
 const PartnerAddCab = lazy(() => import("@/pages/partner/PartnerAddCab"));
 const PartnerInventory = lazy(() => import("@/pages/partner/PartnerInventory"));
 const PartnerRates = lazy(() => import("@/pages/partner/PartnerRates"));
-const PartnerListings = lazy(() => import("@/pages/partner/PartnerListings"));
+const PartnerAvailabilityCalendar = lazy(() => import("@/pages/partner/PartnerAvailabilityCalendar"));
 const PartnerBookings = lazy(() => import("@/pages/partner/PartnerBookings"));
 const PartnerPayments = lazy(() => import("@/pages/partner/PartnerPayments"));
 const PartnerBankDetails = lazy(() => import("@/pages/partner/PartnerBankDetails"));
@@ -181,7 +181,8 @@ const App = () => {
                 <Route path="cabs" element={<PartnerAddCab />} />
                 <Route path="inventory" element={<PartnerInventory />} />
                 <Route path="rates" element={<PartnerRates />} />
-                <Route path="listings" element={<PartnerListings />} />
+                <Route path="availability" element={<PartnerAvailabilityCalendar />} />
+                <Route path="listings" element={<Navigate to="/partner/availability" replace />} />
                 <Route path="bookings" element={<PartnerBookings />} />
                 <Route path="payments" element={<PartnerPayments />} />
                 <Route path="bank-details" element={<PartnerBankDetails />} />

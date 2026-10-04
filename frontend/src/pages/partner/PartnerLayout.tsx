@@ -16,7 +16,7 @@ const sidebarLinks = [
   { name: 'My Hotels', path: '/partner/hotels', icon: Hotel },
   { name: 'Inventory', path: '/partner/inventory', icon: BedDouble },
   { name: 'Rates', path: '/partner/rates', icon: CalendarDays },
-  { name: 'My Listings', path: '/partner/listings', icon: ClipboardList },
+  { name: 'Availability Calendar', path: '/partner/availability', icon: CalendarDays },
   { name: 'Bookings', path: '/partner/bookings', icon: ClipboardList },
   { name: 'Payments', path: '/partner/payments', icon: CreditCard },
   { name: 'Bank Details', path: '/partner/bank-details', icon: Landmark },

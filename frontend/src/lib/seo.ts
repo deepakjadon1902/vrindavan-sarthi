@@ -349,9 +349,13 @@ export const partnerRouteMeta: Record<string, { title: string; description: stri
     title: 'Partner Inventory | Rooms & Availability',
     description: 'Manage partner room types, room units, blocked dates, and live availability after admin verification.',
   },
-  '/partner/listings': {
-    title: 'My Listings | Partner',
-    description: 'Review partner-submitted hotels, rooms, cabs, and tours with approval status and admin remarks.',
+  '/partner/rates': {
+    title: 'Partner Rates | Room Pricing Calendar',
+    description: 'Manage partner room rates, pricing rules, and date-wise rate calendars.',
+  },
+  '/partner/availability': {
+    title: 'Availability Calendar | Partner',
+    description: 'View live room-number availability with booked, blocked, and open dates synced from bookings.',
   },
   '/partner/bookings': {
     title: 'Partner Bookings | Guest Reservations',
@@ -364,6 +368,10 @@ export const partnerRouteMeta: Record<string, { title: string; description: stri
   '/partner/bank-details': {
     title: 'Bank Details | Partner Payout Setup',
     description: 'Add or update partner bank account details used for payout settlements.',
+  },
+  '/partner/terms': {
+    title: 'Partner Terms | Agreement & Policies',
+    description: 'Review partner terms, conditions, agreement details, and platform policies.',
   },
   '/partner/profile-settings': {
     title: 'Partner Profile Settings | Public Host Profile',
