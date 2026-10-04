@@ -282,6 +282,10 @@ export const adminRouteMeta: Record<string, { title: string; description: string
     title: 'Room Inventory | Admin',
     description: 'Manage hotel room types, room units, availability calendars, blocked dates, and inventory controls.',
   },
+  '/admin/availability': {
+    title: 'Availability Calendar | Admin',
+    description: 'View and control property-wide room availability, bookings, manual blocks, and room type status across partners.',
+  },
   '/admin/cabs': {
     title: 'Taxi Booking Fleet | Admin',
     description: 'Manage cab listings, vehicle details, routes, drivers, and taxi booking inventory.',

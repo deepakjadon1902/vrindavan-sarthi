@@ -7,7 +7,7 @@ const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const { processRoomTypeWaitlist } = require('../utils/waitlist');
 const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
-const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
+const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const { normalizeImageFields } = require('../utils/imageFields');
 const { rejectInvalidObjectId } = require('../utils/security');
 
@@ -40,7 +40,7 @@ const normalizeBlockKind = (value) => {
 };
 const normalizeBlockReason = (value) => {
   const reason = normalizeString(value).toLowerCase();
-  if (['offline_booking', 'unavailable', 'closed'].includes(reason)) return reason;
+  if (['offline_booking', 'room_full', 'currently_not_available', 'room_not_available', 'unavailable', 'closed'].includes(reason)) return reason;
   return normalizeBlockKind(value) === 'closed' ? 'closed' : 'unavailable';
 };
 
@@ -57,6 +57,183 @@ const getConflictingBookedUnitIds = async (unitIds, startDate, endDate) => {
   });
   return new Set(dates.map(String));
 };
+
+const dateKey = (value) => {
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+};
+
+const addDaysUTC = (date, days) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+
+const resolveCalendarRange = (query = {}) => {
+  const today = new Date();
+  const defaultFrom = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const parsedFrom = parseDateOnlyToUTC(String(query.from || ''));
+  const parsedTo = parseDateOnlyToUTC(String(query.to || ''));
+  const from = isValidDate(parsedFrom) ? parsedFrom : defaultFrom;
+  let to = isValidDate(parsedTo) && parsedTo > from ? parsedTo : addDaysUTC(from, 31);
+  if (to > addDaysUTC(from, 45)) to = addDaysUTC(from, 45);
+  return { from, to, days: enumerateDatesUTC(from, to) };
+};
+
+router.get('/availability-calendar', async (req, res) => {
+  try {
+    const { from, to, days } = resolveCalendarRange(req.query);
+    const hotelId = normalizeString(req.query?.hotelId);
+    const scope = normalizeString(req.query?.scope).toLowerCase();
+
+    const adminOwnedFilter = {
+      approvalStatus: 'approved',
+      partnerSubmitted: { $ne: true },
+      $or: [
+        { partnerId: { $exists: false } },
+        { partnerId: null },
+      ],
+    };
+    const hotelFilter = hotelId
+      ? { _id: hotelId }
+      : scope === 'all_approved'
+        ? { approvalStatus: 'approved' }
+        : adminOwnedFilter;
+    if (hotelId && rejectInvalidObjectId(res, hotelId, 'hotelId')) return;
+
+    const hotels = await Hotel.find(hotelFilter)
+      .sort({ createdAt: -1 })
+      .select('_id name propertyType approvalStatus status location partnerId partnerName partnerEmail partnerPhone')
+      .lean();
+    const hotelIds = hotels.map((hotel) => hotel._id);
+
+    const [roomTypes, rooms] = await Promise.all([
+      hotelIds.length
+        ? RoomType.find({ hotelId: { $in: hotelIds } })
+          .sort({ hotelId: 1, name: 1 })
+          .select('_id hotelId partnerId name status pricePerNight')
+          .lean()
+        : [],
+      hotelIds.length
+        ? RoomUnit.find({ hotelId: { $in: hotelIds } })
+          .sort({ roomTypeId: 1, number: 1 })
+          .select('_id hotelId roomTypeId partnerId number floor status')
+          .lean()
+        : [],
+    ]);
+
+    const roomIds = rooms.map((room) => room._id);
+    const [bookingDays, blocks] = await Promise.all([
+      roomIds.length
+        ? RoomUnitBookingDay.find({
+          roomUnitId: { $in: roomIds },
+          date: { $gte: from, $lt: to },
+        }).select('roomUnitId bookingId date').lean()
+        : [],
+      roomIds.length
+        ? RoomUnitBlock.find({
+          roomUnitId: { $in: roomIds },
+          startDate: { $lt: to },
+          endDate: { $gt: from },
+        }).select('_id roomUnitId kind reason startDate endDate note createdByUserId').lean()
+        : [],
+    ]);
+
+    const bookingIds = [...new Set(bookingDays.map((day) => String(day.bookingId)))];
+    const bookings = bookingIds.length
+      ? await Booking.find({ _id: { $in: bookingIds } })
+        .select('bookingId bookingStatus paymentStatus verificationStage checkIn checkOut roomNumbers customerFullName userName customerMobile userPhone totalAdults totalChildren balanceAmount partnerName partnerPhone')
+        .lean()
+      : [];
+    const bookingById = new Map(bookings.map((booking) => [String(booking._id), booking]));
+
+    const daysByRoom = new Map();
+    for (const item of bookingDays) {
+      const key = String(item.roomUnitId);
+      const map = daysByRoom.get(key) || new Map();
+      const booking = bookingById.get(String(item.bookingId));
+      map.set(dateKey(item.date), {
+        status: 'booked',
+        booking: booking ? {
+          _id: booking._id,
+          bookingId: booking.bookingId,
+          bookingStatus: booking.bookingStatus,
+          paymentStatus: booking.paymentStatus,
+          verificationStage: booking.verificationStage,
+          checkIn: booking.checkIn,
+          checkOut: booking.checkOut,
+          roomNumbers: booking.roomNumbers || [],
+          customerFullName: booking.customerFullName,
+          userName: booking.userName,
+          customerMobile: booking.customerMobile,
+          userPhone: booking.userPhone,
+          totalAdults: booking.totalAdults,
+          totalChildren: booking.totalChildren,
+          balanceAmount: booking.balanceAmount,
+          partnerName: booking.partnerName,
+          partnerPhone: booking.partnerPhone,
+        } : null,
+      });
+      daysByRoom.set(key, map);
+    }
+
+    for (const block of blocks) {
+      const key = String(block.roomUnitId);
+      const map = daysByRoom.get(key) || new Map();
+      for (const day of days) {
+        if (day < block.startDate || day >= block.endDate) continue;
+        const dayId = dateKey(day);
+        if (!map.has(dayId)) {
+          map.set(dayId, {
+            status: 'blocked',
+            block: {
+              _id: block._id,
+              kind: block.kind,
+              reason: block.reason,
+              startDate: block.startDate,
+              endDate: block.endDate,
+              note: block.note,
+            },
+          });
+        }
+      }
+      daysByRoom.set(key, map);
+    }
+
+    const roomTypesByHotel = new Map();
+    for (const roomType of roomTypes) {
+      const list = roomTypesByHotel.get(String(roomType.hotelId)) || [];
+      list.push({ ...roomType, rooms: [] });
+      roomTypesByHotel.set(String(roomType.hotelId), list);
+    }
+    const roomTypeById = new Map(
+      Array.from(roomTypesByHotel.values())
+        .flat()
+        .map((roomType) => [String(roomType._id), roomType])
+    );
+
+    for (const room of rooms) {
+      const dayMap = daysByRoom.get(String(room._id)) || new Map();
+      const calendar = days.map((day) => {
+        const key = dateKey(day);
+        return { date: key, ...(dayMap.get(key) || { status: 'available' }) };
+      });
+      const parent = roomTypeById.get(String(room.roomTypeId));
+      if (parent) parent.rooms.push({ ...room, calendar });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        from: dateKey(from),
+        to: dateKey(to),
+        days: days.map(dateKey),
+        hotels: hotels.map((hotel) => ({
+          ...hotel,
+          roomTypes: roomTypesByHotel.get(String(hotel._id)) || [],
+        })),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 router.get('/hotels', async (req, res) => {
   try {

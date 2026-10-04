@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, Car, Map, ClipboardList,
   Users, LogOut, Menu, X, Handshake, Settings, CreditCard,
-  Landmark, UserCheck, Activity, Network,
+  Landmark, UserCheck, Activity, Network, CalendarDays,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -17,6 +17,7 @@ const sidebarLinks = [
   { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
   { name: 'Hotels & Dharamshalas', path: '/admin/hotels', icon: Hotel },
   { name: 'Room Inventory', path: '/admin/inventory', icon: BedDouble },
+  { name: 'Availability Calendar', path: '/admin/availability', icon: CalendarDays },
   { name: 'Taxi Booking', path: '/admin/cabs', icon: Car },
   { name: 'Taxi Rates', path: '/admin/cab-fares', icon: ClipboardList },
   { name: 'Tour Packages', path: '/admin/tours', icon: Map },
