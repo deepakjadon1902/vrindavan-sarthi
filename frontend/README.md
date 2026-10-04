@@ -2,4 +2,4 @@
 
 Vite + React + TypeScript frontend for Vrindavan Sarthi Enterprises.
 
-Deployment test
+Vercel auto deployment test
