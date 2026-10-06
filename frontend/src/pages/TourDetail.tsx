@@ -9,13 +9,20 @@ import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { useSettingsStore } from '@/store/settingsStore';
 
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const TourDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const companyPhone = useSettingsStore((s) => s.settings.adminPhone);
   const [tour, setTour] = useState<any>(() => getPrefetchedDetail('tours', id) || getCachedListingItem('tours', id) || null);
   const [isLoading, setIsLoading] = useState(true);
-  const [travelDate, setTravelDate] = useState('');
+  const [travelDate, setTravelDate] = useState(() => getLocalDateKey());
   const [persons, setPersons] = useState(1);
 
   useEffect(() => {
@@ -99,15 +106,15 @@ const TourDetail = () => {
           <div className="space-y-5">
             <ImageCarousel images={allImages} alt={tour.name} />
             <div className="rounded-lg border border-border/80 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] sm:p-6">
-              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Guided tour package</p>
+              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Guided tour</p>
               <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h1 className="font-display text-3xl font-bold leading-tight text-foreground md:text-4xl">{tour.name}</h1>
                   <p className="mt-2 font-body text-sm text-muted-foreground">{tour.destination || 'Braj and nearby pilgrimage route'}</p>
                 </div>
                 <div className="rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 font-body text-sm">
-                  <p className="text-muted-foreground">Booking payment</p>
-                  <p className="font-bold text-foreground">After confirmation</p>
+                  <p className="text-muted-foreground">Payment</p>
+                  <p className="font-bold text-foreground">After plan confirmation</p>
                 </div>
               </div>
               <div className="mt-5 grid gap-3 border-t border-border pt-4 font-body text-sm sm:grid-cols-4">
@@ -159,13 +166,22 @@ const TourDetail = () => {
 
           <div>
             <div className="rounded-lg border border-brand-gold/45 bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.12)] sm:p-6 lg:sticky lg:top-24">
-              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Booking desk</p>
-              <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Check tour availability</h2>
-              <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">Share only date and group size. Pickup plan, vehicle, final amount, and payment are confirmed next.</p>
+              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Tour request</p>
+              <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Check availability</h2>
+              <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">Choose your date and group size. Pickup, vehicle, and payment details are confirmed next.</p>
+
+              <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-secondary/50 p-1.5 text-center font-body text-[11px] font-bold text-muted-foreground">
+                {['Date', 'Guests', 'Confirm'].map((step, index) => (
+                  <div key={step} className="rounded-xl bg-white px-2 py-2 shadow-sm">
+                    <span className="mr-1 inline-grid h-5 w-5 place-items-center rounded-full bg-brand-gold/20 text-brand-crimson">{index + 1}</span>
+                    {step}
+                  </div>
+                ))}
+              </div>
 
               <div className="mt-5 space-y-3">
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Travel Date</label><input type="date" value={travelDate} onChange={(e) => setTravelDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Number of Persons</label><input type="number" min={1} max={tour.groupSize || 50} value={persons} onChange={(e) => setPersons(Math.max(1, Number(e.target.value || 1)))} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Travel date</label><input type="date" min={getLocalDateKey()} value={travelDate} onChange={(e) => setTravelDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Guests</label><input type="number" min={1} max={tour.groupSize || 50} value={persons} onChange={(e) => setPersons(Math.max(1, Number(e.target.value || 1)))} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
               </div>
 
               <div className="mt-5 rounded-lg border border-border bg-secondary/45 p-4">
@@ -173,8 +189,8 @@ const TourDetail = () => {
                 {total > 0 && (
                   <div className="mt-2 space-y-1 font-body text-[11px] text-muted-foreground">
                     <p>Base: Rs. {subtotal.toLocaleString('en-IN')}</p>
-                    <p>Service fee: Rs. {convenienceFee.toLocaleString('en-IN')}</p>
-                    <p>After confirmation: 30% advance Rs. {advanceAmount.toLocaleString('en-IN')} or full payment.</p>
+                    <p>Platform fee: Rs. {convenienceFee.toLocaleString('en-IN')}</p>
+                    <p>After confirmation: pay 30% advance Rs. {advanceAmount.toLocaleString('en-IN')} or full amount.</p>
                     <p>Balance if advance paid: Rs. {balanceAmount.toLocaleString('en-IN')}</p>
                   </div>
                 )}

@@ -530,7 +530,7 @@ const Home = () => {
           />
           {hotels.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {hotels.map((hotel) => (
                   <ListingCard
                     key={hotel._id}
@@ -581,7 +581,7 @@ const Home = () => {
           />
           {roomTypes.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {roomTypes.map((roomType) => (
                   <ListingCard
                     key={roomType._id}
@@ -634,7 +634,7 @@ const Home = () => {
           />
           {cabs.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {cabs.map((cab) => (
                   <ListingCard
                     key={cab._id}
@@ -687,7 +687,7 @@ const Home = () => {
           />
           {tours.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {tours.map((tour) => (
                   <ListingCard
                     key={tour._id}

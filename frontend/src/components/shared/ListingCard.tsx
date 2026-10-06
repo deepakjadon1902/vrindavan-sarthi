@@ -30,31 +30,31 @@ type CardKind = 'hotel' | 'room' | 'cab' | 'tour' | 'default';
 const cardCopy: Record<CardKind, { fallbackBadge: string; context: string; emptyPrice: string; emptyPriceHelp: string; cta: string }> = {
   hotel: {
     fallbackBadge: 'Stay',
-    context: 'Stay option',
+    context: 'Verified stay',
     emptyPrice: 'Price on request',
-    emptyPriceHelp: 'Contact support',
-    cta: 'View rooms',
+    emptyPriceHelp: 'Check available rooms',
+    cta: 'View Rooms',
   },
   room: {
     fallbackBadge: 'Room',
-    context: 'Room option',
+    context: 'Room type',
     emptyPrice: 'Price on request',
-    emptyPriceHelp: 'Contact support',
-    cta: 'Check availability',
+    emptyPriceHelp: 'Confirm availability',
+    cta: 'Check Availability',
   },
   cab: {
     fallbackBadge: 'Cab',
     context: 'Private transport',
     emptyPrice: 'Route-wise fare',
-    emptyPriceHelp: 'See route details',
-    cta: 'Confirm cab',
+    emptyPriceHelp: 'Choose route',
+    cta: 'Check Cab',
   },
   tour: {
     fallbackBadge: 'Tour',
-    context: 'Curated journey',
+    context: 'Guided tour',
     emptyPrice: 'Price on request',
-    emptyPriceHelp: 'Contact support',
-    cta: 'Plan tour',
+    emptyPriceHelp: 'Check plan',
+    cta: 'Check Tour',
   },
   default: {
     fallbackBadge: 'Listing',
@@ -314,12 +314,18 @@ interface VRSCardShellProps {
 }
 
 const VRSLocation = ({ kind, location }: { kind: CardKind; location: string }) => {
-  if (!location.trim()) return null;
+  const hasLocation = Boolean(location.trim());
 
   return (
-    <p className="mt-2 inline-flex min-h-5 items-start gap-1.5 font-body text-[13px] leading-5 text-muted-foreground">
-      {kind === 'cab' ? <Route size={14} className="mt-0.5 shrink-0 text-brand-saffron" /> : <MapPin size={14} className="mt-0.5 shrink-0 text-brand-saffron" />}
-      <span className="line-clamp-2">{location}</span>
+    <p className="mt-2 inline-flex min-h-10 items-start gap-1.5 font-body text-[13px] leading-5 text-muted-foreground">
+      {hasLocation ? (
+        <>
+          {kind === 'cab' ? <Route size={14} className="mt-0.5 shrink-0 text-brand-saffron" /> : <MapPin size={14} className="mt-0.5 shrink-0 text-brand-saffron" />}
+          <span className="line-clamp-2">{location}</span>
+        </>
+      ) : (
+        <span className="text-transparent">Location details</span>
+      )}
     </p>
   );
 };
@@ -333,15 +339,15 @@ const VRSCardFooter = ({
   actionLabel,
   onViewDetails,
 }: Pick<VRSCardShellProps, 'kind' | 'price' | 'priceUnit' | 'pricePlaceholder' | 'priceHelp' | 'actionLabel' | 'onViewDetails'>) => (
-  <div className="mt-auto pt-4">
-    <div>
+  <div className="mt-auto pt-3">
+    <div className="min-h-[56px]">
       <VRSPrice kind={kind} price={price} unit={priceUnit} placeholder={pricePlaceholder} help={priceHelp} />
     </div>
 
     <button
       type="button"
       onClick={onViewDetails}
-      className="vrs-card-action mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 font-body text-[14px] font-bold text-primary-foreground transition-colors duration-200 ease-out hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.99]"
+      className="vrs-card-action mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 font-body text-[14px] font-bold text-primary-foreground transition-colors duration-200 ease-out hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.99]"
     >
       {actionLabel}
       <ArrowRight size={15} />
@@ -375,9 +381,9 @@ const VRSCardShell = ({
   onViewDetails,
 }: VRSCardShellProps) => (
   <article
-    className={`vrs-listing-card group flex min-w-0 self-start overflow-hidden rounded-2xl border border-border bg-white shadow-[0_4px_16px_rgba(16,24,44,0.06)] transition-all duration-200 ease-out hover:border-brand-gold/45 hover:shadow-[0_8px_24px_rgba(16,24,44,0.09)] ${cardMinHeight}`}
+    className={`vrs-listing-card group flex h-full min-w-0 overflow-hidden rounded-2xl border border-border bg-white shadow-[0_4px_16px_rgba(16,24,44,0.06)] transition-all duration-200 ease-out hover:border-brand-gold/45 hover:shadow-[0_8px_24px_rgba(16,24,44,0.09)] ${cardMinHeight}`}
   >
-    <div className="flex w-full flex-col">
+    <div className="flex h-full w-full flex-col">
       <VRSCardMedia
         active={active}
         badgeColor={badgeColor}
@@ -400,9 +406,11 @@ const VRSCardShell = ({
           {kind === 'room' && meta && <span className="font-body text-[12px] font-semibold text-muted-foreground">{meta}</span>}
         </div>
 
-        <h3 className="line-clamp-2 font-body text-[17px] font-semibold leading-snug text-foreground">{name || 'Listing'}</h3>
+        <h3 className="line-clamp-2 min-h-[44px] font-body text-[17px] font-semibold leading-snug text-foreground">{name || 'Listing'}</h3>
         <VRSLocation kind={kind} location={location} />
-        <VRSAmenities kind={kind} items={amenities} />
+        <div className="min-h-[42px]">
+          <VRSAmenities kind={kind} items={amenities} />
+        </div>
         <VRSCardFooter kind={kind} price={price} priceUnit={priceUnit} pricePlaceholder={pricePlaceholder} priceHelp={priceHelp} actionLabel={actionLabel} onViewDetails={onViewDetails} />
       </div>
     </div>
@@ -474,18 +482,18 @@ const ListingCard = ({
   const copy = cardCopy[kind];
   const typeLabel = badge || copy.fallbackBadge;
   const visibleAmenities = (amenities || []).filter(Boolean).slice(0, kind === 'tour' ? 4 : 3);
-  const imageRatio = kind === 'hotel' || kind === 'tour' ? 'aspect-[16/10]' : 'aspect-[16/9]';
+  const imageRatio = 'aspect-[16/10]';
   const cardMinHeight =
     kind === 'hotel'
-      ? 'min-h-[410px]'
+      ? 'min-h-[470px]'
       : kind === 'tour'
-        ? 'min-h-[400px]'
+        ? 'min-h-[470px]'
         : kind === 'cab'
-          ? 'min-h-[330px]'
+          ? 'min-h-[450px]'
           : kind === 'room'
-            ? 'min-h-[390px]'
-            : 'min-h-[360px]';
-  const actionLabel = kind === 'hotel' || kind === 'cab' || kind === 'tour' ? copy.cta : ctaLabel || copy.cta;
+            ? 'min-h-[470px]'
+            : 'min-h-[450px]';
+  const actionLabel = kind === 'hotel' || kind === 'cab' || kind === 'tour' || kind === 'room' ? copy.cta : ctaLabel || copy.cta;
   const priceUnit = priceLabel || (kind === 'cab' ? 'per trip' : kind === 'tour' ? '/person' : '/night');
 
   const shellProps: SpecializedCardProps = {

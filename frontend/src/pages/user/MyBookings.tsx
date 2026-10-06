@@ -171,14 +171,14 @@ const MyBookings = () => {
               <p className="premium-kicker">Travel Desk</p>
               <h1 className="mt-1 font-display text-4xl font-bold leading-tight text-foreground md:text-5xl">My Bookings</h1>
               <p className="mt-2 max-w-2xl font-body text-sm leading-6 text-muted-foreground">
-                Your confirmed stays, pending requests, cab rides, and tour reservations.
+                Track stays, Dharamshala requests, cab rides, and tour reservations in one place.
               </p>
             </div>
             <Link
               to="/rooms"
               className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-white px-4 font-body text-sm font-bold text-foreground shadow-[0_10px_24px_hsl(224_34%_12%_/_0.06)] transition-colors hover:border-brand-gold/55 hover:text-brand-crimson"
             >
-              Book again <ArrowRight size={16} />
+              Book Again <ArrowRight size={16} />
             </Link>
           </div>
 
@@ -222,12 +222,12 @@ const MyBookings = () => {
           ) : filtered.length === 0 ? (
             <div className="rounded-lg border border-border bg-white p-12 text-center shadow-[0_12px_30px_hsl(224_34%_12%_/_0.05)]">
               <ClipboardList size={48} className="mx-auto mb-5 text-brand-gold/70" />
-              <h2 className="font-display text-3xl font-semibold text-foreground mb-2">No Bookings Yet</h2>
+              <h2 className="font-display text-3xl font-semibold text-foreground mb-2">No bookings yet</h2>
               <p className="font-body text-muted-foreground mb-6">
-                Start your sacred journey by booking a hotel, room, cab, or tour package.
+                Choose a stay, cab, or tour and your bookings will appear here.
               </p>
               <Link to="/hotels" className="btn-gold px-6 py-3 rounded-lg text-sm inline-flex items-center gap-2 font-semibold">
-                Start Your Journey <ArrowRight size={16} />
+                Find a Stay <ArrowRight size={16} />
               </Link>
             </div>
           ) : (
@@ -301,19 +301,19 @@ const MyBookings = () => {
                         )}
                         {isDharamshala && b.bookingStatus === 'pending_property_confirmation' && (
                           <p className="mt-2 rounded-lg border border-brand-saffron/25 bg-brand-saffron/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-saffron">
-                            Request submitted. The Dharamshala team is reviewing availability.
+                            Request sent. The Dharamshala team is reviewing availability.
                           </p>
                         )}
                         {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
                           <p className="mt-2 rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-crimson">
-                            Request accepted. Pay {confirmationAmount > 0 ? `Rs. ${confirmationAmount.toLocaleString('en-IN')}` : 'the shown amount'} now to confirm this booking.
+                            Request accepted. Pay {confirmationAmount > 0 ? `Rs. ${confirmationAmount.toLocaleString('en-IN')}` : 'the shown amount'} to confirm this booking.
                           </p>
                         )}
                         {canShowDharamshalaContact && (b.partnerName || b.partnerPhone) && (
                           <div className="mt-2 rounded-lg border border-brand-green/20 bg-brand-green/10 px-3 py-2 font-body text-xs leading-5 text-foreground">
                             <p className="font-bold text-brand-green">Accepted. Dharamshala contact is now available.</p>
                             <p className="mt-0.5 font-semibold">{b.partnerName || 'Dharamshala partner'}{b.partnerPhone ? ` - ${b.partnerPhone}` : ''}</p>
-                            <p className="mt-0.5 text-muted-foreground">Any remaining contribution is payable as selected by the Dharamshala partner.</p>
+                            <p className="mt-0.5 text-muted-foreground">Any remaining contribution is payable according to the Dharamshala's terms.</p>
                           </div>
                         )}
 
@@ -338,7 +338,7 @@ const MyBookings = () => {
                         )}
                         {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
                           <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md font-body text-xs font-bold text-brand-crimson group-hover:underline">
-                            Pay and confirm <ArrowRight size={13} />
+                            Pay & confirm <ArrowRight size={13} />
                           </span>
                         )}
                       </div>

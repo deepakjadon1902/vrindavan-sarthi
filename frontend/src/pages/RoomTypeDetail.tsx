@@ -63,8 +63,12 @@ const RoomTypeDetail = () => {
   const supportPhone = useSettingsStore((s) => s.settings.adminPhone);
 
   const qs = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const [checkIn, setCheckIn] = useState(() => qs.get('checkIn') || '');
-  const [checkOut, setCheckOut] = useState(() => qs.get('checkOut') || '');
+  const todayKey = useMemo(() => getLocalDateKey(), []);
+  const [checkIn, setCheckIn] = useState(() => qs.get('checkIn') || todayKey);
+  const [checkOut, setCheckOut] = useState(() => {
+    const from = qs.get('checkIn') || todayKey;
+    return qs.get('checkOut') || getNextDateKey(from);
+  });
 
   const [data, setData] = useState<any | null>(() => getPrefetchedDetail('roomTypes', id) || getCachedListingItem('roomTypes', id) || null);
   const [selectedRoomAvailability, setSelectedRoomAvailability] = useState<any[]>([]);
@@ -229,7 +233,6 @@ const RoomTypeDetail = () => {
     return map;
   }, [availabilityCalendar]);
 
-  const todayKey = useMemo(() => getLocalDateKey(), []);
   const checkOutMinKey = useMemo(() => (checkIn ? getNextDateKey(checkIn) : todayKey), [checkIn, todayKey]);
 
   const handleCheckInDateChange = (value: string) => {
@@ -238,7 +241,11 @@ const RoomTypeDetail = () => {
       return;
     }
     setCheckIn(value);
-    if (checkOut && value && checkOut <= value) setCheckOut('');
+    if (!value) {
+      setCheckOut('');
+      return;
+    }
+    if (!checkOut || checkOut <= value) setCheckOut(getNextDateKey(value));
   };
 
   const handleCheckOutDateChange = (value: string) => {
@@ -706,6 +713,236 @@ const RoomTypeDetail = () => {
                 className="premium-surface premium-sidebar-scroll space-y-4 p-4 sm:p-5 lg:h-[var(--booking-panel-height)] lg:max-h-[var(--booking-panel-height)] lg:w-full lg:overflow-y-auto"
                 style={bookingPanelHeight ? ({ '--booking-panel-height': `${bookingPanelHeight}px` } as CSSProperties) : undefined}
               >
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{isDharamshala ? 'Request Room' : 'Book Room'}</p>
+                      {canShowRoomPrices ? (
+                        <p className="mt-1 text-3xl font-bold text-brand-crimson">
+                          Rs. {Number(roomType.pricePerNight || 0).toLocaleString('en-IN')}
+                          <span className="ml-1 text-xs font-medium text-gray-400">/ night</span>
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-2xl font-bold text-brand-crimson">{isDharamshala ? 'Confirm first' : 'Price on request'}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void loadAvailabilityCalendar()}
+                      disabled={availabilityLoading}
+                      className="shrink-0 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm disabled:opacity-50"
+                    >
+                      {availabilityLoading ? 'Checking' : 'Refresh'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 rounded-2xl bg-gray-50 p-1.5 text-center text-[11px] font-bold text-gray-500">
+                    {['Stay', 'Details', isDharamshala ? 'Request' : 'Pay'].map((step, index) => (
+                      <div key={step} className="rounded-xl bg-white px-2 py-2 shadow-sm">
+                        <span className="mr-1 inline-grid h-5 w-5 place-items-center rounded-full bg-brand-gold/20 text-brand-crimson">{index + 1}</span>
+                        {step}
+                      </div>
+                    ))}
+                  </div>
+
+                  <section className="space-y-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-gold/12 text-brand-crimson">
+                          <CalendarDays size={17} />
+                        </span>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">1. Stay</p>
+                          <p className="text-sm font-bold text-gray-900">{formatStayDate(checkIn)} - {formatStayDate(checkOut)}</p>
+                        </div>
+                      </div>
+                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${inventoryPulse.tone}`}>
+                        {availableCount !== null && availableCount > 0 ? <CheckCircle2 size={12} className="mr-1 inline" /> : null}
+                        {availableCount !== null ? inventoryPulse.label : 'Live check'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="block rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Check-in</span>
+                        <input type="date" min={todayKey} value={checkIn} onChange={(e) => handleCheckInDateChange(e.target.value)} className="h-9 w-full bg-transparent text-sm font-bold text-gray-900 outline-none" />
+                      </label>
+                      <label className="block rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Check-out</span>
+                        <input type="date" min={checkOutMinKey} value={checkOut} onChange={(e) => handleCheckOutDateChange(e.target.value)} className="h-9 w-full bg-transparent text-sm font-bold text-gray-900 outline-none" />
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="rounded-xl border border-gray-100 bg-gray-50 p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-gray-500">Rooms</span>
+                          <div className="flex items-center overflow-hidden rounded-lg border border-gray-200 bg-white">
+                            <button type="button" onClick={() => setRoomQuantity((prev) => Math.max(1, prev - 1))} disabled={roomQuantity <= 1} className="grid h-8 w-8 place-items-center text-gray-700 disabled:opacity-40" aria-label="Decrease rooms">
+                              <Minus size={13} />
+                            </button>
+                            <div className="grid h-8 min-w-9 place-items-center border-x border-gray-200 px-2 text-sm font-bold">{roomQuantity}</div>
+                            <button type="button" onClick={() => setRoomQuantity((prev) => Math.min(maxRoomQuantity, prev + 1))} disabled={roomQuantity >= maxRoomQuantity} className="grid h-8 w-8 place-items-center text-gray-700 disabled:opacity-40" aria-label="Increase rooms">
+                              <Plus size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="block rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Adults</span>
+                          <input type="number" min={1} max={maxAdultsForSelection} value={totalAdults} onChange={(e) => setTotalAdults(Math.min(maxAdultsForSelection, Math.max(1, Number(e.target.value || 1))))} className="h-8 w-full bg-transparent text-sm font-bold outline-none" />
+                        </label>
+                        <label className="block rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Children</span>
+                          <input type="number" min={0} max={maxChildrenForSelection} value={totalChildren} onChange={(e) => setTotalChildren(Math.min(maxChildrenForSelection, Math.max(0, Number(e.target.value || 0))))} className="h-8 w-full bg-transparent text-sm font-bold outline-none" />
+                        </label>
+                      </div>
+                    </div>
+
+                    {isRequestedQuantityUnavailable && (
+                      <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-600">
+                        Only {availableCount} room(s) are available for these dates.
+                      </p>
+                    )}
+                  </section>
+
+                  <section className="space-y-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">2. Contact</p>
+                      {!isAuthenticated && (
+                        <Link to="/login" className="text-xs font-bold text-brand-crimson hover:underline">
+                          Login
+                        </Link>
+                      )}
+                    </div>
+                    <input value={customerFullName} onChange={(e) => setCustomerFullName(e.target.value)} placeholder="Full Name" className={inputCls} />
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <input value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="Mobile Number" className={inputCls} />
+                      <input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="Email" className={inputCls} />
+                    </div>
+                  </section>
+
+                  <section className="space-y-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">3. {isDharamshala ? 'Send Request' : 'Review & Pay'}</p>
+
+                    {canShowRoomPrices && !isDharamshala && (
+                      <div className="space-y-1.5 rounded-xl bg-gray-50 p-3 text-sm">
+                        <div className="flex justify-between gap-3 text-gray-500">
+                          <span>{nights} night(s) x {roomQuantity} room(s)</span>
+                          <span className="text-gray-700">Rs. {baseTotal.toLocaleString('en-IN')}</span>
+                        </div>
+                        {taxEnabled && (
+                          <div className="flex justify-between gap-3 text-gray-500">
+                            <span>Taxes</span>
+                            <span className="text-gray-700">Rs. {taxTotal.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between gap-3 text-gray-500">
+                          <span>Platform fee</span>
+                          <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between gap-3 border-t border-gray-200 pt-2 text-base font-bold">
+                          <span>Total</span>
+                          <span className="text-brand-crimson">Rs. {total.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {canShowRoomPrices && !isDharamshala && (
+                      <div className="grid grid-cols-1 gap-2">
+                        <button type="button" onClick={() => setPaymentOption('advance_30')} className={`rounded-xl border p-3 text-left text-sm transition-colors ${paymentOption === 'advance_30' ? 'border-brand-crimson bg-red-50/60' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                          <span className="block font-bold text-gray-900">Pay 30% now</span>
+                          <span className="text-xs text-gray-500">Rs. {Math.round(total * 0.3).toLocaleString('en-IN')} now, balance at property.</span>
+                        </button>
+                        <button type="button" onClick={() => setPaymentOption('full_100')} className={`rounded-xl border p-3 text-left text-sm transition-colors ${paymentOption === 'full_100' ? 'border-brand-crimson bg-red-50/60' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                          <span className="block font-bold text-gray-900">Pay full amount</span>
+                          <span className="text-xs text-gray-500">Rs. {total.toLocaleString('en-IN')} online, no balance later.</span>
+                        </button>
+                        {effectivePaymentOption && (
+                          <div className="flex justify-between rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm">
+                            <span className="text-gray-600">Payable now</span>
+                            <span className="font-bold text-brand-crimson">Rs. {payableNow.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        {effectivePaymentOption === 'advance_30' && (
+                          <div className="flex justify-between px-1 text-xs text-gray-400">
+                            <span>Balance at property</span>
+                            <span>Rs. {balanceLater.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {isDharamshala && (
+                      <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
+                        <p className="font-semibold text-gray-800">No online payment now</p>
+                        <p className="mt-1 text-xs leading-5 text-gray-500">Your request goes to the Dharamshala first. Payment or contribution details come after acceptance.</p>
+                      </div>
+                    )}
+
+                    {mustAcceptPropertyTerms && (
+                      <label className="flex items-start gap-2 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-3 py-2 font-body text-xs text-foreground">
+                        <input
+                          type="checkbox"
+                          checked={propertyTermsAccepted}
+                          onChange={(e) => setPropertyTermsAccepted(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>I accept this property's rules and booking policies.</span>
+                      </label>
+                    )}
+
+                    {isDharamshala ? (
+                      <button
+                        onClick={startRazorpayPayment}
+                        disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
+                        className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isStartingPayment ? 'Sending request...' : 'Send Booking Request'}
+                      </button>
+                    ) : !showPrices ? (
+                      <div className="grid grid-cols-1 gap-2">
+                        <a href={`https://wa.me/${supportDigits}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="btn-gold inline-flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold tracking-wide">
+                          <MessageCircle size={16} /> WhatsApp Booking
+                        </a>
+                        <a href={`tel:${supportDigits}`} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-3 text-sm font-bold text-gray-800 hover:border-brand-gold/50">
+                          <Phone size={16} /> Call Booking
+                        </a>
+                      </div>
+                    ) : !isFullyBookedSelectedDates ? (
+                      <button
+                        onClick={startRazorpayPayment}
+                        disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
+                        className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isStartingPayment ? 'Opening checkout...' : 'Book Now'}
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <button type="button" onClick={() => void loadAvailabilityCalendar()} className="w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+                          Recheck availability
+                        </button>
+                        <button onClick={startRazorpayPayment} disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable} className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50">
+                          {isStartingPayment ? 'Opening checkout...' : 'Join Waitlist'}
+                        </button>
+                      </div>
+                    )}
+
+                    {!isDharamshala && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <a href={`https://wa.me/${supportDigits}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-800 hover:border-brand-gold/50">
+                          <MessageCircle size={14} /> WhatsApp
+                        </a>
+                        <a href={`tel:${supportDigits}`} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-800 hover:border-brand-gold/50">
+                          <Phone size={14} /> Call
+                        </a>
+                      </div>
+                    )}
+                  </section>
+                </div>
+
+                <div className="hidden" aria-hidden="true">
                 <SimpleBookingPanel service={isDharamshala ? 'dharamshala' : 'stay'} />
 
                 {/* Price */}
@@ -893,7 +1130,7 @@ const RoomTypeDetail = () => {
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <span>{isDharamshala ? 'Plateform fee after acceptance' : 'Plateform fee'}</span>
+                    <span>{isDharamshala ? 'Platform fee after acceptance' : 'Platform fee'}</span>
                     <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
@@ -1068,6 +1305,7 @@ const RoomTypeDetail = () => {
                 <p className="text-center text-[11px] text-gray-400">
                   {canShowRoomPrices ? (isDharamshala ? 'Contact details appear in My Bookings after booking confirmation.' : 'Secure payment with automatic booking confirmation.') : 'Prices and availability are confirmed by our booking desk.'}
                 </p>
+                </div>
               </div>
             )}
           </div>

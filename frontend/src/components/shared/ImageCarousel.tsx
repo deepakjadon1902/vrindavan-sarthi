@@ -63,7 +63,7 @@ const ImageCarousel = ({
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
         onMouseMove={handleMouseMove}
-        className={`relative ${heightClass} overflow-hidden rounded-lg premium-surface group`}
+        className={`relative w-full ${heightClass} overflow-hidden rounded-2xl premium-surface group`}
       >
         {/* Slides */}
         {safe.map((src, i) => (
@@ -142,14 +142,14 @@ const ImageCarousel = ({
 
       {/* Thumbnails */}
       {showThumbnails && safe.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto px-0.5 pb-1">
           {safe.map((src, i) => (
             <button
               key={i}
               type="button"
               onClick={() => setActive(i)}
-              className={`relative h-14 w-[4.5rem] rounded-md overflow-hidden flex-shrink-0 transition-all ${
-                i === active ? 'ring-2 ring-brand-gold' : 'opacity-70 hover:opacity-100'
+              className={`relative h-14 w-[4.5rem] flex-shrink-0 overflow-hidden rounded-xl border bg-white transition-all ${
+                i === active ? 'border-brand-gold ring-2 ring-brand-gold/40' : 'border-border opacity-75 hover:opacity-100'
               }`}
             >
               <img src={src} alt="" width={160} height={128} loading="lazy" decoding="async" sizes="72px" className="w-full h-full object-cover" />

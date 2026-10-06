@@ -185,7 +185,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Base Amount" value={formatMoney(baseAmount)} />
             <Field label={isHotelMarketplace ? `Hotel Taxes${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}` : `GST${booking.taxPercent ? ` (${booking.taxPercent}%)` : ''}`} value={formatMoney(hotelGst)} />
-            <Field label={isHotelMarketplace ? 'Plateform fee' : 'Convenience Fee'} value={formatMoney(booking.convenienceFeeAmount || 0)} />
+            <Field label={isHotelMarketplace ? 'Platform fee' : 'Convenience fee'} value={formatMoney(booking.convenienceFeeAmount || 0)} />
             <Field label={isHotelMarketplace ? 'Customer Grand Total' : 'Grand Total'} value={formatMoney(booking.totalAmount)} />
             <Field label={isHotelMarketplace ? 'Online Advance Received' : 'Advance Paid'} value={formatMoney(booking.advanceAmount || 0)} />
             <Field label={isHotelMarketplace ? 'Balance to Collect at Property' : 'Balance Payable'} value={formatMoney(booking.balanceAmount || 0)} />
@@ -209,7 +209,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
             <Field label="Payment Gateway Fee" value={`- ${formatMoney(gatewayFee)}`} valueClass="text-destructive" />
             <Field label="Net Payout to Hotel" value={formatMoney(netPayout)} valueClass="text-brand-green" />
           </div>
-          <p className="mt-3 font-body text-[11px] text-muted-foreground">Plateform fee is not included in hotel payout.</p>
+          <p className="mt-3 font-body text-[11px] text-muted-foreground">Platform fee is not included in hotel payout.</p>
         </div>
       )}
 

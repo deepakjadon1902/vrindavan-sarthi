@@ -9,6 +9,13 @@ import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { useSettingsStore } from '@/store/settingsStore';
 
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const comparableKey = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const vehicleKey = (value: unknown) => comparableKey(value).replace(/\b(seater|seat|seats|cab|car|taxi|vehicle)\b/g, '').replace(/\s+/g, ' ').trim();
 
@@ -18,7 +25,7 @@ const CabDetail = () => {
   const companyPhone = useSettingsStore((s) => s.settings.adminPhone);
   const [cab, setCab] = useState<any>(() => getPrefetchedDetail('cabs', id) || getCachedListingItem('cabs', id) || null);
   const [isLoading, setIsLoading] = useState(true);
-  const [pickupDate, setPickupDate] = useState('');
+  const [pickupDate, setPickupDate] = useState(() => getLocalDateKey());
   const [pickupTime, setPickupTime] = useState('');
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
@@ -200,15 +207,15 @@ const CabDetail = () => {
             <ImageCarousel images={allImages} alt={cab.vehicleName} />
 
             <div className="rounded-lg border border-border/80 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] sm:p-6">
-              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Private cab booking</p>
+              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Private cab</p>
               <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h1 className="font-display text-3xl font-bold leading-tight text-foreground md:text-4xl">{cab.vehicleName}</h1>
                   <p className="mt-2 font-body text-sm text-muted-foreground">{cab.vehicleType}</p>
                 </div>
                 <div className="rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 font-body text-sm">
-                  <p className="text-muted-foreground">Booking payment</p>
-                  <p className="font-bold text-foreground">After confirmation</p>
+                  <p className="text-muted-foreground">Payment</p>
+                  <p className="font-bold text-foreground">After availability check</p>
                 </div>
               </div>
             </div>
@@ -218,7 +225,7 @@ const CabDetail = () => {
               <div className="mt-4 grid gap-3 font-body text-sm sm:grid-cols-4">
                 <div className="border-l-2 border-brand-gold/60 pl-3"><p className="text-xs text-muted-foreground">Type</p><p className="mt-1 font-semibold">{cab.vehicleType}</p></div>
                 <div className="border-l-2 border-brand-gold/60 pl-3"><p className="text-xs text-muted-foreground">Seats</p><p className="mt-1 font-semibold">{cab.capacity}</p></div>
-                <div className="border-l-2 border-brand-gold/60 pl-3"><p className="text-xs text-muted-foreground">Driver</p><p className="mt-1 font-semibold">Shared after call</p></div>
+                <div className="border-l-2 border-brand-gold/60 pl-3"><p className="text-xs text-muted-foreground">Driver</p><p className="mt-1 font-semibold">Shared after confirmation</p></div>
                 <div className="border-l-2 border-brand-gold/60 pl-3"><p className="text-xs text-muted-foreground">Advance</p><p className="mt-1 font-semibold">30% or full</p></div>
               </div>
             </div>
@@ -239,13 +246,22 @@ const CabDetail = () => {
 
           <div>
             <div className="rounded-lg border border-brand-gold/45 bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.12)] sm:p-6 lg:sticky lg:top-24">
-              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Booking desk</p>
-              <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Check cab availability</h2>
-              <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">Share only date, time, and route. Driver details and payment are shared after availability is confirmed.</p>
+              <p className="font-body text-[11px] font-bold uppercase tracking-[0.18em] text-brand-crimson">Cab request</p>
+              <h2 className="mt-1 font-display text-2xl font-bold text-foreground">Check availability</h2>
+              <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">Select your route and time. We confirm the cab before any payment is requested.</p>
+
+              <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-secondary/50 p-1.5 text-center font-body text-[11px] font-bold text-muted-foreground">
+                {['Route', 'Time', 'Confirm'].map((step, index) => (
+                  <div key={step} className="rounded-xl bg-white px-2 py-2 shadow-sm">
+                    <span className="mr-1 inline-grid h-5 w-5 place-items-center rounded-full bg-brand-gold/20 text-brand-crimson">{index + 1}</span>
+                    {step}
+                  </div>
+                ))}
+              </div>
 
               <div className="mt-5 space-y-3">
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Date</label><input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
-                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup Time</label><input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup date</label><input type="date" min={getLocalDateKey()} value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
+                <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Pickup time</label><input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" /></div>
                 <div><label className="font-body text-sm font-medium text-foreground mb-1.5 block">Route</label><select value={pickup && dropoff ? `${pickup}|||${dropoff}` : ''} onChange={(e) => { const [from, to] = e.target.value.split('|||'); setPickup(from || ''); setDropoff(to || ''); setCabType(''); setSelectedFareRuleId(''); }} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"><option value="">Select route</option>{routeOptions.map((route) => <option key={route.key} value={route.key}>{route.label}</option>)}</select></div>
               </div>
 
@@ -257,8 +273,8 @@ const CabDetail = () => {
                 {fareErr && <p className="mt-2 text-xs font-body text-destructive">{fareErr}</p>}
                 {!fareErr && typeof fare === 'number' && (
                   <div className="mt-2 space-y-1 font-body text-[11px] text-muted-foreground">
-                    <p>Total estimate with service fee: Rs. {checkoutTotal.toLocaleString('en-IN')}</p>
-                    <p>After confirmation: 30% advance Rs. {advanceAmount.toLocaleString('en-IN')} or full payment.</p>
+                    <p>Total estimate with platform fee: Rs. {checkoutTotal.toLocaleString('en-IN')}</p>
+                    <p>After confirmation: pay 30% advance Rs. {advanceAmount.toLocaleString('en-IN')} or full amount.</p>
                     <p>Balance if advance paid: Rs. {balanceAmount.toLocaleString('en-IN')}</p>
                   </div>
                 )}

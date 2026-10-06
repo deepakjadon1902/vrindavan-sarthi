@@ -93,7 +93,7 @@ const BookingDetail = () => {
           <div className="text-center">
             <ClipboardList size={64} className="mx-auto mb-4 text-muted-foreground/30" />
             <h2 className="font-heading text-2xl font-semibold text-foreground mb-2">Booking Not Found</h2>
-            <Link to="/bookings" className="font-body text-sm text-brand-crimson hover:underline">← Back to Bookings</Link>
+            <Link to="/bookings" className="font-body text-sm text-brand-crimson hover:underline">Back to bookings</Link>
           </div>
         </div>
         <Footer />
@@ -113,8 +113,8 @@ const BookingDetail = () => {
 
   const statusConfig = {
     confirmed: { color: 'bg-brand-green/10 text-brand-green border-brand-green/20', icon: CheckCircle2, label: 'Booking Confirmed' },
-    pending_property_confirmation: { color: 'bg-brand-saffron/10 text-brand-saffron border-brand-saffron/20', icon: Clock, label: 'Pending Property Confirmation' },
-    awaiting_customer_payment: { color: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CreditCard, label: 'Request Accepted - Payment Due' },
+    pending_property_confirmation: { color: 'bg-brand-saffron/10 text-brand-saffron border-brand-saffron/20', icon: Clock, label: 'Waiting for property approval' },
+    awaiting_customer_payment: { color: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CreditCard, label: 'Payment needed' },
     rejected_by_property: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Rejected by Property' },
     expired_property_no_response: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Expired - Property Did Not Respond' },
     no_show: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'No-show' },
@@ -170,7 +170,7 @@ const BookingDetail = () => {
     booking.service_billing_model === 'hotel_marketplace' ||
     ['hotel', 'room', 'room_type'].includes(String(booking.bookingType || ''));
   const isDharamshalaBooking = String(booking.propertyType || '').toLowerCase() === 'dharamshala';
-  const formatMoney = (value: unknown) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
+  const formatMoney = (value: unknown) => `Rs. ${Number(value || 0).toLocaleString('en-IN')}`;
   const roomAmount = Number(isDharamshalaBooking ? booking.dharamshalaAmount : (booking.baseAmount || booking.checkoutSubtotal || 0));
   const hotelTaxes = Number(booking.taxAmount || 0);
   const convenienceFee = Number(isDharamshalaBooking ? booking.vrindavanSarthiServiceFee : (booking.convenienceFeeAmount || 0));
@@ -456,7 +456,7 @@ const BookingDetail = () => {
                       <div><span className="text-muted-foreground text-xs block">Date</span><span className="font-medium">{booking.pickupDate || (booking.checkIn ? new Date(booking.checkIn).toLocaleDateString('en-IN') : '-') }</span></div>
                       <div><span className="text-muted-foreground text-xs block">Time</span><span className="font-medium">{booking.pickupTime || '-'}</span></div>
                       <div><span className="text-muted-foreground text-xs block">Cab Type</span><span className="font-medium">{booking.cabType || '-'}</span></div>
-                      <div><span className="text-muted-foreground text-xs block">Fare</span><span className="font-medium">₹{Number(booking.cabFareTotal || booking.totalAmount || 0).toLocaleString('en-IN')}</span></div>
+                      <div><span className="text-muted-foreground text-xs block">Fare</span><span className="font-medium">Rs. {Number(booking.cabFareTotal || booking.totalAmount || 0).toLocaleString('en-IN')}</span></div>
                     </div>
 
                     {booking.bookingStatus === 'confirmed' && (booking.assignedVehicleName || booking.assignedDriverName) ? (
@@ -536,7 +536,7 @@ const BookingDetail = () => {
                         <option value={modifyForm.roomTypeId}>{booking.itemName}</option>
                         {roomTypes.map((rt) => (
                           <option key={rt._id || rt.id} value={rt._id || rt.id}>
-                            {rt.name} - ₹{Number(rt.pricePerNight || 0).toLocaleString('en-IN')}/night
+                            {rt.name} - Rs. {Number(rt.pricePerNight || 0).toLocaleString('en-IN')}/night
                           </option>
                         ))}
                       </select>
@@ -652,11 +652,11 @@ const BookingDetail = () => {
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Plateform fee</span>
+                        <span className="text-muted-foreground">Platform fee</span>
                         <span className="font-semibold text-foreground">{formatMoney(convenienceFee)}</span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Donation payable at check-in / as per Dharamshala</span>
+                        <span className="text-muted-foreground">Payable at check-in / as per Dharamshala</span>
                         <span className="text-right font-bold text-foreground">
                           {isAcceptedDharamshala ? formatMoney(balancePayable) : 'Visible after partner acceptance'}
                         </span>
@@ -677,7 +677,7 @@ const BookingDetail = () => {
                         <span className="font-semibold text-foreground">{formatMoney(hotelTaxes)}</span>
                       </div>
                       <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Plateform fee</span>
+                        <span className="text-muted-foreground">Platform fee</span>
                         <span className="font-semibold text-foreground">{formatMoney(convenienceFee)}</span>
                       </div>
                     </>
@@ -698,7 +698,7 @@ const BookingDetail = () => {
                   )}
                   <div className="hidden">
                     <span className="text-muted-foreground">Amount</span>
-                    <span className="font-semibold text-foreground">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold text-foreground">Rs. {booking.totalAmount.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between font-body text-sm">
                     <span className="text-muted-foreground">Method</span>
@@ -718,12 +718,12 @@ const BookingDetail = () => {
                   <div className="h-px bg-border" />
                   <div className={`flex justify-between font-body text-base ${isDharamshalaBooking && !isAcceptedDharamshala ? 'hidden' : ''}`}>
                     <span className="font-semibold text-foreground">{isDharamshalaBooking ? 'Total booking value' : 'Booking Total'}</span>
-                    <span className="font-bold text-brand-crimson text-lg">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
+                    <span className="font-bold text-brand-crimson text-lg">Rs. {booking.totalAmount.toLocaleString('en-IN')}</span>
                   </div>
                   {isHotelMarketplace && (
                     <p className="rounded-lg border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-relaxed text-muted-foreground">
                       {isDharamshalaBooking
-                        ? 'Dharamshala donation or contribution is payable directly to the property according to its applicable terms. The property will issue its applicable receipt.'
+                        ? 'Dharamshala contribution is payable directly to the property according to its applicable terms. The property will issue its applicable receipt.'
                         : 'This is not a tax invoice for accommodation. The property partner will issue the hotel tax invoice where applicable.'}
                     </p>
                   )}
@@ -737,7 +737,7 @@ const BookingDetail = () => {
                   </h3>
                   {isDharamshalaBooking && (
                     <p className="mb-3 rounded-lg border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-5 text-muted-foreground">
-                      The Dharamshala has accepted your request. Any remaining room contribution, if applicable, is payable as selected by the Dharamshala partner.
+                      The Dharamshala has accepted your request. Any remaining room contribution, if applicable, is payable according to the Dharamshala terms.
                     </p>
                   )}
                   <div className="space-y-2 font-body text-sm">
@@ -864,3 +864,4 @@ const BookingDetail = () => {
 };
 
 export default BookingDetail;
+

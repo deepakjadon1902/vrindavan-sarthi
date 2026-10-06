@@ -90,6 +90,8 @@ const addDays = (date: Date, days: number) => {
   return next;
 };
 
+const monthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
 const formatDay = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit' });
 
@@ -138,6 +140,11 @@ const PartnerAvailabilityCalendar = () => {
     () => hotels.find((hotel) => hotel._id === selectedHotelId) || hotels[0] || null,
     [hotels, selectedHotelId]
   );
+  const currentMonthStart = useMemo(() => startOfMonth(new Date()), []);
+  const maxMonthStart = useMemo(() => addMonths(currentMonthStart, 2), [currentMonthStart]);
+  const currentRangeMonth = useMemo(() => startOfMonth(new Date(`${rangeStart}T00:00:00`)), [rangeStart]);
+  const canGoPrevious = monthKey(currentRangeMonth) > monthKey(currentMonthStart);
+  const canGoNext = monthKey(currentRangeMonth) < monthKey(maxMonthStart);
 
   const roomTotals = useMemo(() => {
     const allRooms = (selectedHotel?.roomTypes || []).flatMap((roomType) => roomType.rooms || []);
@@ -185,7 +192,12 @@ const PartnerAvailabilityCalendar = () => {
   }, [token, rangeStart, selectedHotelId]);
 
   const moveRange = (monthsToMove: number) => {
-    setRangeStart((current) => toDateKey(startOfMonth(addMonths(new Date(`${current}T00:00:00`), monthsToMove))));
+    setRangeStart((current) => {
+      const next = startOfMonth(addMonths(new Date(`${current}T00:00:00`), monthsToMove));
+      if (next < currentMonthStart) return toDateKey(currentMonthStart);
+      if (next > maxMonthStart) return toDateKey(maxMonthStart);
+      return toDateKey(next);
+    });
   };
 
   const cellClass = (status: DayStatus) => {
@@ -284,15 +296,15 @@ const PartnerAvailabilityCalendar = () => {
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
           <div className="rounded-lg border border-brand-gold/40 bg-brand-gold/10 px-4 py-2 text-center">
-            <div className="font-body text-[10px] uppercase tracking-wide text-muted-foreground">Showing Month</div>
+            <div className="font-body text-[10px] uppercase tracking-wide text-muted-foreground">Current + next 2 months</div>
             <div className="font-heading text-lg font-semibold leading-tight text-foreground sm:text-xl">
               {formatMonthLabel(rangeStart)}
             </div>
           </div>
-          <button onClick={() => moveRange(-1)} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 font-body text-xs hover:bg-muted">
+          <button disabled={!canGoPrevious} onClick={() => moveRange(-1)} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 font-body text-xs hover:bg-muted disabled:opacity-50">
             <ChevronLeft size={14} /> Previous
           </button>
-          <button onClick={() => moveRange(1)} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 font-body text-xs hover:bg-muted">
+          <button disabled={!canGoNext} onClick={() => moveRange(1)} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 font-body text-xs hover:bg-muted disabled:opacity-50">
             Next <ChevronRight size={14} />
           </button>
           <button onClick={loadCalendar} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-brand-gold px-3 py-2 font-body text-xs font-semibold text-foreground hover:bg-brand-gold/90">
@@ -359,9 +371,9 @@ const PartnerAvailabilityCalendar = () => {
         <div className="space-y-5">
           {selectedHotel.roomTypes.map((roomType) => (
             <section key={roomType._id} className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <div className="flex flex-col gap-3 border-b border-border bg-muted/25 p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-2 border-b border-border bg-muted/25 p-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <h3 className="font-heading text-lg font-semibold text-foreground">{roomType.name}</h3>
+                  <h3 className="font-heading text-base font-semibold text-foreground">{roomType.name}</h3>
                   <p className="font-body text-xs text-muted-foreground">
                     {roomType.rooms.length} room number(s)
                     {roomType.pricePerNight ? ` - Rs. ${Number(roomType.pricePerNight).toLocaleString('en-IN')} per night` : ''}
@@ -389,7 +401,7 @@ const PartnerAvailabilityCalendar = () => {
                   No room numbers added for this room type.
                 </p>
               ) : (
-                <div className="p-3 sm:p-4">
+                <div className="p-2 sm:p-3">
                   <div className="mb-3 rounded-lg border border-border bg-background px-3 py-2 text-center md:hidden">
                     <div className="font-heading text-lg font-semibold text-foreground">{formatMonthLabel(rangeStart)}</div>
                     <div className="font-body text-[11px] text-muted-foreground">Room-wise daily availability</div>
@@ -404,20 +416,20 @@ const PartnerAvailabilityCalendar = () => {
                     {calendarSlots.map((date, index) => (
                       <div
                         key={date || `empty-${index}`}
-                        className={`min-h-[132px] bg-background p-2 ${date ? '' : 'bg-muted/25'} border-t border-border ${index % 7 === 0 ? '' : 'border-l'}`}
+                        className={`min-h-[108px] bg-background p-1.5 ${date ? '' : 'bg-muted/25'} border-t border-border ${index % 7 === 0 ? '' : 'border-l'}`}
                       >
                         {date && (
                           <>
-                            <div className="mb-2 flex items-start justify-between gap-1">
+                            <div className="mb-1.5 flex items-start justify-between gap-1">
                               <div>
-                                <div className="font-heading text-base font-semibold leading-none text-foreground">{formatDay(date)}</div>
+                                <div className="font-heading text-sm font-semibold leading-none text-foreground">{formatDay(date)}</div>
                                 <div className="mt-0.5 font-body text-[10px] font-medium text-muted-foreground">{formatWeekday(date)}</div>
                               </div>
                               <span className="rounded-full bg-muted px-1.5 py-0.5 font-body text-[9px] text-muted-foreground">
                                 {roomType.rooms.length}
                               </span>
                             </div>
-                            <div className="max-h-[86px] space-y-1 overflow-y-auto pr-0.5">
+                            <div className="max-h-[68px] space-y-1 overflow-y-auto pr-0.5">
                               {roomType.rooms.map((room) => {
                                 const day = getRoomDay(room, date);
                                 return (
@@ -425,7 +437,7 @@ const PartnerAvailabilityCalendar = () => {
                                     key={`${room._id}-${date}`}
                                     type="button"
                                     onClick={() => setSelectedDay({ hotel: selectedHotel, roomType, room, day })}
-                                    className={`flex min-h-7 w-full items-center justify-between gap-1 rounded-md border px-2 py-1 text-left font-body text-[10px] font-bold leading-tight transition ${cellClass(day.status)}`}
+                                    className={`flex min-h-6 w-full items-center justify-between gap-1 rounded-md border px-1.5 py-0.5 text-left font-body text-[9px] font-bold leading-tight transition ${cellClass(day.status)}`}
                                     title={`${room.number} - ${date} - ${day.status}`}
                                   >
                                     <span className="min-w-0 truncate">{cellLabel(room, day)}</span>
@@ -444,10 +456,10 @@ const PartnerAvailabilityCalendar = () => {
 
                   <div className="space-y-3 md:hidden">
                     {days.map((date) => (
-                      <div key={date} className="rounded-lg border border-border bg-background p-3">
-                        <div className="mb-3 flex items-start justify-between gap-3">
+                      <div key={date} className="rounded-lg border border-border bg-background p-2.5">
+                        <div className="mb-2 flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="font-heading text-base font-semibold leading-tight text-foreground">
+                            <div className="font-heading text-sm font-semibold leading-tight text-foreground">
                               {formatFullCalendarDate(date)}
                             </div>
                             <div className="mt-0.5 font-body text-[11px] text-muted-foreground">
@@ -458,7 +470,7 @@ const PartnerAvailabilityCalendar = () => {
                             {formatDay(date)}
                           </span>
                         </div>
-                        <div className="grid gap-2">
+                        <div className="grid gap-1.5">
                           {roomType.rooms.map((room) => {
                             const day = getRoomDay(room, date);
                             return (
@@ -466,7 +478,7 @@ const PartnerAvailabilityCalendar = () => {
                                 key={`${room._id}-mobile-${date}`}
                                 type="button"
                                 onClick={() => setSelectedDay({ hotel: selectedHotel, roomType, room, day })}
-                                className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left font-body text-xs font-bold transition ${cellClass(day.status)}`}
+                                className={`flex min-h-9 w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left font-body text-[11px] font-bold transition ${cellClass(day.status)}`}
                                 title={`${room.number} - ${date} - ${day.status}`}
                               >
                                 <span className="min-w-0">

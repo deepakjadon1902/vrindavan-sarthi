@@ -64,15 +64,21 @@ const dateKey = (value) => {
 };
 
 const addDaysUTC = (date, days) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+const addMonthsUTC = (date, months) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate()));
+const startOfUtcDay = (date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+const startOfUtcMonth = (date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 
 const resolveCalendarRange = (query = {}) => {
   const today = new Date();
-  const defaultFrom = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const minFrom = startOfUtcDay(today);
+  const maxTo = addMonthsUTC(startOfUtcMonth(today), 3);
   const parsedFrom = parseDateOnlyToUTC(String(query.from || ''));
   const parsedTo = parseDateOnlyToUTC(String(query.to || ''));
-  const from = isValidDate(parsedFrom) ? parsedFrom : defaultFrom;
+  let from = isValidDate(parsedFrom) ? parsedFrom : minFrom;
+  if (from < minFrom) from = minFrom;
+  if (from >= maxTo) from = minFrom;
   let to = isValidDate(parsedTo) && parsedTo > from ? parsedTo : addDaysUTC(from, 31);
-  if (to > addDaysUTC(from, 45)) to = addDaysUTC(from, 45);
+  if (to > maxTo) to = maxTo;
   return { from, to, days: enumerateDatesUTC(from, to) };
 };
 

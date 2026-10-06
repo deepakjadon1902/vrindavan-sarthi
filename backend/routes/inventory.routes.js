@@ -77,15 +77,21 @@ const dateKey = (value) => {
 };
 
 const addDaysUTC = (date, days) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+const addMonthsUTC = (date, months) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate()));
+const startOfUtcDay = (date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+const startOfUtcMonth = (date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 
 const resolveCalendarRange = (query = {}) => {
   const today = new Date();
-  const defaultFrom = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const minFrom = startOfUtcDay(today);
+  const maxTo = addMonthsUTC(startOfUtcMonth(today), 3);
   const parsedFrom = parseDateOnlyToUTC(String(query.from || ''));
   const parsedTo = parseDateOnlyToUTC(String(query.to || ''));
-  const from = isValidDate(parsedFrom) ? parsedFrom : defaultFrom;
-  let to = isValidDate(parsedTo) && parsedTo > from ? parsedTo : addDaysUTC(from, 30);
-  if (to > addDaysUTC(from, 45)) to = addDaysUTC(from, 45);
+  let from = isValidDate(parsedFrom) ? parsedFrom : minFrom;
+  if (from < minFrom) from = minFrom;
+  if (from >= maxTo) from = minFrom;
+  let to = isValidDate(parsedTo) && parsedTo > from ? parsedTo : addDaysUTC(from, 31);
+  if (to > maxTo) to = maxTo;
   return { from, to, days: enumerateDatesUTC(from, to) };
 };
 
@@ -110,13 +116,13 @@ router.get('/availability-calendar', async (req, res) => {
 
     const [roomTypes, rooms] = await Promise.all([
       hotelIds.length
-        ? RoomType.find({ hotelId: { $in: hotelIds }, partnerId: req.user._id })
+        ? RoomType.find({ hotelId: { $in: hotelIds } })
           .sort({ name: 1 })
           .select('_id hotelId name status pricePerNight')
           .lean()
         : [],
       hotelIds.length
-        ? RoomUnit.find({ hotelId: { $in: hotelIds }, partnerId: req.user._id })
+        ? RoomUnit.find({ hotelId: { $in: hotelIds } })
           .sort({ roomTypeId: 1, number: 1 })
           .select('_id hotelId roomTypeId number floor status')
           .lean()
