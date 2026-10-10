@@ -175,12 +175,30 @@ const cancellationMoney = (totalAmount) => {
   };
 };
 
-const enqueueBookingNotifications = async (booking, { invoice = false, partnerAlert = true } = {}) => {
-  if (invoice) {
-    await ensureBookingInvoiceNotification(booking);
+const enqueueBookingNotifications = async (booking, { invoice = false, partnerAlert = true, background = false } = {}) => {
+  const run = async () => {
+    if (invoice) {
+      await ensureBookingInvoiceNotification(booking);
+    }
+    await ensureBookingCreatedNotifications(booking, { partnerAlert });
+    await ensureBookingRequiresActionAlarmNotifications(booking);
+  };
+
+  if (background) {
+    setImmediate(() => {
+      run().catch((err) => {
+        console.warn('[booking.notification_enqueue_failed]', JSON.stringify({
+          bookingId: booking?._id,
+          bookingCode: booking?.bookingId,
+          error: err?.message || String(err),
+          timestamp: new Date().toISOString(),
+        }));
+      });
+    });
+    return;
   }
-  await ensureBookingCreatedNotifications(booking, { partnerAlert });
-  await ensureBookingRequiresActionAlarmNotifications(booking);
+
+  await run();
 };
 
 const bookingDetailFields = [
@@ -453,7 +471,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       });
       try {
         await ensureDharamshalaPropertyReviewAlarmNotifications(result.booking);
-        await enqueueBookingNotifications(result.booking, { partnerAlert: !result.idempotent });
+        await enqueueBookingNotifications(result.booking, { partnerAlert: !result.idempotent, background: true });
       } catch (notifyErr) {
         console.warn('[dharamshala.request.notification_failed]', notifyErr?.message || notifyErr);
       }
@@ -599,7 +617,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
         throw err;
       }
 
-      await enqueueBookingNotifications(booking, { partnerAlert: true });
+      await enqueueBookingNotifications(booking, { partnerAlert: true, background: true });
       return res.status(201).json({
         success: true,
         data: withGuestAccessToken(sanitizeCustomerBooking(booking), bookingCustomer.guestAccessToken),
@@ -669,7 +687,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
         isWaitlisted: true,
       });
 
-      await enqueueBookingNotifications(waitlistedBooking, { partnerAlert: true });
+      await enqueueBookingNotifications(waitlistedBooking, { partnerAlert: true, background: true });
       return res.status(201).json({
         success: true,
         data: withGuestAccessToken(sanitizeCustomerBooking(waitlistedBooking), bookingCustomer.guestAccessToken),
