@@ -56,6 +56,7 @@ const {
 } = require('../utils/bookingModification');
 const {
   resolveBookingCustomer,
+  withGuestAccountReminder,
   withGuestAccessToken,
 } = require('../utils/guestBookingAccess');
 const router = express.Router();
@@ -477,7 +478,10 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       }
       return res.status(result.idempotent ? 200 : 201).json({
         success: true,
-        data: withGuestAccessToken(sanitizeCustomerBooking(result.booking), result.idempotent ? '' : bookingCustomer.guestAccessToken),
+        data: withGuestAccountReminder(
+          withGuestAccessToken(sanitizeCustomerBooking(result.booking), result.idempotent ? '' : bookingCustomer.guestAccessToken),
+          result.idempotent ? null : bookingCustomer.guestAccountReminder
+        ),
         idempotent: result.idempotent,
         message: 'Dharamshala request submitted. The property will confirm availability before any online payment.',
       });
@@ -620,7 +624,10 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       await enqueueBookingNotifications(booking, { partnerAlert: true, background: true });
       return res.status(201).json({
         success: true,
-        data: withGuestAccessToken(sanitizeCustomerBooking(booking), bookingCustomer.guestAccessToken),
+        data: withGuestAccountReminder(
+          withGuestAccessToken(sanitizeCustomerBooking(booking), bookingCustomer.guestAccessToken),
+          bookingCustomer.guestAccountReminder
+        ),
       });
     }
 
@@ -690,7 +697,10 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       await enqueueBookingNotifications(waitlistedBooking, { partnerAlert: true, background: true });
       return res.status(201).json({
         success: true,
-        data: withGuestAccessToken(sanitizeCustomerBooking(waitlistedBooking), bookingCustomer.guestAccessToken),
+        data: withGuestAccountReminder(
+          withGuestAccessToken(sanitizeCustomerBooking(waitlistedBooking), bookingCustomer.guestAccessToken),
+          bookingCustomer.guestAccountReminder
+        ),
         message: `Only ${selectedUnits.length} room(s) are available for selected dates. Added to waitlist; we will auto-assign rooms if slots open.`,
       });
     }

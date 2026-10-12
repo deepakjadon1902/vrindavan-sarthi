@@ -15,6 +15,17 @@ const generateGuestAccessToken = () => crypto.randomBytes(32).toString('base64ur
 const hashGuestAccessToken = (token) =>
   crypto.createHash('sha256').update(String(token || ''), 'utf8').digest('hex');
 
+const samePhone = (a, b) =>
+  String(a || '').replace(/\D/g, '') === String(b || '').replace(/\D/g, '');
+
+const buildGuestAccountReminder = ({ email, phone, created }) => ({
+  email,
+  username: email,
+  passwordHint: phone,
+  created: Boolean(created),
+  message: `Guest account ${created ? 'created' : 'updated'} automatically. Login with email ${email} and password ${phone} to view this booking in My Bookings.`,
+});
+
 const getGuestAccessTokenFromRequest = (req) =>
   String(req.body?.guestAccessToken || req.query?.guestAccessToken || req.get?.('x-guest-booking-token') || '').trim();
 
@@ -48,16 +59,31 @@ const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, c
     throw err;
   }
 
-  let user = await User.findOne({ email }).select('-password');
+  let guestAccountCreated = false;
+  let guestAccountReminder = null;
+  let user = await User.findOne({ email }).select('+password');
   if (!user) {
     user = await User.create({
       name,
       email,
       phone,
-      password: crypto.randomBytes(24).toString('base64url'),
+      password: phone,
       role: 'user',
       isGuest: true,
     });
+    guestAccountCreated = true;
+    guestAccountReminder = buildGuestAccountReminder({ email, phone, created: true });
+  } else if (user.isGuest) {
+    if (user.phone && !samePhone(user.phone, phone)) {
+      const err = new Error('This email is already linked to another guest mobile number. Please login or use the same mobile number.');
+      err.statusCode = 409;
+      throw err;
+    }
+    user.name = user.name || name;
+    user.phone = user.phone || phone;
+    user.password = phone;
+    await user.save();
+    guestAccountReminder = buildGuestAccountReminder({ email, phone, created: false });
   }
 
   const guestAccessToken = generateGuestAccessToken();
@@ -66,6 +92,8 @@ const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, c
     isGuestBooking: true,
     guestAccessToken,
     guestAccessTokenHash: hashGuestAccessToken(guestAccessToken),
+    guestAccountCreated,
+    guestAccountReminder,
   };
 };
 
@@ -89,11 +117,18 @@ const withGuestAccessToken = (booking, guestAccessToken = '') => {
   return plain;
 };
 
+const withGuestAccountReminder = (booking, reminder = null) => {
+  const plain = typeof booking?.toObject === 'function' ? booking.toObject() : { ...(booking || {}) };
+  if (reminder) plain.guestAccount = reminder;
+  return plain;
+};
+
 module.exports = {
   findBookingForCustomerPayment,
   hashGuestAccessToken,
   isValidEmail,
   isValidPhone,
   resolveBookingCustomer,
+  withGuestAccountReminder,
   withGuestAccessToken,
 };

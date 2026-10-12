@@ -86,6 +86,7 @@ const RoomTypeDetail = () => {
   const [paymentOption, setPaymentOption] = useState<'advance_30' | 'full_100' | ''>('');
   const [propertyTermsAccepted, setPropertyTermsAccepted] = useState(false);
   const [bookingId, setBookingId] = useState('');
+  const [guestCredentialMessage, setGuestCredentialMessage] = useState('');
   const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
   const [booked, setBooked] = useState(false);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
@@ -411,13 +412,16 @@ const RoomTypeDetail = () => {
 
       const pendingBooking = bookingResult.data;
       const guestAccessToken = pendingBooking.guestAccessToken || '';
+      const guestAccountMessage = pendingBooking.guestAccount?.message || '';
       pendingGuestAccessToken = guestAccessToken;
       pendingRazorpayBookingId = pendingBooking.id;
       setBookingId(String(pendingBooking.bookingId));
+      setGuestCredentialMessage(guestAccountMessage);
       setIsWaitlistedBooking(Boolean(pendingBooking.isWaitlisted));
 
       if (isDharamshala) {
         setBooked(true);
+        if (guestAccountMessage) toast.info(guestAccountMessage);
         toast.success('Request submitted. The Dharamshala will confirm availability before payment.');
         setIsStartingPayment(false);
         return;
@@ -483,6 +487,7 @@ const RoomTypeDetail = () => {
             const verified = verifyRes.data?.data || pendingBooking;
             if (verified.bookingId) setBookingId(String(verified.bookingId));
             setBooked(true);
+            if (guestAccountMessage) toast.info(guestAccountMessage);
             toast.success(pendingBooking.isWaitlisted ? 'Payment verified. You are on the waitlist.' : 'Payment verified. Booking confirmed!');
           } catch (err: any) {
             await markRazorpayAttemptFailed('verification_failed', response?.razorpay_payment_id);
@@ -704,6 +709,12 @@ const RoomTypeDetail = () => {
                     : isWaitlistedBooking ? 'Payment verified. You are on the waitlist.' : 'Your payment is verified and room booking is confirmed.'}
                 </p>
                 {bookingId && <p className="text-xs text-gray-400 mt-2">Booking ID: <span className="text-gray-700 font-medium">{bookingId}</span></p>}
+                {guestCredentialMessage && (
+                  <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-left text-xs leading-5 text-amber-900">
+                    <p className="font-bold">Guest login saved</p>
+                    <p>{guestCredentialMessage}</p>
+                  </div>
+                )}
                 <Link to="/bookings" className="btn-crimson inline-block mt-4 px-6 py-2.5 rounded-lg text-sm font-semibold">
                   View My Bookings
                 </Link>
@@ -821,6 +832,11 @@ const RoomTypeDetail = () => {
                       <input value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="Mobile Number" className={inputCls} />
                       <input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="Email" className={inputCls} />
                     </div>
+                    {!isAuthenticated && (
+                      <p className="rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2 text-[11px] leading-5 text-amber-800">
+                        Guest account will be created automatically. Use your email as username and this mobile number as password to login later and view My Bookings.
+                      </p>
+                    )}
                   </section>
 
                   <section className="space-y-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">

@@ -16,6 +16,13 @@ export interface Booking {
   userPhone: string;
   isGuestBooking?: boolean;
   guestAccessToken?: string;
+  guestAccount?: {
+    email?: string;
+    username?: string;
+    passwordHint?: string;
+    created?: boolean;
+    message?: string;
+  };
   partnerId?: string;
   partnerName?: string;
   partnerPhone?: string;
@@ -187,6 +194,13 @@ const normalizeBooking = (b: unknown): Booking => {
     userPhone: getString(obj, 'userPhone'),
     isGuestBooking: Boolean(obj.isGuestBooking),
     guestAccessToken: getString(obj, 'guestAccessToken') || undefined,
+    guestAccount: isRecord(obj.guestAccount) ? {
+      email: getString(obj.guestAccount, 'email') || undefined,
+      username: getString(obj.guestAccount, 'username') || undefined,
+      passwordHint: getString(obj.guestAccount, 'passwordHint') || undefined,
+      created: typeof obj.guestAccount.created === 'boolean' ? obj.guestAccount.created : undefined,
+      message: getString(obj.guestAccount, 'message') || undefined,
+    } : undefined,
     partnerId: getString(obj, 'partnerId') || undefined,
     partnerName: getString(obj, 'partnerName') || undefined,
     partnerPhone: getString(obj, 'partnerPhone') || undefined,
