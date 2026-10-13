@@ -487,10 +487,12 @@ const RoomTypeDetail = () => {
               razorpay_signature: response.razorpay_signature,
             }, token ? withAuth(token) : undefined);
             const verified = verifyRes.data?.data || pendingBooking;
+            const confirmedBookingId = verified.id || verified._id || pendingBooking.id;
             if (verified.bookingId) setBookingId(String(verified.bookingId));
             setBooked(true);
             if (guestAccountMessage) toast.info(guestAccountMessage);
             toast.success(pendingBooking.isWaitlisted ? 'Payment verified. You are on the waitlist.' : 'Payment verified. Booking confirmed!');
+            if (confirmedBookingId && token) navigate(`/bookings/${confirmedBookingId}/confirmed`, { replace: true });
           } catch (err: any) {
             await markRazorpayAttemptFailed('verification_failed', response?.razorpay_payment_id);
             toast.error(err?.response?.data?.message || 'Payment verification failed');

@@ -40,6 +40,7 @@ const NotFound = lazy(() => import("@/pages/NotFound"));
 const Profile = lazy(() => import("@/pages/user/Profile"));
 const MyBookings = lazy(() => import("@/pages/user/MyBookings"));
 const BookingDetail = lazy(() => import("@/pages/user/BookingDetail"));
+const BookingConfirmation = lazy(() => import("@/pages/user/BookingConfirmation"));
 const MyOrders = lazy(() => import("@/pages/user/MyOrders"));
 
 const AdminLogin = lazy(() => import("@/pages/admin/AdminLogin"));
@@ -173,6 +174,7 @@ const App = () => {
 
               <Route path="/profile" element={<ProtectedRoute><PublicLayout><Profile /></PublicLayout></ProtectedRoute>} />
               <Route path="/bookings" element={<ProtectedRoute><PublicLayout><MyBookings /></PublicLayout></ProtectedRoute>} />
+              <Route path="/bookings/:id/confirmed" element={<ProtectedRoute><PublicLayout><BookingConfirmation /></PublicLayout></ProtectedRoute>} />
               <Route path="/bookings/:id" element={<ProtectedRoute><PublicLayout><BookingDetail /></PublicLayout></ProtectedRoute>} />
               <Route path="/my-orders" element={<FeatureRoute enabled={shopEnabled}><ProtectedRoute><PublicLayout><MyOrders /></PublicLayout></ProtectedRoute></FeatureRoute>} />
 

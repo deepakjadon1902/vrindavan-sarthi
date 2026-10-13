@@ -234,8 +234,11 @@ const BookingDetail = () => {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
             }, withAuth(token));
-            setBooking(verifyRes.data?.data || booking);
+            const updatedBooking = verifyRes.data?.data || booking;
+            const confirmedBookingId = updatedBooking.id || updatedBooking._id || booking.id;
+            setBooking(updatedBooking);
             toast.success('Payment verified. Booking confirmed.');
+            navigate(`/bookings/${confirmedBookingId}/confirmed`, { replace: true });
           } catch (err: any) {
             toast.error(err?.response?.data?.message || 'Payment verification failed');
           } finally {
