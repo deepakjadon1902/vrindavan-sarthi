@@ -190,11 +190,11 @@ const BookingDetail = () => {
     booking.bookingType === 'room_type' &&
     booking.bookingStatus === 'confirmed' &&
     booking.paymentStatus === 'paid';
+  const acceptedOnlineAmount = isDharamshalaBooking ? Number(booking.amountPaidOnline || 0) : Number(advancePaid || 0);
   const canPayAcceptedDharamshala =
-    isDharamshalaBooking &&
     booking.bookingStatus === 'awaiting_customer_payment' &&
     booking.paymentStatus === 'pending' &&
-    Number(booking.amountPaidOnline || 0) > 0;
+    acceptedOnlineAmount > 0;
   const canFindAnotherDharamshala =
     isDharamshalaBooking &&
     ['rejected_by_property', 'expired_property_no_response'].includes(String(booking.bookingStatus || ''));
@@ -218,7 +218,7 @@ const BookingDetail = () => {
         amount: order.amount,
         currency: order.currency || 'INR',
         name: 'Vrindavan Sarthi',
-        description: `Dharamshala payment for ${booking.bookingId}`,
+        description: `${isDharamshalaBooking ? 'Dharamshala' : 'Booking'} payment for ${booking.bookingId}`,
         order_id: order.id,
         image: '/logo.png',
         prefill: {
@@ -798,17 +798,17 @@ const BookingDetail = () => {
               {canPayAcceptedDharamshala && (
                 <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/10 p-4">
                   <p className="font-body text-sm font-semibold text-foreground">
-                    Your request has been accepted. Pay the shown amount to confirm this Dharamshala booking.
+                    Your request has been accepted. Pay the shown amount within 30 minutes to confirm this booking.
                   </p>
                   <p className="mt-1 font-body text-xs leading-5 text-muted-foreground">
-                    Dharamshala contact details will be visible after successful payment and booking confirmation.
+                    Property contact details will be visible after successful payment and booking confirmation.
                   </p>
                   <button
                     onClick={payAcceptedDharamshala}
                     disabled={isPayingDharamshala}
                     className="mt-4 w-full py-3 rounded-xl bg-brand-gold text-foreground font-body text-sm font-semibold hover:bg-brand-gold/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                   >
-                    <CreditCard size={16} /> {isPayingDharamshala ? 'Opening Razorpay...' : `Pay ${formatMoney(booking.amountPaidOnline)} and Confirm`}
+                    <CreditCard size={16} /> {isPayingDharamshala ? 'Opening Razorpay...' : `Pay ${formatMoney(acceptedOnlineAmount)} and Confirm`}
                   </button>
                 </div>
               )}

@@ -88,6 +88,7 @@ const RoomTypeDetail = () => {
   const [bookingId, setBookingId] = useState('');
   const [guestCredentialMessage, setGuestCredentialMessage] = useState('');
   const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
+  const [isRequestSubmitted, setIsRequestSubmitted] = useState(false);
   const [booked, setBooked] = useState(false);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityCalendar, setAvailabilityCalendar] = useState<any[] | null>(null);
@@ -419,10 +420,11 @@ const RoomTypeDetail = () => {
       setGuestCredentialMessage(guestAccountMessage);
       setIsWaitlistedBooking(Boolean(pendingBooking.isWaitlisted));
 
-      if (isDharamshala) {
+      if (pendingBooking.bookingStatus === 'pending_property_confirmation') {
+        setIsRequestSubmitted(true);
         setBooked(true);
         if (guestAccountMessage) toast.info(guestAccountMessage);
-        toast.success('Request submitted. The Dharamshala will confirm availability before payment.');
+        toast.success(isDharamshala ? 'Request submitted. The Dharamshala will confirm availability before payment.' : 'Request submitted. The property will confirm availability before payment.');
         setIsStartingPayment(false);
         return;
       }
@@ -702,10 +704,10 @@ const RoomTypeDetail = () => {
                 <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
                   <Shield size={22} className="text-green-600" />
                 </div>
-                <p className="text-lg font-bold text-gray-900">{isDharamshala ? 'Request Submitted' : 'Booking Successful'}</p>
+                <p className="text-lg font-bold text-gray-900">{isRequestSubmitted ? 'Request Submitted' : 'Booking Successful'}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {isDharamshala
-                  ? 'Your booking request has been sent to the Dharamshala for confirmation.'
+                  {isRequestSubmitted
+                  ? (isDharamshala ? 'Your booking request has been sent to the Dharamshala for confirmation.' : 'Your booking request has been sent to the property for confirmation. You can pay after it is accepted.')
                     : isWaitlistedBooking ? 'Payment verified. You are on the waitlist.' : 'Your payment is verified and room booking is confirmed.'}
                 </p>
                 {bookingId && <p className="text-xs text-gray-400 mt-2">Booking ID: <span className="text-gray-700 font-medium">{bookingId}</span></p>}
@@ -840,7 +842,7 @@ const RoomTypeDetail = () => {
                   </section>
 
                   <section className="space-y-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">3. {isDharamshala ? 'Send Request' : 'Review & Pay'}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">3. Review & Request</p>
 
                     {canShowRoomPrices && !isDharamshala && (
                       <div className="space-y-1.5 rounded-xl bg-gray-50 p-3 text-sm">
@@ -909,15 +911,7 @@ const RoomTypeDetail = () => {
                       </label>
                     )}
 
-                    {isDharamshala ? (
-                      <button
-                        onClick={startRazorpayPayment}
-                        disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
-                        className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {isStartingPayment ? 'Sending request...' : 'Send Booking Request'}
-                      </button>
-                    ) : !showPrices ? (
+                    {!showPrices && !isDharamshala ? (
                       <div className="grid grid-cols-1 gap-2">
                         <a href={`https://wa.me/${supportDigits}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="btn-gold inline-flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold tracking-wide">
                           <MessageCircle size={16} /> WhatsApp Booking
@@ -932,7 +926,7 @@ const RoomTypeDetail = () => {
                         disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
                         className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {isStartingPayment ? 'Opening checkout...' : 'Book Now'}
+                        {isStartingPayment ? 'Sending request...' : 'Request Booking'}
                       </button>
                     ) : (
                       <div className="space-y-2">
@@ -940,7 +934,7 @@ const RoomTypeDetail = () => {
                           Recheck availability
                         </button>
                         <button onClick={startRazorpayPayment} disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable} className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50">
-                          {isStartingPayment ? 'Opening checkout...' : 'Join Waitlist'}
+                          {isStartingPayment ? 'Sending request...' : 'Request Booking'}
                         </button>
                       </div>
                     )}

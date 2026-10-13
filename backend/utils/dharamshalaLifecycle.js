@@ -10,16 +10,19 @@ const {
   transitionBookingStatus,
   tryReserveRoomUnitsForBooking,
 } = require('./reservationLifecycle');
+const { getPaymentOption } = require('./pricing');
+const { createBookingQuote } = require('./rateEngine');
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 const DEFAULT_DHARAMSHALA_PLATFORM_FEE = 79;
 
 const normalizePaymentMode = () => 'pay_at_dharamshala';
+const isDharamshalaProperty = (value) => String(value || '').trim().toLowerCase() === 'dharamshala';
 
 const getDharamshalaResponseTimeoutMinutes = (hotel) => {
   const minutes = Number(hotel?.dharamshalaResponseTimeoutMinutes || 30);
   if (!Number.isFinite(minutes) || minutes <= 0) return 30;
-  return Math.min(7 * 24 * 60, Math.floor(minutes));
+  return Math.min(7 * 24 * 60, Math.max(30, Math.floor(minutes)));
 };
 
 const getDharamshalaRequestExpiresAt = (hotel, from = new Date()) =>
@@ -86,8 +89,16 @@ const generateDharamshalaBookingCode = () => {
 };
 
 const assertDharamshala = (booking) => {
-  if (String(booking?.propertyType || '').toLowerCase() !== 'dharamshala') {
+  if (!isDharamshalaProperty(booking?.propertyType)) {
     const err = new Error('Not a Dharamshala booking');
+    err.statusCode = 400;
+    throw err;
+  }
+};
+
+const assertPropertyRequestBooking = (booking) => {
+  if (booking?.bookingType !== 'room_type' || !booking?.hotelId || !booking?.roomTypeId) {
+    const err = new Error('Not a property room booking request');
     err.statusCode = 400;
     throw err;
   }
@@ -160,13 +171,40 @@ const createDharamshalaRequest = async ({
     throw err;
   }
 
-  const money = buildDharamshalaAccounting({ hotel, roomType, nights: daysToReserve.length, roomQuantity });
+  const isDharamshala = isDharamshalaProperty(hotel?.propertyType);
+  let money;
+  let ratePlan = null;
+  let quote = null;
+  let paymentOption = 'full_100';
+  if (isDharamshala) {
+    money = buildDharamshalaAccounting({ hotel, roomType, nights: daysToReserve.length, roomQuantity });
+  } else {
+    paymentOption = getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']) || 'advance_30';
+    const quoteResult = await createBookingQuote({
+      hotelId: hotel._id,
+      roomTypeId: roomType._id,
+      ratePlanId: req.body?.ratePlanId,
+      checkIn,
+      checkOut,
+      roomQuantity,
+      adults: totalAdults,
+      children: totalChildren,
+      hasPet,
+      paymentOption,
+      checkInventory: false,
+    });
+    money = quoteResult.money;
+    ratePlan = quoteResult.ratePlan;
+    quote = quoteResult.quote;
+  }
+
   const booking = await Booking.create({
     bookingId: generateDharamshalaBookingCode(),
     bookingType: 'room_type',
-    service_billing_model: 'dharamshala_booking',
-    propertyType: 'dharamshala',
-    paymentMode: money.paymentMode,
+    service_billing_model: isDharamshala ? 'dharamshala_booking' : 'hotel_marketplace',
+    propertyType: hotel.propertyType || 'hotel',
+    paymentMode: isDharamshala ? money.paymentMode : null,
+    paymentOption,
     itemId: String(roomType._id),
     itemName: `${hotel.name} - ${roomType.name}`,
     itemImage: (roomType.images && roomType.images[0]) || hotel.image,
@@ -183,6 +221,11 @@ const createDharamshalaRequest = async ({
     partnerWhatsapp: hotel.partnerWhatsapp || hotel.partnerPhone || '',
     hotelId: hotel._id,
     roomTypeId: roomType._id,
+    ratePlanId: ratePlan?._id,
+    ratePlanName: ratePlan?.name,
+    ratePlanCode: ratePlan?.code,
+    ratePlanMealPlan: ratePlan?.mealPlan,
+    nightlyBreakdown: quote?.nightlyBreakdown || [],
     checkIn,
     checkOut,
     guests: totalAdults + totalChildren,
@@ -198,8 +241,8 @@ const createDharamshalaRequest = async ({
     hasPet,
     guestDetails,
     ...money,
-    taxPercent: 0,
-    taxAmount: 0,
+    taxPercent: isDharamshala ? 0 : money.taxPercent,
+    taxAmount: isDharamshala ? 0 : money.taxAmount,
     hotel_gstin: hotel.hotelGstin || '',
     paymentMethod: 'online',
     paymentStatus: 'pending',
@@ -218,7 +261,7 @@ const createDharamshalaRequest = async ({
 };
 
 const acceptDharamshalaRequest = async ({ booking, actor }) => {
-  assertDharamshala(booking);
+  assertPropertyRequestBooking(booking);
   if (booking.bookingStatus !== 'pending_property_confirmation') return { booking, idempotent: true };
   if (booking.requestExpiresAt && booking.requestExpiresAt <= new Date()) {
     return expireOneDharamshalaRequest({ booking, reason: 'property_response_timeout' });
@@ -267,49 +310,88 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
   booking.propertyDecisionBy = actor?._id;
   booking.propertyDecisionRole = actor?.role || 'partner';
   booking.propertyDecisionReason = 'accepted';
-  const requestedMode = String(actor?.paymentMode || actor?.propertyPaymentChoice || '').trim();
-  const paymentMode = requestedMode === 'full_online' ? 'full_online' : 'pay_at_dharamshala';
-  const accounting = buildDharamshalaAccounting({
-    hotel,
-    roomType,
-    nights: roomContext.daysToReserve.length,
-    roomQuantity: booking.roomQuantity,
-    paymentMode,
-  });
+  if (isDharamshalaProperty(booking.propertyType)) {
+    const requestedMode = String(actor?.paymentMode || actor?.propertyPaymentChoice || '').trim();
+    const paymentMode = requestedMode === 'full_online' ? 'full_online' : 'pay_at_dharamshala';
+    const accounting = buildDharamshalaAccounting({
+      hotel,
+      roomType,
+      nights: roomContext.daysToReserve.length,
+      roomQuantity: booking.roomQuantity,
+      paymentMode,
+    });
 
-  booking.paymentMode = paymentMode;
-  booking.propertyPaymentChoice = paymentMode;
-  booking.vrindavanSarthiServiceFee = accounting.vrindavanSarthiServiceFee;
-  booking.amountPaidOnline = accounting.amountPaidOnline;
-  booking.amountPayableAtProperty = accounting.amountPayableAtProperty;
-  booking.advanceAmount = accounting.advanceAmount;
-  booking.advance_paid = accounting.advance_paid;
-  booking.balanceAmount = accounting.balanceAmount;
-  booking.balance_at_property = accounting.balance_at_property;
-  booking.totalAmount = accounting.totalAmount;
-  booking.customer_total = booking.totalAmount;
-  booking.dharamshalaAmount = accounting.dharamshalaAmount;
-  booking.checkoutSubtotal = accounting.checkoutSubtotal;
-  booking.baseAmount = accounting.baseAmount;
-  booking.base_amount = accounting.base_amount;
+    booking.paymentMode = paymentMode;
+    booking.propertyPaymentChoice = paymentMode;
+    booking.vrindavanSarthiServiceFee = accounting.vrindavanSarthiServiceFee;
+    booking.amountPaidOnline = accounting.amountPaidOnline;
+    booking.amountPayableAtProperty = accounting.amountPayableAtProperty;
+    booking.advanceAmount = accounting.advanceAmount;
+    booking.advance_paid = accounting.advance_paid;
+    booking.balanceAmount = accounting.balanceAmount;
+    booking.balance_at_property = accounting.balance_at_property;
+    booking.totalAmount = accounting.totalAmount;
+    booking.customer_total = booking.totalAmount;
+    booking.dharamshalaAmount = accounting.dharamshalaAmount;
+    booking.checkoutSubtotal = accounting.checkoutSubtotal;
+    booking.baseAmount = accounting.baseAmount;
+    booking.base_amount = accounting.base_amount;
 
-  if (accounting.amountPaidOnline > 0) {
+    if (accounting.amountPaidOnline > 0) {
+      booking.paymentStatus = 'pending';
+      booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt();
+      await transitionBookingStatus(booking, 'awaiting_customer_payment', {
+        actorId: actor?._id,
+        actorRole: actor?.role || 'partner',
+        reason: paymentMode === 'full_online'
+          ? 'dharamshala_request_accepted_full_online_payment_required'
+          : 'dharamshala_request_accepted_platform_fee_required',
+      });
+    } else {
+      booking.paymentStatus = 'not_required';
+      booking.paymentHoldExpiresAt = undefined;
+      await transitionBookingStatus(booking, 'confirmed', {
+        actorId: actor?._id,
+        actorRole: actor?.role || 'partner',
+        reason: 'dharamshala_request_accepted_no_online_payment_required',
+      });
+    }
+  } else {
+    const paymentOption = getPaymentOption(booking.paymentOption, ['advance_30', 'full_100']) || 'advance_30';
+    const quoteResult = await createBookingQuote({
+      hotelId: hotel._id,
+      roomTypeId: roomType._id,
+      ratePlanId: booking.ratePlanId,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      roomQuantity: booking.roomQuantity,
+      adults: booking.totalAdults,
+      children: booking.totalChildren,
+      hasPet: booking.hasPet,
+      paymentOption,
+      checkInventory: false,
+    });
+    const accounting = quoteResult.money;
+    const ratePlan = quoteResult.ratePlan;
+    const quote = quoteResult.quote;
+    booking.paymentOption = paymentOption;
+    booking.ratePlanId = ratePlan?._id;
+    booking.ratePlanName = ratePlan?.name;
+    booking.ratePlanCode = ratePlan?.code;
+    booking.ratePlanMealPlan = ratePlan?.mealPlan;
+    booking.nightlyBreakdown = quote?.nightlyBreakdown || [];
+    booking.baseAmount = accounting.baseAmount;
+    booking.base_amount = accounting.baseAmount;
+    booking.taxPercent = accounting.taxPercent;
+    booking.taxAmount = accounting.taxAmount;
+    booking.hotel_gst_amount = accounting.taxAmount;
+    Object.assign(booking, accounting);
     booking.paymentStatus = 'pending';
     booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt();
     await transitionBookingStatus(booking, 'awaiting_customer_payment', {
       actorId: actor?._id,
       actorRole: actor?.role || 'partner',
-      reason: paymentMode === 'full_online'
-        ? 'dharamshala_request_accepted_full_online_payment_required'
-        : 'dharamshala_request_accepted_platform_fee_required',
-    });
-  } else {
-    booking.paymentStatus = 'not_required';
-    booking.paymentHoldExpiresAt = undefined;
-    await transitionBookingStatus(booking, 'confirmed', {
-      actorId: actor?._id,
-      actorRole: actor?.role || 'partner',
-      reason: 'dharamshala_request_accepted_no_online_payment_required',
+      reason: 'property_request_accepted_customer_payment_required',
     });
   }
   await booking.save();
@@ -317,7 +399,7 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
 };
 
 const rejectDharamshalaRequest = async ({ booking, actor, reason }) => {
-  assertDharamshala(booking);
+  assertPropertyRequestBooking(booking);
   if (booking.bookingStatus === 'rejected_by_property') return { booking, idempotent: true };
   if (booking.bookingStatus !== 'pending_property_confirmation') {
     const err = new Error('INVALID_BOOKING_STATE');
@@ -358,7 +440,6 @@ const expireOneDharamshalaRequest = async ({ booking, reason = 'property_respons
 const expireDharamshalaRequests = async ({ now = new Date(), limit = 100 } = {}) => {
   const safeLimit = Math.max(1, Math.min(500, Number(limit) || 100));
   const bookings = await Booking.find({
-    propertyType: 'dharamshala',
     bookingStatus: 'pending_property_confirmation',
     requestExpiresAt: { $lte: now },
   }).sort({ requestExpiresAt: 1, createdAt: 1 }).limit(safeLimit);

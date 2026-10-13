@@ -147,7 +147,7 @@ test('expiration service queries bounded eligible pending holds and releases inv
     const result = await expirePendingBookings({ now: new Date('2026-10-10T00:30:00.000Z'), limit: 9999 });
     assert.equal(result.scanned, 1);
     assert.equal(result.expired, 1);
-    assert.equal(capturedQuery.bookingStatus, 'pending');
+    assert.deepEqual(capturedQuery.bookingStatus, { $in: ['pending', 'awaiting_customer_payment'] });
     assert.equal(capturedQuery.paymentStatus, 'pending');
     assert.deepEqual(capturedQuery.paymentHoldExpiresAt, { $lte: new Date('2026-10-10T00:30:00.000Z') });
     assert.equal(capturedClaimQuery.bookingStatus, 'pending');

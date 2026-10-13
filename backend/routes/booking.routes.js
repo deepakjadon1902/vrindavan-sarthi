@@ -450,42 +450,42 @@ router.post('/room-type', optionalProtect, async (req, res) => {
     }
 
     const isDharamshala = String(hotel.propertyType || '').trim().toLowerCase() === 'dharamshala';
-    if (isDharamshala) {
-      const result = await createDharamshalaRequest({
-        req,
-        hotel,
-        roomType,
-        checkIn,
-        checkOut,
-        roomQuantity,
-        totalAdults,
-        totalChildren,
-        hasPet,
-        guestDetails,
-        customerFullName,
-        customerMobile,
-        customerEmail,
-        acceptedTermsSnapshot,
-        customerUser,
-        isGuestBooking: bookingCustomer.isGuestBooking,
-        guestAccessTokenHash: bookingCustomer.guestAccessTokenHash,
-      });
-      try {
-        await ensureDharamshalaPropertyReviewAlarmNotifications(result.booking);
-        await enqueueBookingNotifications(result.booking, { partnerAlert: !result.idempotent, background: true });
-      } catch (notifyErr) {
-        console.warn('[dharamshala.request.notification_failed]', notifyErr?.message || notifyErr);
-      }
-      return res.status(result.idempotent ? 200 : 201).json({
-        success: true,
-        data: withGuestAccountReminder(
-          withGuestAccessToken(sanitizeCustomerBooking(result.booking), result.idempotent ? '' : bookingCustomer.guestAccessToken),
-          result.idempotent ? null : bookingCustomer.guestAccountReminder
-        ),
-        idempotent: result.idempotent,
-        message: 'Dharamshala request submitted. The property will confirm availability before any online payment.',
-      });
+    const result = await createDharamshalaRequest({
+      req,
+      hotel,
+      roomType,
+      checkIn,
+      checkOut,
+      roomQuantity,
+      totalAdults,
+      totalChildren,
+      hasPet,
+      guestDetails,
+      customerFullName,
+      customerMobile,
+      customerEmail,
+      acceptedTermsSnapshot,
+      customerUser,
+      isGuestBooking: bookingCustomer.isGuestBooking,
+      guestAccessTokenHash: bookingCustomer.guestAccessTokenHash,
+    });
+    try {
+      await ensureDharamshalaPropertyReviewAlarmNotifications(result.booking);
+      await enqueueBookingNotifications(result.booking, { partnerAlert: !result.idempotent, background: true });
+    } catch (notifyErr) {
+      console.warn('[property.request.notification_failed]', notifyErr?.message || notifyErr);
     }
+    return res.status(result.idempotent ? 200 : 201).json({
+      success: true,
+      data: withGuestAccountReminder(
+        withGuestAccessToken(sanitizeCustomerBooking(result.booking), result.idempotent ? '' : bookingCustomer.guestAccessToken),
+        result.idempotent ? null : bookingCustomer.guestAccountReminder
+      ),
+      idempotent: result.idempotent,
+      message: isDharamshala
+        ? 'Dharamshala request submitted. The property will confirm availability before any online payment.'
+        : 'Booking request submitted. The property will confirm availability before payment.',
+    });
 
     // Server-side quote calculation (date rates + existing GST/fee formulas).
     const paymentOption = isDharamshala ? 'full_100' : getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']);
@@ -917,7 +917,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 });
 
 const findDharamshalaBookingForDecision = async (req) => {
-  const booking = await Booking.findOne({ _id: req.params.id, propertyType: 'dharamshala' });
+  const booking = await Booking.findOne({ _id: req.params.id, bookingType: 'room_type' });
   if (!booking) return null;
   if (req.user.role === 'partner') {
     return String(booking.partnerId || '') === String(req.user._id) ? booking : null;
@@ -931,9 +931,10 @@ const findDharamshalaBookingForDecision = async (req) => {
 router.put('/:id/dharamshala/accept', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
     const booking = await findDharamshalaBookingForDecision(req);
-    if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala request not found' });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking request not found' });
+    const isDharamshalaRequest = String(booking.propertyType || '').toLowerCase() === 'dharamshala';
     const requestedMode = String(req.body?.paymentMode || req.body?.propertyPaymentChoice || '').trim();
-    const paymentMode = requestedMode === 'full_online' ? 'full_online' : 'pay_at_dharamshala';
+    const paymentMode = isDharamshalaRequest && requestedMode !== 'full_online' ? 'pay_at_dharamshala' : 'full_online';
     const actor = typeof req.user.toObject === 'function' ? req.user.toObject() : req.user;
     const result = await acceptDharamshalaRequest({ booking, actor: { ...actor, paymentMode } });
     if (!result.idempotent && String(result.booking.bookingStatus || '') === 'confirmed') {
@@ -959,7 +960,7 @@ router.put('/:id/dharamshala/accept', protect, authorize('admin', 'partner'), as
 router.put('/:id/dharamshala/reject', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
     const booking = await findDharamshalaBookingForDecision(req);
-    if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala request not found' });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking request not found' });
     const reason = normalize(req.body?.reason || req.body?.propertyDecisionReason || 'Rejected by property');
     const result = await rejectDharamshalaRequest({ booking, actor: req.user, reason });
     res.json({ success: true, data: result.booking, idempotent: result.idempotent });

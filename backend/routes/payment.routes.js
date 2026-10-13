@@ -55,6 +55,9 @@ router.post('/razorpay/fail', optionalProtect, async (req, res) => {
     if (booking.paymentStatus === 'paid') {
       return res.status(400).json({ success: false, message: 'Paid booking cannot be marked failed' });
     }
+    if (booking.bookingStatus === 'pending_property_confirmation') {
+      return res.status(409).json({ success: false, message: 'Payment is available only after property acceptance' });
+    }
     if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.bookingStatus !== 'awaiting_customer_payment') {
       return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
     }
@@ -80,6 +83,9 @@ router.post('/razorpay/orders', optionalProtect, async (req, res) => {
     if (booking.paymentStatus === 'paid') return res.status(409).json({ success: false, message: 'PAYMENT_ALREADY_PROCESSED' });
     if (['cancelled', 'expired', 'payment_failed', 'rejected_by_property', 'expired_property_no_response'].includes(String(booking.bookingStatus || ''))) {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
+    if (booking.bookingStatus === 'pending_property_confirmation') {
+      return res.status(409).json({ success: false, message: 'Payment is available only after property acceptance' });
     }
     if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.bookingStatus !== 'awaiting_customer_payment') {
       return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
@@ -151,6 +157,9 @@ router.post('/razorpay/verify', optionalProtect, async (req, res) => {
     }
     if (['cancelled', 'expired', 'payment_failed', 'rejected_by_property', 'expired_property_no_response'].includes(String(booking.bookingStatus || ''))) {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
+    if (booking.bookingStatus === 'pending_property_confirmation') {
+      return res.status(409).json({ success: false, message: 'Payment is available only after property acceptance' });
     }
     if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.bookingStatus !== 'awaiting_customer_payment') {
       return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });

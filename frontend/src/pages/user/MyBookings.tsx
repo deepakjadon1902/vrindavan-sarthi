@@ -251,10 +251,10 @@ const MyBookings = () => {
                 const sb = statusBadge(b.bookingStatus);
                 const SIcon = sb.icon;
                 const isDharamshala = String(b.propertyType || '').toLowerCase() === 'dharamshala';
-                const confirmationAmount = Number(b.amountPaidOnline || 0);
                 const paymentCopy = b.paymentMethod === 'doorstep' ? 'Doorstep payment' : `Online - ${b.paymentStatus.replace(/_/g, ' ')}`;
                 const canShowDharamshalaAmount = !isDharamshala || ['awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(b.bookingStatus || ''));
                 const canShowDharamshalaContact = isDharamshala && ['awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(b.bookingStatus || ''));
+                const acceptedOnlineAmount = Number(isDharamshala ? b.amountPaidOnline : b.advanceAmount || b.totalAmount || 0);
 
                 return (
                   <Link
@@ -299,14 +299,14 @@ const MyBookings = () => {
                             Waiting for room assignment
                           </p>
                         )}
-                        {isDharamshala && b.bookingStatus === 'pending_property_confirmation' && (
+                        {b.bookingStatus === 'pending_property_confirmation' && (
                           <p className="mt-2 rounded-lg border border-brand-saffron/25 bg-brand-saffron/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-saffron">
-                            Request sent. The Dharamshala team is reviewing availability.
+                            Request sent. The property team is reviewing availability.
                           </p>
                         )}
-                        {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
+                        {b.bookingStatus === 'awaiting_customer_payment' && (
                           <p className="mt-2 rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-crimson">
-                            Request accepted. Pay {confirmationAmount > 0 ? `Rs. ${confirmationAmount.toLocaleString('en-IN')}` : 'the shown amount'} to confirm this booking.
+                            Request accepted. Pay {acceptedOnlineAmount > 0 ? `Rs. ${acceptedOnlineAmount.toLocaleString('en-IN')}` : 'the shown amount'} within 30 minutes to confirm this booking.
                           </p>
                         )}
                         {canShowDharamshalaContact && (b.partnerName || b.partnerPhone) && (
@@ -336,7 +336,7 @@ const MyBookings = () => {
                             <XCircle size={13} /> Cancel
                           </button>
                         )}
-                        {isDharamshala && b.bookingStatus === 'awaiting_customer_payment' && (
+                        {b.bookingStatus === 'awaiting_customer_payment' && (
                           <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md font-body text-xs font-bold text-brand-crimson group-hover:underline">
                             Pay & confirm <ArrowRight size={13} />
                           </span>

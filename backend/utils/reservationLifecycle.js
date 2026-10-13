@@ -278,7 +278,7 @@ const repairPaidAwaitingCustomerPaymentBookings = async ({ actorRole = 'system',
 const expirePendingBookings = async ({ now = new Date(), limit = 100, beforeExpireBooking } = {}) => {
   const safeLimit = Math.max(1, Math.min(500, Number(limit) || 100));
   const bookings = await Booking.find({
-    bookingStatus: 'pending',
+    bookingStatus: { $in: ['pending', 'awaiting_customer_payment'] },
     paymentStatus: 'pending',
     paymentHoldExpiresAt: { $lte: now },
   })
@@ -297,7 +297,7 @@ const expirePendingBookings = async ({ now = new Date(), limit = 100, beforeExpi
       const claimed = await Booking.findOneAndUpdate(
         {
           _id: booking._id,
-          bookingStatus: 'pending',
+          bookingStatus: booking.bookingStatus,
           paymentStatus: 'pending',
           paymentHoldExpiresAt: { $lte: now },
         },
@@ -311,7 +311,7 @@ const expirePendingBookings = async ({ now = new Date(), limit = 100, beforeExpi
           },
           $push: {
             statusHistory: {
-              from: 'pending',
+              from: booking.bookingStatus,
               to: 'expired',
               at: new Date(),
               actorRole: 'system',

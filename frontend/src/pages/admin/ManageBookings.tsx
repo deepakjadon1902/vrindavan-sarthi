@@ -197,20 +197,22 @@ const ManageBookings = () => {
           >
             Assign Driver
           </button>
-        ) : canAdminOperate && String(b.propertyType || '').toLowerCase() === 'dharamshala' && b.bookingStatus === 'pending_property_confirmation' ? (
+        ) : canAdminOperate && b.bookingStatus === 'pending_property_confirmation' ? (
           <>
             <button
               onClick={() => void handleAcceptDharamshala(b.id, 'full_online')}
               className={`${buttonBase} bg-brand-green text-primary-foreground hover:bg-brand-green/90`}
             >
-              Advance Online
+              Accept - Online Payment
             </button>
-            <button
-              onClick={() => void handleAcceptDharamshala(b.id, 'pay_at_dharamshala')}
-              className={`${buttonBase} bg-brand-gold text-foreground hover:bg-brand-gold/90`}
-            >
-              Pay at Dharamshala
-            </button>
+            {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
+              <button
+                onClick={() => void handleAcceptDharamshala(b.id, 'pay_at_dharamshala')}
+                className={`${buttonBase} bg-brand-gold text-foreground hover:bg-brand-gold/90`}
+              >
+                Pay at Dharamshala
+              </button>
+            )}
             <button
               onClick={() => void handleRejectDharamshala(b.id)}
               className={`${buttonBase} bg-destructive text-primary-foreground hover:bg-destructive/90`}
@@ -218,7 +220,7 @@ const ManageBookings = () => {
               Reject Request
             </button>
           </>
-        ) : String(b.propertyType || '').toLowerCase() === 'dharamshala' && b.bookingStatus === 'pending_property_confirmation' ? (
+        ) : b.bookingStatus === 'pending_property_confirmation' ? (
           <span className="self-center font-body text-[11px] text-muted-foreground">Waiting partner decision</span>
         ) : canAdminOperate && b.paymentMethod === 'online' ? (
           canAdminVerify(b) ? (

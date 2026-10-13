@@ -57,7 +57,7 @@ const PartnerBookings = () => {
     (b.paymentStatus === 'paid' || b.paymentStatus === 'not_required') &&
     b.bookingStatus === 'confirmed';
   const canDecideDharamshala = (b: any) =>
-    String(b.propertyType || '').toLowerCase() === 'dharamshala' &&
+    ['hotel', 'room', 'room_type'].includes(String(b.bookingType || '')) &&
     b.bookingStatus === 'pending_property_confirmation';
 
   const handleAcceptDharamshala = async (id: string, paymentMode: 'pay_at_dharamshala' | 'full_online') => {
@@ -65,7 +65,7 @@ const PartnerBookings = () => {
     if (res.success) {
       toast.success(
         paymentMode === 'full_online'
-          ? 'Request accepted. Customer will pay advance online for this booking.'
+          ? 'Request accepted. Customer will pay online to confirm this booking.'
           : 'Request accepted. Customer will pay at Dharamshala as selected.'
       );
     }
@@ -315,14 +315,16 @@ const PartnerBookings = () => {
                         onClick={() => handleAcceptDharamshala(b.id, 'full_online')}
                         className="min-h-9 flex-1 rounded-lg bg-brand-green px-3 py-2 font-body text-xs text-primary-foreground hover:bg-brand-green/90 sm:flex-none sm:px-4"
                       >
-                        Advance Online
+                        Accept - Customer Pays Online
                       </button>
-                      <button
-                        onClick={() => handleAcceptDharamshala(b.id, 'pay_at_dharamshala')}
-                        className="min-h-9 flex-1 rounded-lg bg-brand-gold px-3 py-2 font-body text-xs text-foreground hover:bg-brand-gold/90 sm:flex-none sm:px-4"
-                      >
-                        Pay at Dharamshala
-                      </button>
+                      {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
+                        <button
+                          onClick={() => handleAcceptDharamshala(b.id, 'pay_at_dharamshala')}
+                          className="min-h-9 flex-1 rounded-lg bg-brand-gold px-3 py-2 font-body text-xs text-foreground hover:bg-brand-gold/90 sm:flex-none sm:px-4"
+                        >
+                          Pay at Dharamshala
+                        </button>
+                      )}
                       <button
                         onClick={() => handleRejectDharamshala(b.id)}
                         className="min-h-9 flex-1 rounded-lg bg-destructive px-3 py-2 font-body text-xs text-primary-foreground hover:bg-destructive/90 sm:flex-none sm:px-4"
