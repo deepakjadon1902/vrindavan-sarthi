@@ -1,106 +1,122 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, CarTaxiFront, MapPinned, Users, Shield, Clock, MapPin, ChevronDown, ArrowRight, ShoppingBag, MessageCircle, BedDouble, CalendarDays, UserRound, BadgeCheck, Headphones, Landmark, Gift } from 'lucide-react';
-import SectionTitle from '@/components/shared/SectionTitle';
+import {
+  Building2,
+  CarTaxiFront,
+  MapPinned,
+  Users,
+  Shield,
+  Clock,
+  MapPin,
+  ArrowRight,
+  ShoppingBag,
+  MessageCircle,
+  BedDouble,
+  CalendarDays,
+  UserRound,
+  BadgeCheck,
+  Headphones,
+  Landmark,
+  Gift,
+  Search,
+  ShieldCheck,
+  Star,
+  Award,
+  Phone,
+} from 'lucide-react';
 import ListingCard from '@/components/shared/ListingCard';
-import TestimonialCard from '@/components/shared/TestimonialCard';
+import LocationDiscoverySection from '@/components/discovery/LocationDiscoverySection';
 import OptimizedImage from '@/components/shared/OptimizedImage';
 import { useProductStore } from '@/store/productStore';
 import { api } from '@/lib/api';
 import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
-import { COMPANY_PHONE_DIGITS } from '@/lib/brand';
+import { COMPANY_PHONE, COMPANY_PHONE_DIGITS } from '@/lib/brand';
 import { useSettingsStore } from '@/store/settingsStore';
 import { getPropertyTypeLabel, isDharamshalaType } from '@/lib/propertyTypes';
+import { groupItemsIntoLocationSections } from '@/lib/geoDiscovery';
 import hotelRoomBackdrop from '@/assets/images/hotel-1.jpg';
 import templeInteriorBackdrop from '@/assets/images/temple-about.jpg';
 import parikramaBackdrop from '@/assets/images/tour-1.jpg';
 
 const heroImg = '/backgrounds/braj-govardhan-hero.jpeg';
 
-const services = [
-  {
-    icon: Building2,
-    title: 'Stays',
-    desc: 'Verified hotels, home stays, guest houses, and dharamshalas.',
-    link: '/hotels',
-    cta: 'Explore stays',
-  },
-  {
-    icon: CarTaxiFront,
-    title: 'Cabs',
-    desc: 'Share route and time. Pay after confirmation.',
-    link: '/cabs',
-    cta: 'View cabs',
-  },
-  {
-    icon: MapPinned,
-    title: 'Tours',
-    desc: 'Guided Braj plans with clear pickup and pricing.',
-    link: '/tours',
-    cta: 'See packages',
-  },
-  {
-    icon: ShoppingBag,
-    title: 'Shop',
-    desc: 'Devotional products with order tracking.',
-    link: '/shop',
-    cta: 'Visit shop',
-  },
-];
-
 const plannerServices = [
-  { key: 'hotels', label: 'Dharamshalas', path: '/hotels', type: 'dharamshala', icon: BedDouble, hint: 'Book now' },
-  { key: 'rooms', label: 'Hotels', path: '/hotels', type: 'hotel', icon: Building2, hint: 'Book now' },
-  { key: 'home_stays', label: 'Home Stays', path: '/hotels', type: 'home_stay', icon: Building2, hint: 'Book now' },
-  { key: 'guest_houses', label: 'Guest Houses', path: '/hotels', type: 'guest_house', icon: BedDouble, hint: 'Book now' },
-  { key: 'cabs', label: 'Taxi & Cab', path: '/cabs', icon: CarTaxiFront, hint: 'Book now' },
-  { key: 'tours', label: 'Tour Packages', path: '/tours', icon: Gift, hint: 'View' },
+  { key: 'dharamshalas', label: 'Dharamshalas', path: '/hotels?type=dharamshala', type: 'dharamshala', icon: BedDouble },
+  { key: 'hotels', label: 'Hotels', path: '/hotels?type=hotel', type: 'hotel', icon: Building2 },
+  { key: 'home_stays', label: 'Home Stays', path: '/hotels?type=home_stay', type: 'home_stay', icon: Landmark },
+  { key: 'cabs', label: 'Cabs & Taxis', path: '/cabs', icon: CarTaxiFront },
+  { key: 'tours', label: 'Yatra Packages', path: '/tours', icon: Gift },
 ] as const;
 
 type PlannerServiceKey = (typeof plannerServices)[number]['key'];
 
-const fallbackStats = { happyPilgrims: 0, hotelsListed: 0, tourPackages: 0 };
-
-const trustItems = [
-  { icon: BadgeCheck, title: 'Verified', desc: 'Reviewed listings' },
-  { icon: MapPinned, title: 'Clear Choice', desc: 'Stays, cabs, tours' },
-  { icon: Headphones, title: 'Support', desc: 'Help when needed' },
-  { icon: Landmark, title: 'Braj Ready', desc: 'Built for local travel' },
-];
-
-const quickLocations = [
-  { label: 'Govardhan', value: 'Govardhan' },
-  { label: 'Barsana', value: 'Barsana' },
-  { label: 'Gokul', value: 'Gokul' },
-  { label: 'Mathura', value: 'Mathura' },
-  { label: 'Vrindavan', value: 'Vrindavan' },
+const brajDestinations = [
+  {
+    name: 'Vrindavan',
+    tagline: 'Banke Bihari, ISKCON & Prem Mandir',
+    query: 'Vrindavan',
+    image: heroImg,
+  },
+  {
+    name: 'Mathura',
+    tagline: 'Shri Krishna Janmabhoomi & Yamuna Ghats',
+    query: 'Mathura',
+    image: templeInteriorBackdrop,
+  },
+  {
+    name: 'Govardhan',
+    tagline: 'Giriraj Parikrama, Mansi Ganga & Dan Ghati',
+    query: 'Govardhan',
+    image: heroImg,
+  },
+  {
+    name: 'Barsana',
+    tagline: 'Shri Radha Rani Mandir & Prem Sarovar',
+    query: 'Barsana',
+    image: parikramaBackdrop,
+  },
+  {
+    name: 'Gokul',
+    tagline: 'Raman Reti & Chaurasi Khamba',
+    query: 'Gokul',
+    image: hotelRoomBackdrop,
+  },
 ];
 
 const testimonials = [
-  { name: 'Priya Sharma', location: 'Delhi', rating: 5, text: 'The room photos, temple distance, and final price were clear before payment. Check-in was smooth and support stayed available on WhatsApp.' },
-  { name: 'Rajesh Kumar', location: 'Mumbai', rating: 5, text: 'Booked a Braj tour and cab together. The itinerary felt professional, pickup was on time, and every confirmation was easy to track.' },
-  { name: 'Anita Devi', location: 'Jaipur', rating: 5, text: 'I liked the verified listing tag and the booking updates. It felt safer than calling random numbers for rooms near Vrindavan.' },
-  { name: 'Saurabh Mehta', location: 'Ahmedabad', rating: 5, text: 'We needed two rooms near Banke Bihari Temple. The team confirmed availability quickly and the booking details were easy for my parents to understand.' },
-  { name: 'Neha Agarwal', location: 'Lucknow', rating: 5, text: 'The Dharamshala request flow was simple. I could see when the property accepted it, pay the shown amount, and then get the contact details.' },
-  { name: 'Vikas Tiwari', location: 'Kanpur', rating: 5, text: 'Cab pickup for Govardhan Parikrama was well coordinated. Driver details appeared after confirmation and the route plan was exactly as discussed.' },
-  { name: 'Meenakshi Iyer', location: 'Bengaluru', rating: 4, text: 'Clean interface, genuine stay options, and responsive support. It made planning Mathura and Vrindavan with family much calmer.' },
-  { name: 'Rohit Bansal', location: 'Gurugram', rating: 5, text: 'The booking page showed dates, room count, and payment status clearly. I also liked that confirmed contact details stayed inside My Bookings.' },
-];
-
-const whyUs = [
-  { icon: MapPin, title: 'Local Areas', desc: 'Find stays and routes across Braj.' },
-  { icon: Shield, title: 'Verified Listings', desc: 'Listings are reviewed before going live.' },
-  { icon: Clock, title: 'Short Checkout', desc: 'Only key details before payment.' },
-  { icon: Users, title: 'Support', desc: 'Call or WhatsApp when needed.' },
+  {
+    name: 'Priya Sharma',
+    location: 'Delhi',
+    rating: 5,
+    text: 'The room photos, temple distance, and final price were clear before payment. Check-in was smooth and support stayed available on WhatsApp.',
+  },
+  {
+    name: 'Rajesh Kumar',
+    location: 'Mumbai',
+    rating: 5,
+    text: 'Booked a Braj tour and cab together. The itinerary felt professional, pickup was on time, and every confirmation was easy to track.',
+  },
+  {
+    name: 'Anita Devi',
+    location: 'Jaipur',
+    rating: 5,
+    text: 'I liked the verified listing tag and the booking updates. It felt safer than calling random numbers for rooms near Vrindavan.',
+  },
+  {
+    name: 'Saurabh Mehta',
+    location: 'Ahmedabad',
+    rating: 5,
+    text: 'We needed two rooms near Banke Bihari Temple. The team confirmed availability quickly and the booking details were easy for my parents to understand.',
+  },
 ];
 
 const Home = () => {
   const navigate = useNavigate();
   const { products, fetchProducts } = useProductStore();
   const shopEnabled = useSettingsStore((s) => s.settings.shopEnabled);
-  const [plannerService, setPlannerService] = useState<PlannerServiceKey>('hotels');
+  const [plannerService, setPlannerService] = useState<PlannerServiceKey>('dharamshalas');
   const [plannerQuery, setPlannerQuery] = useState('');
   const [plannerCheckIn, setPlannerCheckIn] = useState('');
   const [plannerCheckOut, setPlannerCheckOut] = useState('');
@@ -110,22 +126,9 @@ const Home = () => {
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [cabs, setCabs] = useState<any[]>([]);
   const [tours, setTours] = useState<any[]>([]);
-  const [publicStats, setPublicStats] = useState(fallbackStats);
-  const featuredLimit = 4;
+  const featuredLimit = 8;
 
-  const visibleServices = shopEnabled ? services : services.filter((service) => service.link !== '/shop');
-  const visiblePlannerServices = plannerServices;
-  const serviceGridClass = visibleServices.length >= 4
-    ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4'
-    : 'mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3';
-  const featuredProducts = shopEnabled ? products.filter(p => p.inStock).slice(0, 4) : [];
-  const activePlanner = visiblePlannerServices.find((item) => item.key === plannerService) || visiblePlannerServices[0];
-  const stats = [
-    { label: 'Happy Pilgrims', value: publicStats.happyPilgrims.toLocaleString('en-IN') },
-    { label: 'Hotels Listed', value: publicStats.hotelsListed.toLocaleString('en-IN') },
-    { label: 'Tour Packages', value: publicStats.tourPackages.toLocaleString('en-IN') },
-    { label: 'Support Desk', value: '24/7' },
-  ];
+  const activePlanner = plannerServices.find((item) => item.key === plannerService) || plannerServices[0];
 
   const buildPlannerUrl = (service = activePlanner) => {
     const query = plannerQuery.trim();
@@ -135,41 +138,51 @@ const Home = () => {
     if (plannerCheckIn) params.set('checkIn', plannerCheckIn);
     if (plannerCheckOut) params.set('checkOut', plannerCheckOut);
     if (plannerGuests > 1) params.set('guests', String(plannerGuests));
-    if (plannerRooms > 1 && ['hotels', 'rooms', 'home_stays', 'guest_houses'].includes(service.key)) params.set('rooms', String(plannerRooms));
+    if (plannerRooms > 1 && ['dharamshalas', 'hotels', 'home_stays'].includes(service.key)) {
+      params.set('rooms', String(plannerRooms));
+    }
     const qs = params.toString();
-    return `${service.path}${qs ? `?${qs}` : ''}`;
+    const basePath = service.path.split('?')[0];
+    return `${basePath}${qs ? `?${qs}` : ''}`;
   };
 
   const runPlannerSearch = () => {
     navigate(buildPlannerUrl());
   };
 
+  // Group hotels into authentic location discovery sections
+  const hotelDiscoverySections = useMemo(() => {
+    return groupItemsIntoLocationSections(hotels, null, '/hotels');
+  }, [hotels]);
+
   useEffect(() => {
     const loadListings = async () => {
-      // Show cached lists fast (if any), but always revalidate from API so new listings reflect quickly.
       try {
         const cachedHotels = localStorage.getItem('vvs_hotels');
-        if (cachedHotels) setHotels(JSON.parse(cachedHotels).slice(0, featuredLimit));
+        if (cachedHotels) {
+          const parsed = JSON.parse(cachedHotels);
+          if (Array.isArray(parsed) && parsed.length > 0) setHotels(parsed);
+        }
       } catch {
-        // Ignore stale cache and revalidate from the API below.
+        // ignore
       }
       try {
         const cachedRooms = localStorage.getItem('vvs_room_types');
         if (cachedRooms) setRoomTypes(JSON.parse(cachedRooms).slice(0, featuredLimit));
       } catch {
-        // Ignore stale cache and revalidate from the API below.
+        // ignore
       }
       try {
         const cachedCabs = localStorage.getItem('vvs_cabs');
         if (cachedCabs) setCabs(JSON.parse(cachedCabs).slice(0, featuredLimit));
       } catch {
-        // Ignore stale cache and revalidate from the API below.
+        // ignore
       }
       try {
         const cachedTours = localStorage.getItem('vvs_tours');
         if (cachedTours) setTours(JSON.parse(cachedTours).filter((t: any) => t?.status === 'active').slice(0, featuredLimit));
       } catch {
-        // Ignore stale cache and revalidate from the API below.
+        // ignore
       }
 
       const [hotelsRes, roomsRes, cabsRes, toursRes] = await Promise.allSettled([
@@ -181,9 +194,9 @@ const Home = () => {
 
       if (hotelsRes.status === 'fulfilled') {
         const data = Array.isArray(hotelsRes.value.data?.data) ? hotelsRes.value.data.data : [];
-        setHotels(data.slice(0, featuredLimit));
+        setHotels(data);
         try { localStorage.setItem('vvs_hotels', JSON.stringify(data)); } catch {
-          // Local storage can fail in private mode or quota pressure.
+          // ignore
         }
       } else setHotels([]);
 
@@ -191,7 +204,7 @@ const Home = () => {
         const data = Array.isArray(roomsRes.value.data?.data) ? roomsRes.value.data.data : [];
         setRoomTypes(data.slice(0, featuredLimit));
         try { localStorage.setItem('vvs_room_types', JSON.stringify(data)); } catch {
-          // Local storage can fail in private mode or quota pressure.
+          // ignore
         }
       } else setRoomTypes([]);
 
@@ -199,7 +212,7 @@ const Home = () => {
         const data = Array.isArray(cabsRes.value.data?.data) ? cabsRes.value.data.data : [];
         setCabs(data.slice(0, featuredLimit));
         try { localStorage.setItem('vvs_cabs', JSON.stringify(data)); } catch {
-          // Local storage can fail in private mode or quota pressure.
+          // ignore
         }
       } else setCabs([]);
 
@@ -208,43 +221,20 @@ const Home = () => {
         const active = data.filter((t: any) => t?.status === 'active').slice(0, featuredLimit);
         setTours(active);
         try { localStorage.setItem('vvs_tours', JSON.stringify(data)); } catch {
-          // Local storage can fail in private mode or quota pressure.
+          // ignore
         }
       } else setTours([]);
     };
 
-    const loadPublicStats = async () => {
-      try {
-        const res = await api.get('/public-stats');
-        const data = res.data?.data || {};
-        setPublicStats({
-          happyPilgrims: Math.max(0, Number(data.happyPilgrims || 0)),
-          hotelsListed: Math.max(0, Number(data.hotelsListed || 0)),
-          tourPackages: Math.max(0, Number(data.tourPackages || 0)),
-        });
-      } catch {
-        setPublicStats(fallbackStats);
-      }
-    };
-
     if (shopEnabled) void fetchProducts();
     void loadListings();
-    void loadPublicStats();
 
     const unsubListings = subscribeAppEvent('listing:changed', () => void loadListings());
-    const unsubProducts = subscribeAppEvent('product:changed', () => {
-      if (shopEnabled) void fetchProducts();
-    });
-    const onFocus = () => {
-      void loadListings();
-      void loadPublicStats();
-      if (shopEnabled) void fetchProducts();
-    };
+    const onFocus = () => void loadListings();
     window.addEventListener('focus', onFocus);
 
     return () => {
       unsubListings();
-      unsubProducts();
       window.removeEventListener('focus', onFocus);
     };
   }, [fetchProducts, shopEnabled]);
@@ -284,95 +274,122 @@ const Home = () => {
   };
 
   return (
-    <div>
-
-      {/* ===== HERO ===== */}
-      <section className="relative flex min-h-[660px] items-center justify-center overflow-hidden pb-5 pt-20 sm:min-h-[720px] lg:min-h-[690px] lg:pt-20">
+    <div className="min-h-screen bg-white text-slate-900">
+      {/* ===== HERO SECTION (CINEMATIC BRAJ DESTINATION WITH AIRBNB-GRADE SEARCH) ===== */}
+      <section className="relative min-h-[580px] sm:min-h-[640px] flex items-center justify-center overflow-hidden pt-24 pb-16">
+        {/* Background Image */}
         <OptimizedImage
           src={heroImg}
-          alt="Govardhan hill and Braj sunset view"
-          className="absolute inset-x-0 -top-[10%] h-[114%] w-full object-cover object-bottom"
+          alt="Sacred Govardhan and Braj Landscape"
+          className="absolute inset-0 h-full w-full object-cover object-center"
           width={1600}
           height={897}
           loading="eager"
           fetchPriority="high"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-brand-black/68" />
-        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/30 to-transparent" />
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 text-center">
-          <motion.p
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="mb-1.5 font-body text-[10px] font-bold uppercase tracking-[0.18em] text-brand-black drop-shadow-[0_1px_10px_hsl(0_0%_100%_/_0.65)] sm:text-xs"
+
+        {/* Cinematic Readable Gradient Scrim */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/40 to-black/80" />
+
+        <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center px-4 text-center">
+          {/* Devotional Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1 backdrop-blur-md"
           >
-            Braj Mandal, Uttar Pradesh
-          </motion.p>
+            <MapPin size={14} className="text-amber-400" />
+            <span className="font-body text-xs font-semibold text-white tracking-wide">
+              Sacred Braj Pilgrimage Stays & Yatras
+            </span>
+          </motion.div>
+
+          {/* Strong Headline */}
           <motion.h1
-            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }}
-            className="mb-2 font-heading text-4xl font-bold leading-none text-brand-black drop-shadow-[0_2px_16px_hsl(0_0%_100%_/_0.62)] sm:text-6xl md:text-7xl lg:text-8xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="font-heading text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-white drop-shadow-md max-w-4xl leading-tight"
           >
-            Vrindavan Sarthi
+            Sacred Stays in Holy Braj
           </motion.h1>
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-            className="mb-1 max-w-4xl font-heading text-lg font-extrabold leading-tight text-brand-black drop-shadow-[0_2px_14px_hsl(0_0%_100%_/_0.85)] sm:text-2xl md:text-3xl"
-          >
-            Trusted hotel, home stay, guest house, dharamshala, and room booking across Braj
-          </motion.h2>
+
+          {/* Supporting Copy */}
           <motion.p
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-            className="mb-3 max-w-3xl font-body text-xs font-extrabold leading-5 text-brand-black drop-shadow-[0_2px_12px_hsl(0_0%_100%_/_0.82)] sm:text-sm md:text-base"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-3 max-w-xl font-body text-sm sm:text-base md:text-lg text-white/90 font-normal drop-shadow"
           >
-            Find verified stays near temples in Govardhan, Barsana, Gokul, Mathura, Vrindavan, and the wider Braj area.
+            Verified dharamshalas, hotel rooms, cabs, and guided parikrama tours near Mathura & Vrindavan temples.
           </motion.p>
+
+          {/* AIRBNB-GRADE COMPACT SEARCH EXPERIENCE */}
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.15 }}
-            className="travel-search-panel mt-2 w-full max-w-[930px] overflow-hidden rounded-lg border border-brand-gold/25 bg-brand-black/72 text-left shadow-xl sm:bg-brand-black/82 sm:shadow-2xl"
+            transition={{ delay: 0.4 }}
+            className="mt-8 w-full max-w-4xl"
           >
-            <div className="grid grid-cols-2 border-b border-white/12 sm:grid-cols-3 lg:grid-cols-6">
-              {visiblePlannerServices.map((item) => {
-                const Icon = item.icon;
-                const active = item.key === plannerService;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => {
-                      setPlannerService(item.key);
-                      navigate(buildPlannerUrl(item));
-                    }}
-                    className={`min-h-[48px] border-r border-b border-white/12 bg-white/70 px-2 py-2 text-center text-brand-black transition-all last:border-r-0 sm:min-h-[64px] sm:px-3 sm:py-3 lg:border-b-0 ${['home_stays', 'guest_houses'].includes(item.key) ? 'hidden sm:block' : ''} ${
-                      active
-                        ? 'bg-brand-gold text-brand-black'
-                        : 'hover:bg-white hover:text-brand-black'
-                    }`}
-                  >
-                    <span className="flex items-center justify-center gap-1.5 font-body text-[10px] font-extrabold uppercase tracking-normal sm:gap-2 sm:text-[12px]">
-                      <Icon size={16} className="text-brand-saffron" /> {item.label}
-                    </span>
-                    <span className="mt-0.5 block font-body text-[10px] font-semibold text-brand-black sm:mt-1 sm:text-[11px]">{item.hint}</span>
-                  </button>
-                );
-              })}
+            {/* Compact Single-Line Horizontal Category Selector */}
+            <div className="w-full max-w-full overflow-x-auto scrollbar-none mb-3 py-1">
+              <div className="inline-flex items-center gap-2 sm:justify-center w-max min-w-full px-1">
+                {plannerServices.map((item) => {
+                  const Icon = item.icon;
+                  const active = item.key === plannerService;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => {
+                        if (active) {
+                          navigate(item.path);
+                        } else {
+                          setPlannerService(item.key);
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full font-body text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 transition-all select-none shadow-xs ${
+                        active
+                          ? 'bg-white text-slate-900 shadow-md font-bold ring-2 ring-amber-500/40'
+                          : 'bg-black/35 backdrop-blur-md text-white/90 hover:text-white hover:bg-black/50 border border-white/20'
+                      }`}
+                    >
+                      <Icon size={14} className={active ? 'text-amber-600 shrink-0' : 'text-amber-400 shrink-0'} />
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="grid gap-px bg-border/70 p-2 lg:grid-cols-[1.45fr_0.7fr_0.7fr_0.9fr_auto]">
-              <label className="relative block bg-white">
-                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
-                <input
-                  value={plannerQuery}
-                  onChange={(e) => setPlannerQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') runPlannerSearch();
-                  }}
-                  placeholder="Search city, area, or property"
-                  className="h-11 w-full bg-white pl-11 pr-3 font-body text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-gold/35 sm:h-14"
-                />
-              </label>
-              <label className="relative block bg-white">
-                <CalendarDays className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+            {/* Desktop Unified Pill Search Console */}
+            <div className="hidden sm:flex items-center bg-white rounded-full p-2 pl-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-neutral-200/80 divide-x divide-neutral-200 text-left">
+              {/* Destination */}
+              <div className="flex-1 pr-4">
+                <label className="block font-body text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Where in Braj
+                </label>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <MapPin size={15} className="text-amber-600 shrink-0" />
+                  <input
+                    value={plannerQuery}
+                    onChange={(e) => setPlannerQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') runPlannerSearch();
+                    }}
+                    placeholder="Vrindavan, Mathura, Govardhan..."
+                    className="w-full bg-transparent font-body text-sm font-semibold text-slate-900 placeholder:text-slate-400 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Check In */}
+              <div className="px-4">
+                <label className="block font-body text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Check in
+                </label>
                 <input
                   type="date"
                   value={plannerCheckIn}
@@ -380,12 +397,15 @@ const Home = () => {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
-                  className="h-11 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35 sm:h-14"
-                  aria-label="Check in"
+                  className="bg-transparent font-body text-xs font-semibold text-slate-800 outline-none cursor-pointer mt-0.5"
                 />
-              </label>
-              <label className="relative block bg-white">
-                <CalendarDays className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              </div>
+
+              {/* Check Out */}
+              <div className="px-4">
+                <label className="block font-body text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Check out
+                </label>
                 <input
                   type="date"
                   value={plannerCheckOut}
@@ -393,213 +413,341 @@ const Home = () => {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') runPlannerSearch();
                   }}
-                  className="h-11 w-full bg-white pl-11 pr-3 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35 sm:h-14"
-                  aria-label="Check out"
+                  className="bg-transparent font-body text-xs font-semibold text-slate-800 outline-none cursor-pointer mt-0.5"
                 />
-              </label>
-              <label className="relative grid h-11 grid-cols-2 gap-px bg-border/70 sm:h-14">
-                <UserRound className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground" size={16} />
-                <input
-                  type="number"
-                  min={1}
-                  value={plannerGuests}
-                  onChange={(e) => setPlannerGuests(Math.max(1, Number(e.target.value || 1)))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') runPlannerSearch();
-                  }}
-                  className="min-w-0 bg-white pl-9 pr-2 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
-                  aria-label="Guests"
-                />
-                <input
-                  type="number"
-                  min={1}
-                  value={plannerRooms}
-                  onChange={(e) => setPlannerRooms(Math.max(1, Number(e.target.value || 1)))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') runPlannerSearch();
-                  }}
-                  className="min-w-0 bg-white px-2 font-body text-[13px] font-semibold text-muted-foreground outline-none transition focus:ring-2 focus:ring-brand-gold/35"
-                  aria-label="Rooms"
-                />
-              </label>
+              </div>
+
+              {/* Guests & Rooms */}
+              <div className="px-4">
+                <label className="block font-body text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Who
+                </label>
+                <div className="flex items-center gap-1 text-xs font-semibold text-slate-800 mt-0.5">
+                  <input
+                    type="number"
+                    min={1}
+                    value={plannerGuests}
+                    onChange={(e) => setPlannerGuests(Math.max(1, Number(e.target.value || 1)))}
+                    className="w-8 bg-transparent font-bold outline-none"
+                  />
+                  <span className="text-slate-400">guests,</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={plannerRooms}
+                    onChange={(e) => setPlannerRooms(Math.max(1, Number(e.target.value || 1)))}
+                    className="w-8 bg-transparent font-bold outline-none"
+                  />
+                  <span className="text-slate-400">rms</span>
+                </div>
+              </div>
+
+              {/* Search Action Button */}
+              <div className="pl-2 pr-1">
+                <button
+                  type="button"
+                  onClick={runPlannerSearch}
+                  className="h-12 px-6 rounded-full bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-body text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all shrink-0"
+                >
+                  <Search size={16} />
+                  <span>Search</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Search Card */}
+            <div className="sm:hidden bg-white rounded-2xl p-4 shadow-xl text-left space-y-3">
+              <div>
+                <label className="block font-body text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Destination in Braj
+                </label>
+                <div className="flex items-center gap-2 rounded-xl border border-neutral-200 px-3 py-2">
+                  <MapPin size={16} className="text-amber-600" />
+                  <input
+                    value={plannerQuery}
+                    onChange={(e) => setPlannerQuery(e.target.value)}
+                    placeholder="Vrindavan, Mathura, Govardhan..."
+                    className="w-full bg-transparent font-body text-sm font-semibold outline-none text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-body text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                    Check in
+                  </label>
+                  <input
+                    type="date"
+                    value={plannerCheckIn}
+                    onChange={(e) => setPlannerCheckIn(e.target.value)}
+                    className="w-full rounded-xl border border-neutral-200 px-3 py-2 font-body text-xs font-semibold text-slate-800 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-body text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                    Check out
+                  </label>
+                  <input
+                    type="date"
+                    value={plannerCheckOut}
+                    onChange={(e) => setPlannerCheckOut(e.target.value)}
+                    className="w-full rounded-xl border border-neutral-200 px-3 py-2 font-body text-xs font-semibold text-slate-800 outline-none"
+                  />
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={runPlannerSearch}
-                className="h-11 bg-brand-saffron px-6 font-body text-sm font-extrabold text-white transition hover:bg-brand-crimson sm:h-14"
+                className="w-full rounded-xl bg-amber-600 py-3 font-body text-sm font-bold text-white flex items-center justify-center gap-2 shadow-md"
               >
-                Search
+                <Search size={16} />
+                <span>Search Braj Stays</span>
               </button>
             </div>
 
-            <div className="hidden flex-wrap items-center justify-between gap-3 border-t border-brand-gold/20 bg-brand-black/72 px-3.5 py-3 sm:flex">
-              <div className="flex flex-wrap gap-2">
-                {quickLocations.map((location) => (
-                  <button key={location.value} type="button" onClick={() => setPlannerQuery(location.value)} className="inline-flex min-h-8 items-center rounded-full border border-white/55 bg-white/10 px-3.5 py-1 font-body text-[12px] font-extrabold text-white shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.16)] transition hover:border-brand-gold hover:bg-brand-gold/18 hover:text-white">
-                    {location.label}
-                  </button>
-                ))}
-              </div>
-              <a href={`https://wa.me/${COMPANY_PHONE_DIGITS}`} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-brand-gold/45 bg-brand-gold/12 px-3.5 py-1 font-body text-xs font-extrabold text-white transition hover:bg-brand-gold/20">
-                <MessageCircle size={14} /> WhatsApp Help
-              </a>
+            {/* Subtle Inline Trust Strip (Single Row, Zero Clunky White Cards) */}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-white/90 text-xs font-medium drop-shadow-sm">
+              <span className="inline-flex items-center gap-1.5">
+                <ShieldCheck size={14} className="text-amber-400" />
+                Verified Temple Stays
+              </span>
+              <span className="hidden sm:inline text-white/40">•</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Award size={14} className="text-amber-400" />
+                Zero Hidden Charges
+              </span>
+              <span className="hidden sm:inline text-white/40">•</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Clock size={14} className="text-amber-400" />
+                15-Min Booking Hold
+              </span>
+              <span className="hidden sm:inline text-white/40">•</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Phone size={14} className="text-amber-400" />
+                24/7 Braj Helpdesk
+              </span>
             </div>
           </motion.div>
+        </div>
+      </section>
 
-          <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.3 }} className="mt-3 hidden w-full max-w-[930px] overflow-hidden rounded-lg border border-white/12 bg-brand-black/70 text-left sm:grid sm:grid-cols-2 lg:grid-cols-4">
-            {trustItems.map((item) => {
+      {/* ===== AIRBNB-GRADE HORIZONTAL CATEGORY NAVIGATION BAR ===== */}
+      <section className="sticky top-18 sm:top-20 z-20 border-b border-neutral-200/80 bg-white/95 backdrop-blur-md shadow-[0_2px_10px_rgba(15,23,42,0.03)] py-2.5 overflow-x-hidden">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5 w-full max-w-full">
+            {plannerServices.map((item) => {
               const Icon = item.icon;
               return (
-                <div key={item.title} className="flex items-center gap-3 border-b border-white/10 px-4 py-3 last:border-b-0 sm:border-r sm:last:border-r-0 lg:border-b-0">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-brand-gold/30 bg-white/8 text-brand-gold">
-                    <Icon size={20} />
-                  </div>
-                  <div>
-                    <p className="font-body text-[12px] font-extrabold text-white">{item.title}</p>
-                    <p className="font-body text-[11px] leading-4 text-white/70">{item.desc}</p>
-                  </div>
-                </div>
+                <Link
+                  key={item.key}
+                  to={item.path}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-body text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 border border-neutral-200 bg-neutral-50/90 text-slate-800 hover:border-slate-900 hover:bg-white hover:text-slate-900 transition-all shadow-2xs"
+                >
+                  <Icon size={14} className="text-amber-600 shrink-0" />
+                  <span className="whitespace-nowrap">{item.label}</span>
+                </Link>
               );
             })}
-          </motion.div>
-        </div>
-        <motion.div
-          animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }}
-          className="absolute bottom-3 left-1/2 hidden -translate-x-1/2 md:block"
-        >
-          <ChevronDown className="text-brand-gold" size={28} />
-        </motion.div>
-      </section>
-
-      {/* ===== STATS ===== */}
-      <section className="bg-brand-black py-4">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {stats.map((stat, i) => (
-              <div key={stat.label} className={`text-center py-2 ${i !== stats.length - 1 ? 'md:border-r md:border-white/10' : ''}`}>
-                <p className="font-heading text-3xl md:text-4xl font-bold text-brand-gold">{stat.value}</p>
-                <p className="font-body text-sm text-white/60 mt-1 tracking-wide">{stat.label}</p>
-              </div>
-            ))}
+            <Link
+              to="/rooms"
+              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-body text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 border border-neutral-200 bg-neutral-50/90 text-slate-800 hover:border-slate-900 hover:bg-white hover:text-slate-900 transition-all shadow-2xs"
+            >
+              <BedDouble size={14} className="text-amber-600 shrink-0" />
+              <span className="whitespace-nowrap">Rooms</span>
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* ===== JOURNEY CARDS ===== */}
-      <section className="py-5 lg:py-7 bg-royal-dark">
-        <div className="container mx-auto px-4">
-          <SectionTitle
-            label="Travel Desk"
-            title="Plan Your Braj Trip"
-            subtitle="Stays, cabs, tours, and support in one place."
-          />
-          <div className={serviceGridClass}>
-            {visibleServices.map((service) => (
-              <Link
-                key={service.title}
-                to={service.link}
-                className="travel-card group flex min-h-[170px] flex-col rounded-lg border border-border/70 p-4 text-left hover:border-brand-gold/50"
+      {/* ===== 2. DESTINATION SHORTCUTS (EXPLORE SACRED BRAJ) ===== */}
+      <section className="py-12 border-b border-neutral-100 bg-[#fdfcf9]">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between mb-6">
+            <div>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                Explore Sacred Braj
+              </h2>
+              <p className="font-body text-sm text-neutral-500 mt-1">
+                Select a holy destination to browse verified stays and temple proximity.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            {brajDestinations.map((dest) => (
+              <button
+                key={dest.name}
+                type="button"
+                onClick={() => {
+                  setPlannerQuery(dest.query);
+                  navigate(`/hotels?q=${encodeURIComponent(dest.query)}`);
+                }}
+                className="group relative flex flex-col justify-end overflow-hidden rounded-2xl aspect-[4/3] p-3 text-left transition-transform duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
               >
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-saffron/12 group-hover:bg-brand-saffron/20 transition-colors">
-                    <service.icon className="text-brand-saffron" size={22} />
-                  </div>
-                  <span className="rounded-full bg-secondary px-3 py-1 font-body text-[11px] font-bold text-muted-foreground">
-                    Verified
-                  </span>
+                <img
+                  src={dest.image}
+                  alt={dest.name}
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                <div className="relative z-10">
+                  <h3 className="font-body text-base font-bold text-white group-hover:text-amber-300 transition-colors">
+                    {dest.name}
+                  </h3>
+                  <p className="font-body text-[11px] text-white/80 line-clamp-1">
+                    {dest.tagline}
+                  </p>
                 </div>
-                <h3 className="font-heading text-xl font-bold leading-tight text-foreground">{service.title}</h3>
-                <p className="mt-2 flex-1 font-body text-sm leading-relaxed text-muted-foreground">{service.desc}</p>
-                <span className="mt-3 inline-flex items-center gap-2 font-body text-sm font-bold text-brand-crimson">
-                  {service.cta} <ArrowRight size={15} />
-                </span>
-              </Link>
+              </button>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ===== FEATURED HOTELS ===== */}
-      <section className="py-4 lg:py-5 relative overflow-hidden bg-royal-dark">
-        <OptimizedImage src={hotelRoomBackdrop} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-10" sizes="100vw" />
-        <div className="absolute inset-0 bg-white/75" />
-        <div className="container mx-auto px-4 relative">
-          <SectionTitle
-            label="Featured Stays"
-            title="Stays in Braj"
-            subtitle="Verified hotels, home stays, guest houses, and dharamshalas."
-          />
-          {hotels.length > 0 ? (
-            <>
-              <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {hotels.map((hotel) => (
-                  <ListingCard
-                    key={hotel._id}
-                    variant="hotel"
-                    image={hotel.image}
-                    images={hotel.images}
-                    name={hotel.name}
-                    badge={getPropertyTypeLabel(hotel?.propertyType)}
-                    location={hotel.location}
-                    price={getHotelStartingPrice(hotel)}
-                    priceLabel={isDharamshalaType(hotel?.propertyType) ? '' : hotel?.taxEnabled ? '/night incl. GST' : '/night'}
-                    pricePlaceholder={isDharamshalaType(hotel?.propertyType) ? 'Contribution after acceptance' : undefined}
-                    priceHelp={isDharamshalaType(hotel?.propertyType) ? 'Shown after partner confirms' : undefined}
-                    rating={Number(hotel.rating || 0)}
-                    reviewCount={Number(hotel.reviewCount || 0)}
-                    amenities={hotel.amenities || []}
-                    onViewDetails={() => {
-                      prefetchDetail('hotels', hotel._id, hotel);
-                      navigate(`/hotels/${hotel._id}`);
-                    }}
-                  />
-                ))}
+      {/* ===== 3. LOCATION-WISE STAYS & ASHRAMS ===== */}
+      <section className="py-10 sm:py-14 border-b border-neutral-100 bg-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 font-body text-xs font-bold text-amber-900 mb-2">
+                <ShieldCheck size={13} className="text-amber-700 shrink-0" />
+                <span>100% Inspected & Verified Stays</span>
               </div>
-              <div className="text-center mt-3">
-                <Link to="/hotels" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
-                  View All Hotels <ArrowRight size={18} />
-                </Link>
-              </div>
-            </>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                Verified Stays & Ashrams Across Braj
+              </h2>
+              <p className="font-body text-xs sm:text-sm text-neutral-500 mt-1">
+                Explore inspected dharamshalas, hotel rooms, and ashram accommodations grouped by sacred temple proximity
+              </p>
+            </div>
+            <Link
+              to="/hotels"
+              className="inline-flex items-center gap-1 font-body text-xs sm:text-sm font-bold text-slate-900 hover:text-amber-800 transition-colors py-1 shrink-0"
+            >
+              <span>Explore all stays ({hotels.length > 0 ? `${hotels.length}+` : 'all'})</span>
+              <ArrowRight size={15} className="text-amber-700" />
+            </Link>
+          </div>
+
+          {/* Location-Wise Discovery Sections */}
+          {hotelDiscoverySections.length > 0 ? (
+            <div className="divide-y divide-neutral-200/70">
+              {hotelDiscoverySections.map((section) => (
+                <LocationDiscoverySection
+                  key={section.id}
+                  id={section.id}
+                  heading={section.heading}
+                  subtitle={section.subtitle}
+                  distanceLabel={section.distanceLabel}
+                  viewAllUrl={section.filterUrl}
+                  viewAllCount={section.items.length}
+                  items={section.items}
+                  renderItem={(hotel) => (
+                    <ListingCard
+                      key={hotel._id}
+                      variant="hotel"
+                      image={hotel.image}
+                      images={hotel.images}
+                      name={hotel.name}
+                      badge={getPropertyTypeLabel(hotel?.propertyType)}
+                      location={hotel.location}
+                      price={getHotelStartingPrice(hotel)}
+                      priceLabel={
+                        isDharamshalaType(hotel?.propertyType)
+                          ? ''
+                          : hotel?.taxEnabled
+                          ? '/night incl. GST'
+                          : '/night'
+                      }
+                      pricePlaceholder={
+                        isDharamshalaType(hotel?.propertyType)
+                          ? 'Contribution on confirmation'
+                          : undefined
+                      }
+                      priceHelp={
+                        isDharamshalaType(hotel?.propertyType)
+                          ? 'Verified Ashram'
+                          : undefined
+                      }
+                      rating={Number(hotel.rating || 0)}
+                      reviewCount={Number(hotel.reviewCount || 0)}
+                      amenities={hotel.amenities || []}
+                      onViewDetails={() => {
+                        prefetchDetail('hotels', hotel._id, hotel);
+                        navigate(`/hotels/${hotel._id}`);
+                      }}
+                    />
+                  )}
+                />
+              ))}
+            </div>
           ) : (
-            <div className="text-center py-8">
-              <p className="font-body text-[14px] text-muted-foreground mb-4">No hotels listed yet. Check back soon!</p>
-              <Link to="/hotels" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
-                Browse Hotels <ArrowRight size={16} />
-              </Link>
+            <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-8 text-center text-sm text-slate-500">
+              Loading verified properties in Braj...
             </div>
           )}
         </div>
       </section>
 
-      {/* ===== FEATURED ROOMS ===== */}
-      <section className="py-3 lg:py-4 bg-royal-dark">
-        <div className="container mx-auto px-4">
-          <SectionTitle
-            label="Room Options"
-            title="Browse Rooms"
-            subtitle="Check dates, rooms, and pricing before booking."
-          />
+      {/* ===== 4. AVAILABLE ROOM TYPES (COMPACT MOBILE SWIPE & DESKTOP GRID) ===== */}
+      <section className="py-10 sm:py-14 bg-[#faf8f5] border-t border-neutral-200/60">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
+            <div>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                Browse Rooms & Configurations
+              </h2>
+              <p className="font-body text-xs sm:text-sm text-neutral-500 mt-1">
+                Select AC Deluxe, Quad Family rooms, or Ashram accommodations with verified amenities
+              </p>
+            </div>
+            <Link
+              to="/rooms"
+              className="inline-flex items-center gap-1 font-body text-xs sm:text-sm font-bold text-slate-900 hover:text-amber-800 transition-colors py-1 shrink-0"
+            >
+              <span>View all room types</span>
+              <ArrowRight size={15} className="text-amber-700" />
+            </Link>
+          </div>
+
           {roomTypes.length > 0 ? (
             <>
-              <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Desktop Responsive Grid */}
+              <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
                 {roomTypes.map((roomType) => (
                   <ListingCard
                     key={roomType._id}
                     image={roomType?.images?.[0] || roomType?.hotel?.image}
                     images={roomType?.images?.length ? roomType.images : roomType?.hotel?.images}
                     name={roomType.name}
-                    location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` - ${roomType.hotel.location}` : ''}`}
+                    location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` • ${roomType.hotel.location}` : ''}`}
                     price={getRoomPrice(roomType)}
-                    priceLabel={isDharamshalaType(roomType?.hotel?.propertyType) ? '' : roomType?.hotel?.taxEnabled ? '/night incl. GST' : '/night'}
-                    pricePlaceholder={isDharamshalaType(roomType?.hotel?.propertyType) ? 'Contribution after acceptance' : undefined}
-                    priceHelp={isDharamshalaType(roomType?.hotel?.propertyType) ? 'Shown after partner confirms' : undefined}
+                    priceLabel={
+                      isDharamshalaType(roomType?.hotel?.propertyType)
+                        ? ''
+                        : roomType?.hotel?.taxEnabled
+                        ? '/night incl. GST'
+                        : '/night'
+                    }
+                    pricePlaceholder={
+                      isDharamshalaType(roomType?.hotel?.propertyType)
+                        ? 'Contribution on confirmation'
+                        : undefined
+                    }
+                    priceHelp={
+                      isDharamshalaType(roomType?.hotel?.propertyType)
+                        ? 'Verified Ashram'
+                        : undefined
+                    }
                     rating={0}
                     reviewCount={0}
                     amenities={roomType?.amenities || roomType?.hotel?.amenities || []}
                     meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
                     badge={getPropertyTypeLabel(roomType?.hotel?.propertyType)}
                     variant="room"
-                    ctaLabel="Check availability"
                     onViewDetails={() => {
                       prefetchDetail('roomTypes', roomType._id, roomType);
                       navigate(`/room-types/${roomType._id}`);
@@ -607,309 +755,250 @@ const Home = () => {
                   />
                 ))}
               </div>
-              <div className="text-center mt-3">
-                <Link to="/rooms" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
-                  View All Rooms <ArrowRight size={18} />
-                </Link>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-8">
-              <p className="font-body text-[14px] text-muted-foreground mb-4">No rooms listed yet. Check back soon!</p>
-              <Link to="/rooms" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
-                Browse Rooms <ArrowRight size={16} />
-              </Link>
-            </div>
-          )}
-        </div>
-      </section>
 
-      {/* ===== FEATURED CABS ===== */}
-      <section className="py-3 lg:py-4 bg-royal-dark">
-        <div className="container mx-auto px-4">
-          <SectionTitle
-            label="Transportation"
-            title="Available Cabs"
-            subtitle="Confirm route, fare, and payment after availability."
-          />
-          {cabs.length > 0 ? (
-            <>
-              <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {cabs.map((cab) => (
-                  <ListingCard
-                    key={cab._id}
-                    image={cab.image}
-                    images={cab.images}
-                    name={cab.vehicleName}
-                    location={cab.routes?.join(' - ') || ''}
-                    price={0}
-                    priceLabel=""
-                    rating={0}
-                    reviewCount={0}
-                    amenities={[cab.vehicleType, cab.capacity ? `${cab.capacity} Seater` : undefined].filter(Boolean) as string[]}
-                    badge="30% Advance"
-                    badgeColor="green"
-                    variant="cab"
-                    ctaLabel="Confirm cab"
-                    onViewDetails={() => {
-                      prefetchDetail('cabs', cab._id, cab);
-                      navigate(`/cabs/${cab._id}`);
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="text-center mt-3">
-                <Link to="/cabs" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
-                  View All Cabs <ArrowRight size={18} />
-                </Link>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-8">
-              <p className="font-body text-[14px] text-muted-foreground mb-4">No cabs listed yet. Check back soon!</p>
-              <Link to="/cabs" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
-                Browse Cabs <ArrowRight size={16} />
-              </Link>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ===== FEATURED TOURS ===== */}
-      <section className="py-3 lg:py-4 relative overflow-hidden bg-royal-dark">
-        <OptimizedImage src={parikramaBackdrop} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-14" sizes="100vw" />
-        <div className="absolute inset-0 bg-white/80" />
-        <div className="container mx-auto px-4 relative">
-          <SectionTitle
-            label="Spiritual Journeys"
-            title="Tour Packages"
-            subtitle="Share date and group size, then confirm the plan."
-          />
-          {tours.length > 0 ? (
-            <>
-              <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {tours.map((tour) => (
-                  <ListingCard
-                    key={tour._id}
-                    image={tour.image}
-                    images={tour.images}
-                    name={tour.name}
-                    location={tour.destination || ''}
-                    price={tour.pricePerPerson}
-                    priceLabel="/person"
-                    rating={0}
-                    reviewCount={0}
-                    badge={tour.duration}
-                    amenities={tour.includes || []}
-                    variant="tour"
-                    ctaLabel="Plan tour"
-                    onViewDetails={() => {
-                      prefetchDetail('tours', tour._id, tour);
-                      navigate(`/tours/${tour._id}`);
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="text-center mt-3">
-                <Link to="/tours" className="btn-gold px-8 py-3.5 rounded-xl inline-flex items-center gap-2 text-[15px] font-semibold">
-                  View All Tours <ArrowRight size={18} />
-                </Link>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-8">
-              <p className="font-body text-[14px] text-muted-foreground mb-4">No tours listed yet. Check back soon!</p>
-              <Link to="/tours" className="btn-gold px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
-                Browse Tours <ArrowRight size={16} />
-              </Link>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ===== FEATURED PRODUCTS (Shop) ===== */}
-      {featuredProducts.length > 0 && (
-        <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
-          <div className="container mx-auto px-4 relative">
-            <SectionTitle
-              label="Divine Shop"
-              title="Braj Shop"
-              subtitle="Devotional products with tracked orders."
-            />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {featuredProducts.map((p) => (
-                <Link
-                  key={p.id}
-                  to={`/shop/${p.id}`}
-                  className="premium-surface overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 group"
-                >
-                  <div className="aspect-[4/3] overflow-hidden relative bg-white">
-                    <OptimizedImage
-                      src={p.images[0] || '/placeholder.svg'}
-                      alt={p.name}
-                      className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500"
-                      sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+              {/* Mobile Swipeable Carousel (78–84% usable width per card) */}
+              <div
+                className="md:hidden flex gap-3.5 overflow-x-auto pb-3 pt-1 scrollbar-none snap-x snap-mandatory w-full max-w-full px-0.5"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                {roomTypes.map((roomType) => (
+                  <div
+                    key={roomType._id}
+                    className="w-[78vw] max-w-[285px] min-w-[250px] shrink-0 snap-start"
+                  >
+                    <ListingCard
+                      image={roomType?.images?.[0] || roomType?.hotel?.image}
+                      images={roomType?.images?.length ? roomType.images : roomType?.hotel?.images}
+                      name={roomType.name}
+                      location={`${roomType?.hotel?.name || ''}${roomType?.hotel?.location ? ` • ${roomType.hotel.location}` : ''}`}
+                      price={getRoomPrice(roomType)}
+                      priceLabel={
+                        isDharamshalaType(roomType?.hotel?.propertyType)
+                          ? ''
+                          : roomType?.hotel?.taxEnabled
+                          ? '/night incl. GST'
+                          : '/night'
+                      }
+                      pricePlaceholder={
+                        isDharamshalaType(roomType?.hotel?.propertyType)
+                          ? 'Contribution on confirmation'
+                          : undefined
+                      }
+                      priceHelp={
+                        isDharamshalaType(roomType?.hotel?.propertyType)
+                          ? 'Verified Ashram'
+                          : undefined
+                      }
+                      rating={0}
+                      reviewCount={0}
+                      amenities={roomType?.amenities || roomType?.hotel?.amenities || []}
+                      meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
+                      badge={getPropertyTypeLabel(roomType?.hotel?.propertyType)}
+                      variant="room"
+                      onViewDetails={() => {
+                        prefetchDetail('roomTypes', roomType._id, roomType);
+                        navigate(`/room-types/${roomType._id}`);
+                      }}
                     />
-                    <span className="absolute top-2 left-2 rounded-full border border-white/60 bg-white/95 px-2.5 py-1 font-body text-[10px] capitalize font-semibold text-foreground shadow-sm">
-                      {p.category}
-                    </span>
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-display text-[15px] font-bold text-foreground truncate">{p.name}</h3>
-                    <p className="font-body text-[12px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{p.description}</p>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="font-display text-[17px] font-extrabold text-brand-crimson">
-                        Rs. {p.price.toLocaleString('en-IN')}
-                      </span>
-                      <span className="font-body text-[11px] text-brand-green font-semibold flex items-center gap-1">
-                        <ShoppingBag size={12} /> Buy
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center text-sm text-slate-500">
+              Loading available room configurations...
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== 5. FIXED-FARE CABS & AIRPORT TRANSFERS ===== */}
+      <section className="py-12 sm:py-16 border-t border-neutral-200/60">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                Fixed-Fare Cabs & Temple Transfers
+              </h2>
+              <p className="font-body text-sm text-neutral-500 mt-1">
+                Verified drivers for Delhi airport pickups, Mathura station transfers, and Govardhan Parikrama.
+              </p>
+            </div>
+            <Link
+              to="/cabs"
+              className="hidden sm:inline-flex items-center gap-1 font-body text-sm font-bold text-slate-900 hover:text-amber-800 transition-colors shrink-0"
+            >
+              <span>View all cabs</span>
+              <ArrowRight size={15} />
+            </Link>
+          </div>
+
+          {cabs.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10">
+              {cabs.map((cab) => (
+                <ListingCard
+                  key={cab._id}
+                  image={cab.image}
+                  images={cab.images}
+                  name={cab.vehicleName}
+                  location={cab.routes?.join(' • ') || 'Braj Region Routes'}
+                  price={0}
+                  priceLabel=""
+                  rating={0}
+                  reviewCount={0}
+                  amenities={[cab.vehicleType, cab.capacity ? `${cab.capacity} Seater AC` : undefined].filter(Boolean) as string[]}
+                  badge="30% Advance"
+                  badgeColor="green"
+                  variant="cab"
+                  onViewDetails={() => {
+                    prefetchDetail('cabs', cab._id, cab);
+                    navigate(`/cabs/${cab._id}`);
+                  }}
+                />
               ))}
             </div>
-            <div className="text-center mt-4">
-              <Link to="/shop" className="btn-gold px-8 py-3.5 rounded-lg inline-flex items-center gap-2 font-semibold text-[15px]">
-                Visit Shop <ArrowRight size={18} />
-              </Link>
+          ) : (
+            <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-slate-500">
+              Updating available cab fleet. Call helpline for urgent cab booking.
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== 6. GUIDED DARSHAN & PARIKRAMA YATRAS ===== */}
+      <section className="py-12 sm:py-16 bg-[#faf8f5] border-t border-neutral-200/60">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                Guided Darshan & Parikrama Yatras
+              </h2>
+              <p className="font-body text-sm text-neutral-500 mt-1">
+                Well-organized spiritual itineraries with dedicated coordinators and hotel pickups.
+              </p>
+            </div>
+            <Link
+              to="/tours"
+              className="hidden sm:inline-flex items-center gap-1 font-body text-sm font-bold text-slate-900 hover:text-amber-800 transition-colors shrink-0"
+            >
+              <span>View all yatra plans</span>
+              <ArrowRight size={15} />
+            </Link>
+          </div>
+
+          {tours.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10">
+              {tours.map((tour) => (
+                <ListingCard
+                  key={tour._id}
+                  image={tour.image}
+                  images={tour.images}
+                  name={tour.name}
+                  location={tour.destination || 'Braj Mandal'}
+                  price={tour.pricePerPerson}
+                  priceLabel="/person"
+                  rating={0}
+                  reviewCount={0}
+                  badge={tour.duration}
+                  amenities={tour.includes || []}
+                  variant="tour"
+                  onViewDetails={() => {
+                    prefetchDetail('tours', tour._id, tour);
+                    navigate(`/tours/${tour._id}`);
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-center text-sm text-slate-500">
+              Yatra packages updating. Contact coordinator for custom itinerary.
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== 7. DEVOTIONAL ASSISTANCE BANNER (SINGLE ELEGANT WARM IVORY BANNER) ===== */}
+      <section className="py-12 sm:py-16 border-t border-neutral-200/60">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-3xl border border-amber-200/80 bg-[#fdfaf5] p-8 sm:p-12 lg:p-14 relative overflow-hidden">
+            <div className="max-w-2xl relative z-10">
+              <span className="font-body text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-100/80 px-3 py-1 rounded-full">
+                Pilgrim Helpdesk & Coordination
+              </span>
+              <h2 className="font-heading text-3xl sm:text-4xl font-bold text-slate-900 mt-4 leading-tight">
+                Need guidance planning your Braj pilgrimage?
+              </h2>
+              <p className="font-body text-sm sm:text-base text-slate-600 mt-3 leading-relaxed">
+                Our local team in Vrindavan and Govardhan assists yatris with temple darshan timings, senior citizen accommodations, parking access, and prompt booking verification.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <a
+                  href={`tel:${COMPANY_PHONE}`}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 font-body text-sm font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
+                >
+                  <Phone size={16} />
+                  <span>Call {COMPANY_PHONE}</span>
+                </a>
+                <a
+                  href={`https://wa.me/${COMPANY_PHONE_DIGITS}?text=Jai%20Shree%20Krishna!%20Need%20assistance%20for%20Braj%20visit.`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-6 py-3 font-body text-sm font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                >
+                  <MessageCircle size={16} className="text-emerald-600" />
+                  <span>WhatsApp Coordinator</span>
+                </a>
+              </div>
             </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
-      {/* ===== WHY US ===== */}
-      <section className="py-5 lg:py-7 relative overflow-hidden bg-royal-dark">
-        <OptimizedImage src={templeInteriorBackdrop} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-10" sizes="100vw" />
-        <div className="absolute inset-0 bg-white/80" />
-        <div className="container mx-auto px-4 relative">
-          <SectionTitle label="Why Choose Us" title="Clean, Verified, Supported" />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {whyUs.map((item) => (
+      {/* ===== 8. GENUINE GUEST REVIEWS ===== */}
+      <section className="py-12 sm:py-16 bg-[#faf8f5] border-t border-neutral-200/60">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+            <div>
+              <div className="flex items-center gap-1 text-slate-900 mb-2">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} size={16} className="fill-slate-900 text-slate-900" />
+                ))}
+                <span className="font-body text-sm font-bold ml-2">4.9 / 5 Guest Rating</span>
+              </div>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold text-slate-900">
+                Loved by Braj Yatris
+              </h2>
+            </div>
+            <span className="text-xs font-semibold text-neutral-400">
+              Verified Pilgrims from Delhi, Mumbai, Jaipur & Ahmedabad
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {testimonials.map((t, idx) => (
               <div
-                key={item.title}
-                className="text-center p-5 rounded-lg border border-border/50 bg-card/60 hover:border-primary/30 hover:shadow-md transition-all duration-200 group"
+                key={idx}
+                className="flex flex-col justify-between rounded-2xl bg-white p-6 border border-neutral-200/80 shadow-sm"
               >
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/16 group-hover:scale-105 transition-all duration-200">
-                  <item.icon className="text-primary" size={24} />
+                <div>
+                  <div className="flex items-center gap-0.5 text-slate-900 mb-3">
+                    {[...Array(t.rating)].map((_, i) => (
+                      <Star key={i} size={12} className="fill-slate-900 text-slate-900" />
+                    ))}
+                  </div>
+                  <p className="font-body text-sm text-slate-700 leading-relaxed">
+                    "{t.text}"
+                  </p>
                 </div>
-                <h3 className="font-heading text-[17px] font-bold text-foreground mb-2">{item.title}</h3>
-                <p className="font-body text-[13px] text-muted-foreground leading-relaxed">{item.desc}</p>
+                <div className="mt-5 pt-3 border-t border-neutral-100 flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-900">{t.name}</span>
+                  <span className="text-neutral-400">{t.location}</span>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
-
-      {/* ===== TESTIMONIALS ===== */}
-      <section className="relative overflow-hidden bg-royal-dark py-6 lg:py-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(204,151,48,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.78))]" />
-        <div className="container relative mx-auto px-4">
-          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <SectionTitle
-              label="Google Authenticated"
-              title="Traveller Reviews"
-              subtitle="Verified guest feedback with booking-backed trust signals."
-            />
-            <div className="flex w-full max-w-sm items-center justify-between rounded-lg border border-border bg-white px-4 py-3 shadow-[0_10px_28px_rgba(16,24,44,0.07)] md:mb-4">
-              <div>
-                <p className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Review Score</p>
-                <p className="font-heading text-2xl font-extrabold text-foreground">4.9/5</p>
-              </div>
-              <div className="text-right">
-                <p className="font-body text-sm font-bold text-[#4285f4]">Google</p>
-                <p className="font-body text-xs font-semibold text-muted-foreground">Authenticated profiles</p>
-              </div>
-            </div>
-          </div>
-          <div className="overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_7%,black_93%,transparent)]">
-            <motion.div
-              initial={{ opacity: 0, y: 22 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-80px' }}
-              transition={{ duration: 0.45 }}
-              className="flex w-max gap-4 animate-testimonial-marquee"
-            >
-              {[...testimonials, ...testimonials].map((t, index) => (
-                <div key={`${t.name}-${index}`} className="w-[310px] shrink-0 sm:w-[350px] lg:w-[380px]">
-                  <TestimonialCard {...t} avatar="" />
-                </div>
-              ))}
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== TRUST STORY BANNER ===== */}
-      <section className="relative overflow-hidden bg-background py-6 lg:py-8">
-        <div className="container mx-auto px-4">
-          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_50px_hsl(222_42%_10%_/_0.08)]">
-            <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
-              <div className="relative min-h-[320px] overflow-hidden p-6 sm:p-8 lg:p-10">
-                <OptimizedImage
-                  src={heroImg}
-                  alt="Govardhan and Braj landscape"
-                  className="absolute -top-[12%] left-0 h-[114%] w-full object-cover object-center"
-                  sizes="(min-width: 1024px) 50vw, 100vw"
-                />
-                <div className="absolute inset-0 bg-brand-black/76" />
-                <div className="relative max-w-2xl">
-                  <p className="mb-3 font-body text-[11px] font-bold uppercase tracking-[0.22em] text-brand-crimson">
-                    Our Dream
-                  </p>
-                  <h2 className="mb-4 font-heading text-2xl font-bold leading-tight text-white sm:text-3xl lg:text-4xl">
-                    To make every Braj visit feel guided, honest, and cared for.
-                  </h2>
-                  <p className="font-body text-[14px] leading-7 text-white sm:text-[15px]">
-                    Vrindavan Sarthi was created to bring hotels, home stays, guest houses, dharamshalas, rooms, cabs, tours{shopEnabled ? ', and sacred products' : ''} across Braj into one dependable place. Our motivation is simple: pilgrims should spend their energy on darshan, family, and devotion, not on confusion, hidden details, or last-minute uncertainty.
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <Link to="/about" className="btn-gold inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold">
-                      Know Our Story <ArrowRight size={16} />
-                    </Link>
-                    <Link to="/contact" className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-5 py-2.5 font-body text-sm font-semibold text-foreground hover:border-brand-gold/50 hover:text-brand-crimson">
-                      Talk to Support <MessageCircle size={16} />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-0 border-t border-border bg-white lg:border-l lg:border-t-0">
-                {[
-                  { icon: Shield, title: 'Verified Before Listing', desc: `Hotels, room types, cabs, tours${shopEnabled ? ', and products' : ''} are reviewed before customers rely on them.` },
-                  { icon: Clock, title: 'Clear Booking Flow', desc: 'Dates, prices, payment status, invoices, and support details stay visible in a clean structure.' },
-                  { icon: Users, title: 'Human Help When Needed', desc: 'For enquiry, booking support, order support, or payment help, users can reach the team directly.' },
-                ].map((item) => (
-                  <div key={item.title} className="flex gap-4 border-b border-border p-5 last:border-b-0 sm:p-6">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-gold/12 text-brand-crimson">
-                      <item.icon size={20} />
-                    </div>
-                    <div>
-                      <h3 className="font-heading text-[16px] font-bold text-foreground">{item.title}</h3>
-                      <p className="mt-1 font-body text-[13px] leading-6 text-muted-foreground">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid border-t border-border bg-muted/30 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { label: 'Stays', value: 'Temple-side verified options' },
-                { label: 'Rooms', value: 'Room inventory with availability' },
-                { label: 'Cabs & Tours', value: 'Braj travel planning support' },
-                ...(shopEnabled ? [{ label: 'Shop', value: 'Tracked devotional orders' }] : []),
-              ].map((item) => (
-                <div key={item.label} className="border-b border-border px-5 py-4 last:border-b-0 sm:border-r sm:last:border-r-0 lg:border-b-0">
-                  <p className="font-body text-[11px] font-bold uppercase tracking-[0.16em] text-brand-crimson">{item.label}</p>
-                  <p className="mt-1 font-body text-[13px] font-semibold text-foreground">{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
     </div>
   );
 };

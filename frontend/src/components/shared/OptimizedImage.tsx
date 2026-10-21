@@ -6,6 +6,8 @@ type OptimizedImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'lo
   fallbackSrc?: string;
   loading?: 'eager' | 'lazy';
   pictureClassName?: string;
+  fetchPriority?: 'high' | 'low' | 'auto';
+  fetchpriority?: 'high' | 'low' | 'auto';
 };
 
 const OptimizedImage = ({
@@ -18,10 +20,13 @@ const OptimizedImage = ({
   sizes = '100vw',
   pictureClassName,
   onError,
+  fetchPriority,
+  fetchpriority,
   ...props
 }: OptimizedImageProps) => {
   const [currentSrc, setCurrentSrc] = useState(src || fallbackSrc);
   const usableWebp = webpSrc && webpSrc !== currentSrc ? webpSrc : undefined;
+  const priority = fetchpriority || fetchPriority;
 
   useEffect(() => {
     setCurrentSrc(src || fallbackSrc);
@@ -37,6 +42,7 @@ const OptimizedImage = ({
         loading={loading}
         decoding={decoding}
         sizes={sizes}
+        {...(priority ? ({ fetchpriority: priority } as any) : {})}
         onError={(event) => {
           if (currentSrc !== fallbackSrc) setCurrentSrc(fallbackSrc);
           onError?.(event);

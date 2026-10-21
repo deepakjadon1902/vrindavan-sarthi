@@ -1,12 +1,14 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, BedDouble, CarFront, Heart, IndianRupee, MapPin, Route, Star, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, MapPin, Star } from 'lucide-react';
 import { resolveBackendAssetUrl } from '@/lib/api';
+import { filterSafeGallery } from '@/lib/imageSanitizer';
 
-interface ListingCardProps {
+export interface ListingCardProps {
   image: string;
   images?: string[];
   name: string;
   location: string;
+  distance?: string;
   price?: number;
   priceLabel?: string;
   pricePlaceholder?: string;
@@ -29,412 +31,67 @@ type CardKind = 'hotel' | 'room' | 'cab' | 'tour' | 'default';
 
 const cardCopy: Record<CardKind, { fallbackBadge: string; context: string; emptyPrice: string; emptyPriceHelp: string; cta: string }> = {
   hotel: {
-    fallbackBadge: 'Stay',
-    context: 'Verified stay',
-    emptyPrice: 'Price on request',
-    emptyPriceHelp: 'Check available rooms',
-    cta: 'View Rooms',
+    fallbackBadge: 'Verified Stay',
+    context: 'Verified Braj stay',
+    emptyPrice: 'Contribution on request',
+    emptyPriceHelp: 'Confirmed after verification',
+    cta: 'View Rooms & Tariff',
   },
   room: {
-    fallbackBadge: 'Room',
-    context: 'Room type',
-    emptyPrice: 'Price on request',
-    emptyPriceHelp: 'Confirm availability',
+    fallbackBadge: 'Room Option',
+    context: 'Room configuration',
+    emptyPrice: 'Contribution on request',
+    emptyPriceHelp: 'Confirmed upon request',
     cta: 'Check Availability',
   },
   cab: {
-    fallbackBadge: 'Cab',
-    context: 'Private transport',
-    emptyPrice: 'Route-wise fare',
-    emptyPriceHelp: 'Choose route',
-    cta: 'Check Cab',
+    fallbackBadge: 'AC Cab',
+    context: 'Private yatra transport',
+    emptyPrice: 'Fixed route fare',
+    emptyPriceHelp: 'Select destination',
+    cta: 'Confirm Cab Route',
   },
   tour: {
-    fallbackBadge: 'Tour',
-    context: 'Guided tour',
-    emptyPrice: 'Price on request',
-    emptyPriceHelp: 'Check plan',
-    cta: 'Check Tour',
+    fallbackBadge: 'Braj Yatra',
+    context: 'Spiritual darshan package',
+    emptyPrice: 'Fare upon itinerary',
+    emptyPriceHelp: 'Includes coordinator',
+    cta: 'View Yatra Plan',
   },
   default: {
     fallbackBadge: 'Listing',
-    context: 'Listing option',
+    context: 'Braj listing',
     emptyPrice: 'Price on request',
-    emptyPriceHelp: 'Contact support',
-    cta: 'View details',
+    emptyPriceHelp: 'Contact helpline',
+    cta: 'View Details',
   },
 };
 
-const getCardKind = (variant: ListingCardProps['variant'], ctaLabel: string, priceLabel: string): CardKind => {
+const getCardKind = (variant: ListingCardProps['variant'], ctaLabel?: string, priceLabel?: string): CardKind => {
   if (variant === 'hotel') return 'hotel';
   if (variant === 'tour') return 'tour';
-  if (variant === 'cab' || ctaLabel.toLowerCase().includes('cab')) return 'cab';
-  if (variant === 'room' || ctaLabel.toLowerCase().includes('room') || priceLabel.toLowerCase().includes('night')) return 'room';
+  if (variant === 'cab' || (ctaLabel && ctaLabel.toLowerCase().includes('cab'))) return 'cab';
+  if (variant === 'room' || (ctaLabel && ctaLabel.toLowerCase().includes('room')) || (priceLabel && priceLabel.toLowerCase().includes('night'))) return 'room';
   return 'default';
 };
 
 const badgeToneClass: Record<NonNullable<ListingCardProps['badgeColor']>, string> = {
-  green: 'text-brand-green',
-  saffron: 'text-brand-saffron',
-  crimson: 'text-brand-crimson',
+  green: 'bg-emerald-900/80 text-white',
+  saffron: 'bg-amber-800/80 text-white',
+  crimson: 'bg-rose-900/80 text-white',
 };
-
-const VRSFavoriteButton = ({ name, isFavorite, onToggleFavorite }: { name: string; isFavorite: boolean; onToggleFavorite: () => void }) => (
-  <button
-    type="button"
-    aria-label={isFavorite ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
-    aria-pressed={isFavorite}
-    onClick={(e) => {
-      e.stopPropagation();
-      onToggleFavorite();
-    }}
-    className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/70 bg-white/[0.94] text-foreground shadow-[0_2px_8px_rgba(16,24,44,0.08)] transition-colors duration-200 ease-out hover:text-brand-crimson focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-  >
-    <Heart size={18} className={isFavorite ? 'fill-brand-crimson text-brand-crimson' : undefined} />
-  </button>
-);
-
-const VRSBadge = ({ children, tone, className = '' }: { children: ReactNode; tone?: ListingCardProps['badgeColor']; className?: string }) => (
-  <span className={`inline-flex max-w-full items-center truncate rounded-full border border-white/70 bg-white/[0.94] px-3 py-1 font-body text-[11px] font-bold text-foreground shadow-[0_2px_8px_rgba(16,24,44,0.08)] ${tone ? badgeToneClass[tone] : ''} ${className}`}>
-    {children}
-  </span>
-);
-
-const VRSMetadataChip = ({ icon, children }: { icon?: ReactNode; children: ReactNode }) => (
-  <span className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-lg border border-border bg-secondary/55 px-2.5 font-body text-[12px] font-semibold text-foreground">
-    {icon}
-    <span className="truncate">{children}</span>
-  </span>
-);
-
-const VRSRating = ({ rating, reviewCount }: { rating: number; reviewCount: number }) => {
-  if (rating <= 0) return null;
-
-  return (
-    <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 font-body text-[12px] font-bold text-white">
-      {rating.toFixed(1)}
-      <Star size={12} className="fill-brand-gold text-brand-gold" />
-      {reviewCount > 0 && <span className="font-medium text-white/80">- {reviewCount}</span>}
-    </span>
-  );
-};
-
-const VRSPrice = ({ kind, price, unit, placeholder, help }: { kind: CardKind; price?: number; unit: string; placeholder?: string; help?: string }) => {
-  const copy = cardCopy[kind];
-  const hasPrice = typeof price === 'number' && Number.isFinite(price) && price > 0;
-
-  if (!hasPrice) {
-    return (
-      <div>
-        <span className="font-body text-[15px] font-semibold text-foreground">{placeholder || copy.emptyPrice}</span>
-        <span className="mt-1 block font-body text-[12px] text-muted-foreground">{help || copy.emptyPriceHelp}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <span className="flex items-center font-body text-[22px] font-bold leading-none text-foreground">
-        <IndianRupee size={18} />
-        {price.toLocaleString('en-IN')}
-      </span>
-      <span className="mt-1 block font-body text-[13px] font-medium text-muted-foreground">{unit}</span>
-    </div>
-  );
-};
-
-const VRSCardImage = ({ src, alt }: { src: string; alt: string }) => {
-  const [readySrc, setReadySrc] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    const img = new Image();
-    const id = window.setTimeout(() => {
-      if (active) setReadySrc('');
-    }, 900);
-
-    setReadySrc('');
-    img.decoding = 'async';
-    img.onload = () => {
-      if (!active) return;
-      window.clearTimeout(id);
-      setReadySrc(img.naturalWidth > 0 ? src : '');
-    };
-    img.onerror = () => {
-      if (!active) return;
-      window.clearTimeout(id);
-      setReadySrc('');
-    };
-    img.src = src;
-
-    return () => {
-      active = false;
-      window.clearTimeout(id);
-    };
-  }, [src]);
-
-  if (!readySrc) {
-    return (
-      <div className="absolute inset-0 flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-gold/10 via-white to-brand-crimson/10">
-        <span className="px-5 text-center font-body text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-          Vrindavan Sarthi
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <img
-      key={readySrc}
-      src={readySrc}
-      alt={alt}
-      loading="lazy"
-      decoding="async"
-      sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
-      className="vrs-listing-image absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 ease-out group-hover:scale-[1.02]"
-    />
-  );
-};
-
-const VRSCardMedia = ({
-  active,
-  badgeColor,
-  gallery,
-  imageRatio,
-  isFavorite,
-  name,
-  onToggleFavorite,
-  typeLabel,
-  onPauseChange,
-}: {
-  active: number;
-  badgeColor?: ListingCardProps['badgeColor'];
-  gallery: string[];
-  imageRatio: string;
-  isFavorite: boolean;
-  name: string;
-  onToggleFavorite?: () => void;
-  typeLabel: string;
-  onPauseChange: (paused: boolean) => void;
-}) => (
-  <div
-    className={`relative overflow-hidden bg-muted ${imageRatio}`}
-    onMouseEnter={() => onPauseChange(true)}
-    onMouseLeave={() => onPauseChange(false)}
-  >
-    <VRSCardImage src={gallery[active] || '/placeholder.svg'} alt={`${name} ${active + 1}`} />
-
-    {typeLabel && (
-      <div className="absolute left-3 top-3 z-10 max-w-[70%]">
-        <VRSBadge tone={badgeColor}>{typeLabel}</VRSBadge>
-      </div>
-    )}
-    {onToggleFavorite && <VRSFavoriteButton name={name} isFavorite={isFavorite} onToggleFavorite={onToggleFavorite} />}
-
-    {gallery.length > 1 && (
-      <span className="absolute bottom-3 left-3 z-10 rounded-md bg-white/[0.94] px-2 py-1 font-body text-[10px] font-semibold text-foreground shadow-sm">
-        {active + 1} / {gallery.length}
-      </span>
-    )}
-  </div>
-);
-
-const VRSAmenities = ({ kind, items }: { kind: CardKind; items: string[] }) => {
-  if (!items.length) return null;
-
-  if (kind === 'cab') {
-    return (
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        {items.slice(0, 2).map((item, index) => (
-          <VRSMetadataChip key={`${item}-${index}`} icon={index === 0 ? <CarFront size={14} className="text-brand-saffron" /> : <Users size={14} className="text-brand-saffron" />}>
-            {item}
-          </VRSMetadataChip>
-        ))}
-      </div>
-    );
-  }
-
-  if (kind === 'room') {
-    return (
-      <div className="mt-3 flex min-h-[30px] flex-wrap content-start gap-1.5">
-        {items.slice(0, 3).map((item) => (
-          <span key={item} className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/55 px-2 py-1 font-body text-[11px] font-semibold text-secondary-foreground">
-            <BedDouble size={12} className="text-brand-saffron" />
-            <span className="max-w-[9rem] truncate">{item}</span>
-          </span>
-        ))}
-      </div>
-    );
-  }
-
-  if (kind === 'tour') {
-    return (
-      <div className="mt-3 flex min-h-[30px] flex-wrap content-start gap-1.5">
-        {items.slice(0, 3).map((item) => (
-          <span key={item} className="max-w-full truncate rounded-full border border-border bg-secondary/55 px-2.5 py-1 font-body text-[11px] font-semibold text-secondary-foreground">
-            {item}
-          </span>
-        ))}
-        {items.length > 3 && (
-          <span className="rounded-full border border-border bg-secondary/55 px-2.5 py-1 font-body text-[11px] font-semibold text-muted-foreground">
-            +{items.length - 3} more
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  return null;
-};
-
-interface VRSCardShellProps {
-  kind: CardKind;
-  gallery: string[];
-  active: number;
-  badgeColor?: ListingCardProps['badgeColor'];
-  name: string;
-  location: string;
-  typeLabel: string;
-  context: string;
-  rating: number;
-  reviewCount: number;
-  meta?: string;
-  amenities: string[];
-  price?: number;
-  priceUnit: string;
-  pricePlaceholder?: string;
-  priceHelp?: string;
-  actionLabel: string;
-  imageRatio: string;
-  cardMinHeight: string;
-  isFavorite: boolean;
-  onPauseChange: (paused: boolean) => void;
-  onToggleFavorite?: () => void;
-  onViewDetails?: () => void;
-}
-
-const VRSLocation = ({ kind, location }: { kind: CardKind; location: string }) => {
-  const hasLocation = Boolean(location.trim());
-
-  return (
-    <p className="mt-2 inline-flex min-h-10 items-start gap-1.5 font-body text-[13px] leading-5 text-muted-foreground">
-      {hasLocation ? (
-        <>
-          {kind === 'cab' ? <Route size={14} className="mt-0.5 shrink-0 text-brand-saffron" /> : <MapPin size={14} className="mt-0.5 shrink-0 text-brand-saffron" />}
-          <span className="line-clamp-2">{location}</span>
-        </>
-      ) : (
-        <span className="text-transparent">Location details</span>
-      )}
-    </p>
-  );
-};
-
-const VRSCardFooter = ({
-  kind,
-  price,
-  priceUnit,
-  pricePlaceholder,
-  priceHelp,
-  actionLabel,
-  onViewDetails,
-}: Pick<VRSCardShellProps, 'kind' | 'price' | 'priceUnit' | 'pricePlaceholder' | 'priceHelp' | 'actionLabel' | 'onViewDetails'>) => (
-  <div className="mt-auto pt-3">
-    <div className="min-h-[56px]">
-      <VRSPrice kind={kind} price={price} unit={priceUnit} placeholder={pricePlaceholder} help={priceHelp} />
-    </div>
-
-    <button
-      type="button"
-      onClick={onViewDetails}
-      className="vrs-card-action mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 font-body text-[14px] font-bold text-primary-foreground transition-colors duration-200 ease-out hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.99]"
-    >
-      {actionLabel}
-      <ArrowRight size={15} />
-    </button>
-  </div>
-);
-
-const VRSCardShell = ({
-  kind,
-  gallery,
-  active,
-  badgeColor,
-  name,
-  location,
-  typeLabel,
-  context,
-  rating,
-  reviewCount,
-  meta,
-  amenities,
-  price,
-  priceUnit,
-  pricePlaceholder,
-  priceHelp,
-  actionLabel,
-  imageRatio,
-  cardMinHeight,
-  isFavorite,
-  onPauseChange,
-  onToggleFavorite,
-  onViewDetails,
-}: VRSCardShellProps) => (
-  <article
-    className={`vrs-listing-card group flex h-full min-w-0 overflow-hidden rounded-2xl border border-border bg-white shadow-[0_4px_16px_rgba(16,24,44,0.06)] transition-all duration-200 ease-out hover:border-brand-gold/45 hover:shadow-[0_8px_24px_rgba(16,24,44,0.09)] ${cardMinHeight}`}
-  >
-    <div className="flex h-full w-full flex-col">
-      <VRSCardMedia
-        active={active}
-        badgeColor={badgeColor}
-        gallery={gallery}
-        imageRatio={imageRatio}
-        isFavorite={isFavorite}
-        name={name}
-        onToggleFavorite={onToggleFavorite}
-        typeLabel={typeLabel}
-        onPauseChange={onPauseChange}
-      />
-
-      <div className="flex flex-1 flex-col p-4">
-        <div className="mb-2 flex min-h-5 items-center justify-between gap-2">
-          {rating > 0 ? (
-            <VRSRating rating={rating} reviewCount={reviewCount} />
-          ) : (
-            <span className="font-body text-[12px] font-semibold text-muted-foreground">{context}</span>
-          )}
-          {kind === 'room' && meta && <span className="font-body text-[12px] font-semibold text-muted-foreground">{meta}</span>}
-        </div>
-
-        <h3 className="line-clamp-2 min-h-[44px] font-body text-[17px] font-semibold leading-snug text-foreground">{name || 'Listing'}</h3>
-        <VRSLocation kind={kind} location={location} />
-        <div className="min-h-[42px]">
-          <VRSAmenities kind={kind} items={amenities} />
-        </div>
-        <VRSCardFooter kind={kind} price={price} priceUnit={priceUnit} pricePlaceholder={pricePlaceholder} priceHelp={priceHelp} actionLabel={actionLabel} onViewDetails={onViewDetails} />
-      </div>
-    </div>
-  </article>
-);
-
-type SpecializedCardProps = Omit<VRSCardShellProps, 'kind'>;
-
-const VRSHotelCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="hotel" />;
-const VRSRoomCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="room" />;
-const VRSCabCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="cab" />;
-const VRSTourCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="tour" />;
-const VRSDefaultCard = (props: SpecializedCardProps) => <VRSCardShell {...props} kind="default" />;
 
 const ListingCard = ({
   image,
   images,
   name,
   location,
+  distance,
   price,
   priceLabel = '/night',
   pricePlaceholder,
   priceHelp,
-  rating,
+  rating = 0,
   reviewCount = 0,
   badge,
   badgeColor,
@@ -443,89 +100,193 @@ const ListingCard = ({
   isFavorite = false,
   onToggleFavorite,
   onViewDetails,
-  ctaLabel = 'View Details',
-  intervalMs = 2800,
+  ctaLabel,
   variant = 'compact',
 }: ListingCardProps) => {
   const safeGallery = useMemo(() => {
-    const all = [image, ...(images || [])]
-      .map((src) => resolveBackendAssetUrl(src))
-      .filter((src): src is string => Boolean(src) && src !== '/placeholder.svg');
-    const gallery = Array.from(new Set(all));
-    return gallery.length > 0 ? gallery : ['/placeholder.svg'];
+    const rawList = [image, ...(images || [])];
+    const safeUrls = filterSafeGallery(rawList);
+    const resolved = safeUrls.map((src) => resolveBackendAssetUrl(src));
+    return resolved.length > 0 ? resolved : ['/placeholder.svg'];
   }, [image, images]);
 
   const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const intervalRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (paused || safeGallery.length <= 1) return;
-    intervalRef.current = window.setInterval(() => {
-      setActive((i) => (i + 1) % safeGallery.length);
-    }, intervalMs);
-    return () => {
-      if (intervalRef.current) window.clearInterval(intervalRef.current);
-    };
-  }, [paused, safeGallery.length, intervalMs]);
-
-  useEffect(() => {
-    if (safeGallery.length <= 1) return;
-    const next = safeGallery[(active + 1) % safeGallery.length];
-    if (!next) return;
-    const img = new Image();
-    img.decoding = 'async';
-    img.src = next;
-  }, [active, safeGallery]);
-
   const kind = getCardKind(variant, ctaLabel, priceLabel);
   const copy = cardCopy[kind];
-  const typeLabel = badge || copy.fallbackBadge;
-  const visibleAmenities = (amenities || []).filter(Boolean).slice(0, kind === 'tour' ? 4 : 3);
-  const imageRatio = 'aspect-[16/10]';
-  const cardMinHeight =
-    kind === 'hotel'
-      ? 'min-h-[470px]'
-      : kind === 'tour'
-        ? 'min-h-[470px]'
-        : kind === 'cab'
-          ? 'min-h-[450px]'
-          : kind === 'room'
-            ? 'min-h-[470px]'
-            : 'min-h-[450px]';
-  const actionLabel = kind === 'hotel' || kind === 'cab' || kind === 'tour' || kind === 'room' ? copy.cta : ctaLabel || copy.cta;
-  const priceUnit = priceLabel || (kind === 'cab' ? 'per trip' : kind === 'tour' ? '/person' : '/night');
+  const typeLabel = badge || (kind === 'hotel' ? 'Stay' : kind === 'cab' ? 'Cab' : kind === 'tour' ? 'Yatra' : '');
+  const hasPrice = typeof price === 'number' && Number.isFinite(price) && price > 0;
+  const unit = priceLabel || (kind === 'cab' ? 'per trip' : kind === 'tour' ? '/person' : '/night');
 
-  const shellProps: SpecializedCardProps = {
-    gallery: safeGallery,
-    active,
-    badgeColor,
-    name,
-    location,
-    typeLabel,
-    context: copy.context,
-    rating,
-    reviewCount,
-    meta,
-    amenities: visibleAmenities,
-    price,
-    priceUnit,
-    pricePlaceholder,
-    priceHelp,
-    actionLabel,
-    imageRatio,
-    cardMinHeight,
-    isFavorite,
-    onPauseChange: setPaused,
-    onToggleFavorite,
-    onViewDetails,
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActive((prev) => (prev === 0 ? safeGallery.length - 1 : prev - 1));
   };
 
-  if (kind === 'hotel') return <VRSHotelCard {...shellProps} />;
-  if (kind === 'room') return <VRSRoomCard {...shellProps} />;
-  if (kind === 'cab') return <VRSCabCard {...shellProps} />;
-  if (kind === 'tour') return <VRSTourCard {...shellProps} />;
-  return <VRSDefaultCard {...shellProps} />;
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActive((prev) => (prev === safeGallery.length - 1 ? 0 : prev + 1));
+  };
+
+  return (
+    <article
+      tabIndex={0}
+      role="button"
+      onClick={onViewDetails}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onViewDetails?.();
+        }
+      }}
+      className="group flex flex-col w-full text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 rounded-2xl"
+    >
+      {/* 1. Image Media Container (Borderless, Clean Airbnb-Grade Architecture) */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-neutral-100">
+        <img
+          src={safeGallery[active] || '/placeholder.svg'}
+          alt={`${name} photo ${active + 1}`}
+          loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            const target = e.currentTarget;
+            if (!target.src.endsWith('/placeholder.svg')) {
+              target.src = '/placeholder.svg';
+            }
+          }}
+          className="h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
+        />
+
+        {/* Favorite Wishlist Heart on Top Right */}
+        {onToggleFavorite && (
+          <button
+            type="button"
+            aria-label={isFavorite ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
+            aria-pressed={isFavorite}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite();
+            }}
+            className="absolute top-3 right-3 z-10 p-1.5 rounded-full hover:scale-110 active:scale-90 transition-transform focus-visible:outline-none"
+          >
+            <Heart
+              size={22}
+              className={
+                isFavorite
+                  ? 'fill-rose-500 text-rose-500 drop-shadow-md'
+                  : 'fill-black/30 stroke-white stroke-[2] drop-shadow-md hover:fill-black/45'
+              }
+            />
+          </button>
+        )}
+
+        {/* Property Type Badge on Top Left */}
+        {typeLabel && (
+          <div className="absolute top-3 left-3 z-10 max-w-[75%]">
+            <span
+              className={`inline-flex items-center truncate rounded-full px-2.5 py-0.5 font-body text-[11px] font-bold shadow-sm backdrop-blur-md ${
+                badgeColor
+                  ? badgeToneClass[badgeColor]
+                  : 'bg-white/90 text-slate-800 border border-neutral-200/60'
+              }`}
+            >
+              {typeLabel}
+            </span>
+          </div>
+        )}
+
+        {/* Carousel Chevrons (Appear on Desktop Hover) */}
+        {safeGallery.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={handlePrev}
+              aria-label="Previous image"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-7 w-7 rounded-full bg-white/90 text-slate-800 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 hover:scale-105 hover:bg-white transition-all"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={handleNext}
+              aria-label="Next image"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-7 w-7 rounded-full bg-white/90 text-slate-800 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 hover:scale-105 hover:bg-white transition-all"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </>
+        )}
+
+        {/* Carousel Dots */}
+        {safeGallery.length > 1 && (
+          <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center gap-1 z-10 pointer-events-none">
+            {safeGallery.slice(0, 5).map((_, i) => (
+              <span
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-200 ${
+                  i === active ? 'w-3 bg-white shadow-sm' : 'w-1.5 bg-white/60 shadow-sm'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 2. Text Details Hierarchy (Compact, Non-Boxed, Zero Wasted Whitespace) */}
+      <div className="mt-2.5 space-y-0.5">
+        {/* Row 1: Property Name & Genuine Rating */}
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="font-body text-[15px] font-bold text-slate-900 group-hover:text-amber-800 transition-colors line-clamp-1">
+            {name || 'Stay in Braj'}
+          </h3>
+          {rating > 0 && (
+            <div className="flex items-center gap-1 font-body text-xs font-bold text-slate-900 shrink-0">
+              <Star size={12} className="fill-slate-900 text-slate-900" />
+              <span>{rating.toFixed(1)}</span>
+              {reviewCount > 0 && <span className="font-normal text-slate-500">({reviewCount})</span>}
+            </div>
+          )}
+        </div>
+
+        {/* Row 2: Location / Temple Distance */}
+        {(location || distance) && (
+          <p className="font-body text-[13px] font-medium text-neutral-500 flex items-center gap-1 line-clamp-1">
+            <MapPin size={13} className="text-amber-800/80 shrink-0" />
+            {distance && (
+              <span className="font-semibold text-slate-800">{distance}</span>
+            )}
+            {distance && location && <span className="text-neutral-300">·</span>}
+            {location && <span>{location}</span>}
+          </p>
+        )}
+
+        {/* Row 3: Key Amenities / Configuration */}
+        {amenities && amenities.length > 0 && (
+          <p className="font-body text-[13px] text-neutral-400 line-clamp-1">
+            {amenities.filter(Boolean).slice(0, 3).join(' · ')}
+          </p>
+        )}
+
+        {/* Row 4: Price & Transparency */}
+        <div className="pt-1 flex items-baseline gap-1.5 text-slate-900">
+          {hasPrice ? (
+            <>
+              <span className="font-body text-[16px] font-bold tracking-tight">
+                ₹{price.toLocaleString('en-IN')}
+              </span>
+              <span className="font-body text-xs font-normal text-neutral-500">{unit}</span>
+            </>
+          ) : (
+            <div className="flex flex-col">
+              <span className="font-body text-xs font-semibold text-amber-900">
+                {pricePlaceholder || copy.emptyPrice}
+              </span>
+              {priceHelp && <span className="font-body text-[11px] text-neutral-400">{priceHelp}</span>}
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  );
 };
 
 export default ListingCard;
