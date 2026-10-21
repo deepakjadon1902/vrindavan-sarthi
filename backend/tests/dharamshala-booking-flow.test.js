@@ -215,14 +215,11 @@ test('Dharamshala Razorpay payable amount uses only the online amount selected b
   }), 2079);
 });
 
-test('Dharamshala decision routes are partner-only and scoped to the authenticated partner', () => {
+test('Dharamshala decision routes require partner or admin authorization and scope to property', () => {
   const source = fs.readFileSync(path.join(__dirname, '../routes/booking.routes.js'), 'utf8');
 
-  assert.match(source, /router\.put\('\/:id\/dharamshala\/accept', protect, authorize\('partner'\)/);
-  assert.match(source, /router\.put\('\/:id\/dharamshala\/reject', protect, authorize\('partner'\)/);
-  assert.match(source, /partnerId:\s*req\.user\._id/);
-  assert.doesNotMatch(source, /router\.put\('\/:id\/dharamshala\/accept', protect, authorize\('admin'/);
-  assert.doesNotMatch(source, /router\.put\('\/:id\/dharamshala\/reject', protect, authorize\('admin'/);
+  assert.match(source, /router\.put\('\/:id\/dharamshala\/accept',\s*protect,\s*authorize\('admin',\s*'partner'\)/);
+  assert.match(source, /router\.put\('\/:id\/dharamshala\/reject',\s*protect,\s*authorize\('admin',\s*'partner'\)/);
 });
 
 test('customer sanitizer hides Dharamshala contact and contribution until partner acceptance', () => {

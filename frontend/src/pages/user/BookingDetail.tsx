@@ -4,11 +4,39 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { ArrowLeft, Calendar, MapPin, User, Phone, Mail, CreditCard, ClipboardList, XCircle, CheckCircle2, Clock, IndianRupee, Hotel, BedDouble, Car, Map as MapIcon, MessageCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  User,
+  Phone,
+  Mail,
+  CreditCard,
+  ClipboardList,
+  XCircle,
+  CheckCircle2,
+  Clock,
+  IndianRupee,
+  Hotel,
+  BedDouble,
+  Car,
+  Map as MapIcon,
+  MessageCircle,
+  ShieldCheck,
+  RefreshCw,
+  AlertTriangle,
+  AlertCircle,
+  Copy,
+  Check,
+  ChevronRight,
+  ExternalLink,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { api, withAuth } from '@/lib/api';
-import { formatBookingStatus } from '@/lib/bookingStatus';
+import { getAuthoritativeBookingState, formatBookingStatus } from '@/lib/bookingStatus';
+import { BookingCountdownTimer } from '@/components/BookingCountdownTimer';
+import { BookingTimeline } from '@/components/BookingTimeline';
 
 declare global {
   interface Window {
@@ -16,20 +44,54 @@ declare global {
   }
 }
 
-const loadRazorpayCheckout = () =>
+const loadRazorpayCheckout = (timeoutMs = 10000) =>
   new Promise<void>((resolve, reject) => {
     if (window.Razorpay) return resolve();
+    let timeoutId: ReturnType<typeof setTimeout>;
     const existing = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
     if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Razorpay Checkout failed to load')), { once: true });
+      if (window.Razorpay) return resolve();
+      const onExistingLoad = () => {
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      const onExistingError = () => {
+        clearTimeout(timeoutId);
+        reject(new Error('Razorpay Checkout failed to load'));
+      };
+      existing.addEventListener('load', onExistingLoad, { once: true });
+      existing.addEventListener('error', onExistingError, { once: true });
+      timeoutId = setTimeout(() => {
+        existing.removeEventListener('load', onExistingLoad);
+        existing.removeEventListener('error', onExistingError);
+        if (window.Razorpay) {
+          resolve();
+        } else {
+          reject(new Error('Razorpay Checkout timed out while loading'));
+        }
+      }, timeoutMs);
       return;
     }
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Razorpay Checkout failed to load'));
+    timeoutId = setTimeout(() => {
+      script.onload = null;
+      script.onerror = null;
+      if (window.Razorpay) {
+        resolve();
+      } else {
+        reject(new Error('Razorpay Checkout timed out while loading'));
+      }
+    }, timeoutMs);
+    script.onload = () => {
+      clearTimeout(timeoutId);
+      resolve();
+    };
+    script.onerror = () => {
+      clearTimeout(timeoutId);
+      reject(new Error('Razorpay Checkout failed to load'));
+    };
     document.body.appendChild(script);
   });
 
@@ -41,6 +103,7 @@ const BookingDetail = () => {
   const { fetchBookingById, cancelBooking } = useBookingStore();
   const [booking, setBooking] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [isReviewing, setIsReviewing] = useState(false);
@@ -59,6 +122,21 @@ const BookingDetail = () => {
   const [isPreviewingModification, setIsPreviewingModification] = useState(false);
   const [isSubmittingModification, setIsSubmittingModification] = useState(false);
   const [isPayingDharamshala, setIsPayingDharamshala] = useState(false);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+
+  const refreshBooking = async (silent = false) => {
+    if (!id) return;
+    try {
+      if (!silent) setIsRefreshing(true);
+      const b = await fetchBookingById(id);
+      if (b) setBooking(b);
+    } catch {
+      // Keep existing booking on network blip
+    } finally {
+      if (!silent) setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -71,13 +149,36 @@ const BookingDetail = () => {
     void run();
   }, [fetchBookingById, id]);
 
+  // Bounded auto-polling for pending property confirmation
+  useEffect(() => {
+    if (!booking) return;
+    const isAwaitingProperty = booking.bookingStatus === 'pending_property_confirmation';
+    if (!isAwaitingProperty) return;
+
+    const interval = setInterval(() => {
+      void refreshBooking(true);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [booking?.bookingStatus, id]);
+
+  const copyBookingId = () => {
+    if (!booking?.bookingId) return;
+    navigator.clipboard?.writeText(booking.bookingId);
+    setCopiedId(true);
+    toast.success('Booking ID copied to clipboard');
+    setTimeout(() => setCopiedId(false), 2000);
+  };
+
   if (isLoading) {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen bg-background pt-20 pb-8 px-4 flex items-center justify-center">
-          <div className="text-center">
-            <p className="font-body text-sm text-muted-foreground">Loading booking...</p>
+        <div className="min-h-screen bg-background pt-24 pb-16 px-4 flex items-center justify-center">
+          <div className="text-center space-y-3">
+            <div className="w-10 h-10 border-3 border-brand-crimson border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="font-heading text-base font-semibold text-foreground">Loading your booking details...</p>
+            <p className="font-body text-xs text-muted-foreground">Retrieving verified reservation data from server</p>
           </div>
         </div>
         <Footer />
@@ -89,11 +190,14 @@ const BookingDetail = () => {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen bg-background pt-20 pb-8 px-4 flex items-center justify-center">
-          <div className="text-center">
-            <ClipboardList size={64} className="mx-auto mb-4 text-muted-foreground/30" />
-            <h2 className="font-heading text-2xl font-semibold text-foreground mb-2">Booking Not Found</h2>
-            <Link to="/bookings" className="font-body text-sm text-brand-crimson hover:underline">Back to bookings</Link>
+        <div className="min-h-screen bg-background pt-24 pb-16 px-4 flex items-center justify-center">
+          <div className="text-center max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
+            <ClipboardList size={56} className="mx-auto mb-4 text-muted-foreground/30" />
+            <h2 className="font-heading text-2xl font-bold text-foreground mb-2">Booking Not Found</h2>
+            <p className="font-body text-xs text-muted-foreground mb-6">We could not locate this reservation record. It may have expired or been removed.</p>
+            <Link to="/bookings" className="inline-flex py-2.5 px-6 rounded-xl bg-brand-crimson text-white font-body text-sm font-semibold hover:bg-brand-crimson/90 transition-colors shadow-sm">
+              Return to My Bookings
+            </Link>
           </div>
         </div>
         <Footer />
@@ -101,52 +205,35 @@ const BookingDetail = () => {
     );
   }
 
-  const typeIcon = {
-    hotel: Hotel,
-    room: BedDouble,
-    cab: Car,
-    tour: MapIcon,
-    room_type: BedDouble,
-  }[booking.bookingType];
-
-  const TypeIcon = typeIcon || ClipboardList;
-
-  const statusConfig = {
-    confirmed: { color: 'bg-brand-green/10 text-brand-green border-brand-green/20', icon: CheckCircle2, label: 'Booking Confirmed' },
-    pending_property_confirmation: { color: 'bg-brand-saffron/10 text-brand-saffron border-brand-saffron/20', icon: Clock, label: 'Waiting for property approval' },
-    awaiting_customer_payment: { color: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CreditCard, label: 'Payment needed' },
-    rejected_by_property: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Rejected by Property' },
-    expired_property_no_response: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Expired - Property Did Not Respond' },
-    no_show: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'No-show' },
-    cancelled: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Cancelled' },
-    expired: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Expired' },
-    payment_failed: { color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle, label: 'Payment Failed' },
-    completed: { color: 'bg-brand-gold/10 text-brand-gold border-brand-gold/20', icon: CheckCircle2, label: 'Completed' },
-    pending: { color: 'bg-muted text-muted-foreground border-border', icon: Clock, label: 'Pending' },
-  }[booking.bookingStatus] || { color: 'bg-muted text-muted-foreground border-border', icon: Clock, label: formatBookingStatus(booking.bookingStatus) };
-
-  const StatusIcon = statusConfig.icon;
+  const state = getAuthoritativeBookingState(booking);
 
   const handleCancel = async () => {
     const needsReason = booking.bookingStatus === 'confirmed';
-    const reason = needsReason ? window.prompt('Please enter a cancellation reason:') || '' : '';
+    const policyNotice = 'Cancellation Schedule:\n• > 48h before check-in: 75% refund\n• 24h-48h before check-in: 50% refund\n• < 24h: 0% refund\n• 30% advance is non-refundable on voluntary cancellation.\n\nEnter cancellation reason:';
+    const reason = needsReason ? window.prompt(policyNotice) || '' : '';
     if (needsReason && !reason.trim()) return toast.error('Cancellation reason is required for confirmed bookings');
     const details = needsReason ? window.prompt('Please add cancellation details:') || '' : '';
     if (needsReason && !details.trim()) return toast.error('Cancellation details are required');
     const res = await cancelBooking(booking.id, reason.trim() || undefined, details.trim() || undefined);
-    if (res.success) toast.success('Booking cancelled successfully');
-    else toast.error(res.error || 'Cancel failed');
+    if (res.success) {
+      toast.success('Booking cancelled successfully');
+      await refreshBooking();
+    } else {
+      toast.error(res.error || 'Cancel failed');
+    }
   };
 
-  const verificationLabel = (() => {
-    if (booking.isWaitlisted) return 'Waitlisted (awaiting room assignment)';
-    const stage = String(booking.verificationStage || '');
-    if (stage === 'verified') return 'Verified';
-    if (stage === 'pending_partner') return 'Pending partner verification';
-    if (stage === 'pending_admin') return 'Pending admin verification';
-    if (stage === 'rejected') return 'Rejected';
-    return booking.paymentMethod === 'doorstep' ? 'Pay at doorstep' : 'Verification pending';
-  })();
+  const handleDisputeNoShow = async () => {
+    const reason = window.prompt('Please explain why this no-show record is disputed (e.g. arrived at hotel, property closed, contact issue):') || '';
+    if (!reason.trim()) return toast.error('Dispute reason is required');
+    try {
+      const res = await api.post(`/bookings/${booking.id}/no-show-dispute`, { reason: reason.trim() }, withAuth(token));
+      setBooking(res.data?.data || booking);
+      toast.success('Dispute submitted for admin review');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Dispute submission failed');
+    }
+  };
 
   const viewItemHref = (() => {
     const type = String(booking.bookingType || '');
@@ -177,34 +264,35 @@ const BookingDetail = () => {
   const totalPayable = Number(booking.totalAmount || 0);
   const advancePaid = Number(isDharamshalaBooking ? booking.amountPaidOnline : (booking.advanceAmount || (booking.paymentOption === 'advance_30' ? Math.round(totalPayable * 0.3) : totalPayable)));
   const balancePayable = Number(isDharamshalaBooking ? booking.amountPayableAtProperty : (booking.balanceAmount || Math.max(0, totalPayable - advancePaid)));
-  const customerName = booking.customerFullName || booking.userName || '-';
+
+  // Strict contact mappings (P3: never mix guest phone with admin or partner phone)
+  const customerName = booking.customerFullName || booking.userName || 'Guest';
   const customerPhone = booking.customerMobile || booking.userPhone || '-';
   const customerEmail = booking.customerEmail || booking.userEmail || '-';
+
+  // Partner / Host contact
   const partnerWhatsapp = String(booking.partnerWhatsapp || booking.partnerPhone || '').replace(/\D/g, '');
-  const razorpayContact = String(adminPhone).replace(/\D/g, '') || customerPhone;
-  const documentLabel = isHotelMarketplace ? 'Booking Confirmation & Payment Receipt' : 'Tax Invoice';
-  const voucherLabel = isDharamshalaBooking ? 'VRINDAVAN SARTHI - BOOKING CONFIRMATION' : documentLabel;
-  const isAcceptedDharamshala = isDharamshalaBooking && ['awaiting_customer_payment', 'confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(booking.bookingStatus || ''));
-  const isConfirmedDharamshala = isDharamshalaBooking && ['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(String(booking.bookingStatus || ''));
+  const showHostContact = state.isConfirmed && (booking.partnerName || booking.partnerPhone || booking.partnerEmail);
+
+  // Razorpay prefill MUST strictly use customer's verified mobile number, NEVER platform admin phone
+  const razorpayContact = String(customerPhone || '').replace(/\D/g, '');
+
   const canModify =
     booking.bookingType === 'room_type' &&
     booking.bookingStatus === 'confirmed' &&
     booking.paymentStatus === 'paid';
+
   const acceptedOnlineAmount = isDharamshalaBooking ? Number(booking.amountPaidOnline || 0) : Number(advancePaid || 0);
-  const canPayAcceptedDharamshala =
-    booking.bookingStatus === 'awaiting_customer_payment' &&
-    booking.paymentStatus === 'pending' &&
-    acceptedOnlineAmount > 0;
-  const canFindAnotherDharamshala =
-    isDharamshalaBooking &&
-    ['rejected_by_property', 'expired_property_no_response'].includes(String(booking.bookingStatus || ''));
-  const modificationKey = () => {
-    const random = window.crypto?.getRandomValues ? Array.from(window.crypto.getRandomValues(new Uint32Array(2))).join('-') : Math.random().toString(16).slice(2);
-    return `modify:${booking.id}:${Date.now()}:${random}`;
-  };
 
   const payAcceptedDharamshala = async () => {
-    if (!token || !booking?.id || !canPayAcceptedDharamshala) return;
+    if (!token || !booking?.id || !state.canPay) return;
+
+    if (state.isHoldExpired) {
+      toast.error('Payment hold has expired. This booking request has timed out.');
+      await refreshBooking();
+      return;
+    }
+
     try {
       setIsPayingDharamshala(true);
       await loadRazorpayCheckout();
@@ -213,12 +301,13 @@ const BookingDetail = () => {
       const order = data.order || {};
       const keyId = String(data.keyId || '');
       if (!window.Razorpay || !keyId || !order.id) throw new Error('Razorpay Checkout is not ready');
+
       const rzp = new window.Razorpay({
         key: keyId,
         amount: order.amount,
         currency: order.currency || 'INR',
         name: 'Vrindavan Sarthi',
-        description: `${isDharamshalaBooking ? 'Dharamshala' : 'Booking'} payment for ${booking.bookingId}`,
+        description: `${isDharamshalaBooking ? 'Dharamshala' : 'Room'} reservation: ${booking.bookingId}`,
         order_id: order.id,
         image: '/logo.png',
         prefill: {
@@ -226,36 +315,103 @@ const BookingDetail = () => {
           email: customerEmail,
           contact: razorpayContact,
         },
+        theme: {
+          color: '#8a1f2d',
+        },
         handler: async (response: any) => {
           try {
-            const verifyRes = await api.post('/payments/razorpay/verify', {
-              bookingId: booking.id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }, withAuth(token));
+            setIsVerifyingPayment(true);
+            const verifyRes = await api.post(
+              '/payments/razorpay/verify',
+              {
+                bookingId: booking.id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              },
+              withAuth(token)
+            );
             const updatedBooking = verifyRes.data?.data || booking;
             const confirmedBookingId = updatedBooking.id || updatedBooking._id || booking.id;
             setBooking(updatedBooking);
-            toast.success('Payment verified. Booking confirmed.');
+            toast.success('Payment verified! Booking confirmed.');
             navigate(`/bookings/${confirmedBookingId}/confirmed`, { replace: true });
           } catch (err: any) {
+            // Check if already processed
+            if (err?.response?.data?.message === 'PAYMENT_ALREADY_PROCESSED') {
+              const refreshed = await fetchBookingById(booking.id);
+              if (refreshed) setBooking(refreshed);
+              toast.success('Payment confirmed.');
+              navigate(`/bookings/${booking.id}/confirmed`, { replace: true });
+              return;
+            }
+
+            // Safe bounded poll to verify whether webhook settled payment
+            for (let i = 0; i < 4; i++) {
+              await new Promise((r) => setTimeout(r, 2000));
+              const check = await fetchBookingById(booking.id);
+              if (check && (check.paymentStatus === 'paid' || check.bookingStatus === 'confirmed')) {
+                setBooking(check);
+                toast.success('Payment verified! Booking confirmed.');
+                navigate(`/bookings/${booking.id}/confirmed`, { replace: true });
+                return;
+              }
+            }
+
             toast.error(err?.response?.data?.message || 'Payment verification failed');
           } finally {
+            setIsVerifyingPayment(false);
             setIsPayingDharamshala(false);
           }
         },
         modal: {
-          ondismiss: () => {
+          ondismiss: async () => {
+            setIsVerifyingPayment(true);
+            // Safe bounded poll: check if user paid via UPI QR or asynchronous flow before closing modal
+            let confirmed = false;
+            for (let i = 0; i < 4; i++) {
+              try {
+                const latest = await fetchBookingById(booking.id);
+                if (latest && (latest.paymentStatus === 'paid' || latest.bookingStatus === 'confirmed')) {
+                  setBooking(latest);
+                  toast.success('Payment verified! Booking confirmed.');
+                  confirmed = true;
+                  navigate(`/bookings/${booking.id}/confirmed`, { replace: true });
+                  break;
+                }
+              } catch {}
+              if (i < 3) await new Promise((r) => setTimeout(r, 2000));
+            }
+            setIsVerifyingPayment(false);
             setIsPayingDharamshala(false);
-            toast.message('Payment was not completed');
+
+            if (!confirmed) {
+              toast.message('Checkout closed. If funds were debited, your booking will be confirmed automatically upon bank settlement.');
+            }
           },
         },
       });
+
+      (rzp as any).on?.('payment.failed', (response: any) => {
+        setIsPayingDharamshala(false);
+        setIsVerifyingPayment(false);
+        toast.error(response?.error?.description || 'Razorpay payment failed');
+      });
+
       rzp.open();
     } catch (err: any) {
       setIsPayingDharamshala(false);
-      toast.error(err?.response?.data?.message || err?.message || 'Unable to start payment');
+      setIsVerifyingPayment(false);
+      const msg = err?.response?.data?.message || err?.message || 'Unable to start payment';
+      if (msg === 'PAYMENT_HOLD_EXPIRED') {
+        toast.error('Payment hold has expired. The reserved room inventory has been released.');
+        await refreshBooking();
+      } else if (msg === 'PAYMENT_ALREADY_PROCESSED') {
+        toast.success('Payment is already processed!');
+        await refreshBooking();
+      } else {
+        toast.error(msg);
+      }
     }
   };
 
@@ -311,7 +467,7 @@ const BookingDetail = () => {
 
   const confirmModification = async () => {
     if (!token || !booking?.id || !modifyPreview?.inventoryAvailable) return;
-    const idempotencyKey = modificationKey();
+    const idempotencyKey = `modify:${booking.id}:${Date.now()}`;
     try {
       setIsSubmittingModification(true);
       const res = await api.post(`/bookings/${booking.id}/modify`, modifyForm, {
@@ -367,496 +523,452 @@ const BookingDetail = () => {
     }
   };
 
+  const typeIcon = {
+    hotel: Hotel,
+    room: BedDouble,
+    room_type: BedDouble,
+    cab: Car,
+    tour: MapIcon,
+  }[String(booking.bookingType || 'hotel')] || Hotel;
+  const TypeIcon = typeIcon;
+
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-background pt-20 pb-8 px-4">
-        <div className="container mx-auto max-w-4xl">
-          {/* Back Button */}
-          <button onClick={() => navigate('/bookings')} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors">
-            <ArrowLeft size={16} /> Back to My Bookings
-          </button>
+      <div className="min-h-screen bg-[#faf8f5] pt-20 pb-16 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl space-y-6">
+          {/* Breadcrumb Navigation */}
+          <nav className="flex items-center gap-2 text-xs font-body text-muted-foreground">
+            <Link to="/bookings" className="hover:text-brand-crimson transition-colors flex items-center gap-1">
+              <ArrowLeft size={13} />
+              <span>My Bookings</span>
+            </Link>
+            <span>/</span>
+            <span className="font-mono text-foreground font-semibold">{booking.bookingId}</span>
+          </nav>
 
-          {/* Header */}
-          <div className="bg-card rounded-lg border border-border overflow-hidden mb-4">
-            <div className="relative h-40 sm:h-52 bg-muted">
-              {booking.itemImage && booking.itemImage !== '/placeholder.svg' ? (
-                <img src={booking.itemImage} alt={booking.itemName} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-crimson/10 to-brand-gold/10">
-                  <TypeIcon size={64} className="text-muted-foreground/20" />
+          {/* Hero Header Card (Airbnb Style) */}
+          <div className="rounded-3xl border border-border/80 bg-card p-6 sm:p-8 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 font-body text-xs font-semibold text-secondary-foreground capitalize">
+                    <TypeIcon size={12} className="text-brand-crimson" />
+                    {booking.propertyType || booking.bookingType || 'Lodging'}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-body text-xs font-bold ${
+                      state.variant === 'success'
+                        ? 'bg-brand-green/12 text-brand-green'
+                        : state.variant === 'warning' || state.variant === 'info'
+                        ? 'bg-brand-saffron/12 text-brand-saffron'
+                        : state.variant === 'destructive'
+                        ? 'bg-destructive/12 text-destructive'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    <span className="h-2 w-2 rounded-full bg-current" />
+                    {state.badgeLabel}
+                  </span>
                 </div>
-              )}
-              <div className="absolute top-4 left-4">
-                <span className="font-body text-xs bg-foreground/80 text-primary-foreground px-3 py-1.5 rounded-full capitalize backdrop-blur-sm flex items-center gap-1.5">
-                  <TypeIcon size={12} /> {booking.bookingType}
-                </span>
+
+                <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-foreground">
+                  {booking.itemName}
+                </h1>
+
+                <div className="mt-2 flex flex-wrap items-center gap-3 font-body text-xs text-muted-foreground">
+                  <button
+                    onClick={copyBookingId}
+                    className="inline-flex items-center gap-1.5 font-mono font-medium hover:text-brand-crimson transition-colors"
+                  >
+                    <span>ID: {booking.bookingId}</span>
+                    {copiedId ? <Check size={12} className="text-brand-green" /> : <Copy size={12} />}
+                  </button>
+                  <span>•</span>
+                  <span>Booked on {new Date(booking.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                </div>
               </div>
-              <div className="absolute top-4 right-4">
-                <span className={`font-body text-xs px-3 py-1.5 rounded-full border flex items-center gap-1.5 backdrop-blur-sm ${statusConfig.color}`}>
-                  <StatusIcon size={12} /> {statusConfig.label}
-                </span>
+
+              {/* Status Action / Refresh */}
+              <div className="flex items-center gap-2 self-start md:self-center">
+                <button
+                  onClick={() => refreshBooking()}
+                  disabled={isRefreshing}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 font-body text-xs font-semibold text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+                  title="Check live status from server"
+                >
+                  <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-brand-crimson' : ''} />
+                  <span>{isRefreshing ? 'Checking...' : 'Refresh'}</span>
+                </button>
+                <Link
+                  to={viewItemHref}
+                  className="inline-flex items-center gap-1 rounded-xl border border-border px-3.5 py-2 font-body text-xs font-semibold text-foreground hover:bg-secondary transition-colors"
+                >
+                  <span>View Listing</span>
+                  <ExternalLink size={12} />
+                </Link>
               </div>
             </div>
 
-            <div className="p-4 sm:p-5">
-              <p className="font-body text-xs text-brand-crimson font-medium mb-1">{booking.bookingId}</p>
-              <h1 className="font-heading text-2xl sm:text-3xl font-bold text-foreground mb-2">{booking.itemName}</h1>
+            {/* Authoritative Hero Status Banner */}
+            <div
+              className={`mt-6 rounded-2xl border p-4 sm:p-5 flex items-start gap-3.5 ${
+                state.variant === 'success'
+                  ? 'border-brand-green/25 bg-brand-green/5 text-foreground'
+                  : state.variant === 'warning' || state.variant === 'info'
+                  ? 'border-brand-saffron/30 bg-brand-saffron/5 text-foreground'
+                  : state.variant === 'destructive'
+                  ? 'border-destructive/25 bg-destructive/5 text-foreground'
+                  : 'border-border bg-secondary/40 text-foreground'
+              }`}
+            >
+              <div className="mt-0.5 shrink-0">
+                {state.variant === 'success' ? (
+                  <CheckCircle2 size={22} className="text-brand-green" />
+                ) : state.variant === 'warning' || state.variant === 'info' ? (
+                  <Clock size={22} className="text-brand-saffron" />
+                ) : state.variant === 'destructive' ? (
+                  <AlertCircle size={22} className="text-destructive" />
+                ) : (
+                  <ShieldCheck size={22} className="text-brand-crimson" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h4 className="font-heading text-sm sm:text-base font-bold text-foreground">
+                  {state.heroTitle}
+                </h4>
+                <p className="mt-0.5 font-body text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {state.heroSubtitle}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {/* Booking Details */}
-            <div className="lg:col-span-2 space-y-4">
-              {/* Dates & Guests */}
-              <div className="bg-card rounded-lg border border-border p-4 sm:p-5">
-                <h3 className="font-heading text-lg font-semibold text-foreground mb-3">Booking Details</h3>
+          {/* Active Countdown Timer (Prominently rendered when active) */}
+          {state.activeTimerType !== 'none' && state.activeExpiresAt && (
+            <BookingCountdownTimer
+              timerType={state.activeTimerType}
+              expiresAt={state.activeExpiresAt}
+              onExpire={() => refreshBooking()}
+            />
+          )}
+
+          {/* Main 2-Column Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_0.9fr] gap-6 items-start">
+            {/* Left Column: Property, Stay, Timeline, Guest & Host info */}
+            <div className="space-y-6">
+              {/* Stay & Room Details Card */}
+              <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-sm space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                  <h3 className="font-heading text-base font-bold text-foreground">Stay Details</h3>
+                  {booking.roomQuantity && (
+                    <span className="font-body text-xs text-muted-foreground font-medium">
+                      {booking.roomQuantity} room(s)
+                    </span>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {booking.checkIn && (
-                    <div>
-                      <p className="font-body text-xs text-muted-foreground mb-1">Check-in</p>
-                      <p className="font-body text-sm font-medium text-foreground flex items-center gap-1.5">
-                        <Calendar size={14} className="text-brand-crimson" />
-                        {new Date(booking.checkIn).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                      </p>
-                    </div>
-                  )}
-                  {booking.checkOut && (
-                    <div>
-                      <p className="font-body text-xs text-muted-foreground mb-1">Check-out</p>
-                      <p className="font-body text-sm font-medium text-foreground flex items-center gap-1.5">
-                        <Calendar size={14} className="text-brand-gold" />
-                        {new Date(booking.checkOut).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                      </p>
-                    </div>
-                  )}
-                  {booking.guests && (
-                    <div>
-                      <p className="font-body text-xs text-muted-foreground mb-1">Guests</p>
-                      <p className="font-body text-sm font-medium text-foreground">{booking.guests} Guest(s)</p>
-                    </div>
-                  )}
-                  <div>
-                    <p className="font-body text-xs text-muted-foreground mb-1">Booked On</p>
-                    <p className="font-body text-sm font-medium text-foreground">
-                      {new Date(booking.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  <div className="rounded-2xl border border-border/60 bg-[#faf8f5] p-4">
+                    <p className="font-body text-xs text-muted-foreground flex items-center gap-1.5 mb-1">
+                      <Calendar size={13} className="text-brand-crimson" /> Check-in
+                    </p>
+                    <p className="font-heading text-sm sm:text-base font-bold text-foreground">
+                      {booking.checkIn ? new Date(booking.checkIn).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : '-'}
+                    </p>
+                    <p className="text-[11px] font-body text-muted-foreground">{booking.checkInTime || '12:00 PM'}</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/60 bg-[#faf8f5] p-4">
+                    <p className="font-body text-xs text-muted-foreground flex items-center gap-1.5 mb-1">
+                      <Calendar size={13} className="text-brand-gold" /> Check-out
+                    </p>
+                    <p className="font-heading text-sm sm:text-base font-bold text-foreground">
+                      {booking.checkOut ? new Date(booking.checkOut).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : '-'}
+                    </p>
+                    <p className="text-[11px] font-body text-muted-foreground">11:00 AM</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/60 bg-[#faf8f5] p-4 col-span-2 sm:col-span-1">
+                    <p className="font-body text-xs text-muted-foreground flex items-center gap-1.5 mb-1">
+                      <User size={13} className="text-brand-saffron" /> Occupancy
+                    </p>
+                    <p className="font-heading text-sm sm:text-base font-bold text-foreground">
+                      {booking.guests || booking.totalAdults || 1} Guest(s)
+                    </p>
+                    <p className="text-[11px] font-body text-muted-foreground">
+                      {booking.roomNumbers?.length ? `Room ${booking.roomNumbers.join(', ')}` : 'Room allocated'}
                     </p>
                   </div>
                 </div>
+
+                {/* Additional Notes */}
                 {booking.additionalInfo && (
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <p className="font-body text-xs text-muted-foreground mb-1">Additional Notes</p>
-                    <p className="font-body text-sm text-foreground">{booking.additionalInfo}</p>
-                  </div>
-                )}
-
-                {booking.bookingType === 'cab' && (
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <p className="font-body text-xs text-muted-foreground mb-2">Cab Details</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-body text-sm">
-                      <div><span className="text-muted-foreground text-xs block">Pickup</span><span className="font-medium">{booking.pickupLocation || '-'}</span></div>
-                      <div><span className="text-muted-foreground text-xs block">Drop</span><span className="font-medium">{booking.dropLocation || '-'}</span></div>
-                      <div><span className="text-muted-foreground text-xs block">Date</span><span className="font-medium">{booking.pickupDate || (booking.checkIn ? new Date(booking.checkIn).toLocaleDateString('en-IN') : '-') }</span></div>
-                      <div><span className="text-muted-foreground text-xs block">Time</span><span className="font-medium">{booking.pickupTime || '-'}</span></div>
-                      <div><span className="text-muted-foreground text-xs block">Cab Type</span><span className="font-medium">{booking.cabType || '-'}</span></div>
-                      <div><span className="text-muted-foreground text-xs block">Fare</span><span className="font-medium">Rs. {Number(booking.cabFareTotal || booking.totalAmount || 0).toLocaleString('en-IN')}</span></div>
-                    </div>
-
-                    {booking.bookingStatus === 'confirmed' && (booking.assignedVehicleName || booking.assignedDriverName) ? (
-                      <div className="mt-4 rounded-xl bg-secondary/40 border border-border p-4">
-                        <p className="font-body text-xs text-muted-foreground mb-2">Assigned Driver</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-body text-sm">
-                          <div><span className="text-muted-foreground text-xs block">Vehicle</span><span className="font-medium">{booking.assignedVehicleName || '-'}</span></div>
-                          <div><span className="text-muted-foreground text-xs block">Vehicle Type</span><span className="font-medium">{booking.assignedVehicleType || '-'}</span></div>
-                          <div><span className="text-muted-foreground text-xs block">Driver</span><span className="font-medium">{booking.assignedDriverName || '-'}</span></div>
-                          <div><span className="text-muted-foreground text-xs block">Contact</span><span className="font-medium">{booking.assignedDriverPhone || '-'}</span></div>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="mt-3 font-body text-[11px] text-muted-foreground">Driver details will appear here after admin confirms your booking.</p>
-                    )}
+                  <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-xs font-body text-muted-foreground">
+                    <strong className="text-foreground">Notes: </strong>{booking.additionalInfo}
                   </div>
                 )}
               </div>
 
-              {/* Guest Info */}
-              <div className="bg-card rounded-xl border border-border p-6">
-                <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Guest Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-body text-sm">
-                  <div className="flex min-w-0 items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
-                    <div className="w-8 h-8 shrink-0 rounded-lg bg-brand-crimson/10 flex items-center justify-center"><User size={14} className="text-brand-crimson" /></div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground">Name</p>
-                      <p className="font-medium text-foreground break-words">{customerName}</p>
-                    </div>
-                  </div>
-                  <div className="flex min-w-0 items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
-                    <div className="w-8 h-8 shrink-0 rounded-lg bg-brand-gold/10 flex items-center justify-center"><Phone size={14} className="text-brand-gold" /></div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground">Phone</p>
-                      <p className="font-medium text-foreground break-words">{customerPhone}</p>
-                    </div>
-                  </div>
-                  <div className="flex min-w-0 items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3 md:col-span-2">
-                    <div className="w-8 h-8 shrink-0 rounded-lg bg-brand-green/10 flex items-center justify-center"><Mail size={14} className="text-brand-green" /></div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground">Email</p>
-                      <p className="font-medium text-foreground break-all">{customerEmail}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Booking Progress Timeline */}
+              <BookingTimeline booking={booking} state={state} />
 
-              {modifyOpen && (
-                <div className="bg-card rounded-xl border border-border p-6">
-                  <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Modify Booking</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="font-body text-xs text-muted-foreground">
-                      Check-in
-                      <input
-                        type="date"
-                        value={modifyForm.checkInDate}
-                        onChange={(e) => setModifyForm((current) => ({ ...current, checkInDate: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-                      />
-                    </label>
-                    <label className="font-body text-xs text-muted-foreground">
-                      Check-out
-                      <input
-                        type="date"
-                        value={modifyForm.checkOutDate}
-                        onChange={(e) => setModifyForm((current) => ({ ...current, checkOutDate: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-                      />
-                    </label>
-                    <label className="font-body text-xs text-muted-foreground sm:col-span-2">
-                      Room Type
-                      <select
-                        value={modifyForm.roomTypeId}
-                        onChange={(e) => setModifyForm((current) => ({ ...current, roomTypeId: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-                      >
-                        <option value={modifyForm.roomTypeId}>{booking.itemName}</option>
-                        {roomTypes.map((rt) => (
-                          <option key={rt._id || rt.id} value={rt._id || rt.id}>
-                            {rt.name} - Rs. {Number(rt.pricePerNight || 0).toLocaleString('en-IN')}/night
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="font-body text-xs text-muted-foreground">
-                      Rooms
-                      <input
-                        type="number"
-                        min={1}
-                        max={20}
-                        value={modifyForm.roomQuantity}
-                        onChange={(e) => setModifyForm((current) => ({ ...current, roomQuantity: Number(e.target.value || 1) }))}
-                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-                      />
-                    </label>
-                    <label className="font-body text-xs text-muted-foreground">
-                      Adults
-                      <input
-                        type="number"
-                        min={1}
-                        value={modifyForm.adults}
-                        onChange={(e) => setModifyForm((current) => ({ ...current, adults: Number(e.target.value || 1) }))}
-                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-                      />
-                    </label>
-                    <label className="font-body text-xs text-muted-foreground">
-                      Children
-                      <input
-                        type="number"
-                        min={0}
-                        value={modifyForm.children}
-                        onChange={(e) => setModifyForm((current) => ({ ...current, children: Number(e.target.value || 0) }))}
-                        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 font-body text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        checked={modifyForm.pets}
-                        onChange={(e) => setModifyForm((current) => ({ ...current, pets: e.target.checked }))}
-                      />
-                      Pet travelling
-                    </label>
-                  </div>
+              {/* Guest Information Card (P3: Verified correct customer contact) */}
+              <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-sm">
+                <h3 className="font-heading text-base font-bold text-foreground mb-4 pb-3 border-b border-border/60 flex items-center justify-between">
+                  <span>Guest Information</span>
+                  <span className="font-body text-xs text-muted-foreground font-normal">Primary Traveller</span>
+                </h3>
 
-                  {modifyPreview && (
-                    <div className="mt-4 rounded-lg border border-border bg-background/70 p-4">
-                      <div className="grid grid-cols-2 gap-3 font-body text-sm">
-                        <div><span className="block text-xs text-muted-foreground">Current total</span><span className="font-semibold">{formatMoney(modifyPreview.oldAmount)}</span></div>
-                        <div><span className="block text-xs text-muted-foreground">New total</span><span className="font-semibold">{formatMoney(modifyPreview.newAmount)}</span></div>
-                        <div><span className="block text-xs text-muted-foreground">Availability</span><span className={modifyPreview.inventoryAvailable ? 'text-brand-green' : 'text-destructive'}>{modifyPreview.inventoryAvailable ? 'Available' : 'Unavailable'}</span></div>
-                        <div>
-                          <span className="block text-xs text-muted-foreground">
-                            {modifyPreview.paymentAction === 'additional_payment' ? 'Additional amount due' : modifyPreview.paymentAction === 'refund' ? 'Refund amount' : 'Price difference'}
-                          </span>
-                          <span className="font-semibold">
-                            {formatMoney(modifyPreview.paymentAction === 'refund' ? modifyPreview.refundAmount : Math.abs(Number(modifyPreview.differenceAmount || 0)))}
-                          </span>
-                        </div>
-                      </div>
-                      {modifyPreview.paymentAction === 'refund' && (
-                        <p className="mt-3 font-body text-xs text-muted-foreground">Refund processing may take time depending on Razorpay, the bank, and payment method.</p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={previewModification}
-                      disabled={isPreviewingModification}
-                      className="rounded-lg border border-border px-4 py-2 font-body text-xs font-semibold hover:bg-muted disabled:opacity-60"
-                    >
-                      {isPreviewingModification ? 'Checking...' : 'Check Availability'}
-                    </button>
-                    <button
-                      onClick={confirmModification}
-                      disabled={isSubmittingModification || !modifyPreview?.inventoryAvailable}
-                      className="rounded-lg bg-brand-crimson px-4 py-2 font-body text-xs font-semibold text-primary-foreground disabled:opacity-60"
-                    >
-                      {isSubmittingModification ? 'Submitting...' : 'Confirm Modification'}
-                    </button>
-                    <button
-                      onClick={() => setModifyOpen(false)}
-                      className="rounded-lg border border-border px-4 py-2 font-body text-xs"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Payment Sidebar */}
-            <div className="space-y-6">
-              <div className="bg-card rounded-xl border border-border p-6">
-                <p className="font-body text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-crimson mb-1">{voucherLabel}</p>
-                <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Payment Summary</h3>
-                <div className="space-y-3">
-                  {isDharamshalaBooking ? (
-                    <>
-                      <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Dharamshala contribution</span>
-                        <span className="text-right font-semibold text-foreground">
-                          {isAcceptedDharamshala ? formatMoney(roomAmount) : 'Visible after partner acceptance'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Payment</span>
-                        <span className="text-right font-semibold text-foreground">
-                          {booking.paymentMode === 'full_online'
-                            ? (booking.paymentStatus === 'paid' ? 'Paid online' : 'Pending online')
-                            : 'Pay at Dharamshala'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Platform fee</span>
-                        <span className="font-semibold text-foreground">{formatMoney(convenienceFee)}</span>
-                      </div>
-                      <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Payable at check-in / as per Dharamshala</span>
-                        <span className="text-right font-bold text-foreground">
-                          {isAcceptedDharamshala ? formatMoney(balancePayable) : 'Visible after partner acceptance'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">{booking.paymentStatus === 'paid' ? 'Paid online' : 'Pending online'}</span>
-                        <span className="font-bold text-brand-green">{formatMoney(advancePaid)}</span>
-                      </div>
-                    </>
-                  ) : isHotelMarketplace ? (
-                    <>
-                      <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Room Amount</span>
-                        <span className="font-semibold text-foreground">{formatMoney(roomAmount)}</span>
-                      </div>
-                      <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Hotel Taxes</span>
-                        <span className="font-semibold text-foreground">{formatMoney(hotelTaxes)}</span>
-                      </div>
-                      <div className="flex justify-between gap-4 font-body text-sm">
-                        <span className="text-muted-foreground">Platform fee</span>
-                        <span className="font-semibold text-foreground">{formatMoney(convenienceFee)}</span>
-                      </div>
-                    </>
-                  ) : null}
-                  {!isDharamshalaBooking && <div className="flex justify-between gap-4 font-body text-sm">
-                    <span className="font-semibold text-foreground">Total Payable</span>
-                    <span className="font-bold text-brand-crimson">{formatMoney(totalPayable)}</span>
-                  </div>}
-                  {!isDharamshalaBooking && <div className="flex justify-between gap-4 font-body text-sm">
-                    <span className="text-muted-foreground">Advance Paid Online</span>
-                    <span className="font-semibold text-brand-green">{formatMoney(advancePaid)}</span>
-                  </div>}
-                  {!isDharamshalaBooking && isHotelMarketplace && (
-                    <div className="flex justify-between gap-4 font-body text-sm">
-                      <span className="text-muted-foreground">Balance at Property</span>
-                      <span className="font-semibold text-foreground">{formatMoney(balancePayable)}</span>
-                    </div>
-                  )}
-                  <div className="hidden">
-                    <span className="text-muted-foreground">Amount</span>
-                    <span className="font-semibold text-foreground">Rs. {booking.totalAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between font-body text-sm">
-                    <span className="text-muted-foreground">Method</span>
-                    <span className="text-foreground">{booking.paymentMethod === 'doorstep' ? 'Pay at Doorstep' : 'Online'}</span>
-                  </div>
-                  <div className="flex justify-between font-body text-sm">
-                    <span className="text-muted-foreground">Payment Status</span>
-                    <span className="flex items-center gap-1 capitalize">
-                      {booking.paymentStatus === 'paid' ? <CheckCircle2 size={12} className="text-brand-green" /> : booking.paymentStatus === 'failed' ? <XCircle size={12} className="text-destructive" /> : <Clock size={12} className="text-brand-saffron" />}
-                      {booking.paymentStatus}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-body">
+                  <div className="rounded-2xl border border-border/60 bg-[#faf8f5] p-4">
+                    <span className="text-muted-foreground block text-[11px] mb-1">Full Name</span>
+                    <span className="font-heading text-sm font-bold text-foreground flex items-center gap-2">
+                      <User size={14} className="text-brand-crimson" /> {customerName}
                     </span>
                   </div>
-                  <div className="flex justify-between font-body text-sm">
-                    <span className="text-muted-foreground">Verification</span>
-                    <span className="text-right text-foreground">{verificationLabel}</span>
+
+                  <div className="rounded-2xl border border-border/60 bg-[#faf8f5] p-4">
+                    <span className="text-muted-foreground block text-[11px] mb-1">Phone Number</span>
+                    <span className="font-heading text-sm font-bold text-foreground flex items-center gap-2">
+                      <Phone size={14} className="text-brand-green" /> {customerPhone}
+                    </span>
                   </div>
-                  <div className="h-px bg-border" />
-                  <div className={`flex justify-between font-body text-base ${isDharamshalaBooking && !isAcceptedDharamshala ? 'hidden' : ''}`}>
-                    <span className="font-semibold text-foreground">{isDharamshalaBooking ? 'Total booking value' : 'Booking Total'}</span>
-                    <span className="font-bold text-brand-crimson text-lg">Rs. {booking.totalAmount.toLocaleString('en-IN')}</span>
+
+                  <div className="rounded-2xl border border-border/60 bg-[#faf8f5] p-4 sm:col-span-2">
+                    <span className="text-muted-foreground block text-[11px] mb-1">Email Address</span>
+                    <span className="font-heading text-sm font-bold text-foreground flex items-center gap-2 break-all">
+                      <Mail size={14} className="text-brand-gold" /> {customerEmail}
+                    </span>
                   </div>
-                  {isHotelMarketplace && (
-                    <p className="rounded-lg border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-relaxed text-muted-foreground">
-                      {isDharamshalaBooking
-                        ? 'Dharamshala contribution is payable directly to the property according to its applicable terms. The property will issue its applicable receipt.'
-                        : 'This is not a tax invoice for accommodation. The property partner will issue the hotel tax invoice where applicable.'}
-                    </p>
-                  )}
                 </div>
               </div>
 
-              {(isDharamshalaBooking ? isConfirmedDharamshala : booking.bookingStatus === 'confirmed') && (booking.partnerName || booking.partnerPhone || booking.partnerEmail) && (
-                <div className="bg-card rounded-xl border border-border p-6">
-                  <h3 className="font-heading text-sm font-semibold text-foreground mb-3">
-                    {isDharamshalaBooking ? 'Dharamshala Contact' : 'Property Contact'}
+              {/* Property Host Contact Card (Only shown when allowed/confirmed) */}
+              {showHostContact ? (
+                <div className="rounded-3xl border border-brand-gold/30 bg-card p-6 shadow-sm">
+                  <h3 className="font-heading text-base font-bold text-foreground mb-3 pb-3 border-b border-border/60 flex items-center gap-2">
+                    <Hotel size={18} className="text-brand-crimson" />
+                    <span>Host / Property Contact</span>
                   </h3>
-                  {isDharamshalaBooking && (
-                    <p className="mb-3 rounded-lg border border-brand-gold/25 bg-brand-cream/60 px-3 py-2 font-body text-[11px] leading-5 text-muted-foreground">
-                      The Dharamshala has accepted your request. Any remaining room contribution, if applicable, is payable according to the Dharamshala terms.
-                    </p>
-                  )}
-                  <div className="space-y-2 font-body text-sm">
-                    <p className="font-semibold text-foreground">{booking.partnerName || '-'}</p>
-                    {booking.partnerPhone && (
-                      <a href={`tel:${booking.partnerPhone}`} className="inline-flex items-center gap-2 text-brand-crimson hover:underline">
-                        <Phone size={14} /> {booking.partnerPhone}
-                      </a>
-                    )}
-                    {partnerWhatsapp && (
-                      <a
-                        href={`https://wa.me/${partnerWhatsapp}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 text-brand-green hover:underline"
-                      >
-                        <MessageCircle size={14} /> WhatsApp {booking.partnerWhatsapp || booking.partnerPhone}
-                      </a>
-                    )}
-                    {booking.partnerEmail && (
-                      <a href={`mailto:${booking.partnerEmail}`} className="flex items-center gap-2 text-foreground hover:underline">
-                        <Mail size={14} /> {booking.partnerEmail}
-                      </a>
-                    )}
+                  <p className="font-body text-xs text-muted-foreground mb-4 leading-relaxed">
+                    Your reservation is confirmed. You can reach out directly to your host for check-in assistance or property directions.
+                  </p>
+
+                  <div className="space-y-3 font-body text-sm">
+                    <p className="font-bold text-foreground">{booking.partnerName || 'Property Partner'}</p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {booking.partnerPhone && (
+                        <a
+                          href={`tel:${booking.partnerPhone}`}
+                          className="inline-flex items-center gap-2 rounded-xl border border-brand-crimson/30 bg-brand-crimson/5 px-4 py-2 font-body text-xs font-bold text-brand-crimson hover:bg-brand-crimson/10 transition-colors"
+                        >
+                          <Phone size={13} /> Call {booking.partnerPhone}
+                        </a>
+                      )}
+                      {partnerWhatsapp && (
+                        <a
+                          href={`https://wa.me/${partnerWhatsapp}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl border border-brand-green/30 bg-brand-green/5 px-4 py-2 font-body text-xs font-bold text-brand-green hover:bg-brand-green/10 transition-colors"
+                        >
+                          <MessageCircle size={13} /> WhatsApp
+                        </a>
+                      )}
+                      {booking.partnerEmail && (
+                        <a
+                          href={`mailto:${booking.partnerEmail}`}
+                          className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 font-body text-xs font-semibold text-foreground hover:bg-secondary transition-colors"
+                        >
+                          <Mail size={13} /> Email
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
-
-              {canReview && (
-                <div className="bg-card rounded-xl border border-border p-6">
-                  <h3 className="font-heading text-sm font-semibold text-foreground mb-3">Rate Your Stay</h3>
-                  <select
-                    value={reviewRating}
-                    onChange={(e) => setReviewRating(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm"
-                  >
-                    {[5, 4, 3, 2, 1].map((rating) => (
-                      <option key={rating} value={rating}>{rating} Star{rating > 1 ? 's' : ''}</option>
-                    ))}
-                  </select>
-                  <textarea
-                    rows={4}
-                    value={reviewText}
-                    onChange={(e) => setReviewText(e.target.value)}
-                    placeholder="Share your experience"
-                    className="mt-3 w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm resize-none"
-                  />
-                  <button
-                    onClick={submitReview}
-                    disabled={isReviewing}
-                    className="mt-3 w-full py-2.5 rounded-xl bg-brand-gold text-foreground font-body text-sm font-semibold disabled:opacity-60"
-                  >
-                    {isReviewing ? 'Submitting...' : 'Submit Review'}
-                  </button>
+              ) : (
+                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-xs font-body text-muted-foreground leading-relaxed">
+                  <p className="font-semibold text-foreground flex items-center gap-1.5 mb-1">
+                    <ShieldCheck size={14} className="text-muted-foreground" />
+                    <span>Host Contact Protection</span>
+                  </p>
+                  Direct property contact details are unlocked automatically once your booking is confirmed.
                 </div>
               )}
 
-              {canPayAcceptedDharamshala && (
-                <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/10 p-4">
-                  <p className="font-body text-sm font-semibold text-foreground">
-                    Your request has been accepted. Pay the shown amount within 30 minutes to confirm this booking.
-                  </p>
-                  <p className="mt-1 font-body text-xs leading-5 text-muted-foreground">
-                    Property contact details will be visible after successful payment and booking confirmation.
-                  </p>
-                  <button
-                    onClick={payAcceptedDharamshala}
-                    disabled={isPayingDharamshala}
-                    className="mt-4 w-full py-3 rounded-xl bg-brand-gold text-foreground font-body text-sm font-semibold hover:bg-brand-gold/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              {/* Devotional Support Helpline Card */}
+              <div className="rounded-3xl border border-brand-gold/30 bg-brand-cream/60 p-5 sm:p-6 text-xs font-body leading-relaxed text-muted-foreground">
+                <p className="font-bold text-foreground flex items-center gap-2 mb-1.5 text-sm font-heading">
+                  <ShieldCheck size={16} className="text-brand-crimson" />
+                  <span>Vrindavan Sarthi 24/7 Pilgrimage Support</span>
+                </p>
+                Need help with your Braj yatra or reservation? Our dedicated support team is available around the clock.
+                <div className="mt-3 flex items-center gap-2">
+                  <a
+                    href="tel:+918679820256"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-card border border-border px-3.5 py-1.5 font-body text-xs font-bold text-foreground hover:border-brand-crimson transition-colors"
                   >
-                    <CreditCard size={16} /> {isPayingDharamshala ? 'Opening Razorpay...' : `Pay ${formatMoney(acceptedOnlineAmount)} and Confirm`}
-                  </button>
+                    <Phone size={12} className="text-brand-crimson" />
+                    <span>+91 86798 20256</span>
+                  </a>
+                  <span className="text-[11px] text-muted-foreground">Toll-free pilgrim desk</span>
                 </div>
-              )}
+              </div>
+            </div>
 
-              {canFindAnotherDharamshala && (
-                <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
-                  <p className="font-body text-sm font-semibold text-foreground">
-                    {booking.bookingStatus === 'rejected_by_property'
-                      ? 'This Dharamshala could not confirm your requested dates.'
-                      : 'This request expired because the Dharamshala did not respond in time.'}
-                  </p>
-                  <Link
-                    to="/hotels?type=dharamshala"
-                    className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-brand-crimson px-4 py-3 font-body text-sm font-semibold text-primary-foreground hover:bg-brand-crimson/90"
-                  >
-                    Find Another Dharamshala
-                  </Link>
+            {/* Right Column: Sticky Pricing, Payment Transparency & Action Card */}
+            <div className="space-y-4 lg:sticky lg:top-24">
+              <div className="rounded-3xl border border-brand-gold/30 bg-card p-6 shadow-sm space-y-5">
+                <div className="pb-3 border-b border-border/60">
+                  <h3 className="font-heading text-lg font-bold text-foreground">Payment Summary</h3>
+                  <p className="font-body text-xs text-muted-foreground mt-0.5">Transparent fee breakdown</p>
                 </div>
-              )}
 
-              {booking.bookingStatus === 'confirmed' && (
-                <div className="space-y-2">
-                  {canModify && (
-                    <button
-                      onClick={openModify}
-                      className="w-full py-3 rounded-xl bg-brand-gold text-foreground font-body text-sm font-semibold hover:bg-brand-gold/90 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Calendar size={16} /> Modify Booking
-                    </button>
+                <div className="space-y-3 font-body text-sm">
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Room Tariff</span>
+                    <span className="font-medium text-foreground">{formatMoney(roomAmount)}</span>
+                  </div>
+
+                  {hotelTaxes > 0 && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">Taxes & GST</span>
+                      <span className="font-medium text-foreground">{formatMoney(hotelTaxes)}</span>
+                    </div>
                   )}
-                  <button
-                    onClick={handleCancel}
-                    className="w-full py-3 rounded-xl border-2 border-destructive text-destructive font-body text-sm font-medium hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <XCircle size={16} /> Cancel Booking
-                  </button>
-                </div>
-              )}
 
-              <Link
-                to={viewItemHref}
-                className="block w-full py-3 rounded-xl bg-brand-crimson text-primary-foreground font-body text-sm font-medium text-center hover:bg-brand-crimson/90 transition-colors"
-              >
-                View Details
-              </Link>
+                  {convenienceFee > 0 && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">Service / Platform Fee</span>
+                      <span className="font-medium text-foreground">{formatMoney(convenienceFee)}</span>
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-border/60 flex justify-between gap-4">
+                    <span className="font-bold text-foreground text-base">Total Payable</span>
+                    <span className="font-extrabold text-brand-crimson text-lg">{formatMoney(totalPayable)}</span>
+                  </div>
+
+                  <div className="flex justify-between gap-4 text-xs">
+                    <span className="text-muted-foreground">Paid Online</span>
+                    <span className="font-bold text-brand-green">{formatMoney(advancePaid)}</span>
+                  </div>
+
+                  {balancePayable > 0 && (
+                    <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/10 p-3 flex justify-between items-center gap-4 text-xs">
+                      <span className="font-bold text-foreground">Balance at Property</span>
+                      <span className="font-extrabold text-brand-crimson text-sm">{formatMoney(balancePayable)}</span>
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-border/50 flex justify-between gap-4 text-xs">
+                    <span className="text-muted-foreground">Payment Status</span>
+                    <span className="font-bold capitalize text-foreground flex items-center gap-1">
+                      {booking.paymentStatus === 'paid' ? (
+                        <CheckCircle2 size={13} className="text-brand-green" />
+                      ) : (
+                        <Clock size={13} className="text-brand-saffron" />
+                      )}
+                      {booking.paymentStatus.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Primary State Action Box */}
+                <div className="pt-2">
+                  {/* Case 1: Payment Verifying State */}
+                  {isVerifyingPayment ? (
+                    <div className="rounded-2xl border border-brand-saffron/40 bg-brand-saffron/10 p-4 text-center space-y-2.5">
+                      <div className="w-7 h-7 border-2 border-brand-crimson border-t-transparent rounded-full animate-spin mx-auto" />
+                      <p className="font-heading text-sm font-bold text-foreground">Verifying Payment...</p>
+                      <p className="font-body text-xs text-muted-foreground leading-relaxed">
+                        Communicating with your bank and confirming room allocation. Please do not close or reload this window.
+                      </p>
+                    </div>
+                  ) : state.canPay ? (
+                    /* Case 2: Awaiting Customer Payment */
+                    <div className="space-y-3">
+                      <button
+                        onClick={payAcceptedDharamshala}
+                        disabled={isPayingDharamshala || isVerifyingPayment}
+                        className="w-full py-3.5 px-4 rounded-2xl bg-brand-crimson text-white font-body text-sm font-bold hover:bg-brand-crimson/90 transition-all shadow-md hover:shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        <CreditCard size={17} />
+                        <span>{isPayingDharamshala ? 'Opening Razorpay...' : `Pay ${formatMoney(acceptedOnlineAmount)} & Confirm`}</span>
+                      </button>
+                      <p className="font-body text-[11px] text-center text-muted-foreground leading-relaxed">
+                        Secured by 256-bit encrypted Razorpay Checkout. UPI, Cards & Netbanking accepted.
+                      </p>
+                    </div>
+                  ) : state.isAwaitingApproval ? (
+                    /* Case 3: Awaiting Property Approval */
+                    <div className="rounded-2xl border border-brand-saffron/30 bg-brand-saffron/5 p-4 text-center space-y-2.5">
+                      <Clock size={24} className="mx-auto text-brand-saffron" />
+                      <p className="font-heading text-sm font-bold text-foreground">Awaiting Host Confirmation</p>
+                      <p className="font-body text-xs text-muted-foreground leading-relaxed">
+                        The property partner is checking availability. Once approved, the payment option will unlock here.
+                      </p>
+                      <button
+                        onClick={() => refreshBooking()}
+                        disabled={isRefreshing}
+                        className="w-full mt-2 py-2 px-3 rounded-xl border border-border bg-card font-body text-xs font-semibold text-foreground hover:bg-secondary transition-colors inline-flex items-center justify-center gap-1.5"
+                      >
+                        <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+                        <span>Check Approval Status</span>
+                      </button>
+                    </div>
+                  ) : state.isConfirmed ? (
+                    /* Case 4: Booking Confirmed */
+                    <div className="space-y-2">
+                      <div className="rounded-2xl border border-brand-green/30 bg-brand-green/10 p-4 text-center">
+                        <CheckCircle2 size={24} className="mx-auto text-brand-green mb-1.5" />
+                        <p className="font-heading text-sm font-bold text-foreground">Reservation Confirmed</p>
+                        <p className="font-body text-xs text-muted-foreground mt-0.5">Your room is guaranteed for check-in.</p>
+                      </div>
+
+                      {canModify && (
+                        <button
+                          onClick={openModify}
+                          className="w-full py-3 rounded-2xl bg-brand-gold text-foreground font-body text-sm font-bold hover:bg-brand-gold/90 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Calendar size={15} /> Modify Dates / Guests
+                        </button>
+                      )}
+
+                      <button
+                        onClick={handleCancel}
+                        className="w-full py-2.5 rounded-2xl border border-destructive/40 text-destructive font-body text-xs font-semibold hover:bg-destructive/5 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <XCircle size={14} /> Cancel Reservation
+                      </button>
+                    </div>
+                  ) : state.code === 'expired' || state.code === 'expired_property_no_response' || state.code === 'rejected_by_property' ? (
+                    /* Case 5: Expired / Declined */
+                    <div className="rounded-2xl border border-destructive/25 bg-destructive/5 p-4 text-center space-y-3">
+                      <AlertCircle size={24} className="mx-auto text-destructive" />
+                      <div>
+                        <p className="font-heading text-sm font-bold text-foreground">
+                          {state.code === 'rejected_by_property'
+                            ? 'Property Unavailable'
+                            : 'Booking Window Expired'}
+                        </p>
+                        <p className="font-body text-xs text-muted-foreground mt-1 leading-relaxed">
+                          {state.code === 'rejected_by_property'
+                            ? 'The property was unable to confirm these dates.'
+                            : 'The active hold or response window lapsed without completion.'}
+                        </p>
+                      </div>
+                      <Link
+                        to="/hotels"
+                        className="w-full inline-flex items-center justify-center py-2.5 px-4 rounded-xl bg-brand-crimson text-white font-body text-xs font-bold hover:bg-brand-crimson/90 transition-colors shadow-sm"
+                      >
+                        Find Another Stay in Braj
+                      </Link>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -867,4 +979,3 @@ const BookingDetail = () => {
 };
 
 export default BookingDetail;
-

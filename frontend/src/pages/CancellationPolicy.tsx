@@ -127,9 +127,50 @@ const CancellationPolicy = () => {
               <IndianRupee size={21} />
             </span>
             <div>
-              <h2 className="font-heading text-2xl font-semibold text-foreground">General Refund Rule</h2>
+              <h2 className="font-heading text-2xl font-semibold text-foreground">Standard Cancellation & Refund Policy</h2>
               <p className="mt-2 font-body text-sm leading-7 text-muted-foreground">
-                When a booking or order is eligible for cancellation through Vrindavan Sarthi, the system may apply a standard 12% cancellation charge. The remaining eligible amount is marked refundable after admin review, payment verification, and any applicable partner or property policy.
+                Cancellations are measured relative to the scheduled property check-in time (12:00 PM IST reference).
+              </p>
+              <div className="mt-4 overflow-hidden rounded-lg border border-border">
+                <table className="w-full font-body text-xs sm:text-sm text-left">
+                  <thead className="bg-muted text-foreground font-semibold">
+                    <tr>
+                      <th className="p-2.5 sm:p-3">Timeline (Before Scheduled Check-In)</th>
+                      <th className="p-2.5 sm:p-3">Eligible Refund</th>
+                      <th className="p-2.5 sm:p-3">Cancellation Deduction</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    <tr className="bg-card">
+                      <td className="p-2.5 sm:p-3 font-medium text-foreground">&gt; 48 hours before check-in</td>
+                      <td className="p-2.5 sm:p-3 text-brand-green font-semibold">75% refund</td>
+                      <td className="p-2.5 sm:p-3 text-muted-foreground">25% deduction</td>
+                    </tr>
+                    <tr className="bg-card/70">
+                      <td className="p-2.5 sm:p-3 font-medium text-foreground">24 hours up to &amp; including 48 hours</td>
+                      <td className="p-2.5 sm:p-3 text-brand-gold font-semibold">50% refund</td>
+                      <td className="p-2.5 sm:p-3 text-muted-foreground">50% deduction</td>
+                    </tr>
+                    <tr className="bg-card">
+                      <td className="p-2.5 sm:p-3 font-medium text-foreground">&lt; 24 hours before check-in</td>
+                      <td className="p-2.5 sm:p-3 text-destructive font-semibold">0% refund</td>
+                      <td className="p-2.5 sm:p-3 text-muted-foreground">100% deduction</td>
+                    </tr>
+                    <tr className="bg-card/70">
+                      <td className="p-2.5 sm:p-3 font-medium text-foreground">No-Show (past check-in + grace period)</td>
+                      <td className="p-2.5 sm:p-3 text-destructive font-semibold">0% refund</td>
+                      <td className="p-2.5 sm:p-3 text-muted-foreground">100% charge</td>
+                    </tr>
+                    <tr className="bg-card">
+                      <td className="p-2.5 sm:p-3 font-medium text-foreground">Property or Platform Inability to Host</td>
+                      <td className="p-2.5 sm:p-3 text-brand-green font-semibold">100% full refund</td>
+                      <td className="p-2.5 sm:p-3 text-muted-foreground">0% deduction</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 font-body text-xs text-muted-foreground">
+                * Note: For 30% advance online bookings, the 30% advance is non-refundable upon voluntary customer cancellation. Refund percentages for 100% online bookings are calculated on captured online funds.
               </p>
             </div>
           </div>

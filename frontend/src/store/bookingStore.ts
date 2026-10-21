@@ -354,6 +354,10 @@ interface BookingState {
   rejectDharamshalaRequest: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   markDharamshalaNoShow: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   completeDharamshalaBooking: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  markNoShow: (id: string, reason?: string, gracePeriodHours?: number) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  collectBalance: (id: string, payload: { amountCollected: number; paymentMethod?: string; notes?: string; receiptNumber?: string; idempotencyKey?: string }) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  disputeNoShow: (id: string, reason: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  reviewNoShowDispute: (id: string, resolution: 'upheld' | 'overturned_customer_refund', notes?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerCheckIn: (id: string, guestDigitalSignature: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
 }
 
@@ -630,6 +634,74 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
       return { success: true, data: updated };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'No-show update failed') };
+    }
+  },
+
+  markNoShow: async (id, reason, gracePeriodHours) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/no-show`, { reason, gracePeriodHours }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'No-show update failed') };
+    }
+  },
+
+  collectBalance: async (id, payload) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/collect-balance`, payload, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Balance collection failed') };
+    }
+  },
+
+  disputeNoShow: async (id, reason) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.post(`/bookings/${id}/no-show-dispute`, { reason }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Dispute submission failed') };
+    }
+  },
+
+  reviewNoShowDispute: async (id, resolution, notes) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/no-show-review`, { resolution, notes }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Dispute review failed') };
     }
   },
 

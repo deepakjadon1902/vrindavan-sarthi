@@ -13,6 +13,8 @@ import SimpleBookingPanel from '@/components/shared/SimpleBookingPanel';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { hasPropertyTermsText, normalizePropertyTerms } from '@/components/shared/PropertyTerms';
 import { isDharamshalaType } from '@/lib/propertyTypes';
+import { BookingCountdownTimer } from '@/components/BookingCountdownTimer';
+import { filterSafeGallery } from '@/lib/imageSanitizer';
 
 declare global {
   interface Window {
@@ -27,20 +29,54 @@ const getLocalDateKey = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-const loadRazorpayCheckout = () =>
+const loadRazorpayCheckout = (timeoutMs = 10000) =>
   new Promise<void>((resolve, reject) => {
     if (window.Razorpay) return resolve();
+    let timeoutId: ReturnType<typeof setTimeout>;
     const existing = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
     if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Razorpay Checkout failed to load')), { once: true });
+      if (window.Razorpay) return resolve();
+      const onExistingLoad = () => {
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      const onExistingError = () => {
+        clearTimeout(timeoutId);
+        reject(new Error('Razorpay Checkout failed to load'));
+      };
+      existing.addEventListener('load', onExistingLoad, { once: true });
+      existing.addEventListener('error', onExistingError, { once: true });
+      timeoutId = setTimeout(() => {
+        existing.removeEventListener('load', onExistingLoad);
+        existing.removeEventListener('error', onExistingError);
+        if (window.Razorpay) {
+          resolve();
+        } else {
+          reject(new Error('Razorpay Checkout timed out while loading'));
+        }
+      }, timeoutMs);
       return;
     }
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Razorpay Checkout failed to load'));
+    timeoutId = setTimeout(() => {
+      script.onload = null;
+      script.onerror = null;
+      if (window.Razorpay) {
+        resolve();
+      } else {
+        reject(new Error('Razorpay Checkout timed out while loading'));
+      }
+    }, timeoutMs);
+    script.onload = () => {
+      clearTimeout(timeoutId);
+      resolve();
+    };
+    script.onerror = () => {
+      clearTimeout(timeoutId);
+      reject(new Error('Razorpay Checkout failed to load'));
+    };
     document.body.appendChild(script);
   });
 
@@ -89,6 +125,7 @@ const RoomTypeDetail = () => {
   const [guestCredentialMessage, setGuestCredentialMessage] = useState('');
   const [isWaitlistedBooking, setIsWaitlistedBooking] = useState(false);
   const [isRequestSubmitted, setIsRequestSubmitted] = useState(false);
+  const [submittedBooking, setSubmittedBooking] = useState<any>(null);
   const [booked, setBooked] = useState(false);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityCalendar, setAvailabilityCalendar] = useState<any[] | null>(null);
@@ -421,6 +458,7 @@ const RoomTypeDetail = () => {
       setIsWaitlistedBooking(Boolean(pendingBooking.isWaitlisted));
 
       if (pendingBooking.bookingStatus === 'pending_property_confirmation') {
+        setSubmittedBooking(pendingBooking);
         setIsRequestSubmitted(true);
         setBooked(true);
         if (guestAccountMessage) toast.info(guestAccountMessage);
@@ -461,7 +499,7 @@ const RoomTypeDetail = () => {
         prefill: {
           name: customerFullName,
           email: customerEmail,
-          contact: supportDigits || customerMobile,
+          contact: String(customerMobile || '').replace(/\D/g, '') || String(supportDigits || '').replace(/\D/g, ''),
         },
         notes: {
           bookingId: pendingBooking.bookingId,
@@ -524,7 +562,8 @@ const RoomTypeDetail = () => {
     }
   };
 
-  const images = Array.isArray(roomType.images) && roomType.images.length ? roomType.images : [hotel.image, ...(hotel.images || [])].filter(Boolean);
+  const rawImages = Array.isArray(roomType.images) && roomType.images.length ? roomType.images : [hotel.image, ...(hotel.images || [])].filter(Boolean);
+  const images = filterSafeGallery(rawImages);
   const roomDescription = truncate(roomType.description || `${roomType.name} at ${hotel.name}, ${hotel.location || 'Braj'}, with verified booking support from Vrindavan Sarthi.`);
   const roomJsonLd = {
     '@context': 'https://schema.org',
@@ -702,26 +741,64 @@ const RoomTypeDetail = () => {
           {/* ── Right / Booking sidebar ───────────────────────────────────── */}
           <div className="min-w-0 lg:flex lg:h-full">
             {booked ? (
-            <div className="premium-surface p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-                  <Shield size={22} className="text-green-600" />
+              <div className="premium-surface p-5 sm:p-6 text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-brand-green/12 text-brand-green flex items-center justify-center mx-auto">
+                  <Shield size={24} />
                 </div>
-                <p className="text-lg font-bold text-gray-900">{isRequestSubmitted ? 'Request Submitted' : 'Booking Successful'}</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {isRequestSubmitted
-                  ? (isDharamshala ? 'Your booking request has been sent to the Dharamshala for confirmation.' : 'Your booking request has been sent to the property for confirmation. You can pay after it is accepted.')
-                    : isWaitlistedBooking ? 'Payment verified. You are on the waitlist.' : 'Your payment is verified and room booking is confirmed.'}
-                </p>
-                {bookingId && <p className="text-xs text-gray-400 mt-2">Booking ID: <span className="text-gray-700 font-medium">{bookingId}</span></p>}
+                <div>
+                  <p className="text-xl font-heading font-bold text-foreground">
+                    {isRequestSubmitted ? 'Request Submitted' : 'Booking Successful'}
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-sm mx-auto leading-relaxed">
+                    {isRequestSubmitted
+                      ? (isDharamshala
+                        ? 'Your booking request has been sent to the Dharamshala for confirmation.'
+                        : 'Your booking request has been sent to the property for confirmation. You can pay after it is accepted.')
+                      : isWaitlistedBooking
+                      ? 'Payment verified. You are on the waitlist.'
+                      : 'Your payment is verified and room booking is confirmed.'}
+                  </p>
+                </div>
+
+                {isRequestSubmitted && submittedBooking?.requestExpiresAt && (
+                  <div className="text-left">
+                    <BookingCountdownTimer
+                      timerType="request_approval"
+                      expiresAt={submittedBooking.requestExpiresAt}
+                      totalMinutes={5}
+                      label="Property Response Window"
+                    />
+                  </div>
+                )}
+
+                {bookingId && (
+                  <div className="rounded-xl border border-border/70 bg-background/60 p-3 text-xs">
+                    <span className="text-muted-foreground">Booking ID: </span>
+                    <span className="font-mono font-bold text-foreground">{bookingId}</span>
+                  </div>
+                )}
+
                 {guestCredentialMessage && (
-                  <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-left text-xs leading-5 text-amber-900">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs leading-5 text-amber-900">
                     <p className="font-bold">Guest login saved</p>
                     <p>{guestCredentialMessage}</p>
                   </div>
                 )}
-                <Link to="/bookings" className="btn-crimson inline-block mt-4 px-6 py-2.5 rounded-lg text-sm font-semibold">
-                  View My Bookings
-                </Link>
+
+                <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                  <Link
+                    to={submittedBooking?.id ? `/bookings/${submittedBooking.id}` : '/bookings'}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-brand-crimson text-white font-body text-sm font-semibold hover:bg-brand-crimson/90 transition-colors text-center"
+                  >
+                    Track Booking Status
+                  </Link>
+                  <Link
+                    to="/bookings"
+                    className="py-2.5 px-4 rounded-xl border border-border bg-card text-foreground font-body text-sm font-medium hover:bg-secondary transition-colors text-center"
+                  >
+                    My Bookings
+                  </Link>
+                </div>
               </div>
             ) : (
               <div

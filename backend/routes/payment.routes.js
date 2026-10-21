@@ -7,7 +7,16 @@ const { rejectInvalidObjectId } = require('../utils/security');
 const {
   markBookingPaymentPaid,
   markBookingPaymentFailed,
+  hasExpectedInventoryLocks,
+  isLodgingBooking,
+  transitionBookingStatus,
+  releaseBookingInventory,
 } = require('../utils/reservationLifecycle');
+const {
+  createOrGetPaymentReconciliation,
+  markReconciliationRequired,
+  enqueuePaymentReconciliation,
+} = require('../utils/paymentReconciliation');
 const {
   getRazorpayConfig,
   verifyPaymentSignature,
@@ -22,7 +31,6 @@ const {
   processWebhookEventJob,
 } = require('../utils/razorpayWebhook');
 const { reconcileRefundOperation } = require('../utils/refundOperations');
-const { enqueuePaymentReconciliation } = require('../utils/paymentReconciliation');
 const { payableAmountForBooking } = require('../utils/bookingPayable');
 const { findBookingForCustomerPayment } = require('../utils/guestBookingAccess');
 const router = express.Router();
@@ -89,6 +97,16 @@ router.post('/razorpay/orders', optionalProtect, async (req, res) => {
     }
     if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.bookingStatus !== 'awaiting_customer_payment') {
       return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
+    }
+    if (booking.paymentHoldExpiresAt && new Date(booking.paymentHoldExpiresAt).getTime() <= Date.now()) {
+      await transitionBookingStatus(booking, 'expired', { actorRole: 'system', reason: 'payment_hold_expired' });
+      booking.paymentStatus = 'expired';
+      booking.verificationStage = 'rejected';
+      booking.payout_status = 'cancelled';
+      booking.expiredAt = new Date();
+      await booking.save();
+      await releaseBookingInventory(booking);
+      return res.status(409).json({ success: false, message: 'PAYMENT_HOLD_EXPIRED' });
     }
 
     const amountRupees = payableAmountForBooking(booking);
@@ -187,6 +205,39 @@ router.post('/razorpay/verify', optionalProtect, async (req, res) => {
     }
     if (String(payment.status || '') !== 'captured') {
       return res.status(400).json({ success: false, message: `Razorpay payment is ${payment.status || 'not complete'}` });
+    }
+
+    const inventoryLocksValid = !isLodgingBooking(booking) || await hasExpectedInventoryLocks(booking);
+    const holdExpired = Boolean(booking.paymentHoldExpiresAt && new Date(booking.paymentHoldExpiresAt).getTime() < Date.now());
+    if (!inventoryLocksValid || holdExpired) {
+      const reconciliation = await createOrGetPaymentReconciliation({
+        targetType: 'booking',
+        booking,
+        orderId: razorpayOrderId,
+        paymentId: razorpayPaymentId,
+        expectedAmount: expectedPaise,
+        reason: 'provider_captured_inventory_incomplete',
+        status: 'reconciliation_required',
+      });
+      await markReconciliationRequired(reconciliation, 'provider_captured_inventory_incomplete', {
+        providerAmount: Number(payment.amount || 0),
+        providerStatus: payment.status,
+        currency: payment.currency,
+        providerResponseMetadata: payment,
+      });
+      await enqueuePaymentReconciliation({
+        targetType: 'booking',
+        targetId: booking._id,
+        paymentId: razorpayPaymentId,
+      });
+      booking.paymentStatus = 'reconciliation_required';
+      booking.razorpayPaymentId = razorpayPaymentId;
+      await booking.save();
+      return res.status(409).json({
+        success: false,
+        message: 'Payment hold expired. Your payment was captured and flagged for urgent administrative confirmation.',
+        code: 'PAYMENT_HOLD_EXPIRED_RECONCILIATION_REQUIRED',
+      });
     }
 
     const updated = await markBookingPaid(booking, {

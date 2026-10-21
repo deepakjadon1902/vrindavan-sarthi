@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { formatBookingStatus } from '@/lib/bookingStatus';
+import { BookingCountdownTimer } from '@/components/BookingCountdownTimer';
 
 const typeIcon: Record<string, typeof Hotel> = {
   hotel: Hotel,
@@ -300,14 +301,32 @@ const MyBookings = () => {
                           </p>
                         )}
                         {b.bookingStatus === 'pending_property_confirmation' && (
-                          <p className="mt-2 rounded-lg border border-brand-saffron/25 bg-brand-saffron/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-saffron">
-                            Request sent. The property team is reviewing availability.
-                          </p>
+                          <div className="mt-2 space-y-1.5 rounded-lg border border-brand-saffron/25 bg-brand-saffron/10 p-3">
+                            <p className="font-body text-xs font-semibold leading-5 text-brand-saffron">
+                              Request sent. Host is reviewing availability.
+                            </p>
+                            {b.requestExpiresAt && (
+                              <BookingCountdownTimer
+                                timerType="request_approval"
+                                expiresAt={b.requestExpiresAt}
+                                compact={true}
+                              />
+                            )}
+                          </div>
                         )}
                         {b.bookingStatus === 'awaiting_customer_payment' && (
-                          <p className="mt-2 rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-crimson">
-                            Request accepted. Pay {acceptedOnlineAmount > 0 ? `Rs. ${acceptedOnlineAmount.toLocaleString('en-IN')}` : 'the shown amount'} within 30 minutes to confirm this booking.
-                          </p>
+                          <div className="mt-2 space-y-1.5 rounded-lg border border-brand-gold/30 bg-brand-gold/10 p-3">
+                            <p className="font-body text-xs font-semibold leading-5 text-brand-crimson">
+                              Request accepted! Pay {acceptedOnlineAmount > 0 ? `Rs. ${acceptedOnlineAmount.toLocaleString('en-IN')}` : 'the shown amount'} to secure room.
+                            </p>
+                            {b.paymentHoldExpiresAt && (
+                              <BookingCountdownTimer
+                                timerType="payment_hold"
+                                expiresAt={b.paymentHoldExpiresAt}
+                                compact={true}
+                              />
+                            )}
+                          </div>
                         )}
                         {canShowDharamshalaContact && (b.partnerName || b.partnerPhone) && (
                           <div className="mt-2 rounded-lg border border-brand-green/20 bg-brand-green/10 px-3 py-2 font-body text-xs leading-5 text-foreground">

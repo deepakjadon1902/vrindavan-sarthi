@@ -98,7 +98,11 @@ const sendEmail = async ({ to, subject, text, html, attachments, replyTo }) => {
   if (canSendResend()) {
     const apiKey = String(process.env.RESEND_API_KEY || '').trim();
     const from = String(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
-    if (!from) throw new Error('Missing RESEND_FROM (or SMTP_FROM/SMTP_USER)');
+    if (!from) {
+      const err = new Error('Missing RESEND_FROM (or SMTP_FROM/SMTP_USER)');
+      err.code = 'RESEND_FROM_MISSING';
+      throw err;
+    }
     return resendSendEmail({ apiKey, from, to: toAddr, subject, text, html, attachments: files, replyTo: replyToAddr });
   }
 

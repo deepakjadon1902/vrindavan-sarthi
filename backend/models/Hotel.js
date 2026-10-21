@@ -78,6 +78,13 @@ const hotelSchema = new mongoose.Schema({
   dharamshalaCancellationPolicy: { type: String, default: '' },
   dharamshalaNoShowPolicy: { type: String, default: '' },
   dharamshalaIdRequirement: { type: String, default: '' },
+  // Booking flow control: instant booking is permitted only when explicitly enabled by an administrator.
+  instantBookingEnabled: { type: Boolean, default: false },
+  bookingMode: {
+    type: String,
+    enum: ['instant', 'request'],
+    default: 'request',
+  },
   // Pets allowed at hotel level (room type / room unit can still restrict further)
   petsAllowed: { type: Boolean, default: false },
   status: { type: String, enum: ['active', 'inactive'], default: 'inactive' },

@@ -163,6 +163,8 @@ const stripPartnerListingProtectedFields = (body) => {
     'adminRemarks',
     'dharamshalaPlatformFeeEnabled',
     'dharamshalaServiceFee',
+    'instantBookingEnabled',
+    'bookingMode',
     'createdAt',
     'updatedAt',
     'createdByUserId',
@@ -520,17 +522,19 @@ router.get('/payouts', protect, authorize('admin'), async (req, res) => {
                   vars: {
                     net: {
                       $subtract: [
-                        { $ifNull: ['$grossForHotel', { $add: ['$baseAmount', '$taxAmount'] }] },
+                        // Net hotel entitlement: Gross tariff minus platform commission (Vrindavan Sarthi bears gateway fee)
                         {
-                          $add: [
+                          $subtract: [
+                            { $ifNull: ['$grossForHotel', { $add: ['$baseAmount', '$taxAmount'] }] },
                             { $multiply: ['$baseAmount', { $divide: [{ $ifNull: ['$platformCommissionPercent', 0] }, 100] }] },
-                            { $ifNull: ['$paymentGatewayFeeAmount', { $multiply: ['$baseAmount', 0.02] }] },
                           ],
                         },
+                        // Deduct balance collected directly by hotel desk from guest:
+                        { $ifNull: ['$balanceAmount', 0] },
                       ],
                     },
                   },
-                  in: { $cond: [{ $gt: ['$$net', 0] }, '$$net', 0] },
+                  in: '$$net',
                 },
               },
             },
@@ -566,6 +570,9 @@ router.get('/payouts', protect, authorize('admin'), async (req, res) => {
           rolloverAmount: Math.round(Number(ledger.netPayableRemittanceBalance || 0)) < MIN_PAYOUT_THRESHOLD
             ? Math.round(Number(ledger.netPayableRemittanceBalance || 0))
             : 0,
+          excessPartnerCollection: Math.max(0, -Math.round(Number(ledger.netPayableRemittanceBalance || 0))),
+          partnerLiability: Math.max(0, -Math.round(Number(ledger.netPayableRemittanceBalance || 0))),
+          netPayableToPartner: Math.max(0, Math.round(Number(ledger.netPayableRemittanceBalance || 0))),
           payoutCycleDays: PAYOUT_CYCLE_DAYS,
           isPayoutCycleToday: isPayoutCycleDay(),
           isPaid: Boolean(partner.payoutSettlement?.isPaid),
@@ -585,6 +592,19 @@ router.put('/payouts/:partnerId/settled', protect, authorize('admin'), async (re
     if (isPaid && !isPayoutCycleDay()) {
       return res.status(400).json({ success: false, message: 'Payout release is allowed only on Monday and Wednesday cycles.' });
     }
+
+    const partner = await User.findOne({ _id: req.params.partnerId, role: 'partner' })
+      .select('name email phone businessName bankDetails payoutSettlement updatedAt');
+    if (!partner) return res.status(404).json({ success: false, message: 'Partner not found' });
+
+    // Idempotent settlement retry: return current record if already in requested state
+    if (isPaid && partner.payoutSettlement?.isPaid) {
+      return res.json({ success: true, data: partner, message: 'Payout is already marked as settled.' });
+    }
+    if (!isPaid && !partner.payoutSettlement?.isPaid) {
+      return res.json({ success: true, data: partner, message: 'Payout is already in pending state.' });
+    }
+
     if (isPaid) {
       const [ledger] = await Booking.aggregate([
         {
@@ -604,40 +624,84 @@ router.put('/payouts/:partnerId/settled', protect, authorize('admin'), async (re
                   vars: {
                     net: {
                       $subtract: [
-                        { $ifNull: ['$grossForHotel', { $add: ['$baseAmount', '$taxAmount'] }] },
+                        // Net hotel entitlement: Gross tariff minus platform commission (Vrindavan Sarthi bears gateway fee)
                         {
-                          $add: [
+                          $subtract: [
+                            { $ifNull: ['$grossForHotel', { $add: ['$baseAmount', '$taxAmount'] }] },
                             { $multiply: ['$baseAmount', { $divide: [{ $ifNull: ['$platformCommissionPercent', 0] }, 100] }] },
-                            { $ifNull: ['$paymentGatewayFeeAmount', { $multiply: ['$baseAmount', 0.02] }] },
                           ],
                         },
+                        // Deduct balance collected directly by hotel desk:
+                        { $ifNull: ['$balanceAmount', 0] },
                       ],
                     },
                   },
-                  in: { $cond: [{ $gt: ['$$net', 0] }, '$$net', 0] },
+                  in: '$$net',
                 },
               },
             },
           },
         },
       ]);
-      if (Math.round(Number(ledger?.netPayable || 0)) < MIN_PAYOUT_THRESHOLD) {
-        return res.status(400).json({ success: false, message: `Minimum payout threshold is Rs. ${MIN_PAYOUT_THRESHOLD}. Balance will roll over to the next cycle.` });
+
+      const netPayable = Math.round(Number(ledger?.netPayable || 0));
+      if (netPayable < MIN_PAYOUT_THRESHOLD) {
+        if (netPayable < 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Cannot release payout. Partner has an excess collection / liability of Rs. ${Math.abs(netPayable)} collected directly from guests. Balance will roll over to future bookings.`,
+            excessPartnerCollection: Math.abs(netPayable),
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          message: `Minimum payout threshold is Rs. ${MIN_PAYOUT_THRESHOLD}. Balance will roll over to the next cycle.`,
+          rolloverAmount: netPayable,
+        });
       }
-    }
-    const partner = await User.findOneAndUpdate(
-      { _id: req.params.partnerId, role: 'partner' },
-      {
-        payoutSettlement: {
-          isPaid,
-          paidAt: isPaid ? new Date() : null,
-          paidByUserId: isPaid ? req.user._id : null,
-          note,
+
+      // Mark individual checked-out bookings as settled
+      await Booking.updateMany(
+        {
+          partnerId: new User.base.Types.ObjectId(req.params.partnerId),
+          paymentStatus: 'paid',
+          bookingStatus: 'checked_out',
+          payout_status: { $ne: 'settled' },
         },
-      },
-      { new: true }
-    ).select('name email phone businessName bankDetails payoutSettlement updatedAt');
-    if (!partner) return res.status(404).json({ success: false, message: 'Partner not found' });
+        {
+          $set: {
+            payout_status: 'settled',
+            payoutSettledAt: new Date(),
+            payoutSettledBy: req.user._id,
+            payoutSettlementNote: note,
+          },
+        }
+      );
+    } else {
+      // Revert settlement: if marked back to pending, restore settled bookings back to checked_out
+      await Booking.updateMany(
+        {
+          partnerId: new User.base.Types.ObjectId(req.params.partnerId),
+          payout_status: 'settled',
+        },
+        {
+          $set: {
+            payout_status: 'checked_out',
+            payoutSettledAt: null,
+            payoutSettledBy: null,
+            payoutSettlementNote: '',
+          },
+        }
+      );
+    }
+
+    partner.payoutSettlement = {
+      isPaid,
+      paidAt: isPaid ? new Date() : null,
+      paidByUserId: isPaid ? req.user._id : null,
+      note,
+    };
+    await partner.save();
     res.json({ success: true, data: partner });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

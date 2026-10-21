@@ -7,7 +7,18 @@ const { ensureBookingInvoiceNotification } = require('./notificationDelivery');
 const {
   markBookingPaymentPaid,
   markBookingPaymentFailed,
+  hasExpectedInventoryLocks,
+  isLodgingBooking,
 } = require('./reservationLifecycle');
+const {
+  classifyCapturedBookingLocalState,
+  classifyCapturedModificationLocalState,
+  createOrGetPaymentReconciliation,
+  markReconciliationRequired,
+  enqueuePaymentReconciliation,
+  expectedBookingAmountPaise,
+  expectedModificationAmountPaise,
+} = require('./paymentReconciliation');
 const {
   applyModificationPaymentFromWebhook,
   markModificationPaymentFailed,
@@ -91,7 +102,7 @@ const markBookingFailedFromRazorpay = async (booking, status = 'failed') =>
     reason: 'razorpay_payment_failed',
   });
 
-const applyRazorpayWebhookBusinessEvent = async (webhookEvent) => {
+const applyRazorpayWebhookBusinessEvent = async (webhookEvent, { queueFactory = createQueue } = {}) => {
   const context = extractRazorpayPaymentContext(webhookEvent.payload);
   if (!context.orderId) {
     return { action: 'ignored', reason: 'missing_order_id' };
@@ -107,12 +118,80 @@ const applyRazorpayWebhookBusinessEvent = async (webhookEvent) => {
     }
 
     if (context.eventName === 'payment.captured') {
-      await markBookingPaidFromRazorpay(booking, {
-        paymentId: context.paymentId,
-        orderId: context.orderId,
-        status: context.status || 'captured',
+      const isAlreadyPaid = booking.paymentStatus === 'paid';
+      if (isAlreadyPaid) {
+        if (booking.razorpayPaymentId && context.paymentId && booking.razorpayPaymentId !== context.paymentId) {
+          const reconciliation = await createOrGetPaymentReconciliation({
+            targetType: 'booking',
+            booking,
+            orderId: context.orderId,
+            paymentId: context.paymentId,
+            expectedAmount: expectedBookingAmountPaise(booking),
+            reason: 'provider_captured_multiple_payments_for_order',
+            status: 'reconciliation_required',
+          });
+          await markReconciliationRequired(reconciliation, 'provider_captured_multiple_payments_for_order', {
+            providerAmount: Number(context.payment?.amount || 0),
+            providerStatus: context.status,
+            currency: context.payment?.currency,
+            providerResponseMetadata: context.payment,
+          });
+          await enqueuePaymentReconciliation({
+            targetType: 'booking',
+            targetId: booking._id,
+            paymentId: context.paymentId,
+            queueFactory,
+          });
+          await booking.save();
+          return { action: 'multiple_captured_payments_reconciliation_required', bookingId: booking._id };
+        }
+        await booking.save();
+        return { action: 'booking_already_paid', bookingId: booking._id };
+      }
+
+      const inventoryComplete = !isLodgingBooking(booking) || await hasExpectedInventoryLocks(booking);
+      const state = classifyCapturedBookingLocalState({
+        bookingStatus: booking.bookingStatus,
+        paymentStatus: booking.paymentStatus,
+        inventoryComplete,
       });
-      return { action: 'booking_payment_captured', bookingId: booking._id };
+
+      if (state.status === 'safe_to_confirm') {
+        await markBookingPaidFromRazorpay(booking, {
+          paymentId: context.paymentId,
+          orderId: context.orderId,
+          status: context.status || 'captured',
+        });
+        return { action: 'booking_payment_captured', bookingId: booking._id };
+      }
+
+      // Late payment, expired hold, cancelled booking, or lost inventory: flag for reconciliation
+      const reconciliation = await createOrGetPaymentReconciliation({
+        targetType: 'booking',
+        booking,
+        orderId: context.orderId,
+        paymentId: context.paymentId,
+        expectedAmount: expectedBookingAmountPaise(booking),
+        reason: state.reason,
+        status: 'reconciliation_required',
+      });
+      await markReconciliationRequired(reconciliation, state.reason, {
+        providerAmount: Number(context.payment?.amount || 0),
+        providerStatus: context.status,
+        currency: context.payment?.currency,
+        providerResponseMetadata: context.payment,
+      });
+      await enqueuePaymentReconciliation({
+        targetType: 'booking',
+        targetId: booking._id,
+        paymentId: context.paymentId,
+        queueFactory,
+      });
+      if (context.paymentId && !booking.razorpayPaymentId) {
+        booking.razorpayPaymentId = context.paymentId;
+      }
+      await booking.save();
+      return { action: 'booking_payment_reconciliation_required', bookingId: booking._id, reason: state.reason };
     }
     if (context.eventName === 'payment.failed') {
       await markBookingFailedFromRazorpay(booking, context.status || 'failed');
@@ -125,13 +204,44 @@ const applyRazorpayWebhookBusinessEvent = async (webhookEvent) => {
   const modification = await BookingModification.findOne({ razorpayOrderId: context.orderId });
   if (modification) {
     if (context.eventName === 'payment.captured') {
-      const updated = await applyModificationPaymentFromWebhook({
+      const state = classifyCapturedModificationLocalState({
+        status: modification.status,
+        paymentStatus: modification.paymentStatus,
+      });
+      if (state.status === 'safe_to_apply') {
+        const updated = await applyModificationPaymentFromWebhook({
+          orderId: context.orderId,
+          paymentId: context.paymentId,
+          eventId: context.eventId,
+          status: context.status || 'captured',
+        });
+        return { action: 'modification_payment_captured', bookingModificationId: updated?._id || modification._id };
+      }
+      if (state.status === 'resolved') {
+        return { action: 'modification_already_completed', bookingModificationId: modification._id };
+      }
+      const reconciliation = await createOrGetPaymentReconciliation({
+        targetType: 'modification',
+        modification,
         orderId: context.orderId,
         paymentId: context.paymentId,
-        eventId: context.eventId,
-        status: context.status || 'captured',
+        expectedAmount: expectedModificationAmountPaise(modification),
+        reason: state.reason,
+        status: 'reconciliation_required',
       });
-      return { action: 'modification_payment_captured', bookingModificationId: updated?._id || modification._id };
+      await markReconciliationRequired(reconciliation, state.reason, {
+        providerAmount: Number(context.payment?.amount || 0),
+        providerStatus: context.status,
+        currency: context.payment?.currency,
+        providerResponseMetadata: context.payment,
+      });
+      await enqueuePaymentReconciliation({
+        targetType: 'modification',
+        targetId: modification._id,
+        paymentId: context.paymentId,
+        queueFactory,
+      });
+      return { action: 'modification_payment_reconciliation_required', bookingModificationId: modification._id, reason: state.reason };
     }
     if (context.eventName === 'payment.failed') {
       const updated = await markModificationPaymentFailed({
@@ -142,6 +252,25 @@ const applyRazorpayWebhookBusinessEvent = async (webhookEvent) => {
       return { action: 'modification_payment_failed', bookingModificationId: updated?._id || modification._id };
     }
     return { action: 'unsupported_modification_event', bookingModificationId: modification._id, eventName: context.eventName };
+  }
+
+  // Captured payment for unknown/unmatched order: must flag for reconciliation so it cannot silently disappear!
+  if (context.eventName === 'payment.captured') {
+    const reconciliation = await createOrGetPaymentReconciliation({
+      targetType: 'booking',
+      orderId: context.orderId,
+      paymentId: context.paymentId,
+      expectedAmount: Number(context.payment?.amount || 0),
+      reason: 'unmatched_captured_payment_order',
+      status: 'reconciliation_required',
+    });
+    await markReconciliationRequired(reconciliation, 'unmatched_captured_payment_order', {
+      providerAmount: Number(context.payment?.amount || 0),
+      providerStatus: context.status,
+      currency: context.payment?.currency,
+      providerResponseMetadata: context.payment,
+    });
+    return { action: 'unmatched_captured_payment_reconciliation_required', orderId: context.orderId };
   }
 
   return { action: 'unmatched_payment_order', orderId: context.orderId, eventName: context.eventName };

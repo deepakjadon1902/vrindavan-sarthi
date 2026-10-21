@@ -35,6 +35,8 @@ interface Hotel {
   taxPercent?: number;
   platform_commission_percentage?: number;
   propertyTerms?: PropertyTermsValue;
+  bookingMode?: 'instant' | 'request';
+  instantBookingEnabled?: boolean;
   status: 'active' | 'inactive';
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   partnerName?: string;
@@ -71,6 +73,8 @@ const ManageHotels = () => {
     taxPercent: '12',
     platform_commission_percentage: '10',
     showPrices: true,
+    bookingMode: 'request' as 'instant' | 'request',
+    instantBookingEnabled: false,
     dharamshalaPaymentMode: 'pay_at_dharamshala' as const,
     dharamshalaPlatformFeeEnabled: true,
     dharamshalaServiceFee: '79',
@@ -117,6 +121,8 @@ const ManageHotels = () => {
       taxPercent: '12',
       platform_commission_percentage: '10',
       showPrices: true,
+      bookingMode: 'request',
+      instantBookingEnabled: false,
       dharamshalaPaymentMode: 'pay_at_dharamshala',
       dharamshalaPlatformFeeEnabled: true,
       dharamshalaServiceFee: '79',
@@ -165,6 +171,8 @@ const ManageHotels = () => {
       taxPercent: String(hotel.taxPercent ?? 12),
       platform_commission_percentage: String(hotel.platform_commission_percentage ?? 10),
       showPrices: hotel.showPrices !== false,
+      bookingMode: (hotel.bookingMode === 'instant' ? 'instant' : 'request') as 'instant' | 'request',
+      instantBookingEnabled: Boolean(hotel.instantBookingEnabled),
       dharamshalaPaymentMode: hotel.dharamshalaPaymentMode || 'pay_at_dharamshala',
       dharamshalaPlatformFeeEnabled: hotel.dharamshalaPlatformFeeEnabled !== false,
       dharamshalaServiceFee: String(hotel.dharamshalaServiceFee ?? 79),
@@ -207,6 +215,8 @@ const ManageHotels = () => {
       status: form.status,
       approvalStatus: 'approved',
       partnerSubmitted: false,
+      bookingMode: isDharamshalaType(form.propertyType) ? 'request' : form.bookingMode,
+      instantBookingEnabled: isDharamshalaType(form.propertyType) ? false : Boolean(form.instantBookingEnabled),
       taxEnabled: isDharamshalaType(form.propertyType) ? false : form.taxEnabled,
       taxPercent: isDharamshalaType(form.propertyType) ? 0 : Number(form.taxPercent || 12),
       platform_commission_percentage: isDharamshalaType(form.propertyType) ? 10 : Number(form.platform_commission_percentage || 0),
@@ -524,6 +534,65 @@ const ManageHotels = () => {
               </label>
             </div>
 
+            {!isDharamshalaType(form.propertyType) ? (
+              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-body text-sm font-semibold text-foreground">Booking Mode & Instant Booking Controls</h4>
+                    <p className="font-body text-xs text-muted-foreground mt-0.5">
+                      Configure whether customers can checkout instantly or must request property confirmation first.
+                    </p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${form.instantBookingEnabled || form.bookingMode === 'instant' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'}`}>
+                    {form.instantBookingEnabled || form.bookingMode === 'instant' ? 'Instant Booking' : 'Request-First'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <label className="font-body text-xs font-medium text-foreground mb-1 block">Property Booking Mode</label>
+                    <select
+                      value={form.bookingMode}
+                      onChange={(e) => {
+                        const mode = e.target.value as 'instant' | 'request';
+                        setForm({
+                          ...form,
+                          bookingMode: mode,
+                          instantBookingEnabled: mode === 'instant',
+                        });
+                      }}
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                    >
+                      <option value="request">Request-First (Manual Host Approval)</option>
+                      <option value="instant">Instant Booking (Direct Razorpay Checkout)</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center pt-5">
+                    <label className="flex items-center gap-2.5 font-body text-sm text-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form.instantBookingEnabled)}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          setForm({
+                            ...form,
+                            instantBookingEnabled: enabled,
+                            bookingMode: enabled ? 'instant' : 'request',
+                          });
+                        }}
+                        className="rounded border-border text-brand-gold focus:ring-brand-gold"
+                      />
+                      <span>Allow Instant Checkout</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800 p-4 font-body text-xs text-blue-700 dark:text-blue-300">
+                <span className="font-semibold block mb-0.5">Dharamshala Policy: Request-First Only</span>
+                Dharamshalas are strictly request-first. Instant booking cannot be enabled for Dharamshalas by policy.
+              </div>
+            )}
+
             {isDharamshalaType(form.propertyType) && (
               <div className="rounded-lg border border-brand-gold/25 bg-brand-gold/10 p-4 font-body text-sm text-muted-foreground">
                 Dharamshala flow: guest sends request, partner accepts or rejects, then partner chooses whether the guest pays room contribution online now or at check-in.
@@ -668,7 +737,16 @@ const ManageHotels = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-body text-sm font-medium text-foreground">{hotel.name}</td>
+                    <td className="px-4 py-3 font-body text-sm font-medium text-foreground">
+                      <div className="flex items-center gap-2">
+                        <span>{hotel.name}</span>
+                        {hotel.propertyType !== 'dharamshala' && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${hotel.instantBookingEnabled || hotel.bookingMode === 'instant' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-blue-500/10 text-blue-600'}`}>
+                            {hotel.instantBookingEnabled || hotel.bookingMode === 'instant' ? 'Instant' : 'Request'}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{hotel.location}</td>
                     <td className="px-4 py-3 font-body text-sm text-foreground hidden md:table-cell">⭐ {hotel.rating}</td>
                     <td className="px-4 py-3 hidden md:table-cell">

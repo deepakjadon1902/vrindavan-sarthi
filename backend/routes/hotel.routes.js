@@ -322,6 +322,21 @@ const validateHotelPayload = (body, { partial = false } = {}) => {
     body.propertyType = PROPERTY_TYPES.includes(propertyType) ? propertyType : 'hotel';
   }
 
+  if (typeof body.bookingMode !== 'undefined') {
+    const bookingMode = String(body.bookingMode || '').trim().toLowerCase();
+    body.bookingMode = ['instant', 'request'].includes(bookingMode) ? bookingMode : 'request';
+    if (typeof body.instantBookingEnabled === 'undefined') {
+      body.instantBookingEnabled = body.bookingMode === 'instant';
+    }
+  }
+
+  if (typeof body.instantBookingEnabled !== 'undefined') {
+    body.instantBookingEnabled = Boolean(body.instantBookingEnabled);
+    if (typeof body.bookingMode === 'undefined') {
+      body.bookingMode = body.instantBookingEnabled ? 'instant' : 'request';
+    }
+  }
+
   if (typeof body.amenities !== 'undefined') {
     body.amenities = Array.isArray(body.amenities)
       ? body.amenities.map((a) => String(a || '').trim()).filter(Boolean)
@@ -655,6 +670,14 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel'] });
     const hotel = await Hotel.findById(req.params.id);
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+
+    // Dharamshalas are strictly request-first by policy; instant booking cannot be enabled.
+    const effectivePropertyType = String(body.propertyType || hotel.propertyType || '').toLowerCase();
+    if (effectivePropertyType === 'dharamshala') {
+      body.instantBookingEnabled = false;
+      body.bookingMode = 'request';
+    }
+
     Object.assign(hotel, body);
     applyPropertyTermsUpdate(hotel, propertyTerms, req.user);
     if (typeof propertyTerms !== 'undefined') await saveReusablePropertyTerms(req.user, propertyTerms);

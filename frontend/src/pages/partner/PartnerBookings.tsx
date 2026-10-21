@@ -21,6 +21,7 @@ const PartnerBookings = () => {
     rejectDharamshalaRequest,
     markDharamshalaNoShow,
     completeDharamshalaBooking,
+    collectBalance,
   } = useBookingStore();
   const [filter, setFilter] = useState<'all' | 'pending_property_confirmation' | 'awaiting_customer_payment' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'completed' | 'settled' | 'expired' | 'payment_failed' | 'rejected_by_property' | 'expired_property_no_response'>('all');
   const [expandedBookingId, setExpandedBookingId] = useState<string>('');
@@ -91,6 +92,25 @@ const PartnerBookings = () => {
     const res = await completeDharamshalaBooking(id, 'Stay completed');
     if (res.success) toast.success('Booking marked completed');
     else toast.error(res.error || 'Complete failed');
+  };
+
+  const handleCollectBalance = async (b: any) => {
+    const remaining = b.balanceAmount || 0;
+    const entered = window.prompt(`Enter amount collected at property desk (Remaining balance: ₹${remaining}):`, String(remaining));
+    if (!entered) return;
+    const amount = Number(entered);
+    if (!Number.isFinite(amount) || amount <= 0) return toast.error('Valid positive amount required');
+    const paymentMethod = (window.prompt('Payment method (cash, upi, card):', 'cash') || 'cash').toLowerCase();
+    const res = await collectBalance(b.id, {
+      amountCollected: amount,
+      paymentMethod: ['cash', 'upi', 'card'].includes(paymentMethod) ? paymentMethod : 'cash',
+    });
+    if (res.success) {
+      toast.success(`Collected ₹${amount} successfully`);
+      void fetchPartnerBookings();
+    } else {
+      toast.error(res.error || 'Balance collection failed');
+    }
   };
 
   const handlePartnerVerify = async (id: string) => {
@@ -298,12 +318,20 @@ const PartnerBookings = () => {
                       <CheckCircle2 size={13} />
                       Mark Guest Checked-In
                     </button>
-                    {String(b.propertyType || '').toLowerCase() === 'dharamshala' && (
+                    {true && (
                       <button
                         onClick={() => handleNoShow(b.id)}
                         className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-1.5 font-body text-xs font-semibold text-destructive hover:bg-destructive/15 sm:flex-none"
                       >
                         Mark No-show
+                      </button>
+                    )}
+                    {Number(b.balanceAmount || 0) > 0 && (
+                      <button
+                        onClick={() => handleCollectBalance(b)}
+                        className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-brand-green/40 bg-brand-green/10 px-3 py-1.5 font-body text-xs font-semibold text-brand-green hover:bg-brand-green/20 sm:flex-none"
+                      >
+                        Collect Balance (₹{b.balanceAmount})
                       </button>
                     )}
                     </div>

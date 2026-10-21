@@ -106,7 +106,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
   const commissionRate = Number(booking.platformCommissionPercent || 0);
   const commissionAmount = Math.round((baseAmount * commissionRate) / 100);
   const gatewayFee = Number(booking.paymentGatewayFeeAmount || Math.round((baseAmount * 2) / 100));
-  const netPayout = Math.max(0, grossForHotel - commissionAmount - gatewayFee);
+  const netPayout = Number(booking.partnerNetPayout ?? booking.hotel_net_payout ?? Math.max(0, grossForHotel - commissionAmount));
 
   return (
     <div className="mt-4 space-y-4">
@@ -206,10 +206,38 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Field label="Gross Booking Value (Room + Hotel Taxes)" value={formatMoney(grossForHotel)} valueClass="text-foreground" />
             <Field label={`OTA Commission (${commissionRate}% of ${formatMoney(baseAmount)})`} value={`- ${formatMoney(commissionAmount)}`} valueClass="text-destructive" />
-            <Field label="Payment Gateway Fee" value={`- ${formatMoney(gatewayFee)}`} valueClass="text-destructive" />
+            <Field label="Payment Gateway Fee (Platform Borne)" value={`${formatMoney(gatewayFee)} (No deduction)`} valueClass="text-muted-foreground" />
             <Field label="Net Payout to Hotel" value={formatMoney(netPayout)} valueClass="text-brand-green" />
           </div>
-          <p className="mt-3 font-body text-[11px] text-muted-foreground">Platform fee is not included in hotel payout.</p>
+          <p className="mt-3 font-body text-[11px] text-muted-foreground">Platform fee is not included in hotel payout. Gateway fee is absorbed by Vrindavan Sarthi.</p>
+        </div>
+      )}
+
+      {booking.bookingStatus === 'no_show' && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 sm:p-4">
+          <p className="font-body text-xs font-semibold text-destructive mb-3">No-Show Audit Record</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Field label="Marked At" value={booking.noShowMarkedAt ? new Date(booking.noShowMarkedAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : 'Recorded'} />
+            <Field label="Marked By" value={booking.noShowMarkedByName || booking.noShowMarkedByRole || 'Property Desk'} />
+            <Field label="Reason" value={booking.noShowReason || 'Guest did not check in'} />
+            <Field label="Dispute Status" value={booking.noShowDisputed ? (booking.noShowDisputeResolution ? `Resolved: ${booking.noShowDisputeResolution}` : 'Under Review') : 'None'} />
+          </div>
+        </div>
+      )}
+
+      {Number(booking.amountPaidToProperty || 0) > 0 && (
+        <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
+          <p className="font-body text-xs font-semibold text-foreground mb-3">Desk Balance Collections</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Field label="Total Collected at Desk" value={formatMoney(booking.amountPaidToProperty || 0)} />
+            <Field label="Remaining Balance" value={formatMoney(booking.balanceAmount || 0)} />
+            <Field label="Collection Status" value={(booking.balanceAmount || 0) <= 0 ? 'Fully Paid' : 'Balance Pending'} />
+          </div>
+          {booking.collectionDiscrepancy?.detected && (
+            <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+              Discrepancy: Desk collection ({formatMoney(booking.collectionDiscrepancy.collectedAmount)}) exceeded expected balance ({formatMoney(booking.collectionDiscrepancy.expectedAmount)}) by {formatMoney(booking.collectionDiscrepancy.excessAmount)}. Recorded for audit.
+            </div>
+          )}
         </div>
       )}
 

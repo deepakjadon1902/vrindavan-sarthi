@@ -68,7 +68,8 @@ const buildMoneyFields = ({
   const platformCommissionPercent = clampPercent(commissionPercent, PARTNER_COMMISSION_PERCENT, 100);
   const platformCommissionAmount = Math.round((roomAmount * platformCommissionPercent) / 100);
   const paymentGatewayFeeAmount = Math.max(0, Math.round(Number.isFinite(Number(gatewayFeeAmount)) ? Number(gatewayFeeAmount) : calculateGatewayFee(roomAmount)));
-  const partnerNetPayout = Math.max(0, grossForHotel - platformCommissionAmount - paymentGatewayFeeAmount);
+  // Confirmed rule: Vrindavan Sarthi bears the payment gateway fee. Do not deduct it from partner net payout.
+  const partnerNetPayout = Math.max(0, grossForHotel - platformCommissionAmount);
 
   return {
     base_amount: roomAmount,
@@ -77,6 +78,7 @@ const buildMoneyFields = ({
     customer_total: totalAmount,
     advance_paid: advanceAmount,
     balance_at_property: balanceAmount,
+    amountPayableAtProperty: balanceAmount,
     commission_rate: platformCommissionPercent,
     commission_amount: platformCommissionAmount,
     payment_gateway_fee: paymentGatewayFeeAmount,
@@ -175,6 +177,7 @@ module.exports = {
   getPaymentOption,
   getHotelTaxPercent,
   buildMoneyFields,
+  calculatePricing: buildMoneyFields,
   calculateLodgingPrice,
   calculateLodgingPriceFromBase,
 };

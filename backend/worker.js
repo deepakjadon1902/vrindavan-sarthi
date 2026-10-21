@@ -126,6 +126,16 @@ const scheduleRecurringJobs = async () => {
       jobName: JOB_NAMES.razorpayPaymentReconcileSweep,
     });
   }
+  const notificationRecoveryEnabled = String(process.env.NOTIFICATION_RECOVERY_ENABLED || 'true').toLowerCase() !== 'false';
+  if (notificationRecoveryEnabled) {
+    const recoveryInterval = Number(process.env.NOTIFICATION_RECOVERY_INTERVAL_MS) || 300_000;
+    await upsertScheduler({
+      queueName: QUEUE_NAMES.notification,
+      schedulerId: 'phase4.5:notification-recovery-sweep',
+      every: recoveryInterval,
+      jobName: JOB_NAMES.notificationRecoverySweep,
+    });
+  }
   if (getBookingExpirationEnabled()) {
     await upsertScheduler({
       queueName: QUEUE_NAMES.booking,

@@ -19,10 +19,21 @@ const DEFAULT_DHARAMSHALA_PLATFORM_FEE = 79;
 const normalizePaymentMode = () => 'pay_at_dharamshala';
 const isDharamshalaProperty = (value) => String(value || '').trim().toLowerCase() === 'dharamshala';
 
+// Confirmed business rules:
+// - Dharamshala approval window is 5 minutes from server-side request creation timestamp.
+// - Partner reminder is scheduled 2 minutes after request creation.
+// - Customer payment window after acceptance is 15 minutes.
+const DHARAMSHALA_RESPONSE_TIMEOUT_MINUTES = 5;
+const DHARAMSHALA_REMINDER_MINUTES = 2;
+const DHARAMSHALA_PAYMENT_HOLD_MINUTES = 15;
+
 const getDharamshalaResponseTimeoutMinutes = (hotel) => {
+  if (isDharamshalaProperty(hotel?.propertyType)) {
+    return DHARAMSHALA_RESPONSE_TIMEOUT_MINUTES;
+  }
   const minutes = Number(hotel?.dharamshalaResponseTimeoutMinutes || 30);
   if (!Number.isFinite(minutes) || minutes <= 0) return 30;
-  return Math.min(7 * 24 * 60, Math.max(30, Math.floor(minutes)));
+  return Math.min(7 * 24 * 60, Math.max(5, Math.floor(minutes)));
 };
 
 const getDharamshalaRequestExpiresAt = (hotel, from = new Date()) =>
@@ -186,6 +197,8 @@ const createDharamshalaRequest = async ({
       ratePlanId: req.body?.ratePlanId,
       checkIn,
       checkOut,
+    checkInTime: hotel?.checkInTime || '12:00',
+
       roomQuantity,
       adults: totalAdults,
       children: totalChildren,
@@ -228,6 +241,8 @@ const createDharamshalaRequest = async ({
     nightlyBreakdown: quote?.nightlyBreakdown || [],
     checkIn,
     checkOut,
+    checkInTime: hotel?.checkInTime || '12:00',
+
     guests: totalAdults + totalChildren,
     roomQuantity,
     customerFullName,
@@ -252,6 +267,8 @@ const createDharamshalaRequest = async ({
     partnerPaymentVerified: false,
     adminPaymentVerified: false,
     requestExpiresAt: getDharamshalaRequestExpiresAt(hotel),
+    requestReminderAt: new Date(Date.now() + DHARAMSHALA_REMINDER_MINUTES * 60 * 1000),
+    requestReminderSent: false,
     idempotencyKey,
     bookingSource: isGuestBooking ? 'guest_web' : 'web',
     additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
@@ -339,7 +356,7 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
 
     if (accounting.amountPaidOnline > 0) {
       booking.paymentStatus = 'pending';
-      booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt();
+      booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt(new Date(), DHARAMSHALA_PAYMENT_HOLD_MINUTES);
       await transitionBookingStatus(booking, 'awaiting_customer_payment', {
         actorId: actor?._id,
         actorRole: actor?.role || 'partner',
@@ -387,7 +404,7 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
     booking.hotel_gst_amount = accounting.taxAmount;
     Object.assign(booking, accounting);
     booking.paymentStatus = 'pending';
-    booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt();
+    booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt(new Date(), DHARAMSHALA_PAYMENT_HOLD_MINUTES);
     await transitionBookingStatus(booking, 'awaiting_customer_payment', {
       actorId: actor?._id,
       actorRole: actor?.role || 'partner',
@@ -456,13 +473,60 @@ const expireDharamshalaRequests = async ({ now = new Date(), limit = 100 } = {})
   return { scanned: bookings.length, expired };
 };
 
+const processDharamshalaReminders = async ({ now = new Date(), limit = 100 } = {}) => {
+  const safeLimit = Math.max(1, Math.min(500, Number(limit) || 100));
+  const candidates = await Booking.find({
+    propertyType: 'dharamshala',
+    bookingStatus: 'pending_property_confirmation',
+    requestReminderAt: { $lte: now },
+    requestReminderSent: { $ne: true },
+  }).sort({ requestReminderAt: 1, createdAt: 1 }).limit(safeLimit);
+
+  let remindersSent = 0;
+  for (const candidate of candidates) {
+    try {
+      const claimed = await Booking.findOneAndUpdate(
+        {
+          _id: candidate._id,
+          bookingStatus: 'pending_property_confirmation',
+          requestReminderSent: { $ne: true },
+        },
+        {
+          $set: {
+            requestReminderSent: true,
+            requestReminderSentAt: now,
+          },
+        },
+        { new: true }
+      );
+      if (!claimed) continue;
+
+      try {
+        const { ensureDharamshalaReminderNotifications } = require('./notificationDelivery');
+        await ensureDharamshalaReminderNotifications(claimed);
+      } catch (err) {
+        console.warn('[dharamshala.reminder.notification_failed]', err?.message || err);
+      }
+      remindersSent += 1;
+    } catch {
+      // Safe to retry in next sweep if not claimed
+    }
+  }
+  return { scanned: candidates.length, remindersSent };
+};
+
 module.exports = {
   buildDharamshalaAccounting,
   createDharamshalaRequest,
   acceptDharamshalaRequest,
   rejectDharamshalaRequest,
   expireDharamshalaRequests,
+  processDharamshalaReminders,
   getDharamshalaRequestExpiresAt,
+  getDharamshalaResponseTimeoutMinutes,
+  DHARAMSHALA_RESPONSE_TIMEOUT_MINUTES,
+  DHARAMSHALA_REMINDER_MINUTES,
+  DHARAMSHALA_PAYMENT_HOLD_MINUTES,
   normalizePaymentMode,
   getDharamshalaPlatformFee,
 };
