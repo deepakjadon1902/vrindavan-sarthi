@@ -11,6 +11,7 @@ const Tour = require('../models/Tour');
 const User = require('../models/User');
 const { protect, optionalProtect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
+const { generateBookingInvoicePdf } = require('../utils/customerMessages');
 const {
   assertValidBookingTransition,
   transitionBookingStatus,
@@ -58,6 +59,8 @@ const {
   resolveBookingCustomer,
   withGuestAccountReminder,
   withGuestAccessToken,
+  getGuestAccessTokenFromRequest,
+  hashGuestAccessToken,
 } = require('../utils/guestBookingAccess');
 const {
   getScheduledCheckInDateTime,
@@ -1089,25 +1092,206 @@ router.post('/:id/refund', protect, authorize('admin'), async (req, res) => {
   }
 });
 
-// Get single booking (owner/admin/partner)
-router.get('/:id', protect, async (req, res) => {
+// Public, non-sensitive booking verification endpoint for QR code voucher scans
+router.get('/verify/:bookingId', async (req, res) => {
+  try {
+    const rawId = String(req.params.bookingId || '').trim();
+    if (!rawId) {
+      return res.status(400).json({ success: false, message: 'Booking ID is required' });
+    }
+
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }] } : { bookingId: rawId };
+
+    const booking = await Booking.findOne(query)
+      .select('bookingId bookingType service_billing_model itemName propertyName propertyAddress propertyLocation checkIn checkOut checkInTime guests totalAdults totalChildren totalAmount amountPaidOnline amountPayableAtProperty bookingStatus paymentStatus paymentMethod customerFullName userName paidAt createdAt hotelId roomNumber')
+      .lean();
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.hotelId) {
+      const hotel = await Hotel.findById(booking.hotelId).select('name fullAddress address location contactPhone partnerPhone googleMapLink nearestTemple').lean();
+      if (hotel) {
+        booking.propertyName = booking.propertyName || hotel.name || '';
+        booking.propertyAddress = hotel.fullAddress || hotel.address || hotel.location || '';
+        booking.propertyLocation = hotel.location || hotel.fullAddress || hotel.address || '';
+        booking.googleMapLink = hotel.googleMapLink || '';
+        booking.nearestTemple = hotel.nearestTemple || '';
+        booking.partnerPhone = booking.partnerPhone || hotel.contactPhone || hotel.partnerPhone || '';
+      }
+    }
+
+    // Return strictly non-sensitive voucher summary (no passwords, hashes, tokens, emails, phone numbers)
+    return res.json({
+      success: true,
+      data: {
+        verified: true,
+        bookingId: booking.bookingId || String(booking._id),
+        bookingStatus: booking.bookingStatus,
+        paymentStatus: booking.paymentStatus,
+        propertyName: booking.propertyName || String(booking.itemName || '').split(' - ')[0] || 'Property',
+        roomType: String(booking.itemName || '').includes(' - ') ? String(booking.itemName).split(' - ')[1] : String(booking.itemName || 'Standard Room'),
+        roomNumber: booking.roomNumber || null,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        checkInTime: booking.checkInTime || '12:00 PM',
+        guests: booking.guests || ((booking.totalAdults || 1) + (booking.totalChildren || 0)),
+        guestName: booking.customerFullName || booking.userName || 'Guest Devotee',
+        totalAmount: booking.totalAmount,
+        amountPaidOnline: booking.amountPaidOnline,
+        amountPayableAtProperty: booking.amountPayableAtProperty,
+        paymentMethod: booking.paymentMethod,
+        paidAt: booking.paidAt,
+        bookedOn: booking.createdAt,
+        propertyLocation: booking.propertyLocation || '',
+        nearestTemple: booking.nearestTemple || '',
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Verification failed' });
+  }
+});
+
+// Get single booking (owner/admin/partner/authorized guest)
+router.get('/:id', optionalProtect, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
     await repairPaidAwaitingCustomerPaymentBookings();
-    const booking = await Booking.findById(req.params.id).lean();
+    const rawId = String(req.params.id || '').trim();
+    if (!rawId) return res.status(400).json({ success: false, message: 'Booking ID is required' });
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }] } : { bookingId: rawId };
+    const booking = await Booking.findOne(query).lean();
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
-    const isOwner = String(booking.userId) === String(req.user._id);
-    const isPartner = booking.partnerId && String(booking.partnerId) === String(req.user._id);
-    const isAdmin = req.user.role === 'admin';
+    let isOwner = false;
+    let isPartner = false;
+    let isAdmin = false;
 
-    if (!isOwner && !isPartner && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+    if (req.user?._id) {
+      isOwner = String(booking.userId) === String(req.user._id);
+      isPartner = booking.partnerId && String(booking.partnerId) === String(req.user._id);
+      isAdmin = req.user.role === 'admin';
     }
 
-    res.json({ success: true, data: isOwner && !isAdmin && !isPartner ? sanitizeCustomerBooking(booking) : booking });
+    const guestToken = getGuestAccessTokenFromRequest(req);
+    const isAuthorizedGuest = Boolean(
+      guestToken &&
+      booking.isGuestBooking &&
+      booking.guestAccessTokenHash &&
+      booking.guestAccessTokenHash === hashGuestAccessToken(guestToken)
+    );
+
+    if (!isOwner && !isPartner && !isAdmin && !isAuthorizedGuest) {
+      return res.status(401).json({ success: false, message: 'Not authorized' });
+    }
+
+    if (booking.hotelId) {
+      const hotel = await Hotel.findById(booking.hotelId)
+        .select('name address fullAddress location nearestTemple googleMapLink contactPhone contactWhatsapp partnerPhone partnerWhatsapp')
+        .lean();
+      if (hotel) {
+        booking.propertyName = booking.propertyName || hotel.name || '';
+        booking.propertyLocation = hotel.location || hotel.fullAddress || hotel.address || '';
+        booking.propertyAddress = hotel.fullAddress || hotel.address || hotel.location || '';
+        booking.googleMapLink = hotel.googleMapLink || '';
+        booking.nearestTemple = hotel.nearestTemple || '';
+      }
+    }
+
+    res.json({
+      success: true,
+      data: (isOwner || isAuthorizedGuest) && !isAdmin && !isPartner
+        ? sanitizeCustomerBooking(booking)
+        : booking,
+    });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment rejection failed' });
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Failed to retrieve booking' });
+  }
+});
+
+// Download booking invoice PDF (authenticated customer, partner, admin, or verified guest)
+router.get('/:id/invoice', optionalProtect, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const rawId = String(req.params.id || '').trim();
+    if (!rawId) return res.status(400).json({ success: false, message: 'Booking ID is required' });
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }] } : { bookingId: rawId };
+    const booking = await Booking.findOne(query).lean();
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    let isOwner = false;
+    let isPartner = false;
+    let isAdmin = false;
+
+    if (req.user?._id) {
+      isOwner = String(booking.userId) === String(req.user._id);
+      isPartner = booking.partnerId && String(booking.partnerId) === String(req.user._id);
+      isAdmin = req.user.role === 'admin';
+    }
+
+    const guestToken = getGuestAccessTokenFromRequest(req);
+    const isAuthorizedGuest = Boolean(
+      guestToken &&
+      booking.isGuestBooking &&
+      booking.guestAccessTokenHash &&
+      booking.guestAccessTokenHash === hashGuestAccessToken(guestToken)
+    );
+
+    if (!isOwner && !isPartner && !isAdmin && !isAuthorizedGuest) {
+      return res.status(401).json({ success: false, message: 'Not authorized' });
+    }
+
+    if (booking.hotelId) {
+      const hotel = await Hotel.findById(booking.hotelId)
+        .select('name address fullAddress location nearestTemple googleMapLink contactPhone contactWhatsapp partnerPhone partnerWhatsapp')
+        .lean();
+      if (hotel) {
+        booking.propertyName = booking.propertyName || hotel.name || '';
+        booking.propertyLocation = hotel.location || hotel.fullAddress || hotel.address || '';
+        booking.propertyAddress = hotel.fullAddress || hotel.address || hotel.location || '';
+        booking.googleMapLink = hotel.googleMapLink || '';
+        booking.nearestTemple = hotel.nearestTemple || '';
+        booking.partnerPhone = booking.partnerPhone || hotel.contactPhone || hotel.partnerPhone || hotel.contactWhatsapp || '';
+      }
+    }
+
+    // Secure invoice eligibility: prevent premature receipt download for unverified/pending/failed bookings
+    const bookingStatus = String(booking.bookingStatus || '').toLowerCase();
+    const paymentStatus = String(booking.paymentStatus || '').toLowerCase();
+    const unverifiedStatuses = [
+      'pending',
+      'pending_property_confirmation',
+      'awaiting_customer_payment',
+      'rejected_by_property',
+      'expired_property_no_response',
+      'expired',
+      'payment_failed',
+    ];
+    if (unverifiedStatuses.includes(bookingStatus) && paymentStatus !== 'paid') {
+      return res.status(409).json({
+        success: false,
+        message: 'Booking receipt is only available after booking confirmation and verified payment.',
+        code: 'INVOICE_NOT_READY',
+      });
+    }
+    if (paymentStatus === 'failed') {
+      return res.status(409).json({
+        success: false,
+        message: 'Cannot generate receipt for a failed payment.',
+        code: 'PAYMENT_FAILED',
+      });
+    }
+
+    const { buffer, filename } = generateBookingInvoicePdf(booking);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Failed to generate invoice' });
   }
 });
 

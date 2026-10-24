@@ -1,9 +1,7 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 import {
   ArrowLeft,
   Calendar,
@@ -30,11 +28,14 @@ import {
   Check,
   ChevronRight,
   ExternalLink,
+  Download,
+  Navigation,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEffect, useState, useRef } from 'react';
 import { api, withAuth } from '@/lib/api';
 import { getAuthoritativeBookingState, formatBookingStatus } from '@/lib/bookingStatus';
+import { resolvePropertyDirectionsUrl } from '@/lib/maps';
 import { BookingCountdownTimer } from '@/components/BookingCountdownTimer';
 import { BookingTimeline } from '@/components/BookingTimeline';
 
@@ -97,6 +98,8 @@ const loadRazorpayCheckout = (timeoutMs = 10000) =>
 
 const BookingDetail = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const guestToken = searchParams.get('token') || searchParams.get('guestAccessToken') || '';
   const navigate = useNavigate();
   const { token } = useAuthStore();
   const adminPhone = useSettingsStore((s) => s.settings.adminPhone);
@@ -104,6 +107,7 @@ const BookingDetail = () => {
   const [booking, setBooking] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [isReviewing, setIsReviewing] = useState(false);
@@ -129,7 +133,7 @@ const BookingDetail = () => {
     if (!id) return;
     try {
       if (!silent) setIsRefreshing(true);
-      const b = await fetchBookingById(id);
+      const b = await fetchBookingById(id, guestToken);
       if (b) setBooking(b);
     } catch {
       // Keep existing booking on network blip
@@ -142,25 +146,90 @@ const BookingDetail = () => {
     const run = async () => {
       if (!id) return;
       setIsLoading(true);
-      const b = await fetchBookingById(id);
+      const b = await fetchBookingById(id, guestToken);
       setBooking(b);
       setIsLoading(false);
     };
     void run();
-  }, [fetchBookingById, id]);
+  }, [fetchBookingById, id, guestToken]);
 
-  // Bounded auto-polling for pending property confirmation
+  // Bounded auto-polling for pending property confirmation & awaiting payment recovery
   useEffect(() => {
     if (!booking) return;
     const isAwaitingProperty = booking.bookingStatus === 'pending_property_confirmation';
-    if (!isAwaitingProperty) return;
+    const isAwaitingPayment = booking.bookingStatus === 'awaiting_customer_payment' && booking.paymentStatus !== 'paid';
+    if (!isAwaitingProperty && !isAwaitingPayment) return;
+
+    // 3.5s during active payment verification, 5s during property confirmation, 8s during awaiting payment
+    const pollInterval = (isVerifyingPayment || isPayingDharamshala) ? 3500 : (isAwaitingProperty ? 5000 : 8000);
 
     const interval = setInterval(() => {
       void refreshBooking(true);
-    }, 5000);
+    }, pollInterval);
 
     return () => clearInterval(interval);
-  }, [booking?.bookingStatus, id]);
+  }, [booking?.bookingStatus, booking?.paymentStatus, id, isVerifyingPayment, isPayingDharamshala]);
+
+  // Immediate re-fetch on window focus or mobile browser tab visibility return (e.g. from UPI payment app)
+  useEffect(() => {
+    const onVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible' && booking?.id) {
+        const activeStatuses = ['pending_property_confirmation', 'awaiting_customer_payment', 'pending'];
+        if (activeStatuses.includes(String(booking.bookingStatus || '')) && booking.paymentStatus !== 'paid') {
+          void refreshBooking(true);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityOrFocus);
+    window.addEventListener('focus', onVisibilityOrFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityOrFocus);
+      window.removeEventListener('focus', onVisibilityOrFocus);
+    };
+  }, [booking?.id, booking?.bookingStatus, booking?.paymentStatus]);
+
+  const handleDownloadInvoice = async () => {
+    if (!id) return;
+    try {
+      setIsDownloadingInvoice(true);
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (guestToken) headers['x-guest-booking-token'] = guestToken;
+      const url = guestToken
+        ? `/bookings/${id}/invoice?guestAccessToken=${encodeURIComponent(guestToken)}`
+        : `/bookings/${id}/invoice`;
+
+      const response = await api.get(url, {
+        headers,
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', `booking-receipt-${booking?.bookingId || id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Booking receipt downloaded successfully');
+    } catch (err: any) {
+      let msg = 'Could not download receipt. Please try again or contact support.';
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed?.message) msg = parsed.message;
+        } catch {}
+      } else if (err?.response?.data?.message) {
+        msg = err.response.data.message;
+      }
+      toast.error(msg);
+    } finally {
+      setIsDownloadingInvoice(false);
+    }
+  };
 
   const copyBookingId = () => {
     if (!booking?.bookingId) return;
@@ -172,25 +241,19 @@ const BookingDetail = () => {
 
   if (isLoading) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen bg-background pt-24 pb-16 px-4 flex items-center justify-center">
+      <div className="min-h-screen bg-background pt-24 pb-16 px-4 flex items-center justify-center">
           <div className="text-center space-y-3">
             <div className="w-10 h-10 border-3 border-brand-crimson border-t-transparent rounded-full animate-spin mx-auto" />
             <p className="font-heading text-base font-semibold text-foreground">Loading your booking details...</p>
             <p className="font-body text-xs text-muted-foreground">Retrieving verified reservation data from server</p>
           </div>
         </div>
-        <Footer />
-      </>
     );
   }
 
   if (!booking) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen bg-background pt-24 pb-16 px-4 flex items-center justify-center">
+      <div className="min-h-screen bg-background pt-24 pb-16 px-4 flex items-center justify-center">
           <div className="text-center max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
             <ClipboardList size={56} className="mx-auto mb-4 text-muted-foreground/30" />
             <h2 className="font-heading text-2xl font-bold text-foreground mb-2">Booking Not Found</h2>
@@ -200,8 +263,6 @@ const BookingDetail = () => {
             </Link>
           </div>
         </div>
-        <Footer />
-      </>
     );
   }
 
@@ -276,6 +337,16 @@ const BookingDetail = () => {
 
   // Razorpay prefill MUST strictly use customer's verified mobile number, NEVER platform admin phone
   const razorpayContact = String(customerPhone || '').replace(/\D/g, '');
+
+  const propertyName = booking.propertyName || String(booking.itemName || '').split(' - ')[0] || booking.partnerName || 'Property';
+  const propertyLocation = booking.propertyLocation || booking.propertyAddress || '';
+  const nearestTemple = booking.nearestTemple || '';
+  const directionsUrl = resolvePropertyDirectionsUrl({
+    mapValue: booking.googleMapLink,
+    name: propertyName,
+    location: propertyLocation,
+    nearestTemple,
+  });
 
   const canModify =
     booking.bookingType === 'room_type' &&
@@ -367,9 +438,11 @@ const BookingDetail = () => {
         modal: {
           ondismiss: async () => {
             setIsVerifyingPayment(true);
-            // Safe bounded poll: check if user paid via UPI QR or asynchronous flow before closing modal
+            // Resilient bounded poll with progressive delays across 15s: [1s, 2s, 3s, 4s, 5s]
             let confirmed = false;
-            for (let i = 0; i < 4; i++) {
+            const delays = [1000, 2000, 3000, 4000, 5000];
+            for (let i = 0; i < delays.length; i++) {
+              await new Promise((r) => setTimeout(r, delays[i]));
               try {
                 const latest = await fetchBookingById(booking.id);
                 if (latest && (latest.paymentStatus === 'paid' || latest.bookingStatus === 'confirmed')) {
@@ -380,13 +453,12 @@ const BookingDetail = () => {
                   break;
                 }
               } catch {}
-              if (i < 3) await new Promise((r) => setTimeout(r, 2000));
             }
             setIsVerifyingPayment(false);
             setIsPayingDharamshala(false);
 
             if (!confirmed) {
-              toast.message('Checkout closed. If funds were debited, your booking will be confirmed automatically upon bank settlement.');
+              toast.message('Checkout closed. If funds were debited, your reservation will update automatically once verified by the bank.');
             }
           },
         },
@@ -533,9 +605,7 @@ const BookingDetail = () => {
   const TypeIcon = typeIcon;
 
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen bg-[#faf8f5] pt-20 pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#faf8f5] pt-20 sm:pt-24 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-5xl space-y-6">
           {/* Breadcrumb Navigation */}
           <nav className="flex items-center gap-2 text-xs font-body text-muted-foreground">
@@ -709,6 +779,56 @@ const BookingDetail = () => {
                   </div>
                 )}
               </div>
+
+              {/* Property Location & Directions Card */}
+              {(propertyLocation || directionsUrl) && (
+                <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                    <h3 className="font-heading text-base font-bold text-foreground flex items-center gap-2">
+                      <MapPin size={16} className="text-brand-crimson" />
+                      <span>Property Location & Directions</span>
+                    </h3>
+                  </div>
+
+                  <div>
+                    <h4 className="font-heading text-lg font-bold text-foreground">{propertyName}</h4>
+                    {propertyLocation && (
+                      <p className="mt-1 font-body text-xs text-muted-foreground leading-relaxed">
+                        {propertyLocation}
+                      </p>
+                    )}
+                    {nearestTemple && (
+                      <p className="mt-1 font-body text-xs font-medium text-brand-gold">
+                        Landmark: Near {nearestTemple}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap items-center gap-3">
+                    {directionsUrl && (
+                      <a
+                        href={directionsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-xl bg-brand-crimson px-4 py-2.5 font-body text-xs font-bold text-white hover:bg-brand-crimson/90 transition-colors shadow-sm"
+                      >
+                        <Navigation size={14} />
+                        <span>Get Directions / Open in Maps</span>
+                        <ExternalLink size={12} className="opacity-75" />
+                      </a>
+                    )}
+                    {showHostContact && (booking.partnerPhone || booking.partnerWhatsapp) && (
+                      <a
+                        href={`tel:${String(booking.partnerPhone || booking.partnerWhatsapp).replace(/\D/g, '')}`}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2.5 font-body text-xs font-semibold text-foreground hover:bg-secondary transition-colors"
+                      >
+                        <Phone size={13} className="text-brand-crimson" />
+                        <span>Call Reception ({booking.partnerPhone || booking.partnerWhatsapp})</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Booking Progress Timeline */}
               <BookingTimeline booking={booking} state={state} />
@@ -927,6 +1047,15 @@ const BookingDetail = () => {
                         <p className="font-body text-xs text-muted-foreground mt-0.5">Your room is guaranteed for check-in.</p>
                       </div>
 
+                      <button
+                        onClick={handleDownloadInvoice}
+                        disabled={isDownloadingInvoice}
+                        className="w-full py-3 rounded-2xl bg-brand-crimson text-white font-body text-sm font-bold hover:bg-brand-crimson/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm"
+                      >
+                        <Download size={16} className={isDownloadingInvoice ? 'animate-bounce' : ''} />
+                        <span>{isDownloadingInvoice ? 'Generating Receipt...' : 'Download Booking Receipt (PDF)'}</span>
+                      </button>
+
                       {canModify && (
                         <button
                           onClick={openModify}
@@ -936,12 +1065,14 @@ const BookingDetail = () => {
                         </button>
                       )}
 
-                      <button
-                        onClick={handleCancel}
-                        className="w-full py-2.5 rounded-2xl border border-destructive/40 text-destructive font-body text-xs font-semibold hover:bg-destructive/5 transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <XCircle size={14} /> Cancel Reservation
-                      </button>
+                      {booking.bookingStatus === 'confirmed' && (
+                        <button
+                          onClick={handleCancel}
+                          className="w-full py-2.5 rounded-2xl border border-destructive/40 text-destructive font-body text-xs font-semibold hover:bg-destructive/5 transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <XCircle size={14} /> Cancel Reservation
+                        </button>
+                      )}
                     </div>
                   ) : state.code === 'expired' || state.code === 'expired_property_no_response' || state.code === 'rejected_by_property' ? (
                     /* Case 5: Expired / Declined */
@@ -973,8 +1104,6 @@ const BookingDetail = () => {
           </div>
         </div>
       </div>
-      <Footer />
-    </>
   );
 };
 

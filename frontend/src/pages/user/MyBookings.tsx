@@ -7,6 +7,7 @@ import {
   Calendar,
   Car,
   CheckCircle2,
+  Download,
   ClipboardList,
   Clock,
   Hotel,
@@ -15,6 +16,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { formatBookingStatus } from '@/lib/bookingStatus';
@@ -54,6 +56,35 @@ const MyBookings = () => {
   const [cancelBookingId, setCancelBookingId] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [cancelDetails, setCancelDetails] = useState('');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const downloadInvoice = async (e: MouseEvent, id: string, bookingId?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = useAuthStore.getState().token;
+    if (!token) return;
+    try {
+      setDownloadingId(id);
+      const res = await api.get(`/bookings/${id}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', `booking-receipt-${bookingId || id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Booking receipt downloaded successfully');
+    } catch {
+      toast.error('Could not download receipt. Please try again.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -350,11 +381,39 @@ const MyBookings = () => {
                           <span className="text-right font-body text-[11px] font-semibold capitalize text-muted-foreground">{paymentCopy}</span>
                         </div>
 
-                        {b.bookingStatus === 'confirmed' && (
-                          <button onClick={(e) => openCancel(e, b.id)} className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md px-0 font-body text-xs font-bold text-destructive hover:underline">
-                            <XCircle size={13} /> Cancel
-                          </button>
-                        )}
+                        {(() => {
+                          const rawStatus = String(b.bookingStatus || '').toLowerCase();
+                          const isEligible = Boolean(
+                            b.paymentStatus === 'paid' ||
+                            ['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(rawStatus)
+                          ) && !(
+                            ['pending', 'pending_property_confirmation', 'awaiting_customer_payment', 'rejected_by_property', 'expired', 'expired_property_no_response', 'payment_failed'].includes(rawStatus) &&
+                            b.paymentStatus !== 'paid'
+                          );
+                          const canCancel = rawStatus === 'confirmed';
+
+                          if (!isEligible && !canCancel) return null;
+
+                          return (
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                              {isEligible ? (
+                                <button
+                                  onClick={(e) => downloadInvoice(e, b.id, b.bookingId)}
+                                  disabled={downloadingId === b.id}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 font-body text-xs font-semibold text-foreground hover:bg-secondary hover:text-brand-crimson transition-colors disabled:opacity-50 shadow-sm"
+                                >
+                                  <Download size={12} className={downloadingId === b.id ? 'animate-bounce' : ''} />
+                                  <span>{downloadingId === b.id ? 'Downloading...' : 'PDF Receipt'}</span>
+                                </button>
+                              ) : <span />}
+                              {canCancel && (
+                                <button onClick={(e) => openCancel(e, b.id)} className="inline-flex items-center gap-1.5 rounded-md px-0 font-body text-xs font-bold text-destructive hover:underline">
+                                  <XCircle size={13} /> Cancel
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {b.bookingStatus === 'awaiting_customer_payment' && (
                           <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md font-body text-xs font-bold text-brand-crimson group-hover:underline">
                             Pay & confirm <ArrowRight size={13} />

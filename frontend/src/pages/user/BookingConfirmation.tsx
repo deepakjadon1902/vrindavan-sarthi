@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { CheckCircle2, ClipboardList, CreditCard, Home, Mail, Phone, Calendar, ArrowRight, ShieldCheck, Clock } from 'lucide-react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { CheckCircle2, ClipboardList, CreditCard, Home, Mail, Phone, Calendar, ArrowRight, ShieldCheck, Clock, MapPin, Navigation, ExternalLink, Download } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Booking } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
 import { getAuthoritativeBookingState } from '@/lib/bookingStatus';
+import { resolvePropertyDirectionsUrl } from '@/lib/maps';
 import BookingCountdownTimer from '@/components/BookingCountdownTimer';
 import BookingTimeline from '@/components/BookingTimeline';
 
@@ -13,17 +15,73 @@ const formatDate = (value?: string) => value ? new Date(value).toLocaleDateStrin
 
 const BookingConfirmation = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const guestToken = searchParams.get('token') || searchParams.get('guestAccessToken') || '';
   const { token } = useAuthStore();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
+
+  const handleDownloadInvoice = async () => {
+    if (!booking) return;
+    try {
+      setIsDownloadingInvoice(true);
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (guestToken) headers['x-guest-booking-token'] = guestToken;
+      const targetId = booking.id || booking._id || id;
+      const url = guestToken
+        ? `/bookings/${targetId}/invoice?guestAccessToken=${encodeURIComponent(guestToken)}`
+        : `/bookings/${targetId}/invoice`;
+
+      const response = await api.get(url, {
+        headers,
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const filename = `booking-receipt-${booking.bookingId || targetId}.pdf`;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Booking receipt downloaded successfully');
+    } catch (err: any) {
+      let msg = 'Could not download receipt. Please try again or contact support.';
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          if (json?.message) msg = json.message;
+        } catch {
+          // fallback
+        }
+      } else if (err?.response?.data?.message) {
+        msg = err.response.data.message;
+      }
+      toast.error(msg);
+    } finally {
+      setIsDownloadingInvoice(false);
+    }
+  };
 
   const fetchBooking = async () => {
-    if (!id || !token) {
+    if (!id || (!token && !guestToken)) {
       setIsLoading(false);
       return;
     }
     try {
-      const res = await api.get(`/bookings/${id}`, withAuth(token));
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (guestToken) headers['x-guest-booking-token'] = guestToken;
+      const url = guestToken
+        ? `/bookings/${id}?guestAccessToken=${encodeURIComponent(guestToken)}`
+        : `/bookings/${id}`;
+      const res = await api.get(url, { headers });
       const raw = res.data?.data;
       setBooking(raw ? { ...raw, id: raw.id || raw._id } : null);
     } catch {
@@ -35,11 +93,22 @@ const BookingConfirmation = () => {
 
   useEffect(() => {
     void fetchBooking();
-  }, [id, token]);
+    const onVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchBooking();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityOrFocus);
+    window.addEventListener('focus', onVisibilityOrFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityOrFocus);
+      window.removeEventListener('focus', onVisibilityOrFocus);
+    };
+  }, [id, token, guestToken]);
 
   if (isLoading) {
     return (
-      <div className="min-h-[70vh] px-4 py-16 flex items-center justify-center">
+      <div className="min-h-[70vh] px-4 pt-24 pb-16 flex items-center justify-center">
         <div className="mx-auto max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
           <div className="w-10 h-10 border-3 border-brand-crimson border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="font-heading text-base font-semibold text-foreground">Preparing confirmation...</p>
@@ -51,7 +120,7 @@ const BookingConfirmation = () => {
 
   if (!booking) {
     return (
-      <div className="min-h-[70vh] px-4 py-16 flex items-center justify-center">
+      <div className="min-h-[70vh] px-4 pt-24 pb-16 flex items-center justify-center">
         <div className="mx-auto max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
           <ClipboardList size={48} className="mx-auto mb-4 text-muted-foreground/40" />
           <h1 className="font-heading text-2xl font-bold text-foreground">Booking not found</h1>
@@ -72,8 +141,36 @@ const BookingConfirmation = () => {
   const customerPhone = booking.customerMobile || booking.userPhone || '-';
   const customerEmail = booking.customerEmail || booking.userEmail || '-';
 
+  const propertyName = booking.propertyName || String(booking.itemName || '').split(' - ')[0] || booking.partnerName || 'Property';
+  const propertyLocation = booking.propertyLocation || booking.propertyAddress || '';
+  const nearestTemple = booking.nearestTemple || '';
+  const directionsUrl = resolvePropertyDirectionsUrl({
+    mapValue: booking.googleMapLink,
+    name: propertyName,
+    location: propertyLocation,
+    nearestTemple,
+  });
+  const partnerPhone = booking.partnerPhone || booking.partnerWhatsapp || '';
+  const showContact = Boolean(partnerPhone && (state.isConfirmed || booking.bookingStatus === 'awaiting_customer_payment'));
+
+  const rawBookingStatus = String(booking.bookingStatus || '').toLowerCase();
+  const rawPaymentStatus = String(booking.paymentStatus || '').toLowerCase();
+  const canDownloadReceipt = Boolean(
+    booking &&
+    rawPaymentStatus !== 'failed' &&
+    (
+      rawPaymentStatus === 'paid' ||
+      paidAmount > 0 ||
+      ['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(rawBookingStatus)
+    ) &&
+    !(
+      ['pending', 'pending_property_confirmation', 'awaiting_customer_payment', 'rejected_by_property', 'expired', 'expired_property_no_response'].includes(rawBookingStatus) &&
+      rawPaymentStatus !== 'paid'
+    )
+  );
+
   return (
-    <div className="min-h-[75vh] px-4 py-8 sm:py-12 bg-background">
+    <div className="min-h-[75vh] px-4 pt-20 sm:pt-24 pb-8 sm:pb-12 bg-background">
       <div className="mx-auto max-w-4xl space-y-6">
         {/* Hero Card */}
         <div className="overflow-hidden rounded-3xl border border-brand-gold/30 bg-card shadow-sm">
@@ -132,6 +229,57 @@ const BookingConfirmation = () => {
                 </div>
               </div>
 
+              {/* Property Location & Directions */}
+              {(propertyLocation || directionsUrl) && (
+                <div className="rounded-2xl border border-border/80 bg-background/60 p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-body text-xs font-bold uppercase tracking-wider text-brand-crimson flex items-center gap-1.5">
+                        <MapPin size={13} />
+                        <span>Property Location & Directions</span>
+                      </p>
+                      <h3 className="mt-1 font-heading text-base font-bold text-foreground">
+                        {propertyName}
+                      </h3>
+                      {propertyLocation && (
+                        <p className="mt-1 font-body text-xs text-muted-foreground leading-relaxed">
+                          {propertyLocation}
+                        </p>
+                      )}
+                      {nearestTemple && (
+                        <p className="mt-1 font-body text-xs font-medium text-brand-gold">
+                          Landmark: Near {nearestTemple}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-border/60 flex flex-wrap items-center gap-2.5">
+                    {directionsUrl && (
+                      <a
+                        href={directionsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-brand-crimson px-3.5 py-2 font-body text-xs font-bold text-white hover:bg-brand-crimson/90 transition-colors shadow-sm"
+                      >
+                        <Navigation size={13} />
+                        <span>Get Directions / Open in Maps</span>
+                        <ExternalLink size={12} className="opacity-70" />
+                      </a>
+                    )}
+                    {showContact && (
+                      <a
+                        href={`tel:${partnerPhone.replace(/\D/g, '')}`}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 font-body text-xs font-semibold text-foreground hover:bg-secondary transition-colors"
+                      >
+                        <Phone size={13} className="text-brand-crimson" />
+                        <span>Call Reception ({partnerPhone})</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Guest Information */}
               <div className="rounded-2xl border border-border/80 bg-background/60 p-4 sm:p-5">
                 <h4 className="font-heading text-sm font-bold text-foreground mb-3">Guest Information</h4>
@@ -184,9 +332,23 @@ const BookingConfirmation = () => {
                 </div>
 
                 <div className="mt-6 space-y-2">
+                  {canDownloadReceipt && (
+                    <button
+                      onClick={handleDownloadInvoice}
+                      disabled={isDownloadingInvoice}
+                      className="w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-crimson px-4 font-body text-sm font-bold text-white hover:bg-brand-crimson/90 transition-colors shadow-sm disabled:opacity-60"
+                    >
+                      <Download size={16} className={isDownloadingInvoice ? 'animate-bounce' : ''} />
+                      <span>{isDownloadingInvoice ? 'Generating Receipt...' : 'Download Booking Receipt (PDF)'}</span>
+                    </button>
+                  )}
                   <Link
                     to={`/bookings/${booking.id}`}
-                    className="w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-crimson px-4 font-body text-sm font-bold text-white hover:bg-brand-crimson/90 transition-colors shadow-sm"
+                    className={`w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 font-body text-sm font-semibold transition-colors ${
+                      canDownloadReceipt
+                        ? 'border border-border bg-card text-foreground hover:bg-secondary'
+                        : 'bg-brand-crimson font-bold text-white hover:bg-brand-crimson/90 shadow-sm'
+                    }`}
                   >
                     <span>View Booking Details</span>
                     <ArrowRight size={16} />
