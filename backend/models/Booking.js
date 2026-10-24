@@ -34,6 +34,10 @@ const acceptedPropertyTermsSchema = new mongoose.Schema(
 
 const bookingSchema = new mongoose.Schema({
   bookingId: { type: String, unique: true },
+  displayBookingId: { type: String, index: true },
+  propertyId: { type: String, index: true },
+  categoryId: { type: String, index: true },
+  roomId: { type: String, index: true },
   bookingType: { type: String, enum: ['hotel', 'room', 'cab', 'tour', 'room_type'], required: true },
   service_billing_model: {
     type: String,

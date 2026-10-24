@@ -1,6 +1,7 @@
 const express = require('express');
 const Hotel = require('../models/Hotel');
 const RoomType = require('../models/RoomType');
+const { getNextCategoryId, getNextRoomId } = require('../utils/idAllocation');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
 const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
@@ -280,8 +281,10 @@ router.post('/hotels/:hotelId/room-types', async (req, res) => {
     const body = { ...req.body };
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/room-types', multi: ['images'], tags: ['roomType', 'partner'] });
 
+    const categoryId = req.body?.categoryId || await getNextCategoryId(hotel._id);
     const roomType = await RoomType.create({
       hotelId: hotel._id,
+      categoryId,
       partnerId: req.user._id,
       createdByUserId: req.user._id,
       createdByRole: 'partner',
@@ -372,8 +375,10 @@ router.post('/room-types/:roomTypeId/rooms', async (req, res) => {
     const number = normalizeString(req.body?.number);
     if (!number) return res.status(400).json({ success: false, message: 'Room number is required' });
 
+    const roomId = req.body?.roomId || (/^\d+$/.test(number) ? number : await getNextRoomId(roomType.hotelId, number));
     const room = await RoomUnit.create({
       hotelId: roomType.hotelId,
+      roomId,
       roomTypeId: roomType._id,
       partnerId: req.user._id,
       createdByUserId: req.user._id,

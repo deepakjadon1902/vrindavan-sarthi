@@ -12,6 +12,7 @@ const {
 } = require('./reservationLifecycle');
 const { getPaymentOption } = require('./pricing');
 const { createBookingQuote } = require('./rateEngine');
+const { getNextBookingId } = require('./idAllocation');
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 const DEFAULT_DHARAMSHALA_PLATFORM_FEE = 79;
@@ -211,8 +212,15 @@ const createDharamshalaRequest = async ({
     quote = quoteResult.quote;
   }
 
+  const displayBookingId = await getNextBookingId();
+  const propertyId = hotel.propertyId || undefined;
+  const categoryId = roomType.categoryId || undefined;
+
   const booking = await Booking.create({
     bookingId: generateDharamshalaBookingCode(),
+    displayBookingId,
+    propertyId,
+    categoryId,
     bookingType: 'room_type',
     service_billing_model: isDharamshala ? 'dharamshala_booking' : 'hotel_marketplace',
     propertyType: hotel.propertyType || 'hotel',

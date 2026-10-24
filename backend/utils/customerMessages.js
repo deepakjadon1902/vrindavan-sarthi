@@ -324,8 +324,8 @@ const sendPartnerBookingAlert = async (booking) => {
   });
 };
 
-const generateBookingInvoicePdf = (booking) => {
-  const receipt = buildBookingReceiptPdf(booking);
+const generateBookingInvoicePdf = (booking, context = {}) => {
+  const receipt = buildBookingReceiptPdf(booking, context);
   return {
     buffer: receipt.buffer,
     filename: receipt.filename,

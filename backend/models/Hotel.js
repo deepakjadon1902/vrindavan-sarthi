@@ -28,6 +28,7 @@ const propertyTermsVersionSchema = new mongoose.Schema(
 );
 
 const hotelSchema = new mongoose.Schema({
+  propertyId: { type: String, unique: true, sparse: true, index: true },
   name: { type: String, required: true },
   propertyType: { type: String, enum: ['hotel', 'dharamshala', 'home_stay', 'guest_house'], default: 'hotel' },
   location: { type: String, required: true },
@@ -98,6 +99,18 @@ const hotelSchema = new mongoose.Schema({
   approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   adminRemarks: String,
 }, { timestamps: true });
+
+hotelSchema.pre('save', async function (next) {
+  if (!this.propertyId) {
+    try {
+      const { getNextPropertyId } = require('../utils/idAllocation');
+      this.propertyId = await getNextPropertyId();
+    } catch {
+      // Continue safely if Counter is unavailable in detached test mocks
+    }
+  }
+  next();
+});
 
 // Support global lists (admin) that sort by createdAt without additional filters.
 hotelSchema.index({ createdAt: -1 });

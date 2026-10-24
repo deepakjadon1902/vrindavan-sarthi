@@ -1,5 +1,6 @@
 const express = require('express');
 const Hotel = require('../models/Hotel');
+const { getNextPropertyId } = require('../utils/idAllocation');
 const Cab = require('../models/Cab');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
@@ -240,7 +241,9 @@ router.post('/hotels', protect, authorize('partner'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'Property terms and booking policies are required for every hotel/dharamshala.' });
     }
     await normalizeImageFields(body, { folder: 'vrindavan-sarthi/hotels', single: ['image'], multi: ['images'], tags: ['hotel', 'partner'] });
+    const propertyId = body.propertyId || await getNextPropertyId();
     const hotel = await Hotel.create({
+      propertyId,
       ...body,
       partnerId: req.user._id,
       partnerName: req.user.name,

@@ -12,6 +12,7 @@ const User = require('../models/User');
 const { protect, optionalProtect, authorize } = require('../middleware/auth');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const { generateBookingInvoicePdf } = require('../utils/customerMessages');
+const { getNextBookingId, deriveStableNumericId } = require('../utils/idAllocation');
 const {
   assertValidBookingTransition,
   transitionBookingStatus,
@@ -217,7 +218,7 @@ const bookingDetailFields = [
   'hotelId roomTypeId ratePlanId ratePlanName ratePlanCode ratePlanMealPlan nightlyBreakdown roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
   'assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail',
-  'customerFullName customerMobile customerEmail arrivalMode vehicleNumber arrivalTime',
+  'displayBookingId propertyId categoryId roomId customerFullName customerMobile customerEmail arrivalMode vehicleNumber arrivalTime',
   'totalAdults totalChildren hasPet guestDetails',
   'baseAmount taxPercent taxAmount checkoutSubtotal convenienceFeePercent convenienceFeeAmount totalAmount advanceAmount balanceAmount advancePercent paymentOption',
   'base_amount hotel_gst_amount convenience_fee customer_total advance_paid balance_at_property commission_rate commission_amount payment_gateway_fee gross_for_hotel hotel_net_payout payout_status hotel_gstin hotel_invoice_number',
@@ -338,9 +339,11 @@ router.post('/cab', protect, async (req, res) => {
     if (!paymentOption) return res.status(400).json({ success: false, message: 'Cab bookings only support 30% advance online payment' });
     const money = buildMoneyFields({ subtotal: breakdown.total, baseAmount: breakdown.total, taxAmount: 0, paymentOption, gatewayFeeAmount: req.body?.paymentGatewayFeeAmount });
     const bookingId = generateBookingCode();
+    const displayBookingId = await getNextBookingId();
 
     const booking = await Booking.create({
       bookingId,
+      displayBookingId,
       bookingType: 'cab',
       service_billing_model: 'taxi_direct',
       itemId: 'cab_request',
@@ -568,8 +571,14 @@ router.post('/room-type', optionalProtect, async (req, res) => {
     const blockedSet = new Set(blockedByBlocks.map(String));
 
     const bookingId = generateBookingCode();
+    const displayBookingId = await getNextBookingId();
+    const propertyId = hotel.propertyId || undefined;
+    const categoryId = roomType.categoryId || undefined;
     const booking = new Booking({
       bookingId,
+      displayBookingId,
+      propertyId,
+      categoryId,
       bookingType: 'room_type',
       service_billing_model: 'hotel_marketplace',
       itemId: String(roomType._id),
@@ -649,6 +658,11 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       booking.roomNumbers = selectedUnits.map((unit) => unit.number);
       booking.roomUnitId = selectedUnits[0]._id;
       booking.roomNumber = selectedUnits[0].number;
+      if (selectedUnits[0]?.roomId) {
+        booking.roomId = selectedUnits[0].roomId;
+      } else if (selectedUnits[0]?.number && /^\d+$/.test(selectedUnits[0].number)) {
+        booking.roomId = selectedUnits[0].number;
+      }
       try {
         await booking.save();
       } catch (err) {
@@ -671,6 +685,9 @@ router.post('/room-type', optionalProtect, async (req, res) => {
     if (selectedUnits.length < roomQuantity) {
       const waitlistedBooking = await Booking.create({
         bookingId,
+        displayBookingId,
+        propertyId,
+        categoryId,
         bookingType: 'room_type',
         service_billing_model: 'hotel_marketplace',
         itemId: String(roomType._id),
@@ -829,6 +846,7 @@ router.post('/', protect, async (req, res) => {
       guests,
     };
 
+    payload.displayBookingId = await getNextBookingId();
     const booking = await Booking.create(payload);
     await enqueueBookingNotifications(booking, { partnerAlert: true });
     res.status(201).json({ success: true, data: sanitizeCustomerBooking(booking) });
@@ -1112,10 +1130,10 @@ router.get('/verify/:bookingId', async (req, res) => {
     }
 
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
-    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }] } : { bookingId: rawId };
+    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }, { displayBookingId: rawId }] } : { $or: [{ bookingId: rawId }, { displayBookingId: rawId }] };
 
     const booking = await Booking.findOne(query)
-      .select('bookingId bookingType service_billing_model itemName propertyName propertyAddress propertyLocation checkIn checkOut checkInTime guests totalAdults totalChildren totalAmount amountPaidOnline amountPayableAtProperty bookingStatus paymentStatus paymentMethod customerFullName userName paidAt createdAt hotelId roomNumber')
+      .select('bookingId displayBookingId propertyId categoryId roomId bookingType service_billing_model itemName propertyName propertyAddress propertyLocation checkIn checkOut checkInTime guests totalAdults totalChildren totalAmount amountPaidOnline amountPayableAtProperty bookingStatus paymentStatus paymentMethod customerFullName userName paidAt createdAt hotelId roomNumber')
       .lean();
 
     if (!booking) {
@@ -1123,7 +1141,7 @@ router.get('/verify/:bookingId', async (req, res) => {
     }
 
     if (booking.hotelId) {
-      const hotel = await Hotel.findById(booking.hotelId).select('name fullAddress address location contactPhone partnerPhone googleMapLink nearestTemple').lean();
+      const hotel = await Hotel.findById(booking.hotelId).select('name fullAddress address location contactPhone partnerPhone googleMapLink nearestTemple propertyId').lean();
       if (hotel) {
         booking.propertyName = booking.propertyName || hotel.name || '';
         booking.propertyAddress = hotel.fullAddress || hotel.address || hotel.location || '';
@@ -1131,6 +1149,7 @@ router.get('/verify/:bookingId', async (req, res) => {
         booking.googleMapLink = hotel.googleMapLink || '';
         booking.nearestTemple = hotel.nearestTemple || '';
         booking.partnerPhone = booking.partnerPhone || hotel.contactPhone || hotel.partnerPhone || '';
+        if (hotel.propertyId) booking.propertyId = hotel.propertyId;
       }
     }
 
@@ -1140,6 +1159,10 @@ router.get('/verify/:bookingId', async (req, res) => {
       data: {
         verified: true,
         bookingId: booking.bookingId || String(booking._id),
+        displayBookingId: booking.displayBookingId || null,
+        propertyId: booking.propertyId || null,
+        categoryId: booking.categoryId || null,
+        roomId: booking.roomId || null,
         bookingStatus: booking.bookingStatus,
         paymentStatus: booking.paymentStatus,
         propertyName: booking.propertyName || String(booking.itemName || '').split(' - ')[0] || 'Property',
@@ -1173,7 +1196,7 @@ router.get('/:id', optionalProtect, async (req, res) => {
     const rawId = String(req.params.id || '').trim();
     if (!rawId) return res.status(400).json({ success: false, message: 'Booking ID is required' });
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
-    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }] } : { bookingId: rawId };
+    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }, { displayBookingId: rawId }] } : { $or: [{ bookingId: rawId }, { displayBookingId: rawId }] };
     const booking = await Booking.findOne(query).lean();
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
@@ -1231,7 +1254,7 @@ router.get('/:id/invoice', optionalProtect, async (req, res) => {
     const rawId = String(req.params.id || '').trim();
     if (!rawId) return res.status(400).json({ success: false, message: 'Booking ID is required' });
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
-    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }] } : { bookingId: rawId };
+    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }, { displayBookingId: rawId }] } : { $or: [{ bookingId: rawId }, { displayBookingId: rawId }] };
     const booking = await Booking.findOne(query).lean();
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
@@ -1257,9 +1280,13 @@ router.get('/:id/invoice', optionalProtect, async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authorized' });
     }
 
+    let hotel = null;
+    let roomType = null;
+    let roomUnit = null;
+
     if (booking.hotelId) {
-      const hotel = await Hotel.findById(booking.hotelId)
-        .select('name address fullAddress location nearestTemple googleMapLink contactPhone contactWhatsapp partnerPhone partnerWhatsapp')
+      hotel = await Hotel.findById(booking.hotelId)
+        .select('name address fullAddress location nearestTemple googleMapLink contactPhone contactWhatsapp partnerPhone partnerWhatsapp propertyType propertyId')
         .lean();
       if (hotel) {
         booking.propertyName = booking.propertyName || hotel.name || '';
@@ -1268,7 +1295,18 @@ router.get('/:id/invoice', optionalProtect, async (req, res) => {
         booking.googleMapLink = hotel.googleMapLink || '';
         booking.nearestTemple = hotel.nearestTemple || '';
         booking.partnerPhone = booking.partnerPhone || hotel.contactPhone || hotel.partnerPhone || hotel.contactWhatsapp || '';
+        if (hotel.propertyId) booking.propertyId = hotel.propertyId;
       }
+    }
+
+    if (booking.roomTypeId) {
+      roomType = await RoomType.findById(booking.roomTypeId).select('name categoryId pricePerNight').lean();
+      if (roomType?.categoryId) booking.categoryId = roomType.categoryId;
+    }
+
+    if (booking.roomUnitId) {
+      roomUnit = await RoomUnit.findById(booking.roomUnitId).select('number floor roomId').lean();
+      if (roomUnit?.roomId) booking.roomId = roomUnit.roomId;
     }
 
     // Secure invoice eligibility: prevent premature receipt download for unverified/pending/failed bookings
@@ -1298,7 +1336,7 @@ router.get('/:id/invoice', optionalProtect, async (req, res) => {
       });
     }
 
-    const { buffer, filename } = generateBookingInvoicePdf(booking);
+    const { buffer, filename } = generateBookingInvoicePdf(booking, { hotel, roomType, roomUnit });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);

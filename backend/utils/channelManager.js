@@ -20,6 +20,7 @@ const { enumerateDatesUTC, parseDateOnlyToUTC, isValidDate } = require('./date')
 const { createBookingQuote, getRoomTypeAvailability, httpError } = require('./rateEngine');
 const { getChannelProvider, normalizeProvider } = require('../integrations/channelManager');
 const { tryReserveRoomUnitsForBooking, transitionBookingStatus, releaseBookingInventory } = require('./reservationLifecycle');
+const { getNextBookingId } = require('./idAllocation');
 
 const DEFAULT_PROVIDER = 'ezee';
 const SYNCABLE_STATUSES = new Set(['queued', 'retry_scheduled', 'failed']);
@@ -457,7 +458,11 @@ const createBookingForExternalReservation = async ({ external, hotel, roomType, 
     RoomUnitBlock.find({ roomTypeId: roomType._id, date: { $in: daysToReserve } }).lean(),
   ]);
   const blockedSet = new Set(blocks.map((block) => String(block.roomUnitId)));
+  const displayBookingId = await getNextBookingId();
   const booking = new Booking({
+    displayBookingId,
+    propertyId: hotel.propertyId || undefined,
+    categoryId: roomType.categoryId || undefined,
     bookingType: 'room_type',
     service_billing_model: 'hotel_marketplace',
     itemId: String(roomType._id),
@@ -526,6 +531,11 @@ const createBookingForExternalReservation = async ({ external, hotel, roomType, 
   booking.roomNumbers = selectedUnits.map((unit) => unit.number);
   booking.roomUnitId = selectedUnits[0]._id;
   booking.roomNumber = selectedUnits[0].number;
+  if (selectedUnits[0]?.roomId) {
+    booking.roomId = selectedUnits[0].roomId;
+  } else if (selectedUnits[0]?.number && /^\d+$/.test(selectedUnits[0].number)) {
+    booking.roomId = selectedUnits[0].number;
+  }
   if (booking.bookingStatus === 'confirmed') await transitionBookingStatus(booking, 'confirmed', { actorRole: 'system', reason: 'channel_reservation_import' });
   try {
     await booking.save();

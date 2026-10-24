@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const roomTypeSchema = new mongoose.Schema(
   {
     hotelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel', required: true, index: true },
+    categoryId: { type: String, index: true },
     name: { type: String, required: true },
     description: { type: String, default: '' },
     images: [String],
@@ -29,6 +30,18 @@ const roomTypeSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+roomTypeSchema.pre('save', async function (next) {
+  if (!this.categoryId && this.hotelId) {
+    try {
+      const { getNextCategoryId } = require('../utils/idAllocation');
+      this.categoryId = await getNextCategoryId(this.hotelId);
+    } catch {
+      // Continue safely if Counter is unavailable in detached test mocks
+    }
+  }
+  next();
+});
 
 roomTypeSchema.index({ hotelId: 1, status: 1, createdAt: -1 });
 roomTypeSchema.index({ partnerId: 1, createdAt: -1 });

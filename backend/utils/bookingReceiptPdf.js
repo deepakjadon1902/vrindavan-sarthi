@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { resolveReceiptIdentifiers } = require('./idAllocation');
 let QRCode = null;
 try {
   QRCode = require('qrcode');
@@ -436,7 +437,8 @@ class ReferenceMatchedPdfBuilder {
     }
   }
 
-  generate(booking) {
+  generate(booking, context = {}) {
+    const identifiers = resolveReceiptIdentifiers(booking, context?.hotel, context?.roomType, context?.roomUnit);
     const logoData = this.loadLogo();
     const isDharamshala =
       booking.service_billing_model === 'dharamshala_booking' ||
@@ -458,15 +460,27 @@ class ReferenceMatchedPdfBuilder {
     const logoX = this.margin + 2;
     const logoY = 768;
 
+    const cx = logoX + logoSize / 2;
+    const cy = logoY + logoSize / 2;
+    const r = logoSize / 2;
+    const kappa = 0.5522847498;
+    const d = r * kappa;
+
     if (logoData) {
       this.currentOps.push('q');
+      this.currentOps.push(`${cx.toFixed(2)} ${(cy + r).toFixed(2)} m`);
+      this.currentOps.push(`${(cx + d).toFixed(2)} ${(cy + r).toFixed(2)} ${(cx + r).toFixed(2)} ${(cy + d).toFixed(2)} ${(cx + r).toFixed(2)} ${cy.toFixed(2)} c`);
+      this.currentOps.push(`${(cx + r).toFixed(2)} ${(cy - d).toFixed(2)} ${(cx + d).toFixed(2)} ${(cy - r).toFixed(2)} ${cx.toFixed(2)} ${(cy - r).toFixed(2)} c`);
+      this.currentOps.push(`${(cx - d).toFixed(2)} ${(cy - r).toFixed(2)} ${(cx - r).toFixed(2)} ${(cy - d).toFixed(2)} ${(cx - r).toFixed(2)} ${cy.toFixed(2)} c`);
+      this.currentOps.push(`${(cx - r).toFixed(2)} ${(cy + d).toFixed(2)} ${(cx - d).toFixed(2)} ${(cy + r).toFixed(2)} ${cx.toFixed(2)} ${(cy + r).toFixed(2)} c`);
+      this.currentOps.push('h W n');
       this.currentOps.push(`${logoSize.toFixed(2)} 0 0 ${logoSize.toFixed(2)} ${logoX.toFixed(2)} ${logoY.toFixed(2)} cm`);
       this.currentOps.push('/Logo Do');
       this.currentOps.push('Q');
-      this.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 1, null, COLORS.accentGold, 1.2);
+      this.circle(cx, cy, r, null, COLORS.accentGold, 1.2);
     } else {
-      this.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, COLORS.primaryGreen);
-      this.text('VS', logoX + 17, logoY + 18, { size: 16, font: 'F2', color: COLORS.white });
+      this.circle(cx, cy, r, COLORS.primaryGreen, COLORS.accentGold, 1.2);
+      this.text('VS', cx - 10, cy - 5, { size: 14, font: 'F2', color: COLORS.white });
     }
 
     // Center: Brand & Identity
@@ -520,11 +534,16 @@ class ReferenceMatchedPdfBuilder {
     // Divider 1 (x = 138 pt)
     this.line(this.margin + 138, barY + 6, this.margin + 138, barY + barH - 6, COLORS.border, 0.8);
 
-    // Booking Reference (x = 146 pt)
+    // Booking ID / Reference (x = 146 pt)
     const refX = this.margin + 146;
     this.drawCalendarIcon(refX, barY + 34, 8.5, COLORS.muted);
-    this.text('BOOKING REFERENCE', refX + 13, barY + 36, { size: 7.2, font: 'F2', color: COLORS.muted });
-    this.text(booking.bookingId || String(booking._id), refX, barY + 18, { size: 9.5, font: 'F2', color: COLORS.navyDark });
+    this.text('BOOKING ID', refX + 13, barY + 36, { size: 7.2, font: 'F2', color: COLORS.muted });
+    if (identifiers.displayBookingId && identifiers.displayBookingId !== identifiers.canonicalBookingId) {
+      this.text(identifiers.displayBookingId, refX, barY + 20, { size: 9.5, font: 'F2', color: COLORS.navyDark });
+      this.text(`Ref: ${identifiers.canonicalBookingId}`, refX, barY + 9, { size: 6.5, font: 'F1', color: COLORS.muted });
+    } else {
+      this.text(identifiers.canonicalBookingId, refX, barY + 18, { size: 8.5, font: 'F2', color: COLORS.navyDark });
+    }
 
     // Divider 2 (x = 280 pt)
     this.line(this.margin + 280, barY + 6, this.margin + 280, barY + barH - 6, COLORS.border, 0.8);
@@ -542,7 +561,8 @@ class ReferenceMatchedPdfBuilder {
     const qrSize = 38;
     const qrX = this.margin + 420;
     const qrY = barY + 9;
-    const verifyUrl = `https://www.vrindavansarthi.in/verify-booking?ref=${encodeURIComponent(booking.bookingId || '')}`;
+    const verifyRef = identifiers.canonicalBookingId || identifiers.displayBookingId;
+    const verifyUrl = `https://www.vrindavansarthi.in/verify-booking?ref=${encodeURIComponent(verifyRef)}`;
     this.drawQrCode(verifyUrl, qrX, qrY, qrSize);
     this.pageAnnotations[0].push({
       x1: qrX,
@@ -557,7 +577,8 @@ class ReferenceMatchedPdfBuilder {
     const qrTextX = qrX + qrSize + 8;
     this.text('Scan to Verify', qrTextX, barY + 36, { size: 7.8, font: 'F2', color: COLORS.slateBlue });
     this.text('Booking Voucher', qrTextX, barY + 24, { size: 7, font: 'F1', color: COLORS.muted });
-    this.text(`Ref: ${booking.bookingId || ''}`, qrTextX, barY + 12, { size: 5.8, font: 'F2', color: COLORS.navy });
+    const qrRefLabel = identifiers.displayBookingId ? `ID: ${identifiers.displayBookingId}` : `Ref: ${identifiers.canonicalBookingId}`;
+    this.text(qrRefLabel, qrTextX, barY + 12, { size: 6.2, font: 'F2', color: COLORS.navy });
 
     // =========================================================================
     // 3. MAIN 2-COLUMN SECTION (y = 458 down to 698, Height = 240 pt)
@@ -580,45 +601,106 @@ class ReferenceMatchedPdfBuilder {
     this.drawBedIcon(this.margin + 10, mainY + mainH - 17, 10, COLORS.crimson);
     this.text(bannerTitle, this.margin + 28, mainY + mainH - 16, { size: 9, font: 'F2', color: COLORS.crimson });
 
-    const propPhone = booking.partnerPhone || '9927600017';
-    const propNameStr = booking.propertyName || booking.partnerName || 'Property Reception';
+    const propPhone = identifiers.partnerPhone || '9927600017';
+    const propNameStr = identifiers.propertyName || 'Property Reception';
 
     if (!isCab && !isTour) {
-      // Lodging details: Property Name in prominent bold
-      const propName = booking.propertyName || String(booking.itemName || '').split(' - ')[0] || booking.partnerName || 'Property';
-      this.text(propName, this.margin + 12, mainY + mainH - 44, { size: 14, font: 'F2', color: COLORS.navyDark });
+      // 1. Complete Official Property Name (prominent bold, wrapped if long)
+      const propName = identifiers.propertyName;
+      const propNameLines = wrapText(propName, colLeftW - 24, 12, 'F2');
+      let currentY = mainY + mainH - 40;
+      propNameLines.slice(0, 2).forEach((line, idx) => {
+        this.text(line, this.margin + 12, currentY - idx * 13, { size: 12, font: 'F2', color: COLORS.navyDark });
+      });
+      currentY -= (propNameLines.slice(0, 2).length * 13 + 3);
 
-      // Room Type & Room badge
-      const roomName = String(booking.itemName || '').includes(' - ') ? String(booking.itemName || '').split(' - ')[1] : String(booking.itemName || 'Standard Room');
-      this.text(`Room Type: ${roomName}`, this.margin + 12, mainY + mainH - 62, { size: 9.5, font: 'F2', color: COLORS.navy });
-      
-      const roomNum = booking.roomNumber || (booking.roomNumbers && booking.roomNumbers[0]);
-      if (roomNum) {
-        this.badge(`Room: ${roomNum}`, this.margin + textWidth(`Room Type: ${roomName}`, 9.5, 'F2') + 18, mainY + mainH - 62, {
-          bg: COLORS.goldLight,
-          border: COLORS.goldBorder,
-          textCol: COLORS.amberText,
-          size: 7.8,
+      // 2. Property ID Badge & Property Type Pill
+      const propTypeLabel = identifiers.propertyType ? identifiers.propertyType.toUpperCase().replace('_', ' ') : 'HOTEL';
+      const propIdLabel = `Property ID: ${identifiers.propertyId}`;
+      this.badge(propIdLabel, this.margin + 12, currentY, {
+        bg: COLORS.goldLight,
+        border: COLORS.goldBorder,
+        textCol: COLORS.amberText,
+        size: 7.5,
+        font: 'F2',
+        padX: 5,
+        padY: 2,
+      });
+      const propIdBadgeW = textWidth(propIdLabel, 7.5, 'F2') + 12;
+      this.badge(propTypeLabel, this.margin + 12 + propIdBadgeW + 4, currentY, {
+        bg: COLORS.blueHeader,
+        border: COLORS.border,
+        textCol: COLORS.blueText,
+        size: 7.2,
+        font: 'F2',
+        padX: 5,
+        padY: 2,
+      });
+      currentY -= 17;
+
+      // 3. Room Category & Category ID
+      const catText = `Category: ${identifiers.roomTypeName}`;
+      this.text(catText, this.margin + 12, currentY, { size: 9, font: 'F2', color: COLORS.navy });
+      const catTextW = textWidth(catText, 9, 'F2');
+      if (identifiers.categoryId) {
+        this.badge(`Category ID: ${identifiers.categoryId}`, this.margin + 12 + catTextW + 6, currentY, {
+          bg: COLORS.ivoryBg,
+          border: COLORS.border,
+          textCol: COLORS.slateBlue,
+          size: 7.2,
+          font: 'F2',
+          padX: 4,
+          padY: 1.5,
+        });
+      }
+      currentY -= 16;
+
+      // 4. Physical Room & Room ID / Allocation Status
+      if (identifiers.roomNumber) {
+        const roomLabel = identifiers.roomId
+          ? `Room No. ${identifiers.roomNumber} | Room ID: ${identifiers.roomId}`
+          : `Room No. ${identifiers.roomNumber}`;
+        this.badge(roomLabel, this.margin + 12, currentY, {
+          bg: COLORS.greenBg,
+          border: COLORS.greenBorder,
+          textCol: COLORS.greenSuccess,
+          size: 7.5,
+          font: 'F2',
+          padX: 6,
+          padY: 2,
+        });
+      } else {
+        this.badge('Room: Allocated at Check-in', this.margin + 12, currentY, {
+          bg: COLORS.ivoryBg,
+          border: COLORS.border,
+          textCol: COLORS.muted,
+          size: 7.5,
           font: 'F2',
           padX: 6,
           padY: 2,
         });
       }
+      currentY -= 17;
 
-      // Address with Red Pin
-      const propLoc = booking.propertyAddress || booking.propertyLocation || 'Govardhan, Mathura, Uttar Pradesh 281502';
-      this.drawPinIcon(this.margin + 12, mainY + mainH - 82, 8, COLORS.crimson);
-      this.wrapped(propLoc, this.margin + 24, mainY + mainH - 81, colLeftW - 36, { size: 8.5, color: COLORS.slateBlue, lineHeight: 11 });
+      // 5. Full Available Address with Red Pin
+      const fullLoc = identifiers.fullAddress || identifiers.location || 'Govardhan, Mathura, Uttar Pradesh 281502';
+      this.drawPinIcon(this.margin + 12, currentY - 1, 8, COLORS.crimson);
+      const addrLines = wrapText(fullLoc, colLeftW - 36, 8, 'F1');
+      addrLines.slice(0, 2).forEach((line, idx) => {
+        this.text(line, this.margin + 24, currentY - idx * 10, { size: 8, font: 'F1', color: COLORS.slateBlue });
+      });
+      currentY -= (addrLines.slice(0, 2).length * 10 + 2);
 
-      // Landmark with Red Pin
-      if (booking.nearestTemple) {
-        this.drawPinIcon(this.margin + 12, mainY + mainH - 106, 8, COLORS.crimson);
-        this.text(`Near ${booking.nearestTemple}`, this.margin + 24, mainY + mainH - 105, { size: 8.5, font: 'F1', color: COLORS.slateBlue });
+      // 6. Landmark / Nearest Temple
+      if (identifiers.nearestTemple) {
+        this.drawPinIcon(this.margin + 12, currentY - 1, 8, COLORS.crimson);
+        this.text(`Near ${identifiers.nearestTemple}`, this.margin + 24, currentY, { size: 8, font: 'F1', color: COLORS.slateBlue });
+        currentY -= 12;
       }
 
-      // Devotee Care Desk Phone
-      this.drawPhoneIcon(this.margin + 12, mainY + mainH - 124, 8, COLORS.crimson);
-      this.text(`Devotee Care Desk: +91 ${propPhone}`, this.margin + 24, mainY + mainH - 123, { size: 8.5, font: 'F2', color: COLORS.crimson });
+      // 7. Devotee Care Desk Phone
+      this.drawPhoneIcon(this.margin + 12, currentY - 1, 8, COLORS.crimson);
+      this.text(`Devotee Care Desk: +91 ${propPhone}`, this.margin + 24, currentY, { size: 8.2, font: 'F2', color: COLORS.crimson });
 
       // Bottom 3-box stay grid (Check-in, Check-out, Duration/Guests)
       const gridBoxY = mainY + 14;
@@ -882,8 +964,8 @@ class ReferenceMatchedPdfBuilder {
     this.text('View Location', btn1X + 22, btnY + 21, { size: 8.5, font: 'F2', color: COLORS.navyDark });
     this.text('( Google Maps )', btn1X + 22, btnY + 9, { size: 7.2, font: 'F1', color: COLORS.muted });
     
-    const propLocStr = booking.propertyAddress || booking.propertyLocation || 'Govardhan, Mathura, Uttar Pradesh 281502';
-    const mapLink = booking.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${propNameStr}, ${propLocStr}`)}`;
+    const propLocStr = identifiers.fullAddress || identifiers.location || 'Govardhan, Mathura, Uttar Pradesh 281502';
+    const mapLink = identifiers.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${propNameStr}, ${propLocStr}`)}`;
     this.link('View Location', mapLink, btn1X + 22, btnY + 21, {
       size: 8.5,
       box: { x1: btn1X, y1: btnY, x2: btn1X + btnW, y2: btnY + btnH },
@@ -1044,10 +1126,10 @@ class ReferenceMatchedPdfBuilder {
   }
 }
 
-function buildBookingReceiptPdf(booking) {
+function buildBookingReceiptPdf(booking, context = {}) {
   const builder = new ReferenceMatchedPdfBuilder();
-  const buffer = builder.generate(booking);
-  const ref = booking.bookingId || String(booking._id || 'receipt');
+  const buffer = builder.generate(booking, context);
+  const ref = booking.bookingId || booking.displayBookingId || String(booking._id || 'receipt');
   const filename = `booking-receipt-${ref}.pdf`;
   return {
     buffer,
