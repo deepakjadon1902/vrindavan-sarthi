@@ -6,9 +6,27 @@ import type { Booking } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
 import { getAuthoritativeBookingState } from '@/lib/bookingStatus';
-import { resolvePropertyDirectionsUrl } from '@/lib/maps';
 import BookingCountdownTimer from '@/components/BookingCountdownTimer';
 import BookingTimeline from '@/components/BookingTimeline';
+
+const resolvePropertyDirectionsUrl = (input: {
+  mapValue?: string;
+  name?: string;
+  location?: string;
+  nearestTemple?: string;
+}): string | null => {
+  const raw = String(input.mapValue || '').trim();
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  const name = String(input.name || '').trim();
+  const location = String(input.location || '').trim();
+  if (!name && !location) {
+    return null;
+  }
+  const parts = [name, location, input.nearestTemple ? `Near ${input.nearestTemple}` : '', 'Vrindavan'].filter(Boolean);
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(', '))}`;
+};
 
 const formatMoney = (value?: number) => `Rs. ${Number(value || 0).toLocaleString('en-IN')}`;
 const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';

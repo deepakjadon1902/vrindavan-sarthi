@@ -35,9 +35,27 @@ import { toast } from 'sonner';
 import { useEffect, useState, useRef } from 'react';
 import { api, withAuth } from '@/lib/api';
 import { getAuthoritativeBookingState, formatBookingStatus } from '@/lib/bookingStatus';
-import { resolvePropertyDirectionsUrl } from '@/lib/maps';
-import { BookingCountdownTimer } from '@/components/BookingCountdownTimer';
-import { BookingTimeline } from '@/components/BookingTimeline';
+import BookingCountdownTimer from '@/components/BookingCountdownTimer';
+import BookingTimeline from '@/components/BookingTimeline';
+
+const resolvePropertyDirectionsUrl = (input: {
+  mapValue?: string;
+  name?: string;
+  location?: string;
+  nearestTemple?: string;
+}): string | null => {
+  const raw = String(input.mapValue || '').trim();
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  const name = String(input.name || '').trim();
+  const location = String(input.location || '').trim();
+  if (!name && !location) {
+    return null;
+  }
+  const parts = [name, location, input.nearestTemple ? `Near ${input.nearestTemple}` : '', 'Vrindavan'].filter(Boolean);
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(', '))}`;
+};
 
 declare global {
   interface Window {
