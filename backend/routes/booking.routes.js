@@ -229,6 +229,17 @@ const bookingDetailFields = [
 ].join(' ');
 
 router.param('id', (req, res, next, id) => {
+  // Routes GET /:id and GET /:id/invoice intentionally resolve both MongoDB _id and alphanumeric bookingId
+  const normalizedPath = String(req.path || '').replace(/\/+$/, '');
+  const isInvoiceOrRead = req.method === 'GET' && (normalizedPath === `/${id}` || normalizedPath === `/${id}/invoice`);
+  if (isInvoiceOrRead) {
+    const cleanId = String(id || '').trim();
+    if (!cleanId || cleanId.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(cleanId)) {
+      return res.status(400).json({ success: false, message: 'Invalid booking id' });
+    }
+    return next();
+  }
+
   if (rejectInvalidObjectId(res, id, 'booking id')) return;
   next();
 });

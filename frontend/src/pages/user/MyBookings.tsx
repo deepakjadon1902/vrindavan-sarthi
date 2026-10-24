@@ -63,9 +63,11 @@ const MyBookings = () => {
     e.stopPropagation();
     const token = useAuthStore.getState().token;
     if (!token) return;
+    const targetId = id || bookingId;
+    if (!targetId) return;
     try {
-      setDownloadingId(id);
-      const res = await api.get(`/bookings/${id}/invoice`, {
+      setDownloadingId(targetId);
+      const res = await api.get(`/bookings/${targetId}/invoice`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',
       });
@@ -73,14 +75,28 @@ const MyBookings = () => {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.setAttribute('download', `booking-receipt-${bookingId || id}.pdf`);
+      link.setAttribute('download', `booking-receipt-${bookingId || targetId}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
       toast.success('Booking receipt downloaded successfully');
-    } catch {
-      toast.error('Could not download receipt. Please try again.');
+    } catch (err: any) {
+      let msg = 'Could not download receipt. Please try again.';
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed?.message && typeof parsed.message === 'string') {
+            msg = parsed.message;
+          }
+        } catch {
+          // Keep safe generic fallback
+        }
+      } else if (typeof err?.response?.data?.message === 'string') {
+        msg = err.response.data.message;
+      }
+      toast.error(msg);
     } finally {
       setDownloadingId(null);
     }
@@ -399,11 +415,11 @@ const MyBookings = () => {
                               {isEligible ? (
                                 <button
                                   onClick={(e) => downloadInvoice(e, b.id, b.bookingId)}
-                                  disabled={downloadingId === b.id}
+                                  disabled={downloadingId === (b.id || b.bookingId)}
                                   className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 font-body text-xs font-semibold text-foreground hover:bg-secondary hover:text-brand-crimson transition-colors disabled:opacity-50 shadow-sm"
                                 >
-                                  <Download size={12} className={downloadingId === b.id ? 'animate-bounce' : ''} />
-                                  <span>{downloadingId === b.id ? 'Downloading...' : 'PDF Receipt'}</span>
+                                  <Download size={12} className={downloadingId === (b.id || b.bookingId) ? 'animate-bounce' : ''} />
+                                  <span>{downloadingId === (b.id || b.bookingId) ? 'Downloading...' : 'PDF Receipt'}</span>
                                 </button>
                               ) : <span />}
                               {canCancel && (

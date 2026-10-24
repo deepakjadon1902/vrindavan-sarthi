@@ -2,7 +2,8 @@ const Booking = require('../models/Booking');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const { sendEmail } = require('./email');
-const { buildPdf, buildBookingReceiptPdf } = require('./invoicePdf');
+const { buildPdf } = require('./invoicePdf');
+const { buildBookingReceiptPdf } = require('./bookingReceiptPdf');
 
 const clean = (value) => String(value || '').trim();
 const money = (value) => `INR ${Number(value || 0).toLocaleString('en-IN')}`;
