@@ -1219,6 +1219,7 @@ router.get('/:id', optionalProtect, async (req, res) => {
         : booking,
     });
   } catch (err) {
+    console.error(`[booking.get.error] id=${String(req.params?.id || '').slice(0, 50)}:`, err?.stack || err?.message || err);
     res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Failed to retrieve booking' });
   }
 });
@@ -1302,6 +1303,7 @@ router.get('/:id/invoice', optionalProtect, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   } catch (err) {
+    console.error(`[booking.invoice.error] id=${String(req.params?.id || '').slice(0, 50)}:`, err?.stack || err?.message || err);
     res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Failed to generate invoice' });
   }
 });

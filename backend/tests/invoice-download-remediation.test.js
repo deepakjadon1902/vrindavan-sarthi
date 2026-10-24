@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const express = require('express');
-const { hashGuestAccessToken } = require('../utils/guestBookingAccess');
+const { hashGuestAccessToken, getGuestAccessTokenFromRequest } = require('../utils/guestBookingAccess');
 const { generateBookingInvoicePdf, sendBookingConfirmedEmail } = require('../utils/customerMessages');
 const { buildBookingReceiptPdf } = require('../utils/bookingReceiptPdf');
 
@@ -260,5 +260,32 @@ test('Invoice Download Remediation Test Suite', async (t) => {
     const emptyBlob = new Blob([]);
     const msgC = await parseBlobError(emptyBlob);
     assert.strictEqual(msgC, 'Could not download receipt. Please try again.');
+  });
+  // 9. getGuestAccessTokenFromRequest helper export and behavior regression
+  await t.test('9. getGuestAccessTokenFromRequest is exported and handles all guest token formats safely', () => {
+    assert.strictEqual(typeof getGuestAccessTokenFromRequest, 'function', 'getGuestAccessTokenFromRequest must be a function');
+
+    // Safe fallback on empty / missing req
+    assert.strictEqual(getGuestAccessTokenFromRequest({}), '');
+    assert.strictEqual(getGuestAccessTokenFromRequest({ headers: {} }), '');
+    assert.strictEqual(getGuestAccessTokenFromRequest({ query: {} }), '');
+
+    // Extraction from header via req.get()
+    const reqWithGet = { get: (name) => (name.toLowerCase() === 'x-guest-booking-token' ? '  tok-hdr-123  ' : '') };
+    assert.strictEqual(getGuestAccessTokenFromRequest(reqWithGet), 'tok-hdr-123');
+
+    // Extraction from query params: guestAccessToken or token
+    assert.strictEqual(getGuestAccessTokenFromRequest({ query: { guestAccessToken: 'tok-query-abc' } }), 'tok-query-abc');
+    assert.strictEqual(getGuestAccessTokenFromRequest({ query: { token: 'tok-query-short' } }), 'tok-query-short');
+
+    // Extraction from body
+    assert.strictEqual(getGuestAccessTokenFromRequest({ body: { guestAccessToken: 'tok-body-xyz' } }), 'tok-body-xyz');
+
+    // Token hashing consistency
+    const token = 'sample-guest-secret-999';
+    const hash1 = hashGuestAccessToken(token);
+    const hash2 = hashGuestAccessToken(token);
+    assert.strictEqual(hash1, hash2);
+    assert.strictEqual(hash1.length, 64);
   });
 });

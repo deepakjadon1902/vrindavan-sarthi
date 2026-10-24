@@ -18,16 +18,15 @@ const hashGuestAccessToken = (token) =>
 const samePhone = (a, b) =>
   String(a || '').replace(/\D/g, '') === String(b || '').replace(/\D/g, '');
 
-const buildGuestAccountReminder = ({ email, phone, created }) => ({
+const buildGuestAccountReminder = ({ email, created }) => ({
   email,
   username: email,
-  passwordHint: phone,
   created: Boolean(created),
-  message: `Guest account ${created ? 'created' : 'updated'} automatically. Login with email ${email} and password ${phone} to view this booking in My Bookings.`,
+  message: 'Guest booking created. You can track this booking anytime using your secure booking link or confirmation email.',
 });
 
 const getGuestAccessTokenFromRequest = (req) =>
-  String(req.body?.guestAccessToken || req.query?.guestAccessToken || req.get?.('x-guest-booking-token') || '').trim();
+  String(req.body?.guestAccessToken || req.query?.guestAccessToken || req.query?.token || req.get?.('x-guest-booking-token') || '').trim();
 
 const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, customerEmail }) => {
   if (req.user?._id) {
@@ -63,16 +62,18 @@ const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, c
   let guestAccountReminder = null;
   let user = await User.findOne({ email }).select('+password');
   if (!user) {
+    // Generate an unguessable cryptographic random password for guest user record (SEC-01)
+    const randomPassword = crypto.randomBytes(32).toString('hex');
     user = await User.create({
       name,
       email,
       phone,
-      password: phone,
+      password: randomPassword,
       role: 'user',
       isGuest: true,
     });
     guestAccountCreated = true;
-    guestAccountReminder = buildGuestAccountReminder({ email, phone, created: true });
+    guestAccountReminder = buildGuestAccountReminder({ email, created: true });
   } else if (user.isGuest) {
     if (user.phone && !samePhone(user.phone, phone)) {
       const err = new Error('This email is already linked to another guest mobile number. Please login or use the same mobile number.');
@@ -81,9 +82,17 @@ const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, c
     }
     user.name = user.name || name;
     user.phone = user.phone || phone;
-    user.password = phone;
+    // SEC-01 Remediation: Never overwrite user.password with phone.
+    // Ensure any legacy guest account is migrated to an unguessable password string.
+    user.password = crypto.randomBytes(32).toString('hex');
     await user.save();
-    guestAccountReminder = buildGuestAccountReminder({ email, phone, created: false });
+    guestAccountReminder = buildGuestAccountReminder({ email, created: false });
+  } else {
+    // Registered account (isGuest: false)
+    // To protect registered accounts from unauthorized guest checkout hijacking:
+    const err = new Error('An account with this email already exists. Please login to complete your booking.');
+    err.statusCode = 409;
+    throw err;
   }
 
   const guestAccessToken = generateGuestAccessToken();
@@ -124,7 +133,9 @@ const withGuestAccountReminder = (booking, reminder = null) => {
 };
 
 module.exports = {
+  buildGuestAccountReminder,
   findBookingForCustomerPayment,
+  getGuestAccessTokenFromRequest,
   hashGuestAccessToken,
   isValidEmail,
   isValidPhone,
