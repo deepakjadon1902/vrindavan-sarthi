@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
-const QRCode = require('qrcode');
+let QRCode = null;
+try {
+  QRCode = require('qrcode');
+} catch {
+  QRCode = null;
+}
 
 const PAGE = { width: 595.28, height: 841.89, margin: 24 };
 
@@ -396,6 +401,7 @@ class ReferenceMatchedPdfBuilder {
 
   drawQrCode(textVal, x, y, size = 42) {
     try {
+      if (!QRCode) throw new Error('QRCode module not available');
       const qr = QRCode.create(textVal, { errorCorrectionLevel: 'M' });
       const mods = qr.modules;
       const count = mods.size;
