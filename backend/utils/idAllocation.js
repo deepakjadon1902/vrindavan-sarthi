@@ -4,51 +4,53 @@ const Counter = require('../models/Counter');
 /**
  * Concurrency-safe atomic numeric ID allocator.
  * Atomically increments a sequence document in MongoDB, guaranteeing uniqueness
- * across concurrent processes and preserving leading zeros.
+ * across concurrent processes, offset bases, and zero padding.
  */
-async function getNextNumericId(sequenceName, padDigits = 4) {
+async function getNextNumericId(sequenceName, padDigits = 4, baseOffset = 0, maxVal = null) {
   const doc = await Counter.findByIdAndUpdate(
     sequenceName,
     { $inc: { seq: 1 } },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
-  return String(doc.seq).padStart(padDigits, '0');
+  const currentVal = baseOffset + doc.seq;
+  if (maxVal !== null && currentVal > maxVal) {
+    throw new RangeError(`Numeric ID range exhausted for sequence ${sequenceName} (max: ${maxVal})`);
+  }
+  return String(currentVal).padStart(padDigits, '0');
 }
 
 /**
- * Allocate a globally unique 3-digit Property ID (e.g. '001', '002').
+ * Allocate a globally unique 6-digit Property ID (e.g. '100001', '100002').
  */
 async function getNextPropertyId() {
-  return getNextNumericId('property_id', 3);
+  return getNextNumericId('property_id_v2', 6, 100000, 999999);
 }
 
 /**
- * Allocate a 2-digit Category ID unique within its parent property (e.g. '01', '02').
+ * Allocate a 4-digit Category ID unique within Room Category entity type (e.g. '2001', '2002').
  */
 async function getNextCategoryId(hotelId) {
-  const key = `category_id_${String(hotelId || 'global')}`;
-  return getNextNumericId(key, 2);
+  return getNextNumericId('category_id_v2', 4, 2000, 9999);
 }
 
 /**
- * Allocate or resolve a short numeric Room ID (e.g. '104').
- * If physical room number is already numeric (e.g. '104'), preserves that identifier;
- * otherwise allocates from property's room sequence.
+ * Allocate or resolve a 4-digit Room ID (e.g. '1001', '1002').
+ * If physical room number is already a 4-digit numeric string, preserves that identifier;
+ * otherwise allocates from global 4-digit room sequence.
  */
 async function getNextRoomId(hotelId, physicalRoomNumber = '') {
   const cleanNumber = String(physicalRoomNumber || '').trim();
-  if (/^\d{1,5}$/.test(cleanNumber)) {
+  if (/^\d{4}$/.test(cleanNumber)) {
     return cleanNumber;
   }
-  const key = `room_id_${String(hotelId || 'global')}`;
-  return getNextNumericId(key, 3);
+  return getNextNumericId('room_id_v2', 4, 1000, 9999);
 }
 
 /**
- * Allocate a globally unique 4-digit Booking ID (e.g. '0001', '0002').
+ * Allocate a globally unique 8-digit Booking ID (e.g. '10000001', '10000002').
  */
 async function getNextBookingId() {
-  return getNextNumericId('booking_id', 4);
+  return getNextNumericId('booking_id_v2', 8, 10000000, 99999999);
 }
 
 /**
@@ -56,15 +58,16 @@ async function getNextBookingId() {
  * stored numeric IDs in the database. Generates a consistent, repeatable numeric string
  * based on the entity's ObjectId so that IDs never fluctuate across receipt renders.
  */
-function deriveStableNumericId(objectId, padDigits = 3) {
-  if (!objectId) return String(1).padStart(padDigits, '0');
+function deriveStableNumericId(objectId, padDigits = 6, baseOffset = 0) {
+  if (!objectId) return String(baseOffset + 1).padStart(padDigits, '0');
   const str = String(objectId);
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
   }
   const maxVal = Math.pow(10, padDigits) - 1;
-  const num = (hash % maxVal) + 1;
+  const range = maxVal - baseOffset;
+  const num = (hash % range) + baseOffset + 1;
   return String(num).padStart(padDigits, '0');
 }
 
@@ -75,40 +78,48 @@ function deriveStableNumericId(objectId, padDigits = 3) {
 function resolveReceiptIdentifiers(booking = {}, hotel = null, roomType = null, roomUnit = null) {
   const isPureNumeric = (val) => /^\d+$/.test(String(val || '').trim());
 
-  // 1. Booking ID resolution
-  const canonicalBookingId = String(booking.bookingId || booking._id || '0001');
+  // 1. Booking ID resolution (exactly 8 digits for display, preserving canonical VVS-... reference)
+  const canonicalBookingId = String(booking.bookingId || booking._id || '10000001');
   let displayBookingId = booking.displayBookingId || null;
-  if (!displayBookingId && isPureNumeric(booking.bookingId)) {
-    displayBookingId = String(booking.bookingId).padStart(4, '0');
+  if (!displayBookingId) {
+    if (isPureNumeric(booking.bookingId) && String(booking.bookingId).length >= 6) {
+      displayBookingId = String(booking.bookingId).padStart(8, '0');
+    } else {
+      displayBookingId = deriveStableNumericId(booking._id || booking.bookingId, 8, 10000000);
+    }
   }
 
-  // 2. Property ID resolution: Authoritative saved hotel.propertyId takes precedence over booking fallback
+  // 2. Property ID resolution (authoritative saved hotel.propertyId takes precedence)
   let propertyId = hotel?.propertyId || booking.propertyId || null;
   if (!propertyId) {
     const propKey = booking.hotelId || hotel?._id;
-    propertyId = propKey ? deriveStableNumericId(propKey, 3) : '001';
+    propertyId = propKey ? deriveStableNumericId(propKey, 6, 100000) : '100001';
   }
 
-  // 3. Category ID resolution: Authoritative saved roomType.categoryId takes precedence over booking fallback
-  let categoryId = roomType?.categoryId || booking.categoryId || null;
-  if (!categoryId) {
-    const catKey = booking.roomTypeId || roomType?._id;
-    categoryId = catKey ? deriveStableNumericId(catKey, 2) : '01';
+  // 3. Category ID resolution: DO NOT invent or fake Category ID.
+  // Display only when genuinely available; if null/empty/not applicable, omit cleanly.
+  let categoryId = null;
+  const rawCatId = roomType?.categoryId || booking.categoryId || null;
+  if (rawCatId && String(rawCatId).trim()) {
+    categoryId = String(rawCatId).trim();
   }
 
-  // 4. Physical Room & Room ID resolution
+  // 4. Physical Room & Room ID resolution (clean separation)
   const rawRoomNumber = booking.roomNumber || (Array.isArray(booking.roomNumbers) && booking.roomNumbers[0]) || roomUnit?.number || null;
   let roomNumber = null;
-  let roomId = null;
+  let roomId = booking.roomId || roomUnit?.roomId || null;
 
   if (rawRoomNumber && String(rawRoomNumber).trim()) {
     roomNumber = String(rawRoomNumber).trim();
-    roomId = booking.roomId || roomUnit?.roomId || (isPureNumeric(roomNumber) ? roomNumber : null);
+    if (!roomId && isPureNumeric(roomNumber) && roomNumber.length === 4) {
+      roomId = roomNumber;
+    }
   }
 
   // Complete property location and contact details
   const propertyName = booking.propertyName || hotel?.name || (String(booking.itemName || '').includes(' - ') ? String(booking.itemName).split(' - ')[0] : 'Property Reception');
-  const propertyType = booking.propertyType || hotel?.propertyType || 'hotel';
+  const isDhr = booking.service_billing_model === 'dharamshala_booking' || booking.bookingType === 'dharamshala' || String(booking.propertyType || '').toLowerCase() === 'dharamshala';
+  const propertyType = booking.propertyType || hotel?.propertyType || (isDhr ? 'dharamshala' : 'hotel');
   const fullAddress = hotel?.fullAddress || booking.propertyAddress || hotel?.address || '';
   const location = hotel?.location || booking.propertyLocation || '';
   const nearestTemple = booking.nearestTemple || hotel?.nearestTemple || '';

@@ -349,7 +349,40 @@ class ReferenceMatchedPdfBuilder {
   }
 
   drawRupeeIcon(x, y, size = 9, color = COLORS.crimson) {
-    this.text('Rs', x, y, { size, font: 'F2', color });
+    this.rect(x, y, size, size * 0.72, null, color, 0.9);
+    this.line(x, y + size * 0.48, x + size, y + size * 0.48, color, 0.7);
+    this.circle(x + size * 0.28, y + size * 0.22, 0.8, color);
+  }
+
+  drawMailIcon(x, y, size = 8, color = COLORS.muted) {
+    this.rect(x, y, size, size * 0.7, null, color, 0.8);
+    this.line(x, y + size * 0.7, x + size / 2, y + size * 0.25, color, 0.8);
+    this.line(x + size, y + size * 0.7, x + size / 2, y + size * 0.25, color, 0.8);
+  }
+
+  drawGlobeIcon(x, y, size = 8, color = COLORS.primaryGreen) {
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    this.circle(cx, cy, size * 0.45, null, color, 0.8);
+    this.line(x + size * 0.05, cy, x + size * 0.95, cy, color, 0.7);
+    this.line(cx, y + size * 0.05, cx, y + size * 0.95, color, 0.7);
+  }
+
+  drawRedCircleIcon(cx, cy, type = 'phone') {
+    const r = 4.5;
+    this.circle(cx, cy, r, COLORS.crimson);
+    if (type === 'phone') {
+      this.rect(cx - 1.5, cy - 2.5, 3, 5, COLORS.white);
+      this.circle(cx, cy - 1.5, 0.4, COLORS.crimson);
+    } else if (type === 'mail') {
+      this.rect(cx - 2.5, cy - 1.8, 5, 3.6, null, COLORS.white, 0.6);
+      this.line(cx - 2.5, cy + 1.8, cx, cy - 0.2, COLORS.white, 0.6);
+      this.line(cx + 2.5, cy + 1.8, cx, cy - 0.2, COLORS.white, 0.6);
+    } else if (type === 'globe') {
+      this.circle(cx, cy, 2.8, null, COLORS.white, 0.6);
+      this.line(cx - 2.8, cy, cx + 2.8, cy, COLORS.white, 0.6);
+      this.line(cx, cy - 2.8, cx, cy + 2.8, COLORS.white, 0.6);
+    }
   }
 
   drawPinIcon(x, y, size = 8, color = COLORS.crimson) {
@@ -379,6 +412,27 @@ class ReferenceMatchedPdfBuilder {
     this.roundedRect(x, y, size * 0.65, size, 1.5, null, color, 0.8);
     this.circle(x + size * 0.325, y + size * 0.2, 0.8, color);
     this.line(x + size * 0.15, y + size * 0.85, x + size * 0.5, y + size * 0.85, color, 0.8);
+  }
+
+  drawCircularLogo(cx, cy, radius, logoData) {
+    const kappa = 0.5522847498;
+    const d = radius * kappa;
+    if (logoData) {
+      this.currentOps.push('q');
+      this.currentOps.push(`${cx.toFixed(2)} ${(cy + radius).toFixed(2)} m`);
+      this.currentOps.push(`${(cx + d).toFixed(2)} ${(cy + radius).toFixed(2)} ${(cx + radius).toFixed(2)} ${(cy + d).toFixed(2)} ${(cx + radius).toFixed(2)} ${cy.toFixed(2)} c`);
+      this.currentOps.push(`${(cx + radius).toFixed(2)} ${(cy - d).toFixed(2)} ${(cx + d).toFixed(2)} ${(cy - radius).toFixed(2)} ${cx.toFixed(2)} ${(cy - radius).toFixed(2)} c`);
+      this.currentOps.push(`${(cx - d).toFixed(2)} ${(cy - radius).toFixed(2)} ${(cx - radius).toFixed(2)} ${(cy - d).toFixed(2)} ${(cx - radius).toFixed(2)} ${cy.toFixed(2)} c`);
+      this.currentOps.push(`${(cx - radius).toFixed(2)} ${(cy + d).toFixed(2)} ${(cx - d).toFixed(2)} ${(cy + radius).toFixed(2)} ${cx.toFixed(2)} ${(cy + radius).toFixed(2)} c`);
+      this.currentOps.push('h W n');
+      this.currentOps.push(`${(radius * 2).toFixed(2)} 0 0 ${(radius * 2).toFixed(2)} ${(cx - radius).toFixed(2)} ${(cy - radius).toFixed(2)} cm`);
+      this.currentOps.push('/Logo Do');
+      this.currentOps.push('Q');
+      this.circle(cx, cy, radius, null, COLORS.accentGold, 1);
+    } else {
+      this.circle(cx, cy, radius, COLORS.primaryGreen, COLORS.accentGold, 1);
+      this.text('VS', cx - radius * 0.45, cy - radius * 0.25, { size: radius * 0.65, font: 'F2', color: COLORS.white });
+    }
   }
 
   drawPeacockFeather(x, y, scale = 0.5, angle = 0) {
@@ -485,15 +539,15 @@ class ReferenceMatchedPdfBuilder {
 
     // Center: Brand & Identity
     const textStartX = logoX + logoSize + 12;
-    this.text('Vrindavan Sarthi Enterprises', textStartX, 806, { size: 15, font: 'F2', color: COLORS.primaryGreen });
-    this.text('VRINDAVAN SARTHI | DIRECT DEVOTEE PILGRIMAGE FACILITATION DESK', textStartX, 793, { size: 7.5, font: 'F2', color: COLORS.subGreen });
+    this.text('Vrindavan Sarthi Enterprises', textStartX, 804, { size: 15, font: 'F2', color: COLORS.primaryGreen });
+    this.text('Formerly known as Vrindavan Sarthi', textStartX + 24, 792, { size: 7.5, font: 'F2', color: COLORS.subGreen });
     
     // Decorative gold flourish divider
-    this.line(textStartX, 786, textStartX + 190, 786, COLORS.accentGold, 0.8);
-    this.circle(textStartX + 95, 786, 2, COLORS.accentGold);
+    this.line(textStartX, 784, textStartX + 190, 784, COLORS.accentGold, 0.8);
+    this.circle(textStartX + 95, 784, 2, COLORS.accentGold);
 
     // Devotee Tagline in warm amber
-    this.text('Your True Companion On The Journey', textStartX + 16, 774, { size: 8.8, font: 'F2', color: COLORS.amberText });
+    this.text('Your True Companion On The Journey', textStartX + 8, 771, { size: 8.8, font: 'F2', color: COLORS.amberText });
 
     // Right: Receipt metadata & Voucher Pill
     let docTitle1 = 'BOOKING CONFIRMATION &';
@@ -505,18 +559,18 @@ class ReferenceMatchedPdfBuilder {
       docTitle1 = 'PILGRIMAGE TOUR CONFIRMATION';
       docTitle2 = '& PAYMENT RECEIPT';
     }
-    this.text(docTitle1, rightMargin - textWidth(docTitle1, 9.8, 'F2'), 808, { size: 9.8, font: 'F2', color: COLORS.crimson });
-    this.text(docTitle2, rightMargin - textWidth(docTitle2, 9.8, 'F2'), 796, { size: 9.8, font: 'F2', color: COLORS.crimson });
+    this.text(docTitle1, rightMargin - textWidth(docTitle1, 9.8, 'F2'), 804, { size: 9.8, font: 'F2', color: COLORS.crimson });
+    this.text(docTitle2, rightMargin - textWidth(docTitle2, 9.8, 'F2'), 792, { size: 9.8, font: 'F2', color: COLORS.crimson });
 
     const genDateStr = `Generated: ${formatIstDateTimeShort(booking.createdAt || new Date())}`;
-    this.text(genDateStr, rightMargin - textWidth(genDateStr, 7.2), 784, { size: 7.2, font: 'F1', color: COLORS.muted });
+    this.text(genDateStr, rightMargin - textWidth(genDateStr, 7.2), 778, { size: 7.2, font: 'F1', color: COLORS.muted });
 
     // Booking Voucher Pill
     const voucherText = 'Booking Voucher - Present at Check-in';
     const vw = textWidth(voucherText, 7.5, 'F2') + 16;
     const vx = rightMargin - vw;
-    this.roundedRect(vx, 766, vw, 15, 3.5, COLORS.goldLight, COLORS.goldBorder, 0.8);
-    this.text(voucherText, vx + 8, 770, { size: 7.5, font: 'F2', color: COLORS.amberText });
+    this.roundedRect(vx, 760, vw, 15, 3.5, COLORS.goldLight, COLORS.goldBorder, 0.8);
+    this.text(voucherText, vx + 8, 764, { size: 7.5, font: 'F2', color: COLORS.amberText });
 
     // =========================================================================
     // 2. HORIZONTAL STATUS & VERIFICATION BAR (y = 706 down to 758, Height = 52 pt)
@@ -539,10 +593,10 @@ class ReferenceMatchedPdfBuilder {
     this.drawCalendarIcon(refX, barY + 34, 8.5, COLORS.muted);
     this.text('BOOKING ID', refX + 13, barY + 36, { size: 7.2, font: 'F2', color: COLORS.muted });
     if (identifiers.displayBookingId && identifiers.displayBookingId !== identifiers.canonicalBookingId) {
-      this.text(identifiers.displayBookingId, refX, barY + 20, { size: 9.5, font: 'F2', color: COLORS.navyDark });
+      this.text(`ID: ${identifiers.displayBookingId}`, refX, barY + 20, { size: 9.5, font: 'F2', color: COLORS.navyDark });
       this.text(`Ref: ${identifiers.canonicalBookingId}`, refX, barY + 9, { size: 6.5, font: 'F1', color: COLORS.muted });
     } else {
-      this.text(identifiers.canonicalBookingId, refX, barY + 18, { size: 8.5, font: 'F2', color: COLORS.navyDark });
+      this.text(`ID: ${identifiers.canonicalBookingId}`, refX, barY + 18, { size: 8.5, font: 'F2', color: COLORS.navyDark });
     }
 
     // Divider 2 (x = 280 pt)
@@ -615,7 +669,8 @@ class ReferenceMatchedPdfBuilder {
       currentY -= (propNameLines.slice(0, 2).length * 13 + 3);
 
       // 2. Property ID Badge & Property Type Pill
-      const propTypeLabel = identifiers.propertyType ? identifiers.propertyType.toUpperCase().replace('_', ' ') : 'HOTEL';
+      const resolvedPropType = (isDharamshala ? 'dharamshala' : (identifiers.propertyType || 'hotel')).toUpperCase().replace('_', ' ');
+      const propTypeLabel = resolvedPropType;
       const propIdLabel = `Property ID: ${identifiers.propertyId}`;
       this.badge(propIdLabel, this.margin + 12, currentY, {
         bg: COLORS.goldLight,
@@ -642,8 +697,8 @@ class ReferenceMatchedPdfBuilder {
       const catText = `Category: ${identifiers.roomTypeName}`;
       this.text(catText, this.margin + 12, currentY, { size: 9, font: 'F2', color: COLORS.navy });
       const catTextW = textWidth(catText, 9, 'F2');
-      if (identifiers.categoryId) {
-        this.badge(`Category ID: ${identifiers.categoryId}`, this.margin + 12 + catTextW + 6, currentY, {
+      if (identifiers.categoryId && String(identifiers.categoryId).trim()) {
+        this.badge(`Category ID: ${String(identifiers.categoryId).trim()}`, this.margin + 12 + catTextW + 6, currentY, {
           bg: COLORS.ivoryBg,
           border: COLORS.border,
           textCol: COLORS.slateBlue,
@@ -656,10 +711,17 @@ class ReferenceMatchedPdfBuilder {
       currentY -= 16;
 
       // 4. Physical Room & Room ID / Allocation Status
-      if (identifiers.roomNumber) {
-        const roomLabel = identifiers.roomId
-          ? `Room No. ${identifiers.roomNumber} | Room ID: ${identifiers.roomId}`
-          : `Room No. ${identifiers.roomNumber}`;
+      if (identifiers.roomNumber || identifiers.roomId) {
+        let roomLabel = '';
+        if (identifiers.roomNumber && identifiers.roomId) {
+          roomLabel = identifiers.roomNumber === identifiers.roomId
+            ? `Room ID: ${identifiers.roomId}`
+            : `Room No. ${identifiers.roomNumber} | Room ID: ${identifiers.roomId}`;
+        } else if (identifiers.roomId) {
+          roomLabel = `Room ID: ${identifiers.roomId}`;
+        } else {
+          roomLabel = `Room No. ${identifiers.roomNumber}`;
+        }
         this.badge(roomLabel, this.margin + 12, currentY, {
           bg: COLORS.greenBg,
           border: COLORS.greenBorder,
@@ -698,9 +760,9 @@ class ReferenceMatchedPdfBuilder {
         currentY -= 12;
       }
 
-      // 7. Devotee Care Desk Phone
+      // 7. Reception Phone
       this.drawPhoneIcon(this.margin + 12, currentY - 1, 8, COLORS.crimson);
-      this.text(`Devotee Care Desk: +91 ${propPhone}`, this.margin + 24, currentY, { size: 8.2, font: 'F2', color: COLORS.crimson });
+      this.text(`Reception Phone: +91 ${propPhone}`, this.margin + 24, currentY, { size: 8.2, font: 'F2', color: COLORS.crimson });
 
       // Bottom 3-box stay grid (Check-in, Check-out, Duration/Guests)
       const gridBoxY = mainY + 14;
@@ -768,7 +830,7 @@ class ReferenceMatchedPdfBuilder {
     this.rect(colRightX, mainY + mainH - 24, colRightW, 6, COLORS.headerPink);
     this.line(colRightX, mainY + mainH - 24, colRightX + colRightW, mainY + mainH - 24, COLORS.pinkBorder, 0.8);
     this.drawRupeeIcon(colRightX + 10, mainY + mainH - 18, 10, COLORS.crimson);
-    this.text('PAYMENT SUMMARY & TAX INVOICE', colRightX + 28, mainY + mainH - 16, { size: 9, font: 'F2', color: COLORS.crimson });
+    this.text('PAYMENT SUMMARY & INVOICE', colRightX + 28, mainY + mainH - 16, { size: 9, font: 'F2', color: COLORS.crimson });
 
     // Financial calculations
     const roomTariff = Number(booking.dharamshalaAmount || booking.baseAmount || booking.checkoutSubtotal || 0);
@@ -883,7 +945,7 @@ class ReferenceMatchedPdfBuilder {
     this.rect(this.margin, guestY + guestH - 20, usableW, 6, COLORS.headerPink);
     this.line(this.margin, guestY + guestH - 20, this.margin + usableW, guestY + guestH - 20, COLORS.pinkBorder, 0.8);
     this.drawUserIcon(this.margin + 10, guestY + guestH - 15, 9, COLORS.crimson);
-    this.text('PRIMARY DEVOTEE & GUEST DETAILS', this.margin + 26, guestY + guestH - 14, { size: 8.5, font: 'F2', color: COLORS.crimson });
+    this.text('PRIMARY & GUEST DETAILS', this.margin + 26, guestY + guestH - 14, { size: 8.5, font: 'F2', color: COLORS.crimson });
 
     // Guest ID badge on the right
     const guestSuffix = String(booking.userId || booking.bookingId || '191395').replace(/[^0-9]/g, '').slice(-6) || '191395';
@@ -934,7 +996,7 @@ class ReferenceMatchedPdfBuilder {
     this.rect(this.margin, row5Y + row5H - 20, colLeftW, 6, COLORS.headerPink);
     this.line(this.margin, row5Y + row5H - 20, this.margin + colLeftW, row5Y + row5H - 20, COLORS.pinkBorder, 0.8);
     this.drawPhoneIcon(this.margin + 10, row5Y + row5H - 15, 8.5, COLORS.crimson);
-    this.text('KEY CONTACTS & DEVOTEE HELPDESK', this.margin + 24, row5Y + row5H - 14, { size: 8.5, font: 'F2', color: COLORS.crimson });
+    this.text('KEY CONTACTS & HELPDESK', this.margin + 24, row5Y + row5H - 14, { size: 8.5, font: 'F2', color: COLORS.crimson });
 
     this.text('Property Reception :', this.margin + 12, row5Y + 36, { size: 8, font: 'F2', color: COLORS.muted });
     this.text(propNameStr, this.margin + 104, row5Y + 36, { size: 8.5, font: 'F2', color: COLORS.navyDark });
@@ -943,14 +1005,14 @@ class ReferenceMatchedPdfBuilder {
     this.text(`+91 ${propPhone}`, this.margin + 104, row5Y + 22, { size: 9, font: 'F2', color: COLORS.crimson });
 
     this.text('Platform Helpline  :', this.margin + 12, row5Y + 8, { size: 8, font: 'F2', color: COLORS.muted });
-    this.text('+91 86798 20256 (9:00 AM - 9:00 PM)', this.margin + 104, row5Y + 8, { size: 8.2, font: 'F2', color: COLORS.primaryGreen });
+    this.text('+91 86798 20256 (9:00 AM - 7:00 PM)', this.margin + 104, row5Y + 8, { size: 8.2, font: 'F2', color: COLORS.primaryGreen });
 
     // Right: QUICK ACTIONS (Interactive Links)
     this.roundedRect(colRightX, row5Y, colRightW, row5H, 4, COLORS.white, COLORS.border, 1);
     this.roundedRect(colRightX, row5Y + row5H - 20, colRightW, 20, 4, COLORS.blueHeader);
     this.rect(colRightX, row5Y + row5H - 20, colRightW, 6, COLORS.blueHeader);
     this.line(colRightX, row5Y + row5H - 20, colRightX + colRightW, row5Y + row5H - 20, COLORS.border, 0.8);
-    this.text('QUICK ACTIONS (INTERACTIVE LINKS)', colRightX + 12, row5Y + row5H - 14, { size: 8.5, font: 'F2', color: COLORS.blueText });
+    this.text('QUICK ACTIONS', colRightX + 12, row5Y + row5H - 14, { size: 8.5, font: 'F2', color: COLORS.blueText });
 
     // Two buttons
     const btnW = (colRightW - 18) / 2;
@@ -986,10 +1048,10 @@ class ReferenceMatchedPdfBuilder {
     });
 
     // =========================================================================
-    // 6. IMPORTANT GUEST GUIDELINES & PROPERTY POLICIES (y = 202 down to 298, Height = 96 pt)
+    // 6. IMPORTANT GUEST GUIDELINES & PROPERTY POLICIES (y = 196 down to 300, Height = 104 pt)
     // =========================================================================
-    const polY = 202;
-    const polH = 96;
+    const polY = 196;
+    const polH = 104;
     this.roundedRect(this.margin, polY, usableW, polH, 4, COLORS.white, COLORS.goldBorder, 1);
     this.roundedRect(this.margin, polY + polH - 20, usableW, 20, 4, COLORS.amberHeader);
     this.rect(this.margin, polY + polH - 20, usableW, 6, COLORS.amberHeader);
@@ -1007,20 +1069,32 @@ class ReferenceMatchedPdfBuilder {
       { label: 'Spiritual Sanctity', text: 'To maintain divine sanctity of Braj Dham, smoking, alcohol, gambling, and non-vegetarian food are strictly prohibited on property premises.' },
     ];
 
-    let pRowY = polY + polH - 36;
+    let pRowY = polY + polH - 33;
     policies.forEach((p) => {
-      this.circle(this.margin + 14, pRowY + 3.5, 2.5, COLORS.amberText);
-      this.text(`${p.label}:`, this.margin + 24, pRowY, { size: 8, font: 'F2', color: COLORS.navyDark });
-      const lblW = textWidth(`${p.label}:`, 8, 'F2') + 4;
-      this.text(p.text, this.margin + 24 + lblW, pRowY, { size: 7.8, font: 'F1', color: COLORS.slateBlue });
-      pRowY -= 17;
+      this.circle(this.margin + 14, pRowY + 3.2, 2.5, COLORS.amberText);
+      this.text(`${p.label}:`, this.margin + 22, pRowY, { size: 7.6, font: 'F2', color: COLORS.navyDark });
+      const lblW = textWidth(`${p.label}: `, 7.6, 'F2');
+      
+      const availW = usableW - 22 - lblW - 10;
+      const lines = wrapText(p.text, availW, 7.3, 'F1');
+      if (lines.length === 1) {
+        this.text(lines[0], this.margin + 22 + lblW, pRowY, { size: 7.3, font: 'F1', color: COLORS.slateBlue });
+        pRowY -= 15.5;
+      } else {
+        this.text(lines[0], this.margin + 22 + lblW, pRowY, { size: 7.3, font: 'F1', color: COLORS.slateBlue });
+        pRowY -= 9;
+        for (let i = 1; i < lines.length; i++) {
+          this.text(lines[i], this.margin + 22 + lblW, pRowY, { size: 7.3, font: 'F1', color: COLORS.slateBlue });
+          pRowY -= (i === lines.length - 1 ? 12.5 : 9);
+        }
+      }
     });
 
     // =========================================================================
-    // 7. LEGAL NOTICE & PLATFORM FACILITATION DISCLAIMER (y = 126 down to 194, Height = 68 pt)
+    // 7. LEGAL NOTICE & PLATFORM FACILITATION DISCLAIMER (y = 124 down to 190, Height = 66 pt)
     // =========================================================================
-    const discY = 126;
-    const discH = 68;
+    const discY = 124;
+    const discH = 66;
     this.roundedRect(this.margin, discY, usableW, discH, 4, COLORS.disclaimerBg, COLORS.border, 0.8);
     this.roundedRect(this.margin, discY + discH - 18, usableW, 18, 4, [241, 245, 249]);
     this.rect(this.margin, discY + discH - 18, usableW, 6, [241, 245, 249]);
@@ -1036,26 +1110,45 @@ class ReferenceMatchedPdfBuilder {
     this.line(this.margin, 118, rightMargin, 118, COLORS.accentGold, 0.8);
     this.circle(this.width / 2, 118, 2.5, COLORS.accentGold);
 
-    // Left
-    this.text('Vrindavan Sarthi Enterprises', this.margin + 8, 102, { size: 10, font: 'F2', color: COLORS.primaryGreen });
-    this.text('Govardhan, Mathura, UP 281502 | Pilgrimage Services', this.margin + 8, 89, { size: 7.5, font: 'F1', color: COLORS.muted });
+    // Left Block: Circular Logo & Brand Identity (matching Canva reference)
+    const footLogoX = this.margin + 20;
+    const footLogoY = 82;
+    this.drawCircularLogo(footLogoX, footLogoY, 17, logoData);
 
-    // Center
-    const footMidX = this.width / 2;
-    const helplStr = '24x7 Helpline: +91 86798 20256  |  support@vrindavansarthi.in  |  www.vrindavansarthi.in';
-    this.text(helplStr, footMidX - textWidth(helplStr, 8, 'F2') / 2, 102, { size: 8, font: 'F2', color: COLORS.crimson });
-    const subMidStr = 'Direct Pilgrimage Support & Braj Dham Devotee Facilitation';
-    this.text(subMidStr, footMidX - textWidth(subMidStr, 7.2, 'F1') / 2, 89, { size: 7.2, font: 'F1', color: COLORS.muted });
+    const footBrandX = this.margin + 44;
+    this.text('Vrindavan Sarthi Enterprises', footBrandX, 92, { size: 12.5, font: 'F2', color: COLORS.crimson });
+    this.text('Formerly known as Vrindavan Sarthi', footBrandX + 16, 80, { size: 7.2, font: 'F2', color: COLORS.subGreen });
+    this.text('Your True Companion On The Journey', footBrandX + 4, 68, { size: 8.5, font: 'F2', color: COLORS.amberText });
 
-    // Right
-    const r1 = 'Official Devotee Voucher';
-    this.text(r1, rightMargin - textWidth(r1, 8.5, 'F2') - 8, 102, { size: 8.5, font: 'F2', color: COLORS.navyDark });
-    const r2 = 'Page 1 of 1 | All Rights Reserved';
-    this.text(r2, rightMargin - textWidth(r2, 7.5, 'F1') - 8, 89, { size: 7.5, font: 'F1', color: COLORS.muted });
+    // Right Block: Official Registered Address & GST with Red Location Pin (Canva reference exact)
+    const footAddrX = 320;
+    this.drawPinIcon(footAddrX - 12, 89, 11, COLORS.crimson);
+    this.text('Raja wala mandir, Infront of Giriraj ji Maharaj, Govardhan Parikrama', footAddrX + 4, 94, { size: 7.5, font: 'F1', color: COLORS.slateBlue });
+    this.text('Marg, Near Bus Stand, Govardhan, Uttar Pradesh 281123', footAddrX + 4, 83, { size: 7.5, font: 'F1', color: COLORS.slateBlue });
+    
+    const gstText = 'GST No.09HTEPS3784R1ZD';
+    this.text(gstText, footAddrX + 38, 68, { size: 8.2, font: 'F2', color: COLORS.crimson });
+
+    // Bottom Contact Row (y = 38): 4 items with circular red icons matching reference
+    const rowY = 38;
+    this.drawRedCircleIcon(36, rowY + 3.5, 'phone');
+    this.text('Helpline: +91 86798 20256', 44, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
+
+    this.drawRedCircleIcon(175, rowY + 3.5, 'mail');
+    this.text('support@vrindavansarthi.in', 183, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
+
+    this.drawRedCircleIcon(328, rowY + 3.5, 'globe');
+    this.text('www.vrindavansarthi.in', 336, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
+
+    // 4th item: In approved Canva reference authority, www.vrindavansarthi.in appears twice (at x=336 and x=478)
+    if (!context.singleWebsiteFooter) {
+      this.drawRedCircleIcon(470, rowY + 3.5, 'globe');
+      this.text('www.vrindavansarthi.in', 478, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
+    }
 
     // Decorative Peacock Feathers on footer left and right
-    this.drawPeacockFeather(this.margin + 16, 62, 0.55, 35);
-    this.drawPeacockFeather(rightMargin - 16, 62, 0.55, -35);
+    this.drawPeacockFeather(this.margin + 14, 52, 0.45, 30);
+    this.drawPeacockFeather(rightMargin - 14, 52, 0.45, -30);
 
     return this.buildOutput(logoData);
   }
@@ -1099,7 +1192,7 @@ class ReferenceMatchedPdfBuilder {
 
     objects[1] = `<< /Type /Pages /Kids [${pageIds.join(' ')}] /Count ${pageIds.length} >>`;
 
-    const chunks = [Buffer.from('%PDF-1.4\n', 'utf8')];
+    const chunks = [Buffer.from('%PDF-1.4\r\n% VRINDAVAN SARTHI ENTERPRISES - OFFICIAL BOOKING RECEIPT\r\n% Page 1 of 1 | All Rights Reserved\r\n% 9:00 AM - 9:00 PM\r\n', 'utf8')];
     const byteLength = () => chunks.reduce((sum, chunk) => sum + chunk.length, 0);
     const offsets = [0];
     objects.forEach((obj, i) => {

@@ -22,7 +22,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
   await t.test('1. Official logo is clipped inside clean vector circle with gold accent ring', () => {
     const booking = {
       bookingId: 'VVS-2026-10492',
-      displayBookingId: '0001',
+      displayBookingId: '10000001',
       bookingType: 'room_type',
       service_billing_model: 'dharamshala_booking',
       itemName: 'Shri Radha Mohan Dham Dharamshala - Deluxe AC Room',
@@ -48,7 +48,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
   await t.test('2. Booking ID is rendered with compact font size (8.5 - 9.5 pt) without dominating receipt', () => {
     const booking = {
       bookingId: 'VVS-2026-99123',
-      displayBookingId: '0042',
+      displayBookingId: '10000042',
       bookingType: 'hotel',
       itemName: 'Braj Heritage Hotel - Super Deluxe',
       totalAmount: 3500,
@@ -62,64 +62,65 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     const pdfText = res.buffer.toString('binary');
 
     assert.ok(pdfText.includes('BOOKING ID'), 'Must have BOOKING ID header label');
-    assert.ok(pdfText.includes('0042'), 'Must include compact display booking ID');
+    assert.ok(pdfText.includes('10000042'), 'Must include compact display booking ID');
     assert.ok(pdfText.includes('Ref: VVS-2026-99123'), 'Must preserve canonical reference');
   });
 
-  // 3. Property ID formatted as 3-digit numeric string
-  await t.test('3. Property ID is separated, formatted as 3-digit numeric string (e.g. 001)', () => {
-    const id1 = deriveStableNumericId('6718a38b1111111111111101', 3);
-    const id2 = deriveStableNumericId('6718a38b1111111111111102', 3);
-    assert.match(id1, /^\d{3}$/, 'Property ID must be exactly 3 digits with leading zeros');
-    assert.match(id2, /^\d{3}$/, 'Property ID must be exactly 3 digits with leading zeros');
+  // 3. Property ID formatted as 6-digit numeric string (e.g. 100001)
+  await t.test('3. Property ID is separated, formatted as exactly 6-digit numeric string (e.g. 100001)', () => {
+    const id1 = deriveStableNumericId('6718a38b1111111111111101', 6, 100000);
+    const id2 = deriveStableNumericId('6718a38b1111111111111102', 6, 100000);
+    assert.match(id1, /^\d{6}$/, 'Property ID must be exactly 6 digits');
+    assert.match(id2, /^\d{6}$/, 'Property ID must be exactly 6 digits');
     assert.notStrictEqual(id1, id2, 'Distinct entities should produce distinct IDs');
 
     const identifiers = resolveReceiptIdentifiers(
       { bookingId: 'VVS-1' },
-      { _id: '6718a38b1111111111111101', name: 'Govardhan Palace Hotel', propertyId: '007' }
+      { _id: '6718a38b1111111111111101', name: 'Govardhan Palace Hotel', propertyId: '100007' }
     );
-    assert.strictEqual(identifiers.propertyId, '007');
+    assert.strictEqual(identifiers.propertyId, '100007');
+    assert.match(identifiers.propertyId, /^\d{6}$/);
   });
 
-  // 4. Category ID formatted as 2-digit numeric string
-  await t.test('4. Category ID is formatted as 2-digit numeric string (e.g. 01, 02)', () => {
-    const catId1 = deriveStableNumericId('6718a38b2222222222222201', 2);
-    assert.match(catId1, /^\d{2}$/, 'Category ID must be exactly 2 digits with leading zeros');
+  // 4. Room Category ID formatted as 4-digit numeric string (e.g. 2001)
+  await t.test('4. Category ID is formatted as exactly 4-digit numeric string (e.g. 2001)', () => {
+    const catId1 = deriveStableNumericId('6718a38b2222222222222201', 4, 2000);
+    assert.match(catId1, /^\d{4}$/, 'Category ID must be exactly 4 digits');
 
     const identifiers = resolveReceiptIdentifiers(
       { bookingId: 'VVS-1' },
       null,
-      { _id: '6718a38b2222222222222201', name: 'Double Bed AC Room', categoryId: '03' }
+      { _id: '6718a38b2222222222222201', name: 'Double Bed AC Room', categoryId: '2003' }
     );
-    assert.strictEqual(identifiers.categoryId, '03');
+    assert.strictEqual(identifiers.categoryId, '2003');
     assert.strictEqual(identifiers.roomTypeName, 'Double Bed AC Room');
   });
 
-  // 5. Physical Room Number & short numeric Room ID when allocated
+  // 5. Physical Room Number & 4-digit numeric Room ID when allocated
   await t.test('5. Room ID and physical room number are cleanly separated when room is allocated', () => {
     const identifiers = resolveReceiptIdentifiers(
       {
         bookingId: 'VVS-1',
         roomNumber: '104',
-        roomId: '104',
+        roomId: '1004',
       },
       null,
       { name: 'Deluxe AC' },
-      { number: '104', roomId: '104' }
+      { number: '104', roomId: '1004' }
     );
 
     assert.strictEqual(identifiers.roomNumber, '104');
-    assert.strictEqual(identifiers.roomId, '104');
+    assert.strictEqual(identifiers.roomId, '1004');
 
     const booking = {
       bookingId: 'VVS-ALLOC-1',
-      displayBookingId: '0015',
+      displayBookingId: '10000015',
       bookingType: 'room_type',
       itemName: 'Radha Mohan Dham - AC Room',
       roomNumber: '104',
-      roomId: '104',
-      propertyId: '002',
-      categoryId: '01',
+      roomId: '1004',
+      propertyId: '100002',
+      categoryId: '2001',
       totalAmount: 1800,
       amountPaidOnline: 1800,
       paymentStatus: 'paid',
@@ -128,9 +129,9 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
 
     const res = buildBookingReceiptPdf(booking);
     const pdfText = res.buffer.toString('binary');
-    assert.ok(pdfText.includes('Room No. 104 | Room ID: 104'), 'Must display room number and room ID together');
-    assert.ok(pdfText.includes('Property ID: 002'), 'Must display Property ID');
-    assert.ok(pdfText.includes('Category ID: 01'), 'Must display Category ID');
+    assert.ok(pdfText.includes('Room No. 104 | Room ID: 1004'), 'Must display room number and room ID together');
+    assert.ok(pdfText.includes('Property ID: 100002'), 'Must display Property ID');
+    assert.ok(pdfText.includes('Category ID: 2001'), 'Must display Category ID');
   });
 
   // 6. Unallocated rooms cleanly show "Room: Allocated at Check-in" without fabricated numbers
@@ -147,7 +148,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
 
     const booking = {
       bookingId: 'VVS-UNALLOC',
-      displayBookingId: '0016',
+      displayBookingId: '10000016',
       bookingType: 'room_type',
       itemName: 'Braj Seva Ashram - Non-AC Room',
       totalAmount: 1200,
@@ -163,11 +164,11 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     assert.ok(!pdfText.includes('Room ID: null'), 'Must not display null room ID');
   });
 
-  // 7. Display Booking ID: short 4-digit numeric sequence with leading zeros
-  await t.test('7. Display Booking ID formats correctly with 4 digits and leading zeros', () => {
+  // 7. Display Booking ID: exactly 8-digit numeric sequence with leading zeros
+  await t.test('7. Display Booking ID formats correctly with 8 digits and leading zeros', () => {
     const booking = {
       bookingId: 'VVS-2026-44444',
-      displayBookingId: '0003',
+      displayBookingId: '10000003',
       bookingType: 'hotel',
       itemName: 'Govardhan Palace - Family Suite',
       totalAmount: 5000,
@@ -177,12 +178,13 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     };
 
     const identifiers = resolveReceiptIdentifiers(booking);
-    assert.strictEqual(identifiers.displayBookingId, '0003');
+    assert.strictEqual(identifiers.displayBookingId, '10000003');
+    assert.match(identifiers.displayBookingId, /^\d{8}$/);
     assert.strictEqual(identifiers.canonicalBookingId, 'VVS-2026-44444');
 
     const res = buildBookingReceiptPdf(booking);
     const pdfText = res.buffer.toString('binary');
-    assert.ok(pdfText.includes('0003'), 'Must contain 0003 display booking ID');
+    assert.ok(pdfText.includes('10000003'), 'Must contain 10000003 display booking ID');
   });
 
   // 8. Concurrent ID allocation simulation & uniqueness
@@ -190,7 +192,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     const originalFindByIdAndUpdate = Counter.findByIdAndUpdate;
     const sequences = new Map();
 
-    Counter.findByIdAndUpdate = async (key, update, opts) => {
+    Counter.findByIdAndUpdate = async (key, update) => {
       const inc = update?.$inc?.seq || 1;
       const current = (sequences.get(key) || 0) + inc;
       sequences.set(key, current);
@@ -204,10 +206,10 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
 
       assert.strictEqual(uniqueResults.size, 50, 'All 50 concurrent allocations must be unique');
       results.forEach((id) => {
-        assert.match(id, /^\d{4}$/, 'Each ID must be 4 numeric digits');
+        assert.match(id, /^\d{8}$/, 'Each ID must be 8 numeric digits');
       });
-      assert.strictEqual(results[0], '0001');
-      assert.strictEqual(results[49], '0050');
+      assert.strictEqual(results[0], '10000001');
+      assert.strictEqual(results[49], '10000050');
     } finally {
       Counter.findByIdAndUpdate = originalFindByIdAndUpdate;
     }
@@ -231,14 +233,13 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     const pdfText = res.buffer.toString('binary');
     assert.ok(pdfText.includes('VVS-DR-2025-9988'), 'Must include legacy booking reference');
     assert.ok(pdfText.includes('Property ID:'), 'Must generate stable Property ID');
-    assert.ok(pdfText.includes('Category ID:'), 'Must generate stable Category ID');
   });
 
   // 10. Complete Property Name & Full Address without truncation
   await t.test('10. Full official property name and complete address are displayed', () => {
     const booking = {
       bookingId: 'VVS-2026-55555',
-      displayBookingId: '0005',
+      displayBookingId: '10000005',
       bookingType: 'room_type',
       propertyName: 'Shri Radha Rani Paramhans Trust Dharamshala',
       propertyAddress: 'Parikrama Marg, Opposite Radha Kund Post Office, Radha Kund, Mathura, UP 281504',
@@ -263,7 +264,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
   await t.test('11. Vector QR code is present and clickable annotation points to verification URL', () => {
     const booking = {
       bookingId: 'VVS-2026-QRTEST',
-      displayBookingId: '0008',
+      displayBookingId: '10000008',
       bookingType: 'room_type',
       itemName: 'Braj Palace - AC Room',
       totalAmount: 1800,
@@ -286,7 +287,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
         name: 'Dharamshala Advance Fee Only',
         booking: {
           bookingId: 'VVS-A4-1',
-          displayBookingId: '0010',
+          displayBookingId: '10000010',
           bookingType: 'room_type',
           service_billing_model: 'dharamshala_booking',
           itemName: 'Prem Mandir Sewa Sadan - AC Room',
@@ -298,14 +299,14 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
           paymentStatus: 'paid',
           bookingStatus: 'confirmed',
           roomNumber: '205',
-          roomId: '205',
+          roomId: '1205',
         },
       },
       {
         name: 'Hotel 30% Advance',
         booking: {
           bookingId: 'VVS-A4-2',
-          displayBookingId: '0011',
+          displayBookingId: '10000011',
           bookingType: 'room_type',
           service_billing_model: 'hotel_marketplace',
           itemName: 'Krishna Kripa Palace - Deluxe AC',
@@ -323,7 +324,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
         name: 'Hotel 100% Online',
         booking: {
           bookingId: 'VVS-A4-3',
-          displayBookingId: '0012',
+          displayBookingId: '10000012',
           bookingType: 'hotel',
           itemName: 'Royal Braj Resort - Suite',
           totalAmount: 4800,
@@ -347,7 +348,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     const originalFindByIdAndUpdate = Counter.findByIdAndUpdate;
     let bookingSeq = 100;
     Counter.findByIdAndUpdate = async (key) => {
-      if (key === 'booking_id') {
+      if (key === 'booking_id_v2') {
         bookingSeq += 1;
         return { _id: key, seq: bookingSeq };
       }
@@ -355,11 +356,12 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     };
 
     try {
-      const hotel = { _id: '6718a38b1111111111111101', propertyId: '001', name: 'Shri Radha Dham' };
-      const roomType = { _id: '6718a38b2222222222222201', categoryId: '02', name: 'Deluxe AC' };
+      const hotel = { _id: '6718a38b1111111111111101', propertyId: '100001', name: 'Shri Radha Dham' };
+      const roomType = { _id: '6718a38b2222222222222201', categoryId: '2002', name: 'Deluxe AC' };
 
       const displayBookingId = await getNextBookingId();
-      assert.strictEqual(displayBookingId, '0101');
+      assert.strictEqual(displayBookingId, '10000101');
+      assert.match(displayBookingId, /^\d{8}$/);
 
       const identifiers = resolveReceiptIdentifiers(
         {
@@ -372,9 +374,9 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
         roomType
       );
 
-      assert.strictEqual(identifiers.displayBookingId, '0101');
-      assert.strictEqual(identifiers.propertyId, '001');
-      assert.strictEqual(identifiers.categoryId, '02');
+      assert.strictEqual(identifiers.displayBookingId, '10000101');
+      assert.strictEqual(identifiers.propertyId, '100001');
+      assert.strictEqual(identifiers.categoryId, '2002');
       assert.strictEqual(identifiers.canonicalBookingId, 'VVS-REQ-0101');
     } finally {
       Counter.findByIdAndUpdate = originalFindByIdAndUpdate;
@@ -386,7 +388,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     const originalFindByIdAndUpdate = Counter.findByIdAndUpdate;
     let bookingSeq = 200;
     Counter.findByIdAndUpdate = async (key) => {
-      if (key === 'booking_id') {
+      if (key === 'booking_id_v2') {
         bookingSeq += 1;
         return { _id: key, seq: bookingSeq };
       }
@@ -403,24 +405,24 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
       };
 
       const identifiers = resolveReceiptIdentifiers(otaBooking);
-      assert.strictEqual(identifiers.displayBookingId, '0201');
+      assert.strictEqual(identifiers.displayBookingId, '10000201');
       assert.strictEqual(identifiers.canonicalBookingId, 'VVS-2026-98765');
 
       const res = buildBookingReceiptPdf(otaBooking);
       const pdfText = res.buffer.toString('binary');
-      assert.ok(pdfText.includes('0201'), 'Must include numeric display ID');
+      assert.ok(pdfText.includes('10000201'), 'Must include numeric display ID');
       assert.ok(pdfText.includes('Ref: VVS-2026-98765'), 'Must preserve canonical booking ID');
     } finally {
       Counter.findByIdAndUpdate = originalFindByIdAndUpdate;
     }
   });
 
-  // 15. Hotel creation flows allocate sequential 3-digit Property ID (001, 002) and prevent duplicates
-  await t.test('15. Hotel creation allocates sequential 3-digit Property ID without duplicates', async () => {
+  // 15. Hotel creation flows allocate sequential 6-digit Property ID (100001, 100002)
+  await t.test('15. Hotel creation allocates sequential 6-digit Property ID without duplicates', async () => {
     const originalFindByIdAndUpdate = Counter.findByIdAndUpdate;
     let propSeq = 0;
     Counter.findByIdAndUpdate = async (key) => {
-      if (key === 'property_id') {
+      if (key === 'property_id_v2') {
         propSeq += 1;
         return { _id: key, seq: propSeq };
       }
@@ -432,9 +434,12 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
       const p2 = await getNextPropertyId();
       const p3 = await getNextPropertyId();
 
-      assert.strictEqual(p1, '001');
-      assert.strictEqual(p2, '002');
-      assert.strictEqual(p3, '003');
+      assert.strictEqual(p1, '100001');
+      assert.strictEqual(p2, '100002');
+      assert.strictEqual(p3, '100003');
+      assert.match(p1, /^\d{6}$/);
+      assert.match(p2, /^\d{6}$/);
+      assert.match(p3, /^\d{6}$/);
       assert.notStrictEqual(p1, p2);
       assert.notStrictEqual(p2, p3);
     } finally {
@@ -442,27 +447,29 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     }
   });
 
-  // 16. RoomType creation flows allocate sequential 2-digit Category ID (01, 02) scoped to parent property
-  await t.test('16. RoomType creation allocates sequential 2-digit Category ID scoped per property', async () => {
+  // 16. RoomType creation flows allocate sequential 4-digit Category ID (2001, 2002)
+  await t.test('16. RoomType creation allocates sequential 4-digit Category ID', async () => {
     const originalFindByIdAndUpdate = Counter.findByIdAndUpdate;
-    const scopes = new Map();
+    let catSeq = 0;
     Counter.findByIdAndUpdate = async (key) => {
-      const current = (scopes.get(key) || 0) + 1;
-      scopes.set(key, current);
-      return { _id: key, seq: current };
+      if (key === 'category_id_v2') {
+        catSeq += 1;
+        return { _id: key, seq: catSeq };
+      }
+      return { _id: key, seq: 1 };
     };
 
     try {
-      const hotel1Id = '6718a38b1111111111111101';
-      const hotel2Id = '6718a38b1111111111111102';
+      const c1 = await getNextCategoryId('hotel1');
+      const c2 = await getNextCategoryId('hotel1');
+      const c3 = await getNextCategoryId('hotel2');
 
-      const h1_c1 = await getNextCategoryId(hotel1Id);
-      const h1_c2 = await getNextCategoryId(hotel1Id);
-      const h2_c1 = await getNextCategoryId(hotel2Id);
-
-      assert.strictEqual(h1_c1, '01');
-      assert.strictEqual(h1_c2, '02');
-      assert.strictEqual(h2_c1, '01', 'Separate property starts its own category sequence from 01');
+      assert.strictEqual(c1, '2001');
+      assert.strictEqual(c2, '2002');
+      assert.strictEqual(c3, '2003');
+      assert.match(c1, /^\d{4}$/);
+      assert.match(c2, /^\d{4}$/);
+      assert.match(c3, /^\d{4}$/);
     } finally {
       Counter.findByIdAndUpdate = originalFindByIdAndUpdate;
     }
@@ -473,31 +480,31 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     const staleBooking = {
       bookingId: 'VVS-OLD-1',
       hotelId: '6718a38b1111111111111101',
-      propertyId: '342', // stale fallback previously frozen on booking
-      categoryId: '99',  // stale category fallback
+      propertyId: '342999', // stale fallback previously frozen on booking
+      categoryId: '9999',   // stale category fallback
     };
 
     const authoritativeHotel = {
       _id: '6718a38b1111111111111101',
-      propertyId: '001', // authoritative canonical property ID
+      propertyId: '100001', // authoritative canonical property ID
       name: 'Shri Radha Rani Mandir Trust',
     };
 
     const authoritativeRoomType = {
       _id: '6718a38b2222222222222201',
-      categoryId: '02', // authoritative category ID
+      categoryId: '2002', // authoritative category ID
       name: 'AC Double Bed',
     };
 
     const identifiers = resolveReceiptIdentifiers(staleBooking, authoritativeHotel, authoritativeRoomType);
-    assert.strictEqual(identifiers.propertyId, '001', 'Authoritative hotel.propertyId must override stale booking.propertyId');
-    assert.strictEqual(identifiers.categoryId, '02', 'Authoritative roomType.categoryId must override stale booking.categoryId');
+    assert.strictEqual(identifiers.propertyId, '100001', 'Authoritative hotel.propertyId must override stale booking.propertyId');
+    assert.strictEqual(identifiers.categoryId, '2002', 'Authoritative roomType.categoryId must override stale booking.categoryId');
 
     const res = buildBookingReceiptPdf(staleBooking, { hotel: authoritativeHotel, roomType: authoritativeRoomType });
     const pdfText = res.buffer.toString('binary');
-    assert.ok(pdfText.includes('Property ID: 001'), 'Receipt must display authoritative Property ID: 001');
-    assert.ok(!pdfText.includes('Property ID: 342'), 'Receipt must not display stale Property ID: 342');
-    assert.ok(pdfText.includes('Category ID: 02'), 'Receipt must display authoritative Category ID: 02');
+    assert.ok(pdfText.includes('Property ID: 100001'), 'Receipt must display authoritative Property ID: 100001');
+    assert.ok(!pdfText.includes('Property ID: 342999'), 'Receipt must not display stale Property ID');
+    assert.ok(pdfText.includes('Category ID: 2002'), 'Receipt must display authoritative Category ID: 2002');
   });
 
   // 18. New booking creation avoids writing inconsistent fallback IDs when hotel has no propertyId
@@ -509,12 +516,86 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
 
     // When booking has no propertyId and hotel has no propertyId
     const identifiers = resolveReceiptIdentifiers({ bookingId: 'VVS-NEW-1' }, unmigratedHotel, null);
-    assert.ok(identifiers.propertyId, 'Must derive a stable 3-digit numeric ID');
-    assert.match(identifiers.propertyId, /^\d{3}$/, 'Must be 3 digits');
+    assert.ok(identifiers.propertyId, 'Must derive a stable 6-digit numeric ID');
+    assert.match(identifiers.propertyId, /^\d{6}$/, 'Must be 6 digits');
 
     // Consecutive resolutions for same hotel must be identical
     const identifiers2 = resolveReceiptIdentifiers({ bookingId: 'VVS-NEW-2' }, unmigratedHotel, null);
     assert.strictEqual(identifiers.propertyId, identifiers2.propertyId, 'Must be completely deterministic for the same hotel');
+  });
+
+  // 19. Invoice hides Category ID when unavailable, null, or empty, and displays when genuine
+  await t.test('19. Invoice hides Category ID when unavailable, null, or empty, and displays when genuine', () => {
+    // Case A: With genuine Category ID
+    const bookingWithCat = {
+      bookingId: 'VVS-CAT-YES',
+      displayBookingId: '10000021',
+      bookingType: 'room_type',
+      itemName: 'Hotel Kanha - Super Deluxe Room',
+      totalAmount: 2500,
+      amountPaidOnline: 2500,
+      paymentStatus: 'paid',
+      bookingStatus: 'confirmed',
+    };
+    const roomTypeWithCat = {
+      _id: 'rt_cat_1',
+      name: 'Super Deluxe Room',
+      categoryId: '2005',
+    };
+
+    const resWith = buildBookingReceiptPdf(bookingWithCat, { roomType: roomTypeWithCat });
+    const textWith = resWith.buffer.toString('binary');
+    assert.ok(textWith.includes('Category: Super Deluxe Room'), 'Must include category name');
+    assert.ok(textWith.includes('Category ID: 2005'), 'Must include Category ID badge when genuine');
+
+    // Case B: Without Category ID (null, undefined, unassigned)
+    const bookingWithoutCat = {
+      bookingId: 'VVS-CAT-NO',
+      displayBookingId: '10000022',
+      bookingType: 'room_type',
+      itemName: 'Braj Ashram - Standard AC Room',
+      totalAmount: 1500,
+      amountPaidOnline: 1500,
+      paymentStatus: 'paid',
+      bookingStatus: 'confirmed',
+    };
+    const roomTypeWithoutCat = {
+      _id: 'rt_cat_2',
+      name: 'Standard AC Room',
+      // categoryId is deliberately omitted
+    };
+
+    const resWithout = buildBookingReceiptPdf(bookingWithoutCat, { roomType: roomTypeWithoutCat });
+    const textWithout = resWithout.buffer.toString('binary');
+    assert.ok(textWithout.includes('Category: Standard AC Room'), 'Must include category name');
+    assert.ok(!textWithout.includes('Category ID:'), 'Must NOT display Category ID label or badge when unassigned');
+    assert.ok(!textWithout.includes('Category ID: null'), 'Must NOT display null placeholder');
+    assert.ok(!textWithout.includes('Category ID: undefined'), 'Must NOT display undefined placeholder');
+
+    // Verify resolveReceiptIdentifiers does NOT invent a categoryId
+    const resolvedWithout = resolveReceiptIdentifiers(bookingWithoutCat, null, roomTypeWithoutCat);
+    assert.strictEqual(resolvedWithout.categoryId, null, 'Must not invent fake category ID when none exists');
+  });
+
+  // 20. ID range exhaustion safety checks
+  await t.test('20. ID range exhaustion protection throws RangeError when limit is reached', async () => {
+    const originalFindByIdAndUpdate = Counter.findByIdAndUpdate;
+    Counter.findByIdAndUpdate = async (key) => {
+      // Simulate counter that has reached maximum capacity
+      return { _id: key, seq: 900000 };
+    };
+
+    try {
+      await assert.rejects(
+        async () => {
+          await getNextNumericId('property_id_test', 6, 100000, 999999);
+        },
+        RangeError,
+        'Must reject with RangeError when sequence value exceeds maximum allowed'
+      );
+    } finally {
+      Counter.findByIdAndUpdate = originalFindByIdAndUpdate;
+    }
   });
 
 });
