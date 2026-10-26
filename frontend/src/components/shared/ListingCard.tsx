@@ -25,6 +25,7 @@ export interface ListingCardProps {
   ctaLabel?: string;
   intervalMs?: number;
   variant?: 'default' | 'hotel' | 'room' | 'cab' | 'compact' | 'tour';
+  compact?: boolean;
 }
 
 type CardKind = 'hotel' | 'room' | 'cab' | 'tour' | 'default';
@@ -33,22 +34,22 @@ const cardCopy: Record<CardKind, { fallbackBadge: string; context: string; empty
   hotel: {
     fallbackBadge: 'Verified Stay',
     context: 'Verified Braj stay',
-    emptyPrice: 'Contribution on request',
+    emptyPrice: 'Contribution on confirmation',
     emptyPriceHelp: 'Confirmed after verification',
     cta: 'View Rooms & Tariff',
   },
   room: {
     fallbackBadge: 'Room Option',
     context: 'Room configuration',
-    emptyPrice: 'Contribution on request',
+    emptyPrice: 'Contribution on confirmation',
     emptyPriceHelp: 'Confirmed upon request',
     cta: 'Check Availability',
   },
   cab: {
     fallbackBadge: 'AC Cab',
     context: 'Private yatra transport',
-    emptyPrice: 'Fixed route fare',
-    emptyPriceHelp: 'Select destination',
+    emptyPrice: '',
+    emptyPriceHelp: '',
     cta: 'Confirm Cab Route',
   },
   tour: {
@@ -102,6 +103,7 @@ const ListingCard = ({
   onViewDetails,
   ctaLabel,
   variant = 'compact',
+  compact = false,
 }: ListingCardProps) => {
   const safeGallery = useMemo(() => {
     const rawList = [image, ...(images || [])];
@@ -127,6 +129,13 @@ const ListingCard = ({
     setActive((prev) => (prev === safeGallery.length - 1 ? 0 : prev + 1));
   };
 
+  // Consistent 4:3 image container matching Hotels/Rooms across all categories
+  const imageContainerClass = 'aspect-[4/3]';
+  const imageClass =
+    kind === 'cab'
+      ? 'h-full w-full object-cover object-[center_25%] transition-transform duration-500 ease-out group-hover:scale-105'
+      : 'h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105';
+
   return (
     <article
       tabIndex={0}
@@ -140,8 +149,8 @@ const ListingCard = ({
       }}
       className="group flex flex-col w-full text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 rounded-2xl"
     >
-      {/* 1. Image Media Container (Borderless, Clean Airbnb-Grade Architecture) */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-neutral-100">
+      {/* 1. Image Media Container */}
+      <div className={`relative ${imageContainerClass} w-full overflow-hidden rounded-2xl bg-neutral-100`}>
         <img
           src={safeGallery[active] || '/placeholder.svg'}
           alt={`${name} photo ${active + 1}`}
@@ -153,11 +162,36 @@ const ListingCard = ({
               target.src = '/placeholder.svg';
             }
           }}
-          className="h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
+          className={imageClass}
         />
 
-        {/* Favorite Wishlist Heart on Top Right */}
-        {onToggleFavorite && (
+        {/* Top-Left Badge (Property Type, Cab Advance, or Tour Duration) */}
+        {typeLabel && (
+          <div className="absolute top-2 left-2 sm:top-2.5 sm:left-2.5 z-10 max-w-[70%]">
+            <span
+              className={`inline-flex items-center max-w-full truncate rounded-full px-2 py-0.5 font-body text-[10px] font-bold shadow-xs backdrop-blur-md ${
+                badgeColor
+                  ? badgeToneClass[badgeColor]
+                  : 'bg-white/95 text-slate-800 border border-neutral-200/60'
+              }`}
+            >
+              <span className="truncate">{typeLabel}</span>
+            </span>
+          </div>
+        )}
+
+        {/* Top-Right Badge: Genuine Rating (Star + Number on white pill) */}
+        {rating > 0 && (
+          <div className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-10">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 font-body text-[10px] sm:text-[11px] font-bold text-slate-900 shadow-xs backdrop-blur-xs">
+              <Star size={10} className="fill-amber-500 text-amber-500 shrink-0" />
+              <span>{rating.toFixed(1)}</span>
+            </span>
+          </div>
+        )}
+
+        {/* Wishlist Heart on Top Right if provided and no rating */}
+        {onToggleFavorite && (!rating || rating <= 0) && (
           <button
             type="button"
             aria-label={isFavorite ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
@@ -166,10 +200,10 @@ const ListingCard = ({
               e.stopPropagation();
               onToggleFavorite();
             }}
-            className="absolute top-3 right-3 z-10 p-1.5 rounded-full hover:scale-110 active:scale-90 transition-transform focus-visible:outline-none"
+            className="absolute top-2 right-2 z-10 p-1.5 rounded-full hover:scale-110 active:scale-90 transition-transform focus-visible:outline-none"
           >
             <Heart
-              size={22}
+              size={18}
               className={
                 isFavorite
                   ? 'fill-rose-500 text-rose-500 drop-shadow-md'
@@ -177,21 +211,6 @@ const ListingCard = ({
               }
             />
           </button>
-        )}
-
-        {/* Property Type Badge on Top Left */}
-        {typeLabel && (
-          <div className="absolute top-3 left-3 z-10 max-w-[75%]">
-            <span
-              className={`inline-flex items-center truncate rounded-full px-2.5 py-0.5 font-body text-[11px] font-bold shadow-sm backdrop-blur-md ${
-                badgeColor
-                  ? badgeToneClass[badgeColor]
-                  : 'bg-white/90 text-slate-800 border border-neutral-200/60'
-              }`}
-            >
-              {typeLabel}
-            </span>
-          </div>
         )}
 
         {/* Carousel Chevrons (Appear on Desktop Hover) */}
@@ -231,59 +250,91 @@ const ListingCard = ({
         )}
       </div>
 
-      {/* 2. Text Details Hierarchy (Compact, Non-Boxed, Zero Wasted Whitespace) */}
-      <div className="mt-2.5 space-y-0.5">
-        {/* Row 1: Property Name & Genuine Rating */}
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 className="font-body text-[15px] font-bold text-slate-900 group-hover:text-amber-800 transition-colors line-clamp-1">
-            {name || 'Stay in Braj'}
-          </h3>
-          {rating > 0 && (
-            <div className="flex items-center gap-1 font-body text-xs font-bold text-slate-900 shrink-0">
-              <Star size={12} className="fill-slate-900 text-slate-900" />
-              <span>{rating.toFixed(1)}</span>
-              {reviewCount > 0 && <span className="font-normal text-slate-500">({reviewCount})</span>}
-            </div>
-          )}
-        </div>
-
-        {/* Row 2: Location / Temple Distance */}
-        {(location || distance) && (
-          <p className="font-body text-[13px] font-medium text-neutral-500 flex items-center gap-1 line-clamp-1">
-            <MapPin size={13} className="text-amber-800/80 shrink-0" />
-            {distance && (
-              <span className="font-semibold text-slate-800">{distance}</span>
+      {/* 2. Text Details Information Hierarchy */}
+      <div className={`space-y-0.5 ${compact ? 'mt-1.5' : 'mt-2'}`}>
+        {kind === 'cab' ? (
+          /* Cabs: Vehicle name, service area, capacity/type, and actual fare only when available */
+          <>
+            <h3
+              title={name}
+              className="font-body text-[13px] sm:text-[14px] font-bold text-slate-900 group-hover:text-amber-800 transition-colors line-clamp-1 leading-snug"
+            >
+              {name}
+            </h3>
+            {location && (
+              <p className="font-body text-[11px] font-medium text-neutral-500 flex items-center gap-1 line-clamp-1">
+                <MapPin size={11} className="text-amber-800/80 shrink-0" />
+                <span className="truncate">{location}</span>
+              </p>
             )}
-            {distance && location && <span className="text-neutral-300">·</span>}
-            {location && <span>{location}</span>}
-          </p>
-        )}
-
-        {/* Row 3: Key Amenities / Configuration */}
-        {amenities && amenities.length > 0 && (
-          <p className="font-body text-[13px] text-neutral-400 line-clamp-1">
-            {amenities.filter(Boolean).slice(0, 3).join(' · ')}
-          </p>
-        )}
-
-        {/* Row 4: Price & Transparency */}
-        <div className="pt-1 flex items-baseline gap-1.5 text-slate-900">
-          {hasPrice ? (
-            <>
-              <span className="font-body text-[16px] font-bold tracking-tight">
-                ₹{price.toLocaleString('en-IN')}
-              </span>
-              <span className="font-body text-xs font-normal text-neutral-500">{unit}</span>
-            </>
-          ) : (
-            <div className="flex flex-col">
-              <span className="font-body text-xs font-semibold text-amber-900">
-                {pricePlaceholder || copy.emptyPrice}
-              </span>
-              {priceHelp && <span className="font-body text-[11px] text-neutral-400">{priceHelp}</span>}
+            {amenities && amenities.length > 0 && (
+              <p className="font-body text-[11px] text-neutral-400 line-clamp-1">
+                {amenities.filter(Boolean).join(' · ')}
+              </p>
+            )}
+            {hasPrice && (
+              <p className="pt-0.5 font-body text-[13px] sm:text-[14px] font-bold text-slate-900 tracking-tight">
+                ₹{price.toLocaleString('en-IN')}{' '}
+                <span className="text-xs font-normal text-neutral-500">{unit}</span>
+              </p>
+            )}
+          </>
+        ) : kind === 'tour' ? (
+          /* Tours: Title, destination/covered places, and price */
+          <>
+            <h3
+              title={name}
+              className="font-body text-[13px] sm:text-[14px] font-bold text-slate-900 group-hover:text-amber-800 transition-colors line-clamp-1 leading-snug"
+            >
+              {name}
+            </h3>
+            {(location || (amenities && amenities.length > 0)) && (
+              <p className="font-body text-[11px] font-medium text-neutral-500 flex items-center gap-1 line-clamp-1">
+                <MapPin size={11} className="text-amber-800/80 shrink-0" />
+                <span className="truncate">{location || amenities?.filter(Boolean).slice(0, 2).join(' · ')}</span>
+              </p>
+            )}
+            {hasPrice && (
+              <p className="pt-0.5 font-body text-[13px] sm:text-[14px] font-bold text-slate-900 tracking-tight">
+                ₹{price.toLocaleString('en-IN')}{' '}
+                <span className="text-xs font-normal text-neutral-500">{unit}</span>
+              </p>
+            )}
+          </>
+        ) : (
+          /* Hotels / Dharamshalas / Rooms (Exact 3-Line Structure):
+             Line 1: Property name
+             Line 2: Price for hotels OR Request-based message for dharamshalas
+             Line 3: Short useful detail (location / distance / configuration) */
+          <>
+            <h3
+              title={name || 'Stay in Braj'}
+              className="font-body text-[13px] sm:text-[14px] font-bold text-slate-900 group-hover:text-amber-800 transition-colors line-clamp-1 leading-snug"
+            >
+              {name || 'Stay in Braj'}
+            </h3>
+            <div className={compact ? 'pt-0' : 'pt-0.5'}>
+              {hasPrice ? (
+                <p className="font-body text-[13px] sm:text-[14px] font-bold text-slate-900 tracking-tight line-clamp-1">
+                  ₹{price.toLocaleString('en-IN')}{' '}
+                  <span className="text-xs font-normal text-neutral-500">{unit}</span>
+                </p>
+              ) : (
+                <p className="font-body text-xs font-semibold text-amber-900 line-clamp-1">
+                  {pricePlaceholder || copy.emptyPrice}
+                </p>
+              )}
             </div>
-          )}
-        </div>
+            {(location || distance || (amenities && amenities.length > 0)) && (
+              <p className="font-body text-[11px] font-medium text-neutral-500 flex items-center gap-1 line-clamp-1">
+                <MapPin size={11} className="text-amber-800/80 shrink-0" />
+                <span className="truncate">
+                  {distance ? `${distance} · ${location || ''}` : location || amenities?.filter(Boolean).slice(0, 2).join(' · ')}
+                </span>
+              </p>
+            )}
+          </>
+        )}
       </div>
     </article>
   );

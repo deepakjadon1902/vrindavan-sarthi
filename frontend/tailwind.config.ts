@@ -14,6 +14,9 @@ export default {
       },
     },
     extend: {
+      screens: {
+        xs: "480px",
+      },
       fontFamily: {
         brand: ['"Cinzel Decorative"', 'serif'],
         heading: ['"DM Serif Display"', '"Cormorant Garamond"', 'serif'],

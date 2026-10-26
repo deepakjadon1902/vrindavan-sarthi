@@ -24,7 +24,7 @@ const ImageCarousel = ({
   images,
   alt,
   intervalMs = 3500,
-  heightClass = 'aspect-[4/3] h-auto min-h-[220px] max-h-[330px] sm:aspect-[16/10] sm:min-h-[260px] md:max-h-[360px] lg:aspect-[16/9]',
+  heightClass = 'aspect-[4/3] h-auto min-h-[220px] max-h-[320px] sm:aspect-[16/10] sm:min-h-[260px] sm:max-h-[360px] lg:max-h-[400px]',
   showThumbnails = true,
 }: ImageCarouselProps) => {
   const safe = (images && images.length > 0 ? images : ['/placeholder.svg']).map((img) => resolveBackendAssetUrl(img) || '/placeholder.svg');
@@ -75,7 +75,7 @@ const ImageCarousel = ({
             height={800}
             loading={i === 0 ? 'eager' : 'lazy'}
             decoding="async"
-            fetchPriority={i === 0 ? 'high' : 'auto'}
+            {...(i === 0 ? ({ fetchpriority: 'high' } as any) : {})}
             sizes="(min-width: 1024px) 65vw, 100vw"
             className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out ${
               i === active ? 'opacity-100 scale-100' : 'opacity-0 scale-105'

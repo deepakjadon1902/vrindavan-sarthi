@@ -88,7 +88,7 @@ const SEOBreadcrumbs = ({ items }: SEOBreadcrumbsProps) => {
   return (
     <>
       <JsonLd id="breadcrumbs" value={buildBreadcrumbJsonLd(breadcrumbItems)} />
-      <nav aria-label="Breadcrumb" className="bg-background/90 border-b border-border pt-16 lg:pt-[4.75rem]">
+      <nav aria-label="Breadcrumb" className="bg-background/90 border-b border-border pt-16 sm:pt-20">
         <ol className="container mx-auto px-4 flex min-h-8 items-center gap-1 overflow-x-auto text-xs font-body text-muted-foreground">
           {breadcrumbItems.map((item, index) => {
             const last = index === breadcrumbItems.length - 1;
