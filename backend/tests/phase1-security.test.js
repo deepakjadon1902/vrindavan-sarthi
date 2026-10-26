@@ -275,3 +275,52 @@ test('SEC-01 remediation: registered user email cannot be hijacked by guest chec
     delete require.cache[require.resolve('../utils/guestBookingAccess')];
   }
 });
+
+test('SEC-01 remediation: getGuestAccessTokenFromRequest extracts tokens across header and query conventions', () => {
+  const { getGuestAccessTokenFromRequest } = require('../utils/guestBookingAccess');
+
+  // Header extraction: x-guest-access-token and x-guest-booking-token
+  const reqAccessHeader = { get: (h) => (h.toLowerCase() === 'x-guest-access-token' ? 'tok-access-123' : '') };
+  assert.equal(getGuestAccessTokenFromRequest(reqAccessHeader), 'tok-access-123');
+
+  const reqBookingHeader = { get: (h) => (h.toLowerCase() === 'x-guest-booking-token' ? 'tok-booking-456' : '') };
+  assert.equal(getGuestAccessTokenFromRequest(reqBookingHeader), 'tok-booking-456');
+
+  // Query extraction: token and guestAccessToken
+  assert.equal(getGuestAccessTokenFromRequest({ query: { token: 'tok-query-1' } }), 'tok-query-1');
+  assert.equal(getGuestAccessTokenFromRequest({ query: { guestAccessToken: 'tok-query-2' } }), 'tok-query-2');
+
+  // Body extraction
+  assert.equal(getGuestAccessTokenFromRequest({ body: { guestAccessToken: 'tok-body-3' } }), 'tok-body-3');
+
+  // Safe fallback
+  assert.equal(getGuestAccessTokenFromRequest({}), '');
+});
+
+test('SEC-01 remediation: guest access validation strictly rejects registered-user bookings and invalid tokens', () => {
+  const { hashGuestAccessToken } = require('../utils/guestBookingAccess');
+
+  const validToken = 'secret-token-xyz-12345';
+  const validHash = hashGuestAccessToken(validToken);
+
+  const isGuestAuthorized = (booking, token) => Boolean(
+    token &&
+    booking.isGuestBooking &&
+    booking.guestAccessTokenHash &&
+    booking.guestAccessTokenHash === hashGuestAccessToken(token)
+  );
+
+  // 1. Valid guest booking with matching token
+  assert.equal(isGuestAuthorized({ isGuestBooking: true, guestAccessTokenHash: validHash }, validToken), true);
+
+  // 2. Mismatched token
+  assert.equal(isGuestAuthorized({ isGuestBooking: true, guestAccessTokenHash: validHash }, 'wrong-token'), false);
+
+  // 3. Missing token
+  assert.equal(isGuestAuthorized({ isGuestBooking: true, guestAccessTokenHash: validHash }, ''), false);
+
+  // 4. Registered-user booking (isGuestBooking: false) - MUST NEVER BE AUTHORIZED VIA GUEST TOKEN
+  assert.equal(isGuestAuthorized({ isGuestBooking: false, guestAccessTokenHash: validHash }, validToken), false);
+  assert.equal(isGuestAuthorized({ isGuestBooking: undefined, guestAccessTokenHash: validHash }, validToken), false);
+});
+

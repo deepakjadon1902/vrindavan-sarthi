@@ -26,7 +26,14 @@ const buildGuestAccountReminder = ({ email, created }) => ({
 });
 
 const getGuestAccessTokenFromRequest = (req) =>
-  String(req.body?.guestAccessToken || req.query?.guestAccessToken || req.query?.token || req.get?.('x-guest-booking-token') || '').trim();
+  String(
+    req.body?.guestAccessToken ||
+    req.query?.guestAccessToken ||
+    req.query?.token ||
+    req.get?.('x-guest-booking-token') ||
+    req.get?.('x-guest-access-token') ||
+    ''
+  ).trim();
 
 const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, customerEmail }) => {
   if (req.user?._id) {
