@@ -409,19 +409,23 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     }
   },
 
-  fetchBookingById: async (id) => {
+  fetchBookingById: async (id, guestAccessToken) => {
     if (!id) return null;
     const token = useAuthStore.getState().token;
-    if (!token) return null;
+    if (!token && !guestAccessToken) return null;
 
     const fromCache =
       get().myBookings.find((b) => b.id === id) ||
       get().partnerBookings.find((b) => b.id === id) ||
       get().adminBookings.find((b) => b.id === id);
-    if (fromCache) return fromCache;
+    if (fromCache && !guestAccessToken) return fromCache;
 
     try {
-      const res = await api.get(`/bookings/${id}`, withAuth(token));
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (guestAccessToken) headers['x-guest-access-token'] = guestAccessToken;
+      const params = guestAccessToken ? { token: guestAccessToken, guestAccessToken } : undefined;
+      const res = await api.get(`/bookings/${id}`, { headers, params });
       const booking = normalizeBooking(res.data?.data);
       if (!booking.id) return null;
       set((state) => ({ myBookings: [booking, ...state.myBookings.filter((b) => b.id !== booking.id)] }));
