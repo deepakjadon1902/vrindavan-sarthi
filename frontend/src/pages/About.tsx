@@ -19,7 +19,7 @@ const stats = [
 
 const About = () => {
   return (
-    <div className="pt-16">
+    <div className="pb-12">
       <section className="relative min-h-[560px] overflow-hidden">
         <img src={heroImg} alt="Vrindavan temple view" width={1600} height={900} loading="eager" decoding="async" fetchPriority="high" sizes="100vw" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-brand-black/86 via-brand-black/58 to-transparent" />
@@ -33,7 +33,7 @@ const About = () => {
               We help pilgrims find verified stays, practical transport, and guided local support so their energy stays focused on darshan, family, and devotion.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Link to="/hotels" className="btn-gold inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm">
+              <Link to="/hotels" className="btn-emerald inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm">
                 Explore Stays <ArrowRight size={16} />
               </Link>
               <Link to="/contact" className="inline-flex items-center gap-2 rounded-lg border border-white/35 bg-white/12 px-5 py-3 font-body text-sm font-semibold text-white backdrop-blur hover:bg-white/18">
@@ -99,7 +99,7 @@ const About = () => {
                 We keep booking status, payment verification, property policies, support details, and partner operations visible to the right people at the right time. Guests get confidence; partners get structured tools; admins get a clear ledger.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link to="/rooms" className="btn-crimson inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm">
+                <Link to="/rooms" className="btn-emerald inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm">
                   Browse Rooms <ArrowRight size={16} />
                 </Link>
                 <Link to="/cabs" className="rounded-lg border border-border bg-white px-5 py-3 font-body text-sm font-semibold text-foreground hover:border-brand-gold/50">

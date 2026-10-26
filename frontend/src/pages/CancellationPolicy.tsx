@@ -85,7 +85,7 @@ const importantNotes = [
 
 const CancellationPolicy = () => {
   return (
-    <div className="min-h-screen bg-background pb-10 pt-20">
+    <div className="min-h-screen bg-background pb-10">
       <section className="relative overflow-hidden border-b border-brand-gold/20 bg-brand-black">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.22),transparent_32%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(32,46,39,0.94))]" />
         <div className="container relative mx-auto max-w-6xl px-4 py-10 lg:px-8 lg:py-12">

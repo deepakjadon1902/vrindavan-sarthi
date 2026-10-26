@@ -278,7 +278,7 @@ const BookingConfirmation = () => {
                         href={directionsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-brand-crimson px-3.5 py-2 font-body text-xs font-bold text-white hover:bg-brand-crimson/90 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 font-body text-xs font-bold text-white hover:bg-slate-800 transition-colors shadow-sm"
                       >
                         <Navigation size={13} />
                         <span>Get Directions / Open in Maps</span>
@@ -354,7 +354,7 @@ const BookingConfirmation = () => {
                     <button
                       onClick={handleDownloadInvoice}
                       disabled={isDownloadingInvoice}
-                      className="w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-crimson px-4 font-body text-sm font-bold text-white hover:bg-brand-crimson/90 transition-colors shadow-sm disabled:opacity-60"
+                      className="btn-emerald w-full py-3 text-sm font-bold shadow-sm disabled:opacity-60"
                     >
                       <Download size={16} className={isDownloadingInvoice ? 'animate-bounce' : ''} />
                       <span>{isDownloadingInvoice ? 'Generating Receipt...' : 'Download Booking Receipt (PDF)'}</span>
@@ -365,7 +365,7 @@ const BookingConfirmation = () => {
                     className={`w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 font-body text-sm font-semibold transition-colors ${
                       canDownloadReceipt
                         ? 'border border-border bg-card text-foreground hover:bg-secondary'
-                        : 'bg-brand-crimson font-bold text-white hover:bg-brand-crimson/90 shadow-sm'
+                        : 'btn-emerald font-bold text-white shadow-sm'
                     }`}
                   >
                     <span>View Booking Details</span>

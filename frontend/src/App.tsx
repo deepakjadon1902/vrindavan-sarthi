@@ -13,6 +13,7 @@ import { useAuthStore } from "@/store/authStore";
 import ScrollToTop from "@/components/ScrollToTop";
 import RouteSEO from "@/components/RouteSEO";
 import SEOBreadcrumbs from "@/components/SEOBreadcrumbs";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Hotels = lazy(() => import("@/pages/Hotels"));
@@ -30,6 +31,7 @@ const Contact = lazy(() => import("@/pages/Contact"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const CancellationPolicy = lazy(() => import("@/pages/CancellationPolicy"));
+const VerifyBooking = lazy(() => import("@/pages/VerifyBooking"));
 const TrackOrder = lazy(() => import("@/pages/TrackOrder"));
 const Login = lazy(() => import("@/pages/Login"));
 const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
@@ -117,7 +119,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
     <div className="braj-page">
       <Navbar />
       <SEOBreadcrumbs />
-      <main>{children}</main>
+      <main><ErrorBoundary>{children}</ErrorBoundary></main>
       <Footer />
     </div>
   );
@@ -165,6 +167,7 @@ const App = () => {
               <Route path="/terms" element={<PublicLayout><Terms /></PublicLayout>} />
               <Route path="/privacy" element={<PublicLayout><Privacy /></PublicLayout>} />
               <Route path="/cancellation-policy" element={<PublicLayout><CancellationPolicy /></PublicLayout>} />
+              <Route path="/verify-booking" element={<PublicLayout><VerifyBooking /></PublicLayout>} />
 
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -174,8 +177,8 @@ const App = () => {
 
               <Route path="/profile" element={<ProtectedRoute><PublicLayout><Profile /></PublicLayout></ProtectedRoute>} />
               <Route path="/bookings" element={<ProtectedRoute><PublicLayout><MyBookings /></PublicLayout></ProtectedRoute>} />
-              <Route path="/bookings/:id/confirmed" element={<ProtectedRoute><PublicLayout><BookingConfirmation /></PublicLayout></ProtectedRoute>} />
-              <Route path="/bookings/:id" element={<ProtectedRoute><PublicLayout><BookingDetail /></PublicLayout></ProtectedRoute>} />
+              <Route path="/bookings/:id/confirmed" element={<ProtectedRoute allowGuest><PublicLayout><BookingConfirmation /></PublicLayout></ProtectedRoute>} />
+              <Route path="/bookings/:id" element={<ProtectedRoute allowGuest><PublicLayout><BookingDetail /></PublicLayout></ProtectedRoute>} />
               <Route path="/my-orders" element={<FeatureRoute enabled={shopEnabled}><ProtectedRoute><PublicLayout><MyOrders /></PublicLayout></ProtectedRoute></FeatureRoute>} />
 
               <Route path="/partner" element={<PartnerRoute><PartnerLayout /></PartnerRoute>}>

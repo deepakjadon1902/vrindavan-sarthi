@@ -1068,7 +1068,7 @@ const BookingDetail = () => {
                       <button
                         onClick={handleDownloadInvoice}
                         disabled={isDownloadingInvoice}
-                        className="w-full py-3 rounded-2xl bg-brand-crimson text-white font-body text-sm font-bold hover:bg-brand-crimson/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm"
+                        className="btn-emerald w-full py-3 text-sm font-bold shadow-sm flex items-center justify-center gap-2 disabled:opacity-60"
                       >
                         <Download size={16} className={isDownloadingInvoice ? 'animate-bounce' : ''} />
                         <span>{isDownloadingInvoice ? 'Generating Receipt...' : 'Download Booking Receipt (PDF)'}</span>

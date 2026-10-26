@@ -3,8 +3,6 @@ import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { User, Camera, Save, X, Mail, Phone, MapPin, Calendar, Shield, CreditCard, ClipboardList, Edit3, Building2, FileText, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 import { Link } from 'react-router-dom';
 import { api, resolveBackendAssetUrl, withAuth } from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/apiError';
@@ -157,9 +155,7 @@ const Profile = () => {
   const memberSince = new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen bg-background pt-20 pb-8 px-4">
+    <div className="min-h-screen bg-background pt-20 sm:pt-24 pb-8 px-4">
         <div className="container mx-auto max-w-5xl">
           {/* Hero Banner */}
           <div className="relative rounded-lg overflow-hidden mb-6 bg-gradient-to-r from-brand-crimson via-brand-crimson/80 to-brand-gold h-32 sm:h-40">
@@ -187,12 +183,12 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
             </div>
             <div className="flex gap-2">
               {!editing ? (
-                <button onClick={() => setEditing(true)} className="btn-gold px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 font-medium">
+                <button onClick={() => setEditing(true)} className="btn-emerald px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 font-medium">
                   <Edit3 size={14} /> Edit Profile
                 </button>
               ) : (
                 <>
-                  <button onClick={handleSave} className="btn-crimson px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 font-medium"><Save size={14} /> Save</button>
+                  <button onClick={handleSave} className="btn-emerald px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 font-medium"><Save size={14} /> Save</button>
                   <button onClick={() => { setEditing(false); setNewDocuments([]); setForm(getProfileForm(user)); }} className="px-5 py-2.5 rounded-xl text-sm border border-border font-body hover:bg-muted transition-colors flex items-center gap-2"><X size={14} /> Cancel</button>
                 </>
               )}
@@ -491,8 +487,6 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
           </div>
         </div>
       </div>
-      <Footer />
-    </>
   );
 };
 

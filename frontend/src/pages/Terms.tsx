@@ -5,7 +5,7 @@ const Terms = () => {
   const sections = settings.termsOfService.split(/\n\n+/).filter(Boolean);
 
   return (
-    <div className="pt-20 pb-8 min-h-screen bg-background">
+    <div className="py-8 min-h-screen bg-background">
       <div className="container mx-auto px-4 max-w-4xl">
         <h1 className="font-heading text-4xl font-bold text-foreground mb-5">Terms of Service</h1>
         <div className="bg-card rounded-xl border border-border p-8 space-y-6 font-body text-sm text-muted-foreground leading-relaxed">

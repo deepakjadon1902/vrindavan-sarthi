@@ -24,6 +24,7 @@ import {
   Star,
   Award,
   Phone,
+  RefreshCw,
 } from 'lucide-react';
 import ListingCard from '@/components/shared/ListingCard';
 import LocationDiscoverySection from '@/components/discovery/LocationDiscoverySection';
@@ -112,6 +113,84 @@ const testimonials = [
   },
 ];
 
+
+const SectionSkeletonGrid = ({ count = 4 }: { count?: number }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 animate-pulse">
+    {Array.from({ length: count }).map((_, i) => (
+      <div key={i} className="rounded-2xl border border-neutral-200/80 bg-white overflow-hidden shadow-sm">
+        <div className="h-44 bg-neutral-200/70" />
+        <div className="p-4 space-y-2.5">
+          <div className="h-4 bg-neutral-200/80 rounded w-3/4" />
+          <div className="h-3 bg-neutral-200/60 rounded w-1/2" />
+          <div className="pt-2 flex justify-between items-center">
+            <div className="h-5 bg-neutral-200/80 rounded w-1/3" />
+            <div className="h-4 bg-neutral-200/60 rounded w-1/4" />
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const SectionOptionBFallback = ({
+  icon: Icon,
+  title,
+  description,
+  onRetry,
+  whatsappMessage,
+  callLabel = 'Call Travel Desk',
+}: {
+  icon: any;
+  title: string;
+  description: string;
+  onRetry?: () => void;
+  whatsappMessage: string;
+  callLabel?: string;
+}) => {
+  const adminPhone = useSettingsStore((s) => s.settings.adminPhone) || COMPANY_PHONE;
+  const cleanPhone = String(adminPhone).replace(/\D/g, '') || COMPANY_PHONE_DIGITS;
+  const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(whatsappMessage)}`;
+
+  return (
+    <div className="rounded-3xl border border-amber-200/60 bg-gradient-to-br from-amber-50/60 to-orange-50/40 p-6 sm:p-8 text-center shadow-sm">
+      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-800">
+        <Icon size={24} />
+      </div>
+      <h3 className="font-heading text-base sm:text-lg font-bold text-slate-900">{title}</h3>
+      <p className="mx-auto mt-1 max-w-md font-body text-xs sm:text-sm text-neutral-600 leading-relaxed">
+        {description}
+      </p>
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        <a
+          href={waUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 font-body text-xs font-semibold text-white shadow-sm hover:bg-emerald-800 transition-colors"
+        >
+          <MessageCircle size={15} />
+          <span>Inquire via WhatsApp</span>
+        </a>
+        <a
+          href={`tel:${cleanPhone}`}
+          className="inline-flex items-center gap-2 rounded-xl border border-neutral-300 bg-white px-4 py-2 font-body text-xs font-semibold text-slate-800 hover:bg-neutral-50 transition-colors"
+        >
+          <Phone size={14} />
+          <span>{callLabel}</span>
+        </a>
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-transparent px-3 py-2 font-body text-xs font-semibold text-amber-800 hover:bg-amber-100/60 transition-colors"
+          >
+            <RefreshCw size={13} />
+            <span>Retry</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Home = () => {
   const navigate = useNavigate();
   const { products, fetchProducts } = useProductStore();
@@ -127,6 +206,15 @@ const Home = () => {
   const [cabs, setCabs] = useState<any[]>([]);
   const [tours, setTours] = useState<any[]>([]);
   const featuredLimit = 8;
+
+  const [hotelsLoading, setHotelsLoading] = useState(true);
+  const [hotelsError, setHotelsError] = useState(false);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [roomsError, setRoomsError] = useState(false);
+  const [cabsLoading, setCabsLoading] = useState(true);
+  const [cabsError, setCabsError] = useState(false);
+  const [toursLoading, setToursLoading] = useState(true);
+  const [toursError, setToursError] = useState(false);
 
   const activePlanner = plannerServices.find((item) => item.key === plannerService) || plannerServices[0];
 
@@ -155,82 +243,124 @@ const Home = () => {
     return groupItemsIntoLocationSections(hotels, null, '/hotels');
   }, [hotels]);
 
+    const fetchHotelsList = async () => {
+    try {
+      setHotelsLoading(true);
+      setHotelsError(false);
+      const res = await api.get('/hotels');
+      const data = Array.isArray(res.data?.data) ? res.data.data : [];
+      setHotels(data);
+      try { localStorage.setItem('vvs_hotels', JSON.stringify(data)); } catch {}
+    } catch {
+      setHotelsError(true);
+    } finally {
+      setHotelsLoading(false);
+    }
+  };
+
+  const fetchRoomsList = async () => {
+    try {
+      setRoomsLoading(true);
+      setRoomsError(false);
+      const res = await api.get('/room-types');
+      const data = Array.isArray(res.data?.data) ? res.data.data : [];
+      setRoomTypes(data.slice(0, featuredLimit));
+      try { localStorage.setItem('vvs_room_types', JSON.stringify(data)); } catch {}
+    } catch {
+      setRoomsError(true);
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
+  const fetchCabsList = async () => {
+    try {
+      setCabsLoading(true);
+      setCabsError(false);
+      const res = await api.get('/cabs');
+      const data = Array.isArray(res.data?.data) ? res.data.data : [];
+      setCabs(data.slice(0, featuredLimit));
+      try { localStorage.setItem('vvs_cabs', JSON.stringify(data)); } catch {}
+    } catch {
+      setCabsError(true);
+    } finally {
+      setCabsLoading(false);
+    }
+  };
+
+  const fetchToursList = async () => {
+    try {
+      setToursLoading(true);
+      setToursError(false);
+      const res = await api.get('/tours', { params: { withImages: true } });
+      const data = Array.isArray(res.data?.data) ? res.data.data : [];
+      const active = data.filter((t: any) => t?.status === 'active').slice(0, featuredLimit);
+      setTours(active);
+      try { localStorage.setItem('vvs_tours', JSON.stringify(data)); } catch {}
+    } catch {
+      setToursError(true);
+    } finally {
+      setToursLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadListings = async () => {
-      try {
-        const cachedHotels = localStorage.getItem('vvs_hotels');
-        if (cachedHotels) {
-          const parsed = JSON.parse(cachedHotels);
-          if (Array.isArray(parsed) && parsed.length > 0) setHotels(parsed);
+    try {
+      const cachedHotels = localStorage.getItem('vvs_hotels');
+      if (cachedHotels) {
+        const parsed = JSON.parse(cachedHotels);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setHotels(parsed);
+          setHotelsLoading(false);
         }
-      } catch {
-        // ignore
       }
-      try {
-        const cachedRooms = localStorage.getItem('vvs_room_types');
-        if (cachedRooms) setRoomTypes(JSON.parse(cachedRooms).slice(0, featuredLimit));
-      } catch {
-        // ignore
+    } catch {}
+    try {
+      const cachedRooms = localStorage.getItem('vvs_room_types');
+      if (cachedRooms) {
+        const parsed = JSON.parse(cachedRooms);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRoomTypes(parsed.slice(0, featuredLimit));
+          setRoomsLoading(false);
+        }
       }
-      try {
-        const cachedCabs = localStorage.getItem('vvs_cabs');
-        if (cachedCabs) setCabs(JSON.parse(cachedCabs).slice(0, featuredLimit));
-      } catch {
-        // ignore
+    } catch {}
+    try {
+      const cachedCabs = localStorage.getItem('vvs_cabs');
+      if (cachedCabs) {
+        const parsed = JSON.parse(cachedCabs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCabs(parsed.slice(0, featuredLimit));
+          setCabsLoading(false);
+        }
       }
-      try {
-        const cachedTours = localStorage.getItem('vvs_tours');
-        if (cachedTours) setTours(JSON.parse(cachedTours).filter((t: any) => t?.status === 'active').slice(0, featuredLimit));
-      } catch {
-        // ignore
+    } catch {}
+    try {
+      const cachedTours = localStorage.getItem('vvs_tours');
+      if (cachedTours) {
+        const parsed = JSON.parse(cachedTours);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTours(parsed.filter((t: any) => t?.status === 'active').slice(0, featuredLimit));
+          setToursLoading(false);
+        }
       }
+    } catch {}
 
-      const [hotelsRes, roomsRes, cabsRes, toursRes] = await Promise.allSettled([
-        api.get('/hotels'),
-        api.get('/room-types'),
-        api.get('/cabs'),
-        api.get('/tours', { params: { withImages: true } }),
-      ]);
+    void fetchHotelsList();
+    void fetchRoomsList();
+    void fetchCabsList();
+    void fetchToursList();
+    if (shopEnabled) void fetchProducts();
 
-      if (hotelsRes.status === 'fulfilled') {
-        const data = Array.isArray(hotelsRes.value.data?.data) ? hotelsRes.value.data.data : [];
-        setHotels(data);
-        try { localStorage.setItem('vvs_hotels', JSON.stringify(data)); } catch {
-          // ignore
-        }
-      } else setHotels([]);
-
-      if (roomsRes.status === 'fulfilled') {
-        const data = Array.isArray(roomsRes.value.data?.data) ? roomsRes.value.data.data : [];
-        setRoomTypes(data.slice(0, featuredLimit));
-        try { localStorage.setItem('vvs_room_types', JSON.stringify(data)); } catch {
-          // ignore
-        }
-      } else setRoomTypes([]);
-
-      if (cabsRes.status === 'fulfilled') {
-        const data = Array.isArray(cabsRes.value.data?.data) ? cabsRes.value.data.data : [];
-        setCabs(data.slice(0, featuredLimit));
-        try { localStorage.setItem('vvs_cabs', JSON.stringify(data)); } catch {
-          // ignore
-        }
-      } else setCabs([]);
-
-      if (toursRes.status === 'fulfilled') {
-        const data = Array.isArray(toursRes.value.data?.data) ? toursRes.value.data.data : [];
-        const active = data.filter((t: any) => t?.status === 'active').slice(0, featuredLimit);
-        setTours(active);
-        try { localStorage.setItem('vvs_tours', JSON.stringify(data)); } catch {
-          // ignore
-        }
-      } else setTours([]);
+    const reloadAll = () => {
+      void fetchHotelsList();
+      void fetchRoomsList();
+      void fetchCabsList();
+      void fetchToursList();
     };
 
-    if (shopEnabled) void fetchProducts();
-    void loadListings();
-
-    const unsubListings = subscribeAppEvent('listing:changed', () => void loadListings());
-    const onFocus = () => void loadListings();
+    const unsubListings = subscribeAppEvent('listing:changed', reloadAll);
+    const onFocus = () => reloadAll();
     window.addEventListener('focus', onFocus);
 
     return () => {
@@ -447,7 +577,7 @@ const Home = () => {
                 <button
                   type="button"
                   onClick={runPlannerSearch}
-                  className="h-12 px-6 rounded-full bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-body text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all shrink-0"
+                  className="h-12 px-6 rounded-full bg-emerald-900 hover:bg-emerald-800 active:scale-95 text-white font-body text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all shrink-0"
                 >
                   <Search size={16} />
                   <span>Search</span>
@@ -500,7 +630,7 @@ const Home = () => {
               <button
                 type="button"
                 onClick={runPlannerSearch}
-                className="w-full rounded-xl bg-amber-600 py-3 font-body text-sm font-bold text-white flex items-center justify-center gap-2 shadow-md"
+                className="w-full rounded-xl bg-emerald-900 hover:bg-emerald-800 active:scale-98 py-3 font-body text-sm font-bold text-white flex items-center justify-center gap-2 shadow-md transition-all"
               >
                 <Search size={16} />
                 <span>Search Braj Stays</span>
@@ -534,7 +664,7 @@ const Home = () => {
       </section>
 
       {/* ===== AIRBNB-GRADE HORIZONTAL CATEGORY NAVIGATION BAR ===== */}
-      <section className="sticky top-18 sm:top-20 z-20 border-b border-neutral-200/80 bg-white/95 backdrop-blur-md shadow-[0_2px_10px_rgba(15,23,42,0.03)] py-2.5 overflow-x-hidden">
+      <section className="sticky top-16 sm:top-20 z-20 border-b border-neutral-200/80 bg-white/95 backdrop-blur-md shadow-[0_2px_10px_rgba(15,23,42,0.03)] py-2.5 overflow-x-hidden">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5 w-full max-w-full">
             {plannerServices.map((item) => {
@@ -633,7 +763,9 @@ const Home = () => {
           </div>
 
           {/* Location-Wise Discovery Sections */}
-          {hotelDiscoverySections.length > 0 ? (
+          {hotelsLoading && hotelDiscoverySections.length === 0 ? (
+            <SectionSkeletonGrid count={4} />
+          ) : hotelDiscoverySections.length > 0 ? (
             <div className="divide-y divide-neutral-200/70">
               {hotelDiscoverySections.map((section) => (
                 <LocationDiscoverySection
@@ -685,17 +817,22 @@ const Home = () => {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-8 text-center text-sm text-slate-500">
-              Loading verified properties in Braj...
-            </div>
+            <SectionOptionBFallback
+              icon={Building2}
+              title="Verified Accommodations in Braj"
+              description="Looking for verified Dharamshalas, Ashrams or commercial hotels near Prem Mandir, Banke Bihari or ISKCON? Tap below to check direct room availability with our local desk."
+              whatsappMessage="Hare Krishna, please help me check verified hotel and dharamshala room availability in Vrindavan."
+              callLabel="Call Accommodations Desk"
+              onRetry={fetchHotelsList}
+            />
           )}
         </div>
       </section>
 
       {/* ===== 4. AVAILABLE ROOM TYPES (COMPACT MOBILE SWIPE & DESKTOP GRID) ===== */}
-      <section className="py-10 sm:py-14 bg-[#faf8f5] border-t border-neutral-200/60">
+      <section className="py-7 sm:py-14 bg-[#faf8f5] border-t border-neutral-200/60">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4 sm:mb-6">
             <div>
               <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
                 Browse Rooms & Configurations
@@ -756,15 +893,15 @@ const Home = () => {
                 ))}
               </div>
 
-              {/* Mobile Swipeable Carousel (78–84% usable width per card) */}
+              {/* Mobile Swipeable Carousel (Compact swipeable cards) */}
               <div
-                className="md:hidden flex gap-3.5 overflow-x-auto pb-3 pt-1 scrollbar-none snap-x snap-mandatory w-full max-w-full px-0.5"
+                className="md:hidden flex gap-3 overflow-x-auto pb-2.5 pt-0.5 scrollbar-none snap-x snap-mandatory w-full max-w-full px-0.5"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
                 {roomTypes.map((roomType) => (
                   <div
                     key={roomType._id}
-                    className="w-[78vw] max-w-[285px] min-w-[250px] shrink-0 snap-start"
+                    className="w-[62vw] max-w-[245px] min-w-[215px] shrink-0 snap-start"
                   >
                     <ListingCard
                       image={roomType?.images?.[0] || roomType?.hotel?.image}
@@ -795,6 +932,7 @@ const Home = () => {
                       meta={Number(roomType?.totalCount || 0) > 0 ? `${roomType.totalCount} rooms` : undefined}
                       badge={getPropertyTypeLabel(roomType?.hotel?.propertyType)}
                       variant="room"
+                      compact={true}
                       onViewDetails={() => {
                         prefetchDetail('roomTypes', roomType._id, roomType);
                         navigate(`/room-types/${roomType._id}`);
@@ -804,10 +942,17 @@ const Home = () => {
                 ))}
               </div>
             </>
+          ) : roomsLoading ? (
+            <SectionSkeletonGrid count={4} />
           ) : (
-            <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center text-sm text-slate-500">
-              Loading available room configurations...
-            </div>
+            <SectionOptionBFallback
+              icon={BedDouble}
+              title="Room Configurations Available upon Request"
+              description="AC Deluxe, Family Quad suites, and Ashram donor rooms are available. Contact our coordinator to match your dates and party size."
+              whatsappMessage="Hare Krishna, I want to check room types and family suite options in Vrindavan."
+              callLabel="Call Reservations Desk"
+              onRetry={fetchRoomsList}
+            />
           )}
         </div>
       </section>
@@ -833,8 +978,10 @@ const Home = () => {
             </Link>
           </div>
 
-          {cabs.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10">
+          {cabsLoading && cabs.length === 0 ? (
+            <SectionSkeletonGrid count={4} />
+          ) : cabs.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
               {cabs.map((cab) => (
                 <ListingCard
                   key={cab._id}
@@ -842,7 +989,7 @@ const Home = () => {
                   images={cab.images}
                   name={cab.vehicleName}
                   location={cab.routes?.join(' • ') || 'Braj Region Routes'}
-                  price={0}
+                  price={undefined}
                   priceLabel=""
                   rating={0}
                   reviewCount={0}
@@ -858,9 +1005,14 @@ const Home = () => {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-slate-500">
-              Updating available cab fleet. Call helpline for urgent cab booking.
-            </div>
+            <SectionOptionBFallback
+              icon={CarTaxiFront}
+              title="Fixed-Fare Cabs on Direct Booking"
+              description="Delhi Airport pickups, Mathura Junction transfers, and Govardhan Parikrama cabs available with verified drivers."
+              whatsappMessage="Hare Krishna, I need to book a fixed-fare cab for Braj travel / Delhi Airport."
+              callLabel="Call Cab Desk"
+              onRetry={fetchCabsList}
+            />
           )}
         </div>
       </section>
@@ -886,8 +1038,10 @@ const Home = () => {
             </Link>
           </div>
 
-          {tours.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10">
+          {toursLoading && tours.length === 0 ? (
+            <SectionSkeletonGrid count={4} />
+          ) : tours.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
               {tours.map((tour) => (
                 <ListingCard
                   key={tour._id}
@@ -910,9 +1064,14 @@ const Home = () => {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-center text-sm text-slate-500">
-              Yatra packages updating. Contact coordinator for custom itinerary.
-            </div>
+            <SectionOptionBFallback
+              icon={MapPinned}
+              title="Custom Yatra Plans with Dedicated Guide"
+              description="Guided Braj Darshan, 84 Kos Parikrama, and temple itineraries organized with AC cab and hotel pickup."
+              whatsappMessage="Hare Krishna, I would like to inquire about guided Yatra packages in Braj."
+              callLabel="Call Yatra Coordinator"
+              onRetry={fetchToursList}
+            />
           )}
         </div>
       </section>

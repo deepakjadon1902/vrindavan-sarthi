@@ -19,7 +19,6 @@ export interface Booking {
   guestAccount?: {
     email?: string;
     username?: string;
-    passwordHint?: string;
     created?: boolean;
     message?: string;
   };
@@ -28,6 +27,11 @@ export interface Booking {
   partnerPhone?: string;
   partnerEmail?: string;
   partnerWhatsapp?: string;
+  propertyName?: string;
+  propertyLocation?: string;
+  propertyAddress?: string;
+  googleMapLink?: string;
+  nearestTemple?: string;
   checkIn?: string;
   checkOut?: string;
   guests?: number;
@@ -197,7 +201,6 @@ const normalizeBooking = (b: unknown): Booking => {
     guestAccount: isRecord(obj.guestAccount) ? {
       email: getString(obj.guestAccount, 'email') || undefined,
       username: getString(obj.guestAccount, 'username') || undefined,
-      passwordHint: getString(obj.guestAccount, 'passwordHint') || undefined,
       created: typeof obj.guestAccount.created === 'boolean' ? obj.guestAccount.created : undefined,
       message: getString(obj.guestAccount, 'message') || undefined,
     } : undefined,
@@ -337,7 +340,7 @@ interface BookingState {
   fetchMyBookings: () => Promise<void>;
   fetchPartnerBookings: () => Promise<void>;
   fetchAllBookings: () => Promise<void>;
-  fetchBookingById: (id: string) => Promise<Booking | null>;
+  fetchBookingById: (id: string, guestAccessToken?: string) => Promise<Booking | null>;
 
   createBooking: (data: Omit<Booking, 'id' | 'bookingId' | 'createdAt' | 'userId' | 'userName' | 'userEmail' | 'userPhone'>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   createRoomTypeBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;

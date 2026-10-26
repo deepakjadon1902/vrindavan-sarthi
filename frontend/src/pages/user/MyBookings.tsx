@@ -274,7 +274,7 @@ const MyBookings = () => {
               <p className="font-body text-muted-foreground mb-6">
                 Choose a stay, cab, or tour and your bookings will appear here.
               </p>
-              <Link to="/hotels" className="btn-gold px-6 py-3 rounded-lg text-sm inline-flex items-center gap-2 font-semibold">
+              <Link to="/hotels" className="btn-emerald px-6 py-3 rounded-lg text-sm inline-flex items-center gap-2 font-semibold">
                 Find a Stay <ArrowRight size={16} />
               </Link>
             </div>
@@ -416,7 +416,7 @@ const MyBookings = () => {
                                 <button
                                   onClick={(e) => downloadInvoice(e, b.id, b.bookingId)}
                                   disabled={downloadingId === (b.id || b.bookingId)}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 font-body text-xs font-semibold text-foreground hover:bg-secondary hover:text-brand-crimson transition-colors disabled:opacity-50 shadow-sm"
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/30 bg-emerald-50 text-emerald-900 px-3 py-1.5 font-body text-xs font-bold hover:bg-emerald-100 transition-colors disabled:opacity-50 shadow-2xs"
                                 >
                                   <Download size={12} className={downloadingId === (b.id || b.bookingId) ? 'animate-bounce' : ''} />
                                   <span>{downloadingId === (b.id || b.bookingId) ? 'Downloading...' : 'PDF Receipt'}</span>
