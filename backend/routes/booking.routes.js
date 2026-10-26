@@ -63,6 +63,7 @@ const {
   withGuestAccessToken,
   getGuestAccessTokenFromRequest,
   hashGuestAccessToken,
+  isGuestTokenExpired,
 } = require('../utils/guestBookingAccess');
 const {
   getScheduledCheckInDateTime,
@@ -428,7 +429,13 @@ router.post('/room-type', optionalProtect, async (req, res) => {
     if (!customerFullName || !customerMobile || !customerEmail) {
       return res.status(400).json({ success: false, message: 'customerFullName, customerMobile and customerEmail are required' });
     }
-    const bookingCustomer = await resolveBookingCustomer({ req, customerFullName, customerMobile, customerEmail });
+    const bookingCustomer = await resolveBookingCustomer({
+      req,
+      customerFullName,
+      customerMobile,
+      customerEmail,
+      bookingDates: { checkIn, checkOut, createdAt: new Date() },
+    });
     const customerUser = bookingCustomer.user;
     const acceptedTermsSnapshot = getActivePropertyTermsSnapshot(hotel, customerUser._id);
     if (acceptedTermsSnapshot) {
@@ -505,6 +512,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
         customerUser,
         isGuestBooking: bookingCustomer.isGuestBooking,
         guestAccessTokenHash: bookingCustomer.guestAccessTokenHash,
+        guestAccessTokenExpiresAt: bookingCustomer.guestAccessTokenExpiresAt,
       });
       try {
         await ensureDharamshalaPropertyReviewAlarmNotifications(result.booking);
@@ -592,6 +600,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       userPhone: customerUser.phone,
       isGuestBooking: bookingCustomer.isGuestBooking,
       guestAccessTokenHash: bookingCustomer.guestAccessTokenHash || undefined,
+      guestAccessTokenExpiresAt: bookingCustomer.guestAccessTokenExpiresAt || undefined,
 
       partnerId: hotel.partnerId,
       partnerName: hotel.partnerName,
@@ -701,6 +710,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
         userPhone: customerUser.phone,
         isGuestBooking: bookingCustomer.isGuestBooking,
         guestAccessTokenHash: bookingCustomer.guestAccessTokenHash || undefined,
+        guestAccessTokenExpiresAt: bookingCustomer.guestAccessTokenExpiresAt || undefined,
 
         partnerId: hotel.partnerId,
         partnerName: hotel.partnerName,
@@ -1212,12 +1222,18 @@ router.get('/:id', optionalProtect, async (req, res) => {
     }
 
     const guestToken = getGuestAccessTokenFromRequest(req);
-    const isAuthorizedGuest = Boolean(
+    const guestTokenMatches = Boolean(
       guestToken &&
       booking.isGuestBooking &&
       booking.guestAccessTokenHash &&
       booking.guestAccessTokenHash === hashGuestAccessToken(guestToken)
     );
+    const isGuestExpired = guestTokenMatches && isGuestTokenExpired(booking);
+    const isAuthorizedGuest = guestTokenMatches && !isGuestExpired;
+
+    if (guestTokenMatches && isGuestExpired && !isOwner && !isPartner && !isAdmin) {
+      return res.status(401).json({ success: false, message: 'Guest access token has expired', code: 'GUEST_TOKEN_EXPIRED' });
+    }
 
     if (!isOwner && !isPartner && !isAdmin && !isAuthorizedGuest) {
       return res.status(401).json({ success: false, message: 'Not authorized' });
@@ -1270,12 +1286,18 @@ router.get('/:id/invoice', optionalProtect, async (req, res) => {
     }
 
     const guestToken = getGuestAccessTokenFromRequest(req);
-    const isAuthorizedGuest = Boolean(
+    const guestTokenMatches = Boolean(
       guestToken &&
       booking.isGuestBooking &&
       booking.guestAccessTokenHash &&
       booking.guestAccessTokenHash === hashGuestAccessToken(guestToken)
     );
+    const isGuestExpired = guestTokenMatches && isGuestTokenExpired(booking);
+    const isAuthorizedGuest = guestTokenMatches && !isGuestExpired;
+
+    if (guestTokenMatches && isGuestExpired && !isOwner && !isPartner && !isAdmin) {
+      return res.status(401).json({ success: false, message: 'Guest access token has expired', code: 'GUEST_TOKEN_EXPIRED' });
+    }
 
     if (!isOwner && !isPartner && !isAdmin && !isAuthorizedGuest) {
       return res.status(401).json({ success: false, message: 'Not authorized' });

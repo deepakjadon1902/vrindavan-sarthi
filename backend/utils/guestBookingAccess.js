@@ -15,6 +15,39 @@ const generateGuestAccessToken = () => crypto.randomBytes(32).toString('base64ur
 const hashGuestAccessToken = (token) =>
   crypto.createHash('sha256').update(String(token || ''), 'utf8').digest('hex');
 
+const GUEST_TOKEN_EXPIRY_DAYS = 30;
+
+const calculateGuestAccessTokenExpiresAt = (dates = {}, now = new Date()) => {
+  const checkOutTime = dates.checkOut ? new Date(dates.checkOut).getTime() : NaN;
+  const checkInTime = dates.checkIn ? new Date(dates.checkIn).getTime() : NaN;
+  const pickupDateTime = dates.pickupDate ? new Date(dates.pickupDate).getTime() : NaN;
+  const createdAtTime = dates.createdAt ? new Date(dates.createdAt).getTime() : NaN;
+
+  let baseTime = !isNaN(checkOutTime) ? checkOutTime
+    : !isNaN(checkInTime) ? checkInTime
+    : !isNaN(pickupDateTime) ? pickupDateTime
+    : !isNaN(createdAtTime) ? createdAtTime
+    : (now instanceof Date ? now.getTime() : new Date(now).getTime());
+
+  if (isNaN(baseTime)) {
+    baseTime = Date.now();
+  }
+
+  return new Date(baseTime + GUEST_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+};
+
+const isGuestTokenExpired = (booking, now = new Date()) => {
+  if (!booking) return true;
+  const currentTime = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  const expiresAt = booking.guestAccessTokenExpiresAt
+    ? new Date(booking.guestAccessTokenExpiresAt)
+    : calculateGuestAccessTokenExpiresAt(booking, booking.createdAt || now);
+
+  const expiryTime = expiresAt.getTime();
+  if (isNaN(expiryTime)) return false;
+  return currentTime > expiryTime;
+};
+
 const samePhone = (a, b) =>
   String(a || '').replace(/\D/g, '') === String(b || '').replace(/\D/g, '');
 
@@ -35,7 +68,7 @@ const getGuestAccessTokenFromRequest = (req) =>
     ''
   ).trim();
 
-const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, customerEmail }) => {
+const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, customerEmail, bookingDates = {} }) => {
   if (req.user?._id) {
     return {
       user: req.user,
@@ -103,11 +136,13 @@ const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, c
   }
 
   const guestAccessToken = generateGuestAccessToken();
+  const guestAccessTokenExpiresAt = calculateGuestAccessTokenExpiresAt(bookingDates);
   return {
     user,
     isGuestBooking: true,
     guestAccessToken,
     guestAccessTokenHash: hashGuestAccessToken(guestAccessToken),
+    guestAccessTokenExpiresAt,
     guestAccountCreated,
     guestAccountReminder,
   };
@@ -120,11 +155,14 @@ const findBookingForCustomerPayment = async (req, bookingId) => {
 
   const token = getGuestAccessTokenFromRequest(req);
   if (!token) return null;
-  return Booking.findOne({
+  const booking = await Booking.findOne({
     _id: bookingId,
     isGuestBooking: true,
     guestAccessTokenHash: hashGuestAccessToken(token),
   });
+  if (!booking) return null;
+  if (isGuestTokenExpired(booking)) return null;
+  return booking;
 };
 
 const withGuestAccessToken = (booking, guestAccessToken = '') => {
@@ -140,10 +178,13 @@ const withGuestAccountReminder = (booking, reminder = null) => {
 };
 
 module.exports = {
+  GUEST_TOKEN_EXPIRY_DAYS,
   buildGuestAccountReminder,
+  calculateGuestAccessTokenExpiresAt,
   findBookingForCustomerPayment,
   getGuestAccessTokenFromRequest,
   hashGuestAccessToken,
+  isGuestTokenExpired,
   isValidEmail,
   isValidPhone,
   resolveBookingCustomer,

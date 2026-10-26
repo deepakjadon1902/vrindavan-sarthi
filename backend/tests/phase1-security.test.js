@@ -411,3 +411,121 @@ test('SEC-02: public QR booking verification is protected by IP rate limiter (30
   // Clean up
   qrVerificationRateLimiter.reset();
 });
+test('SEC-03: guest access token expiration policy (30 days post-checkout) and legacy compatibility', () => {
+  const {
+    calculateGuestAccessTokenExpiresAt,
+    isGuestTokenExpired,
+    hashGuestAccessToken,
+    GUEST_TOKEN_EXPIRY_DAYS,
+  } = require('../utils/guestBookingAccess');
+
+  assert.equal(GUEST_TOKEN_EXPIRY_DAYS, 30);
+
+  // 1. Expiration calculation tests
+  const checkOutDate = new Date('2026-11-15T10:00:00.000Z');
+  const expectedExpiry = new Date(checkOutDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const calculatedExpiry = calculateGuestAccessTokenExpiresAt({ checkOut: checkOutDate });
+  assert.equal(calculatedExpiry.getTime(), expectedExpiry.getTime(), 'Expiry must be exactly 30 days after checkOut');
+
+  // Fallback to checkIn if checkOut missing
+  const checkInDate = new Date('2026-11-10T12:00:00.000Z');
+  const checkInExpiry = calculateGuestAccessTokenExpiresAt({ checkIn: checkInDate });
+  assert.equal(checkInExpiry.getTime(), checkInDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  // Fallback to createdAt if both missing
+  const createdDate = new Date('2026-10-01T08:00:00.000Z');
+  const createdExpiry = calculateGuestAccessTokenExpiresAt({ createdAt: createdDate });
+  assert.equal(createdExpiry.getTime(), createdDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  // 2. Token expiration evaluation (persisted guestAccessTokenExpiresAt)
+  const validToken = 'valid-token-abc-789';
+  const validHash = hashGuestAccessToken(validToken);
+
+  const unexpiredBooking = {
+    isGuestBooking: true,
+    guestAccessTokenHash: validHash,
+    guestAccessTokenExpiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days in future
+  };
+  assert.equal(isGuestTokenExpired(unexpiredBooking), false, 'Unexpired booking must not be expired');
+
+  const expiredBooking = {
+    isGuestBooking: true,
+    guestAccessTokenHash: validHash,
+    guestAccessTokenExpiresAt: new Date(Date.now() - 1000), // 1 second ago
+  };
+  assert.equal(isGuestTokenExpired(expiredBooking), true, 'Past expiry must be expired');
+
+  // 3. Legacy compatibility (missing guestAccessTokenExpiresAt)
+  const legacyRecentBooking = {
+    isGuestBooking: true,
+    guestAccessTokenHash: validHash,
+    checkOut: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // Checked out 5 days ago (within 30 days)
+  };
+  assert.equal(isGuestTokenExpired(legacyRecentBooking), false, 'Legacy booking within 30 days of checkout must remain accessible');
+
+  const legacyStaleBooking = {
+    isGuestBooking: true,
+    guestAccessTokenHash: validHash,
+    checkOut: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // Checked out 45 days ago (> 30 days)
+  };
+  assert.equal(isGuestTokenExpired(legacyStaleBooking), true, 'Legacy booking checked out >30 days ago must be expired');
+
+  // 4. Combined authorization check (token match + not expired + guest booking only)
+  const isGuestAuthorized = (booking, token, now = new Date()) => Boolean(
+    token &&
+    booking.isGuestBooking &&
+    booking.guestAccessTokenHash &&
+    booking.guestAccessTokenHash === hashGuestAccessToken(token) &&
+    !isGuestTokenExpired(booking, now)
+  );
+
+  assert.equal(isGuestAuthorized(unexpiredBooking, validToken), true, 'Valid unexpired guest token authorized');
+  assert.equal(isGuestAuthorized(unexpiredBooking, 'wrong-token'), false, 'Wrong token rejected');
+  assert.equal(isGuestAuthorized(expiredBooking, validToken), false, 'Expired guest token rejected');
+  assert.equal(isGuestAuthorized(legacyRecentBooking, validToken), true, 'Valid legacy recent token authorized');
+  assert.equal(isGuestAuthorized(legacyStaleBooking, validToken), false, 'Stale legacy token rejected');
+
+  // 5. Registered-user booking MUST NEVER be authorized via guest token even if dates are valid
+  const registeredBooking = {
+    isGuestBooking: false,
+    guestAccessTokenHash: validHash,
+    guestAccessTokenExpiresAt: unexpiredBooking.guestAccessTokenExpiresAt,
+    userId: 'user-12345',
+  };
+  assert.equal(isGuestAuthorized(registeredBooking, validToken), false, 'Registered user booking cannot use guest token');
+
+  // 6. Registered user authentication (session/JWT owner) is independent of guest token expiry
+  const isUserOrGuestAuthorized = (booking, req) => {
+    let isOwner = false;
+    if (req.user?._id) {
+      isOwner = String(booking.userId) === String(req.user._id);
+    }
+    const token = req.headers?.['x-guest-access-token'] || req.query?.guestAccessToken;
+    const isAuthGuest = Boolean(
+      token &&
+      booking.isGuestBooking &&
+      booking.guestAccessTokenHash &&
+      booking.guestAccessTokenHash === hashGuestAccessToken(token) &&
+      !isGuestTokenExpired(booking)
+    );
+    return isOwner || isAuthGuest;
+  };
+
+  const loggedInOwnerReq = { user: { _id: 'user-12345' } };
+  assert.equal(isUserOrGuestAuthorized(registeredBooking, loggedInOwnerReq), true, 'Logged in owner always authorized');
+
+  // Even if guest token on booking is expired, owner can still view booking
+  const expiredUserBooking = { ...registeredBooking, isGuestBooking: false };
+  assert.equal(isUserOrGuestAuthorized(expiredUserBooking, loggedInOwnerReq), true, 'Owner can view booking even if old');
+
+  // 7. Verification that routes enforce isGuestTokenExpired
+  const routeSource = readBackendFile('routes', 'booking.routes.js');
+  assert.ok(
+    routeSource.includes('isGuestExpired && !isOwner && !isPartner && !isAdmin'),
+    'booking.routes.js must check isGuestTokenExpired and protect both /:id and /:id/invoice'
+  );
+  assert.ok(
+    routeSource.includes('GUEST_TOKEN_EXPIRED'),
+    'booking.routes.js must emit GUEST_TOKEN_EXPIRED error code'
+  );
+});

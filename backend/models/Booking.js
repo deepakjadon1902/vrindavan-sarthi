@@ -54,6 +54,7 @@ const bookingSchema = new mongoose.Schema({
   userPhone: String,
   isGuestBooking: { type: Boolean, default: false, index: true },
   guestAccessTokenHash: { type: String, select: false, index: true },
+  guestAccessTokenExpiresAt: { type: Date, index: true },
   partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   partnerName: String,
   partnerPhone: String,

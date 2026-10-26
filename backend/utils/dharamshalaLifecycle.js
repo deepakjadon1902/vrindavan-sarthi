@@ -168,6 +168,7 @@ const createDharamshalaRequest = async ({
   customerUser,
   isGuestBooking = false,
   guestAccessTokenHash = '',
+  guestAccessTokenExpiresAt = undefined,
 }) => {
   const daysToReserve = enumerateDatesUTC(checkIn, checkOut);
   const user = customerUser || req.user;
@@ -235,6 +236,7 @@ const createDharamshalaRequest = async ({
     userPhone: user.phone,
     isGuestBooking,
     guestAccessTokenHash: guestAccessTokenHash || undefined,
+    guestAccessTokenExpiresAt: guestAccessTokenExpiresAt || undefined,
     partnerId: hotel.partnerId,
     partnerName: hotel.partnerName,
     partnerPhone: hotel.partnerPhone,
