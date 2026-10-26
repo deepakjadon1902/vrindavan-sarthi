@@ -323,4 +323,91 @@ test('SEC-01 remediation: guest access validation strictly rejects registered-us
   assert.equal(isGuestAuthorized({ isGuestBooking: false, guestAccessTokenHash: validHash }, validToken), false);
   assert.equal(isGuestAuthorized({ isGuestBooking: undefined, guestAccessTokenHash: validHash }, validToken), false);
 });
+test('SEC-02: public QR booking verification is protected by IP rate limiter (30 req/min)', () => {
+  const { qrVerificationRateLimiter, createRateLimiter, createMemoryStore } = require('../middleware/rateLimit');
 
+  const createMockRes = () => {
+    const headers = {};
+    return {
+      statusCode: 200,
+      body: null,
+      headers,
+      setHeader(name, value) {
+        headers[name] = value;
+      },
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        this.body = payload;
+        return this;
+      },
+    };
+  };
+
+  // Reset any previous state
+  qrVerificationRateLimiter.reset();
+
+  // 1. Within limit: 30 requests from IP 192.168.1.100 pass through
+  let passedCount = 0;
+  for (let i = 1; i <= 30; i++) {
+    const req = {
+      headers: { 'x-forwarded-for': '192.168.1.100' },
+      path: '/verify/BK-' + i,
+      method: 'GET',
+    };
+    const res = createMockRes();
+    let nextCalled = false;
+    qrVerificationRateLimiter(req, res, () => {
+      nextCalled = true;
+      passedCount++;
+    });
+    assert.equal(nextCalled, true, 'Request ' + i + ' within limit must pass');
+    assert.equal(res.headers['RateLimit-Limit'], '30');
+    assert.equal(res.headers['RateLimit-Remaining'], String(30 - i));
+  }
+  assert.equal(passedCount, 30, 'Exactly 30 requests must pass');
+
+  // 2. Exceeding limit: 31st request from IP 192.168.1.100 is blocked with 429
+  const blockedReq = {
+    headers: { 'x-forwarded-for': '192.168.1.100' },
+    path: '/verify/BK-999',
+    method: 'GET',
+  };
+  const blockedRes = createMockRes();
+  let blockedNext = false;
+  qrVerificationRateLimiter(blockedReq, blockedRes, () => {
+    blockedNext = true;
+  });
+  assert.equal(blockedNext, false, '31st request must NOT call next()');
+  assert.equal(blockedRes.statusCode, 429, '31st request must return HTTP 429');
+  assert.equal(blockedRes.body.success, false);
+  assert.equal(blockedRes.body.message, 'Too many verification requests. Please try again later.');
+  assert.equal(blockedRes.headers['RateLimit-Remaining'], '0');
+
+  // 3. Different IP is NOT throttled (independent counters)
+  const differentIpReq = {
+    headers: { 'x-forwarded-for': '10.0.0.50' },
+    path: '/verify/BK-1',
+    method: 'GET',
+  };
+  const differentIpRes = createMockRes();
+  let differentIpNext = false;
+  qrVerificationRateLimiter(differentIpReq, differentIpRes, () => {
+    differentIpNext = true;
+  });
+  assert.equal(differentIpNext, true, 'Different IP must not be throttled');
+  assert.equal(differentIpRes.statusCode, 200);
+  assert.equal(differentIpRes.headers['RateLimit-Remaining'], '29');
+
+  // 4. Verify router has qrVerificationRateLimiter mounted on /verify/:bookingId
+  const routeSource = readBackendFile('routes', 'booking.routes.js');
+  assert.ok(
+    routeSource.includes("router.get('/verify/:bookingId', qrVerificationRateLimiter,"),
+    'booking.routes.js must mount qrVerificationRateLimiter directly on GET /verify/:bookingId'
+  );
+
+  // Clean up
+  qrVerificationRateLimiter.reset();
+});

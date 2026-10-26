@@ -10,6 +10,7 @@ const CabFare = require('../models/CabFare');
 const Tour = require('../models/Tour');
 const User = require('../models/User');
 const { protect, optionalProtect, authorize } = require('../middleware/auth');
+const { qrVerificationRateLimiter } = require('../middleware/rateLimit');
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const { generateBookingInvoicePdf } = require('../utils/customerMessages');
 const { getNextBookingId, deriveStableNumericId } = require('../utils/idAllocation');
@@ -1122,7 +1123,7 @@ router.post('/:id/refund', protect, authorize('admin'), async (req, res) => {
 });
 
 // Public, non-sensitive booking verification endpoint for QR code voucher scans
-router.get('/verify/:bookingId', async (req, res) => {
+router.get('/verify/:bookingId', qrVerificationRateLimiter, async (req, res) => {
   try {
     const rawId = String(req.params.bookingId || '').trim();
     if (!rawId) {
