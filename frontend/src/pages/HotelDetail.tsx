@@ -254,7 +254,7 @@ const HotelDetail = () => {
   }
 
   return (
-    <div className="braj-page min-h-screen pt-4 pb-10">
+    <div className="braj-page min-h-screen pt-4 pb-24 lg:pb-10">
       {hotel && (
         <SEO
           title={`${hotel.name} ${propertyLabel} in ${hotel.location || 'Braj'}`}
@@ -497,12 +497,12 @@ const HotelDetail = () => {
                               </div>
 
                               {roomUsesBookingWorkflow ? (
-                                <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#6f5529] px-4 py-3 font-body text-sm font-bold text-white transition-colors group-hover:bg-[#5f471f]">
+                                <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl btn-emerald w-full py-3 text-sm font-bold shadow-sm">
                                   <Check size={16} />
                                   {isDharamshalaType(rtHotel?.propertyType) ? 'Request Booking' : 'Select Room'}
                                 </span>
                               ) : (
-                                <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#6f5529] px-4 py-3 font-body text-sm font-bold text-white transition-colors group-hover:bg-[#5f471f]">
+                                <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl btn-emerald w-full py-3 text-sm font-bold shadow-sm">
                                   <MessageCircle size={16} />
                                   Enquire Now
                                 </span>
@@ -700,6 +700,26 @@ const HotelDetail = () => {
             </div>
           </div>
 
+        </div>
+
+        {/* Mobile Sticky Action Bar */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-neutral-200 px-4 py-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Available Stays</p>
+            <p className="text-sm font-bold text-slate-900 leading-tight">
+              {roomTypes.length > 0 ? `${roomTypes.length} Room Types` : 'View Room Types'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('hotel-room-types');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="btn-emerald px-5 py-2.5 text-sm font-bold shadow-sm"
+          >
+            Select Room
+          </button>
         </div>
       </div>
     </div>

@@ -32,7 +32,7 @@ import { subscribeAppEvent } from '@/lib/broadcast';
 import { prefetchDetail } from '@/lib/detailCache';
 import { getPropertyTypeLabel, isDharamshalaType, type StayPropertyType } from '@/lib/propertyTypes';
 
-type HotelListItem = {
+export type HotelListItem = {
   _id: string;
   name: string;
   propertyType?: StayPropertyType;
@@ -56,6 +56,28 @@ type HotelListItem = {
   googleMapLink?: string;
   latitude?: number;
   longitude?: number;
+};
+
+export const getHotelStartingPrice = (hotel: HotelListItem) => {
+  if (hotel.showPrices === false) return undefined;
+  const prices = [
+    hotel.pricePerNight,
+    hotel.pricePerBed,
+    hotel.priceDoubleAC,
+    hotel.priceDoubleNonAC,
+    hotel.priceSingleAC,
+    hotel.priceSingleNonAC,
+  ]
+    .map((price) => Number(price || 0))
+    .filter((price) => Number.isFinite(price) && price > 0);
+  if (!prices.length) return undefined;
+  const base = Math.min(...prices);
+  if (isDharamshalaType(hotel.propertyType)) return undefined;
+  if (!hotel.taxEnabled) return base;
+  const percent = hotel.gstMode === 'automatic'
+    ? base <= 7500 ? 5 : 18
+    : Math.min(50, Math.max(0, Number(hotel.taxPercent ?? 12)));
+  return Math.round(base + (base * percent) / 100);
 };
 
 const categoryTabs: { label: string; type: StayPropertyType | '' }[] = [
@@ -139,28 +161,6 @@ const Hotels = () => {
       window.removeEventListener('focus', onFocus);
     };
   }, [searchQuery]);
-
-  const getHotelStartingPrice = (hotel: HotelListItem) => {
-    if (hotel.showPrices === false) return undefined;
-    const prices = [
-      hotel.pricePerNight,
-      hotel.pricePerBed,
-      hotel.priceDoubleAC,
-      hotel.priceDoubleNonAC,
-      hotel.priceSingleAC,
-      hotel.priceSingleNonAC,
-    ]
-      .map((price) => Number(price || 0))
-      .filter((price) => Number.isFinite(price) && price > 0);
-    if (!prices.length) return undefined;
-    const base = Math.min(...prices);
-    if (isDharamshalaType(hotel.propertyType)) return undefined;
-    if (!hotel.taxEnabled) return base;
-    const percent = hotel.gstMode === 'automatic'
-      ? base <= 7500 ? 5 : 18
-      : Math.min(50, Math.max(0, Number(hotel.taxPercent ?? 12)));
-    return Math.round(base + (base * percent) / 100);
-  };
 
   const getListingDistance = (hotel: HotelListItem): string | undefined => {
     if (!coords) return undefined;
@@ -337,9 +337,9 @@ const Hotels = () => {
   }, [selectedLandmark, activeLandmarkObj, propertyFilter, searchQuery, filtered.length, coords]);
 
   return (
-    <div className="min-h-screen bg-[#fdfcf9] pt-18 sm:pt-20 pb-16 text-slate-800 overflow-x-hidden w-full max-w-[100vw]">
+    <div className="min-h-screen bg-[#fdfcf9] pt-16 sm:pt-20 pb-16 text-slate-800 overflow-x-clip w-full max-w-[100vw]">
       {/* ===== AIRBNB-INSPIRED FILTER & SEARCH BAR ===== */}
-      <section className="border-b border-neutral-200/80 bg-white sticky top-18 sm:top-20 z-30 shadow-[0_2px_8px_rgba(15,23,42,0.04)] backdrop-blur-md overflow-x-hidden max-w-full">
+      <section className="border-b border-neutral-200/80 bg-white sticky top-16 sm:top-20 z-30 shadow-[0_2px_8px_rgba(15,23,42,0.04)] backdrop-blur-md overflow-x-clip max-w-full">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 space-y-2.5">
           {/* Row 1: Category Filter Tabs & Compact Search Bar */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -677,12 +677,12 @@ const Hotels = () => {
                     }
                     pricePlaceholder={
                       isDharamshalaType(hotel.propertyType)
-                        ? 'Contribution after acceptance'
+                        ? 'Contribution on confirmation'
                         : undefined
                     }
                     priceHelp={
                       isDharamshalaType(hotel.propertyType)
-                        ? 'Confirmed after verification'
+                        ? 'Confirmed upon request'
                         : undefined
                     }
                     rating={Number(hotel.rating || 0)}
@@ -703,7 +703,7 @@ const Hotels = () => {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
               {filtered.map((hotel) => (
                 <ListingCard
                   key={hotel._id}
@@ -724,12 +724,12 @@ const Hotels = () => {
                   }
                   pricePlaceholder={
                     isDharamshalaType(hotel.propertyType)
-                      ? 'Contribution after acceptance'
+                      ? 'Contribution on confirmation'
                       : undefined
                   }
                   priceHelp={
                     isDharamshalaType(hotel.propertyType)
-                      ? 'Confirmed after verification'
+                      ? 'Confirmed upon request'
                       : undefined
                   }
                   rating={Number(hotel.rating || 0)}
