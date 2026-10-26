@@ -468,6 +468,8 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
       actorRole: 'admin',
       reason: 'payment_admin_verified',
     });
+    const { ensureBookingInvoiceNotification } = require('../utils/notificationDelivery');
+    await ensureBookingInvoiceNotification(booking);
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

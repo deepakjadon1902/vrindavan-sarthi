@@ -1511,6 +1511,7 @@ router.put('/:id/assign-cab', protect, authorize('admin'), async (req, res) => {
     await booking.save();
     try {
       await ensureBookingConfirmedAlarmNotifications(booking);
+      await ensureBookingInvoiceNotification(booking);
     } catch (notifyErr) {
       console.warn('[cab.confirmed.notification_failed]', notifyErr?.message || notifyErr);
     }
@@ -1587,7 +1588,7 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
       reason: 'manual_upi_admin_verified',
     });
     await enqueueBookingNotifications(booking, {
-      invoice: !['cab', 'tour'].includes(String(booking.bookingType || '')),
+      invoice: !['cab'].includes(String(booking.bookingType || '')),
       partnerAlert: false,
     });
     res.json({ success: true, data: booking });
@@ -2017,7 +2018,7 @@ router.put('/:id/partner-verify', protect, authorize('partner'), async (req, res
       reason: 'manual_upi_partner_verified',
     });
     await enqueueBookingNotifications(updated, {
-      invoice: !['cab', 'tour'].includes(String(updated.bookingType || '')),
+      invoice: !['cab'].includes(String(updated.bookingType || '')),
       partnerAlert: false,
     });
 

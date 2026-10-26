@@ -128,21 +128,29 @@ const createOrGetNotificationDelivery = async ({
 };
 
 const enqueueNotificationDelivery = async (delivery, { queueFactory = createQueue } = {}) => {
-  const queue = queueFactory(QUEUE_NAMES.notification, { required: false });
-  if (!queue) return { queued: false, reason: 'redis_not_configured' };
-  const delay = Math.max(0, new Date(delivery.nextAttemptAt || Date.now()).getTime() - Date.now());
-  await queue.add(
-    JOB_NAMES.notificationDeliverySend,
-    { notificationDeliveryId: String(delivery._id) },
-    {
-      jobId: notificationJobId(delivery._id),
-      attempts: 1,
-      delay,
-      removeOnComplete: { age: 7 * 24 * 60 * 60, count: 1000 },
-      removeOnFail: { age: 30 * 24 * 60 * 60, count: 5000 },
-    }
-  );
-  return { queued: true };
+  try {
+    const queue = queueFactory(QUEUE_NAMES.notification, { required: false });
+    if (!queue) return { queued: false, reason: 'redis_not_configured' };
+    const delay = Math.max(0, new Date(delivery.nextAttemptAt || Date.now()).getTime() - Date.now());
+    await Promise.race([
+      queue.add(
+        JOB_NAMES.notificationDeliverySend,
+        { notificationDeliveryId: String(delivery._id) },
+        {
+          jobId: notificationJobId(delivery._id),
+          attempts: 1,
+          delay,
+          removeOnComplete: { age: 7 * 24 * 60 * 60, count: 1000 },
+          removeOnFail: { age: 30 * 24 * 60 * 60, count: 5000 },
+        }
+      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Queue add timeout')), 1000)),
+    ]);
+    return { queued: true };
+  } catch (err) {
+    console.warn('[notification.enqueue_failed]', err?.message || err);
+    return { queued: false, reason: 'queue_error', error: err?.message || String(err) };
+  }
 };
 
 const ensureNotificationDelivery = async (input, options = {}) => {
@@ -155,6 +163,12 @@ const ensureNotificationDelivery = async (input, options = {}) => {
       await processNotificationDeliveryJob({ notificationDeliveryId: String(delivery._id) }).catch((err) => {
         console.warn('[notification.web_push.immediate_failed]', err?.message || err);
       });
+      return (await NotificationDelivery.findById(delivery._id)) || delivery;
+    } else if (input.channel === 'email' && options.immediateEmail !== false) {
+      await processNotificationDeliveryJob({ notificationDeliveryId: String(delivery._id) }).catch((err) => {
+        console.warn('[notification.email.immediate_failed]', err?.message || err);
+      });
+      return (await NotificationDelivery.findById(delivery._id)) || delivery;
     }
   }
   return delivery;
@@ -879,8 +893,21 @@ const deliverWithDefaultProvider = async (delivery) => {
     }
     if (template === 'booking_invoice') {
       if (booking.invoiceSentAt) return { provider: 'internal', providerMessageId: 'already-sent' };
+      const recipient = String(booking.customerEmail || booking.userEmail || '').trim();
+      if (!recipient) {
+        const err = new Error('No customer email on booking for confirmation email');
+        err.code = 'INVALID_RECIPIENT';
+        throw err;
+      }
       const result = await sendBookingInvoice(booking);
-      await Booking.updateOne({ _id: booking._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
+      if (!result) {
+        const err = new Error('Booking confirmation email was not accepted by provider');
+        err.code = 'EMAIL_NOT_ACCEPTED';
+        throw err;
+      }
+      const now = new Date();
+      await Booking.updateOne({ _id: booking._id, $or: [{ invoiceSentAt: { $exists: false } }, { invoiceSentAt: null }] }, { $set: { invoiceSentAt: now } });
+      booking.invoiceSentAt = now;
       return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
     }
     if (template === 'booking_cancelled') {
@@ -931,7 +958,9 @@ const deliverWithDefaultProvider = async (delivery) => {
     if (template === 'order_invoice') {
       if (order.invoiceSentAt) return { provider: 'internal', providerMessageId: 'already-sent' };
       const result = await sendOrderInvoice(order);
-      await Order.updateOne({ _id: order._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
+      const orderNow = new Date();
+      await Order.updateOne({ _id: order._id, $or: [{ invoiceSentAt: { $exists: false } }, { invoiceSentAt: null }] }, { $set: { invoiceSentAt: orderNow } });
+      order.invoiceSentAt = orderNow;
       return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
     }
     if (template === 'order_cancelled') {

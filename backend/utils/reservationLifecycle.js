@@ -206,6 +206,12 @@ const markBookingPaymentPaid = async (booking, meta = {}) => {
   booking.adminPaymentVerified = true;
   booking.adminPaymentVerifiedAt = booking.adminPaymentVerifiedAt || new Date();
   booking.paidAt = booking.paidAt || new Date();
+  if (!booking.additionalInfo || String(booking.additionalInfo).toLowerCase().includes('initiated')) {
+    const verifiedId = meta.paymentId || booking.razorpayPaymentId;
+    booking.additionalInfo = verifiedId
+      ? `Payment verified via Razorpay (${verifiedId}).`
+      : 'Payment verified online.';
+  }
   if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.hotelId) {
     const hotel = await Hotel.findById(booking.hotelId).select('partnerName partnerPhone partnerEmail partnerWhatsapp').lean();
     if (hotel) {

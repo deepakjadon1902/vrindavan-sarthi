@@ -380,6 +380,12 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
         actorRole: actor?.role || 'partner',
         reason: 'dharamshala_request_accepted_no_online_payment_required',
       });
+      try {
+        const { ensureBookingInvoiceNotification } = require('./notificationDelivery');
+        await ensureBookingInvoiceNotification(booking);
+      } catch (notifyErr) {
+        console.warn('[dharamshala.confirmed.notification_failed]', notifyErr?.message || notifyErr);
+      }
     }
   } else {
     const paymentOption = getPaymentOption(booking.paymentOption, ['advance_30', 'full_100']) || 'advance_30';

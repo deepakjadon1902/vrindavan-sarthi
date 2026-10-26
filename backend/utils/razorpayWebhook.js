@@ -88,7 +88,7 @@ const markBookingPaidFromRazorpay = async (booking, {
       reason: 'razorpay_payment_captured',
     });
 
-  if (!booking.invoiceSentAt && !['cab', 'tour'].includes(String(booking.bookingType || ''))) {
+  if (!booking.invoiceSentAt && !['cab'].includes(String(booking.bookingType || ''))) {
     await ensureBookingInvoiceNotification(updated);
   }
   return updated;

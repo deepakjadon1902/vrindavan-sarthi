@@ -17,6 +17,7 @@ const canSendSmtp = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_PORT
 const postJson = (urlString, { headers = {}, body, timeoutMs = 15_000 } = {}) =>
   new Promise((resolve, reject) => {
     const url = new URL(urlString);
+    const payload = JSON.stringify(body ?? {});
     const req = https.request(
       {
         protocol: url.protocol,
@@ -24,7 +25,11 @@ const postJson = (urlString, { headers = {}, body, timeoutMs = 15_000 } = {}) =>
         port: url.port || (url.protocol === 'https:' ? 443 : 80),
         path: `${url.pathname}${url.search}`,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+          ...headers,
+        },
         timeout: timeoutMs,
       },
       (res) => {
@@ -36,7 +41,7 @@ const postJson = (urlString, { headers = {}, body, timeoutMs = 15_000 } = {}) =>
     );
     req.on('timeout', () => req.destroy(new Error('Request timeout')));
     req.on('error', reject);
-    req.write(JSON.stringify(body ?? {}));
+    req.write(payload);
     req.end();
   });
 
@@ -67,8 +72,15 @@ const resendSendEmail = async ({ apiKey, from, to, subject, text, html, attachme
       return { provider: 'resend' };
     }
   }
-  const err = new Error(`Resend send failed: HTTP ${resp.status}`);
+  let resendMessage = '';
+  try {
+    const parsed = JSON.parse(resp.body || '{}');
+    resendMessage = String(parsed?.message || parsed?.error || '').trim();
+  } catch {}
+  const err = new Error(`Resend send failed: HTTP ${resp.status}${resendMessage ? ` - ${resendMessage}` : ''}`);
   err.code = 'RESEND_SEND_FAILED';
+  err.statusCode = resp.status;
+  err.resendMessage = resendMessage;
   throw err;
 };
 
