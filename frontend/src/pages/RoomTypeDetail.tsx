@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Shield, Clock, User as UserIcon, Star, Landmark, BedDouble, Minus, Plus, MessageCircle, Phone, CalendarDays, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Shield, ShieldCheck, Clock, User as UserIcon, Star, Landmark, BedDouble, Minus, Plus, MessageCircle, Phone, CalendarDays, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, withAuth } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
@@ -9,7 +9,6 @@ import ImageCarousel from '@/components/shared/ImageCarousel';
 import { getCachedListingItem, getPrefetchedDetail } from '@/lib/detailCache';
 import { useSettingsStore } from '@/store/settingsStore';
 import SEO from '@/components/SEO';
-import SimpleBookingPanel from '@/components/shared/SimpleBookingPanel';
 import { absoluteAssetUrl, absoluteUrl, truncate } from '@/lib/seo';
 import { hasPropertyTermsText, normalizePropertyTerms } from '@/components/shared/PropertyTerms';
 import { isDharamshalaType } from '@/lib/propertyTypes';
@@ -301,19 +300,46 @@ const RoomTypeDetail = () => {
 
   if (loading && !roomType) {
     return (
-      <div className="braj-page pt-20 pb-8 text-center min-h-screen">
-        <p className="text-sm text-muted-foreground">Loading...</p>
+      <div className="min-h-screen bg-[#fdfcf9] pt-20 sm:pt-24 pb-16">
+        <div className="mx-auto max-w-6xl px-4 animate-pulse space-y-6">
+          <div className="h-6 w-32 rounded-lg bg-neutral-200" />
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_390px] gap-8">
+            <div className="space-y-4">
+              <div className="aspect-[16/10] w-full rounded-2xl bg-neutral-200" />
+              <div className="h-8 w-2/3 rounded-lg bg-neutral-200" />
+              <div className="h-4 w-1/2 rounded-lg bg-neutral-200" />
+            </div>
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 space-y-4">
+              <div className="h-6 w-1/3 rounded-lg bg-neutral-200" />
+              <div className="h-10 w-full rounded-xl bg-neutral-200" />
+              <div className="h-10 w-full rounded-xl bg-neutral-200" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!roomType || !hotel) {
     return (
-      <div className="braj-page pt-20 pb-8 text-center min-h-screen">
-        <p className="text-2xl text-muted-foreground">Room type not found</p>
-        <Link to="/rooms" className="btn-crimson inline-block mt-4 px-6 py-2 rounded-lg text-sm">
-          Back to Rooms
-        </Link>
+      <div className="min-h-screen bg-[#fdfcf9] pt-24 pb-16 flex items-center justify-center px-4">
+        <div className="rounded-3xl border border-neutral-200 bg-white p-8 sm:p-10 text-center max-w-md mx-auto shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-800 mb-4">
+            <BedDouble size={28} />
+          </div>
+          <h2 className="font-heading text-xl font-bold text-slate-900">Room Type Not Found</h2>
+          <p className="font-body text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed">
+            This room configuration is either no longer available or was updated. Explore other verified stays across Vrindavan and Braj.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <Link to="/rooms" className="btn-emerald rounded-full px-6 py-2.5 text-xs font-bold shadow-sm">
+              Explore All Rooms
+            </Link>
+            <Link to="/hotels" className="rounded-full border border-neutral-300 bg-white px-5 py-2.5 font-body text-xs font-semibold text-slate-800 hover:bg-neutral-50 transition-colors">
+              View Stays
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -380,6 +406,25 @@ const RoomTypeDetail = () => {
     }
   };
 
+  const getPrimaryButtonText = () => {
+    if (isStartingPayment) {
+      return isDharamshala ? 'Submitting request...' : 'Opening payment gateway...';
+    }
+    if (isDharamshala) {
+      return 'Submit Free Room Request';
+    }
+    if (!canShowRoomPrices) {
+      return 'Request Booking';
+    }
+    if (effectivePaymentOption === 'advance_30') {
+      return `Pay Rs. ${payableNow.toLocaleString('en-IN')} Advance & Confirm`;
+    }
+    if (effectivePaymentOption === 'full_100') {
+      return `Pay Rs. ${payableNow.toLocaleString('en-IN')} Full & Confirm`;
+    }
+    return 'Select Payment Option';
+  };
+
   const validateBookingForm = () => {
     if (!checkIn || !checkOut) { toast.error('Please select check-in and check-out dates'); return false; }
     if (checkIn < todayKey) { toast.error('Check-in date cannot be in the past'); return false; }
@@ -420,7 +465,6 @@ const RoomTypeDetail = () => {
       paymentOption: effectivePaymentOption,
       propertyTermsAccepted,
       acceptedPropertyTermsVersion: propertyTerms.currentVersion,
-      additionalInfo: 'Razorpay Checkout payment initiated.',
     };
   };
 
@@ -530,7 +574,7 @@ const RoomTypeDetail = () => {
             setBooked(true);
             if (guestAccountMessage) toast.info(guestAccountMessage);
             toast.success(pendingBooking.isWaitlisted ? 'Payment verified. You are on the waitlist.' : 'Payment verified. Booking confirmed!');
-            if (confirmedBookingId && token) navigate(`/bookings/${confirmedBookingId}/confirmed`, { replace: true });
+            if (confirmedBookingId) { const target = token ? `/bookings/${confirmedBookingId}/confirmed` : `/bookings/${confirmedBookingId}/confirmed?token=${encodeURIComponent(guestAccessToken)}`; navigate(target, { replace: true }); }
           } catch (err: any) {
             await markRazorpayAttemptFailed('verification_failed', response?.razorpay_payment_id);
             toast.error(err?.response?.data?.message || 'Payment verification failed');
@@ -607,7 +651,7 @@ const RoomTypeDetail = () => {
   const inputCls = "premium-field w-full px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground";
 
   return (
-    <div className="braj-page min-h-screen pt-4 pb-8">
+    <div className="braj-page min-h-screen pt-4 pb-24 lg:pb-8">
       <SEO
         title={`${roomType.name} at ${hotel.name}`}
         description={roomDescription}
@@ -780,14 +824,14 @@ const RoomTypeDetail = () => {
 
                 {guestCredentialMessage && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs leading-5 text-amber-900">
-                    <p className="font-bold">Guest login saved</p>
+                    <p className="font-bold">Guest reservation confirmed</p>
                     <p>{guestCredentialMessage}</p>
                   </div>
                 )}
 
                 <div className="flex flex-col sm:flex-row gap-2 pt-2">
                   <Link
-                    to={submittedBooking?.id ? `/bookings/${submittedBooking.id}` : '/bookings'}
+                    to={submittedBooking?.id ? `/bookings/${submittedBooking.id}${submittedBooking.guestAccessToken ? `?token=${encodeURIComponent(submittedBooking.guestAccessToken)}` : ''}` : '/bookings'}
                     className="flex-1 py-2.5 px-4 rounded-xl bg-brand-crimson text-white font-body text-sm font-semibold hover:bg-brand-crimson/90 transition-colors text-center"
                   >
                     Track Booking Status
@@ -802,7 +846,7 @@ const RoomTypeDetail = () => {
               </div>
             ) : (
               <div
-                className="premium-surface premium-sidebar-scroll space-y-4 p-4 sm:p-5 lg:h-[var(--booking-panel-height)] lg:max-h-[var(--booking-panel-height)] lg:w-full lg:overflow-y-auto"
+                id="booking-form-section" className="premium-surface premium-sidebar-scroll space-y-4 p-4 sm:p-5 lg:h-[var(--booking-panel-height)] lg:max-h-[var(--booking-panel-height)] lg:w-full lg:overflow-y-auto"
                 style={bookingPanelHeight ? ({ '--booking-panel-height': `${bookingPanelHeight}px` } as CSSProperties) : undefined}
               >
                 <div className="space-y-4">
@@ -915,7 +959,7 @@ const RoomTypeDetail = () => {
                     </div>
                     {!isAuthenticated && (
                       <p className="rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2 text-[11px] leading-5 text-amber-800">
-                        Guest account will be created automatically. Use your email as username and this mobile number as password to login later and view My Bookings.
+                        Booking as a guest. You will receive a secure direct link to track your reservation. Creating an account with a custom password is fully optional.
                       </p>
                     )}
                   </section>
@@ -978,6 +1022,11 @@ const RoomTypeDetail = () => {
                       </div>
                     )}
 
+                                        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 p-2.5 text-xs text-emerald-950 font-medium">
+                      <ShieldCheck size={16} className="text-emerald-700 shrink-0" />
+                      <span><strong>Cancellation Policy:</strong> Free cancellation & 100% refund available per property policy before check-in.</span>
+                    </div>
+
                     {mustAcceptPropertyTerms && (
                       <label className="flex items-start gap-2 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-3 py-2 font-body text-xs text-foreground">
                         <input
@@ -1003,17 +1052,17 @@ const RoomTypeDetail = () => {
                       <button
                         onClick={startRazorpayPayment}
                         disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
-                        className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
+                        className="btn-emerald w-full rounded-xl py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
                       >
-                        {isStartingPayment ? 'Sending request...' : 'Request Booking'}
+                        {getPrimaryButtonText()}
                       </button>
                     ) : (
                       <div className="space-y-2">
                         <button type="button" onClick={() => void loadAvailabilityCalendar()} className="w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
                           Recheck availability
                         </button>
-                        <button onClick={startRazorpayPayment} disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable} className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50">
-                          {isStartingPayment ? 'Sending request...' : 'Request Booking'}
+                        <button onClick={startRazorpayPayment} disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable} className="btn-emerald w-full rounded-xl py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50 shadow-sm">
+                          {getPrimaryButtonText()}
                         </button>
                       </div>
                     )}
@@ -1031,373 +1080,35 @@ const RoomTypeDetail = () => {
                   </section>
                 </div>
 
-                <div className="hidden" aria-hidden="true">
-                <SimpleBookingPanel service={isDharamshala ? 'dharamshala' : 'stay'} />
-
-                {/* Price */}
-                <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">{isDharamshala ? 'Contribution' : 'Price'}</p>
-                  {canShowRoomPrices ? (
-                    <>
-                      <p className="text-3xl font-bold text-brand-crimson">
-                        Rs. {Number(roomType.pricePerNight || 0).toLocaleString('en-IN')}
-                      </p>
-                      <p className="text-xs text-gray-400">per night</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-3xl font-bold text-brand-crimson">{isDharamshala ? 'After partner acceptance' : 'Price on request'}</p>
-                      <p className="text-xs text-gray-400">{isDharamshala ? 'Room contribution is shown only after the Dharamshala accepts your request' : 'Confirm current price by call or WhatsApp'}</p>
-                    </>
-                  )}
-                </div>
-
-                <hr className="border-gray-100" />
-
-                {/* Date and availability intelligence */}
-                <div className="space-y-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-gold/12 text-brand-crimson">
-                        <CalendarDays size={17} />
-                      </span>
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Stay Dates</p>
-                        <p className="text-sm font-bold text-gray-900">{formatStayDate(checkIn)} - {formatStayDate(checkOut)}</p>
-                      </div>
-                    </div>
-                    <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
-                      Live check
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <label className="block rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Check-in</span>
-                      <input type="date" min={todayKey} value={checkIn} onChange={(e) => handleCheckInDateChange(e.target.value)} className="h-9 w-full bg-transparent text-sm font-bold text-gray-900 outline-none" />
-                    </label>
-                    <label className="block rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Check-out</span>
-                      <input type="date" min={checkOutMinKey} value={checkOut} onChange={(e) => handleCheckOutDateChange(e.target.value)} className="h-9 w-full bg-transparent text-sm font-bold text-gray-900 outline-none" />
-                    </label>
-                  </div>
-
-                  <div className={`rounded-xl border p-3 ${inventoryPulse.tone}`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        {availableCount !== null && availableCount > 0 ? <CheckCircle2 size={17} /> : <Clock size={17} />}
-                        <span className="text-sm font-bold">{inventoryPulse.label}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void loadAvailabilityCalendar()}
-                        disabled={availabilityLoading}
-                        className="shrink-0 rounded-lg bg-white/80 px-2.5 py-1 text-[11px] font-bold text-gray-700 shadow-sm disabled:opacity-50"
-                      >
-                        {availabilityLoading ? 'Checking...' : 'Recheck'}
-                      </button>
-                    </div>
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/80">
-                      <div className={`h-full rounded-full ${inventoryPulse.bar} transition-all duration-500`} style={{ width: inventoryPulse.width }} />
-                    </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-                      <div className="rounded-lg bg-white/70 px-2 py-1.5">
-                        <span className="block text-gray-500">Check-in</span>
-                        <span className="font-bold text-gray-900">{checkInAvailability ? `${checkInAvailability.availableCount}/${checkInAvailability.totalCount}` : 'Live'}</span>
-                      </div>
-                      <div className="rounded-lg bg-white/70 px-2 py-1.5">
-                        <span className="block text-gray-500">Check-out</span>
-                        <span className="font-bold text-gray-900">{checkOutAvailability ? `${checkOutAvailability.availableCount}/${checkOutAvailability.totalCount}` : 'Live'}</span>
-                      </div>
-                      <div className="rounded-lg bg-white/70 px-2 py-1.5">
-                        <span className="block text-gray-500">Next open</span>
-                        <span className="font-bold text-gray-900">{nextOpenDay ? formatStayDate(nextOpenDay) : 'Ask us'}</span>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-[11px] text-gray-500">
-                      {visibleCalendarDays.length ? `${lowAvailabilityDays} low-demand alert(s), ${fullyBookedDays} full day(s) in the live 30-day window.` : 'Live availability appears after the first date check.'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Rooms */}
-                <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Rooms</p>
-                    </div>
-                    <div className="flex items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-                      <button
-                        type="button"
-                        onClick={() => setRoomQuantity((prev) => Math.max(1, prev - 1))}
-                        disabled={roomQuantity <= 1}
-                        className="grid h-10 w-10 place-items-center text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="Decrease rooms"
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <div className="grid h-10 min-w-12 place-items-center border-x border-gray-200 bg-white px-3 text-sm font-bold text-gray-900">
-                        {roomQuantity}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setRoomQuantity((prev) => Math.min(maxRoomQuantity, prev + 1))}
-                        disabled={roomQuantity >= maxRoomQuantity}
-                        className="grid h-10 w-10 place-items-center text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="Increase rooms"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] sm:grid-cols-2">
-                    <div className="rounded-xl bg-gray-50 px-3 py-2 text-gray-500">
-                      Capacity
-                      <span className="block font-semibold text-gray-800">{maxAdultsForSelection} adults · {maxChildrenForSelection} children</span>
-                    </div>
-                    <div className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">
-                      {isDharamshala ? 'Contribution' : 'Price'}
-                      <span className="block font-semibold">{canShowRoomPrices ? `Rs. ${baseTotal.toLocaleString('en-IN')}` : isDharamshala ? 'After partner acceptance' : 'On request'}</span>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-[11px] text-gray-400">
-                    You can select up to {maxRoomQuantity} room(s) for this room type.
-                  </p>
-                  {isRequestedQuantityUnavailable && (
-                    <p className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-600">
-                      Only {availableCount} room(s) are available for these dates. Reduce rooms or choose another date.
-                    </p>
-                  )}
-                </div>
-
-                {/* Your Details */}
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Contact Details</p>
-                    {!isAuthenticated && (
-                      <Link to="/login" className="text-xs font-bold text-brand-crimson hover:underline">
-                        Login / Sign Up
-                      </Link>
-                    )}
-                  </div>
-                  {!isAuthenticated && (
-                    <p className="rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2 text-[11px] leading-5 text-amber-800">
-                      Continue as guest with correct name, mobile number and email.
-                    </p>
-                  )}
-                  <input value={customerFullName} onChange={(e) => setCustomerFullName(e.target.value)} placeholder="Full Name" className={inputCls} />
-                  <input value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="Mobile Number" className={inputCls} />
-                  <input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="Email" className={inputCls} />
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Adults</label>
-                      <input type="number" min={1} max={maxAdultsForSelection} value={totalAdults}
-                        onChange={(e) => setTotalAdults(Math.min(maxAdultsForSelection, Math.max(1, Number(e.target.value || 1))))}
-                        className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Children</label>
-                      <input type="number" min={0} max={maxChildrenForSelection} value={totalChildren}
-                        onChange={(e) => setTotalChildren(Math.min(maxChildrenForSelection, Math.max(0, Number(e.target.value || 0))))}
-                        className={inputCls} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Price breakdown */}
-                {canShowRoomPrices && !isDharamshala && (
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-1.5 text-sm">
-                  <div className="flex justify-between text-gray-500">
-                    <span>Rs. {Number(roomType.pricePerNight || 0).toLocaleString('en-IN')} x {nights} night(s) x {roomQuantity} room(s)</span>
-                    <span className="text-gray-700">Rs. {baseTotal.toLocaleString('en-IN')}</span>
-                  </div>
-                  {taxEnabled && (
-                    <div className="flex justify-between text-gray-500">
-                      <span>Hotel Taxes</span>
-                      <span className="text-gray-700">Rs. {taxTotal.toLocaleString('en-IN')}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-gray-500">
-                    <span>{isDharamshala ? 'Platform fee after acceptance' : 'Platform fee'}</span>
-                    <span className="text-gray-700">Rs. {convenienceFee.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-1">
-                    <span className="text-gray-800">{isDharamshala ? 'Estimated total' : 'Total'}</span>
-                    <span className="text-brand-crimson">Rs. {total.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-                )}
-
-
-                {/* Payment options */}
-                {canShowRoomPrices && !isDharamshala && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{isDharamshala ? 'Request Flow' : 'Payment Option'}</p>
-
-                  {!isDharamshala && (
-                  <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                    style={{ borderColor: paymentOption === 'advance_30' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
-                    <input type="radio" name="roomPaymentOption" checked={paymentOption === 'advance_30'} onChange={() => setPaymentOption('advance_30')} className="mt-1 accent-[hsl(var(--brand-crimson))]" />
-                    <span className="min-w-0 flex-1 text-sm">
-                      <span className="flex items-center gap-1.5 font-semibold text-gray-800">30% Advance Online</span>
-                      <span className="block text-xs text-gray-400 mt-0.5">
-                        Pay Rs. {Math.round(total * 0.3).toLocaleString('en-IN')} now · Balance Rs. {Math.max(0, total - Math.round(total * 0.3)).toLocaleString('en-IN')} at property.
-                      </span>
-                      <span className="inline-block mt-1.5 rounded-md bg-red-50 border border-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600">
-                        30% advance is strictly non-refundable
-                      </span>
-                    </span>
-                  </label>
-                  )}
-
-                  {isDharamshala ? (
-                    <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
-                      <p className="font-semibold text-gray-800">Submit request first</p>
-                      <p className="mt-1 text-xs leading-5 text-gray-500">
-                        The Dharamshala team will confirm availability first. Contact details are shown only after booking confirmation.
-                      </p>
-                    </div>
-                  ) : (
-                  <label className={`flex items-start gap-3 rounded-xl border p-3 ${isDharamshala ? 'cursor-default bg-amber-50/60' : 'cursor-pointer hover:bg-gray-50'} transition-colors`}
-                    style={{ borderColor: effectivePaymentOption === 'full_100' ? 'hsl(var(--brand-crimson))' : 'hsl(var(--border))' }}>
-                    <input type="radio" name="roomPaymentOption" checked={effectivePaymentOption === 'full_100'} onChange={() => setPaymentOption('full_100')} disabled={isDharamshala} className="mt-1 accent-[hsl(var(--brand-crimson))] disabled:opacity-80" />
-                    <span className="min-w-0 flex-1 text-sm">
-                      <span className="flex items-center gap-1.5 font-semibold text-gray-800">Full Online Payment</span>
-                      <span className="block text-xs text-gray-400 mt-0.5">
-                        Pay Rs. {total.toLocaleString('en-IN')} now with no balance at property.
-                      </span>
-                      {isDharamshala && (
-                        <span className="mt-1.5 inline-block rounded-md border border-amber-100 bg-white px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                          Dharamshala donations are handled by the Dharamshala.
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                  )}
-
-                  {effectivePaymentOption && !isDharamshala && (
-                    <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 flex justify-between text-sm">
-                      <span className="text-gray-500">Payable now</span>
-                      <span className="font-bold text-brand-crimson">Rs. {payableNow.toLocaleString('en-IN')}</span>
-                    </div>
-                  )}
-                  {effectivePaymentOption === 'advance_30' && (
-                    <div className="flex justify-between text-xs text-gray-400 px-1">
-                      <span>Balance at property</span>
-                      <span>Rs. {balanceLater.toLocaleString('en-IN')}</span>
-                    </div>
-                  )}
-                </div>
-                )}
-
-                {isDharamshala && (
-                  <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
-                    <p className="font-semibold text-gray-800">Simple Dharamshala request</p>
-                    <p className="mt-1 text-xs leading-5 text-gray-500">
-                      Submit your request now. After the Dharamshala accepts it, the partner will choose whether your room contribution is paid online now or at check-in. Any platform fee set by admin is applied automatically.
-                    </p>
-                  </div>
-                )}
-
-                {mustAcceptPropertyTerms && (
-                  <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 p-3">
-                    <label className="flex items-start gap-2 rounded-lg border border-border bg-white px-3 py-2 font-body text-xs text-foreground">
-                      <input
-                        type="checkbox"
-                        checked={propertyTermsAccepted}
-                        onChange={(e) => setPropertyTermsAccepted(e.target.checked)}
-                        className="mt-0.5"
-                      />
-                      <span>
-                        I confirm that I have read and accepted this property's rules and booking policies shown on the hotel page.
-                      </span>
-                    </label>
-                  </div>
-                )}
-
-                {/* CTA */}
-                {isDharamshala ? (
-                  <button
-                    onClick={startRazorpayPayment}
-                    disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
-                    className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isStartingPayment ? 'Submitting request...' : 'Submit Booking Request'}
-                  </button>
-                ) : !showPrices ? (
-                  <div className="grid grid-cols-1 gap-2">
-                    <a
-                      href={`https://wa.me/${supportDigits}?text=${encodeURIComponent(whatsappMessage)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn-gold inline-flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold tracking-wide"
-                    >
-                      <MessageCircle size={16} /> WhatsApp Booking
-                    </a>
-                    <a
-                      href={`tel:${supportDigits}`}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-3 text-sm font-bold text-gray-800 hover:border-brand-gold/50"
-                    >
-                      <Phone size={16} /> Call Booking
-                    </a>
-                  </div>
-                ) : !isFullyBookedSelectedDates ? (
-                  <button
-                    onClick={startRazorpayPayment}
-                    disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
-                    className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isStartingPayment ? 'Opening secure checkout...' : 'Continue to Secure Booking'}
-                  </button>
-                ) : (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => void loadAvailabilityCalendar()}
-                      className="w-full py-3 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Recheck availability &amp; change dates
-                    </button>
-                    <button
-                      onClick={startRazorpayPayment}
-                      disabled={isStartingPayment || (mustAcceptPropertyTerms && !propertyTermsAccepted) || isRequestedQuantityUnavailable}
-                      className="btn-gold w-full rounded-lg py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isStartingPayment ? 'Opening secure checkout...' : 'Join Waitlist'}
-                    </button>
-                  </div>
-                )}
-
-                {!isDharamshala && (
-                  <div className="rounded-xl border border-gray-100 bg-white p-3">
-                    <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400">Need help before booking?</p>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <a
-                        href={`https://wa.me/${supportDigits}?text=${encodeURIComponent(whatsappMessage)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-800 hover:border-brand-gold/50"
-                      >
-                        <MessageCircle size={14} /> WhatsApp
-                      </a>
-                      <a
-                        href={`tel:${supportDigits}`}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-800 hover:border-brand-gold/50"
-                      >
-                        <Phone size={14} /> Call
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                <p className="text-center text-[11px] text-gray-400">
-                  {canShowRoomPrices ? (isDharamshala ? 'Contact details appear in My Bookings after booking confirmation.' : 'Secure payment with automatic booking confirmation.') : 'Prices and availability are confirmed by our booking desk.'}
-                </p>
-                </div>
+                
               </div>
             )}
           </div>
+        </div>
+
+        {/* Mobile Sticky Booking Bar */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-neutral-200 px-4 py-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Amount</p>
+            <p className="text-lg font-bold text-slate-900 leading-tight">
+              {canShowRoomPrices && !isDharamshala ? `Rs. ${total.toLocaleString('en-IN')}` : isDharamshala ? 'Free Request' : 'Price on request'}
+              {canShowRoomPrices && !isDharamshala && <span className="text-[11px] font-normal text-slate-500 ml-1">({nights}N)</span>}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('booking-form-section');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                startRazorpayPayment();
+              }
+            }}
+            className="btn-emerald px-5 py-2.5 text-sm font-bold shadow-sm"
+          >
+            {booked ? 'Track Status' : isDharamshala ? 'Request Room' : 'Book Room'}
+          </button>
         </div>
 
         <div className="mt-5 grid auto-rows-fr gap-4 md:grid-cols-2">

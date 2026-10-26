@@ -140,15 +140,15 @@ export function LocationDiscoverySection<T extends { _id: string }>({
             ))}
           </div>
 
-          {/* Mobile Layout: Compact horizontal swipeable cards with next card partially visible (78–84% usable width) */}
+          {/* Mobile Layout: Compact horizontal swipeable cards (2 cards per screen on mobile, 3 on tablet) */}
           <div
-            className="md:hidden flex gap-3.5 overflow-x-auto pb-3 pt-1 scrollbar-none snap-x snap-mandatory w-full max-w-full px-0.5"
+            className="md:hidden flex gap-2.5 overflow-x-auto pb-3 pt-1 scrollbar-none snap-x snap-mandatory w-full max-w-full px-0.5"
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {items.map((item, idx) => (
               <div
                 key={item._id || idx}
-                className="w-[78vw] max-w-[285px] min-w-[250px] shrink-0 snap-start"
+                className="w-[calc(50%-5px)] min-w-[calc(50%-5px)] max-w-[calc(50%-5px)] sm:w-[calc(33.333%-11px)] sm:min-w-[calc(33.333%-11px)] sm:max-w-[calc(33.333%-11px)] shrink-0 snap-start"
               >
                 {renderItem(item, idx)}
               </div>

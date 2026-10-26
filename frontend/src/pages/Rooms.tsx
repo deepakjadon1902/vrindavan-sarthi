@@ -331,9 +331,9 @@ const Rooms = () => {
   }, [selectedLandmark, activeLandmarkObj, searchQuery, filtered.length, coords]);
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] pt-18 sm:pt-20 pb-20 text-slate-900 overflow-x-hidden w-full max-w-[100vw]">
+    <div className="min-h-screen bg-[#faf8f5] pt-16 sm:pt-20 pb-20 text-slate-900 overflow-x-clip w-full max-w-[100vw]">
       {/* Sticky Compact Header & Controls Bar */}
-      <section className="sticky top-18 sm:top-20 z-30 border-b border-neutral-200/80 bg-white/95 backdrop-blur-md shadow-[0_2px_10px_rgba(15,23,42,0.03)] overflow-x-hidden max-w-full">
+      <section className="sticky top-16 sm:top-20 z-30 border-b border-neutral-200/80 bg-white/95 backdrop-blur-md shadow-[0_2px_10px_rgba(15,23,42,0.03)] overflow-x-clip max-w-full">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 space-y-2.5">
           {/* Top Search Input & Action Badges */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -635,7 +635,7 @@ const Rooms = () => {
                     }
                     pricePlaceholder={
                       isDharamshalaType(rt?.hotel?.propertyType)
-                        ? 'Contribution on request'
+                        ? 'Contribution on confirmation'
                         : undefined
                     }
                     priceHelp={
@@ -668,7 +668,7 @@ const Rooms = () => {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
               {filtered.map((rt: any) => (
                 <ListingCard
                   key={rt._id}
@@ -691,7 +691,7 @@ const Rooms = () => {
                   }
                   pricePlaceholder={
                     isDharamshalaType(rt?.hotel?.propertyType)
-                      ? 'Contribution on request'
+                      ? 'Contribution on confirmation'
                       : undefined
                   }
                   priceHelp={

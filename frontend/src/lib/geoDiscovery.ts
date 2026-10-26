@@ -28,6 +28,42 @@ export interface LandmarkLocation {
  */
 export const BRAJ_LANDMARK_REGISTRY: LandmarkLocation[] = [
   {
+    id: 'kirti_mandir',
+    name: 'Kirti Mandir',
+    sectionHeading: 'Near Kirti Mandir',
+    place: 'Barsana',
+    lat: 27.6447,
+    lng: 77.3752,
+    subtitle: 'Barsana Dham, Rangeeli Mahal & Shri Radha Rani Marg',
+    keywords: [
+      'kirti mandir',
+      'kirti temple',
+      'kirti mandir barsana',
+      'kirti',
+    ],
+  },
+  {
+    id: 'radha_rani',
+    name: 'Radha Rani Temple',
+    sectionHeading: 'Near Radha Rani Temple',
+    place: 'Barsana',
+    lat: 27.6486,
+    lng: 77.3712,
+    subtitle: 'Braj Barsana, Ladli Ji Mandir & Bhanukhar',
+    keywords: [
+      'radha rani',
+      'shri radha rani',
+      'radha rani temple',
+      'barsana temple',
+      'barshana temple',
+      'ladli ji',
+      'ladli ji mandir',
+      'maan mandir',
+      'barsana',
+      'barshana',
+    ],
+  },
+  {
     id: 'prem_mandir',
     name: 'Prem Mandir',
     sectionHeading: 'Near Prem Mandir',
@@ -90,8 +126,6 @@ export const BRAJ_LANDMARK_REGISTRY: LandmarkLocation[] = [
     keywords: [
       'radha raman',
       'radharaman',
-      'radha damodar',
-      'radha vallabh',
       'kesi ghat',
       'yamuna ghat',
       'nidhivan',
@@ -113,6 +147,7 @@ export const BRAJ_LANDMARK_REGISTRY: LandmarkLocation[] = [
       'dholi pyau',
       'dholipyau',
       'mayur vihar',
+      'canera bank',
       'canara bank',
       'narayanapuri',
       'union bank',
@@ -157,21 +192,133 @@ export const BRAJ_LANDMARK_REGISTRY: LandmarkLocation[] = [
       'potra kund',
       'gate no 1',
       'gate no - 1',
+      'keshav dev',
     ],
   },
+  {
+    id: 'dwarkadhish',
+    name: 'Shri Dwarkadhish Temple',
+    sectionHeading: 'Near Shri Dwarkadhish Temple',
+    place: 'Mathura',
+    lat: 27.5042,
+    lng: 77.6841,
+    subtitle: 'Vishram Ghat, Yamuna Kinare & Raja Dhiraj Bazaar',
+    keywords: [
+      'dwarkadhish',
+      'dwarikadhish',
+      'vishram ghat',
+      'vishram bazaar',
+      'shri dwarkadhish',
+    ],
+  },
+  {
+    id: 'radha_vallabh',
+    name: 'Shri Radha Vallabh Temple',
+    sectionHeading: 'Near Shri Radha Vallabh Temple',
+    place: 'Vrindavan',
+    lat: 27.5849,
+    lng: 77.7025,
+    subtitle: 'Gautam Nagar & Seva Kunj Marg',
+    keywords: ['radha vallabh', 'radhavallabh', 'shri radha vallabh'],
+  },
+  {
+    id: 'radha_damodar',
+    name: 'Shri Radha Damodar Temple',
+    sectionHeading: 'Near Shri Radha Damodar Temple',
+    place: 'Vrindavan',
+    lat: 27.5857,
+    lng: 77.7028,
+    subtitle: 'Ancient Goswami Samadhis & Seva Kunj Marg',
+    keywords: ['radha damodar', 'radhadamodar', 'shri radha damodar'],
+  },
+  {
+    id: 'rangji',
+    name: 'Shri Rangji Temple',
+    sectionHeading: 'Near Shri Rangji Temple',
+    place: 'Vrindavan',
+    lat: 27.5819,
+    lng: 77.6974,
+    subtitle: 'Dravidian Architecture & Rangji Bagichi',
+    keywords: ['rangji', 'rangji temple', 'shri rangji temple', 'rangnath'],
+  },
+  {
+    id: 'raman_reti',
+    name: 'Raman Reti',
+    sectionHeading: 'Near Raman Reti',
+    place: 'Gokul',
+    lat: 27.4395,
+    lng: 77.7196,
+    subtitle: 'Gokul Dham, Karshni Ashram & Yamuna Sand',
+    keywords: ['raman reti', 'brahmand ghat', 'thakurani ghat', 'chaurasi khamba'],
+  },
+  {
+    id: 'nandgaon',
+    name: 'Nand Baba Temple',
+    sectionHeading: 'Near Nand Baba Temple',
+    place: 'Nandgaon',
+    lat: 27.7128,
+    lng: 77.3872,
+    subtitle: 'Nand Bhawan, Pavan Sarovar & Ter Kadamba',
+    keywords: ['nand baba', 'nand bhawan', 'pavan sarovar', 'pan sarovar', 'ter kadamba'],
+  },
+  {
+    id: 'dauji',
+    name: 'Dauji Temple',
+    sectionHeading: 'Near Dauji Temple',
+    place: 'Baldeo',
+    lat: 27.4116,
+    lng: 77.8183,
+    subtitle: 'Baldeo Dham & Kshirsagar Kund',
+    keywords: ['dauji', 'dauji temple', 'baldeo', 'kshirsagar'],
+  },
+  {
+    id: 'kokilavan',
+    name: 'Kokilavan Shani Dev Temple',
+    sectionHeading: 'Near Kokilavan',
+    place: 'Other',
+    lat: 27.7683,
+    lng: 77.3875,
+    subtitle: 'Kokilavan Dham & Shani Temple Parikrama',
+    keywords: ['kokilavan', 'shani dev', 'kokilavan dham', 'kokilavan shani temple'],
+  },
 ];
+
+/**
+ * Creates a clean LandmarkLocation dynamically for custom or additional Braj landmarks.
+ */
+export function createDynamicLandmark(rawName: string): LandmarkLocation {
+  const cleanName = rawName.replace(/^near\s+/i, '').trim();
+  const id = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return {
+    id,
+    name: cleanName,
+    sectionHeading: `Near ${cleanName}`,
+    place: 'Other',
+    lat: 27.58,
+    lng: 77.69,
+    subtitle: 'Braj Dham & Temple Surroundings',
+    keywords: [cleanName.toLowerCase()],
+  };
+}
 
 /**
  * Finds a landmark by its ID, slug, or name (case and punctuation insensitive)
  */
 export function findLandmark(identifier?: string | null): LandmarkLocation | undefined {
   if (!identifier) return undefined;
-  const normalized = identifier.trim().toLowerCase().replace(/[-_ ]+/g, '');
-  return BRAJ_LANDMARK_REGISTRY.find(
+  const stripped = identifier.trim().replace(/^near[-_ ]+/i, '');
+  const normalized = stripped.toLowerCase().replace(/[-_ ]+/g, '');
+  const inRegistry = BRAJ_LANDMARK_REGISTRY.find(
     (l) =>
       l.id.toLowerCase().replace(/[-_ ]+/g, '') === normalized ||
-      l.name.toLowerCase().replace(/[-_ ]+/g, '') === normalized
+      l.name.toLowerCase().replace(/[-_ ]+/g, '') === normalized ||
+      l.id.toLowerCase().replace(/[-_ ]+/g, '') === identifier.trim().toLowerCase().replace(/[-_ ]+/g, '')
   );
+  if (inRegistry) return inRegistry;
+  if (identifier.trim().length >= 3) {
+    return createDynamicLandmark(identifier);
+  }
+  return undefined;
 }
 
 /**
@@ -235,46 +382,49 @@ export function parseCoordinatesFromMapUrl(url?: string): GeoCoordinates | null 
 }
 
 /**
- * Matches a property or room-type to the most accurate registered Braj landmark
+ * Matches a property or room-type to the genuine configured Braj landmark.
+ * Strictly uses the actual property/room "nearestTemple" / Near Landmark setting;
+ * does NOT guess proximity based on names or addresses.
  */
 export function resolveItemLandmark(item: any): LandmarkLocation | null {
   const hotel = item?.hotel || item || {};
-  const searchCorpus = [
-    hotel?.nearestTemple,
-    hotel?.location,
-    hotel?.fullAddress,
-    hotel?.name,
-    item?.name,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
+  const nearest = String(hotel?.nearestTemple || item?.nearestTemple || '').trim();
 
-  // 1. Direct landmark name match
+  // If no landmark is set or is generic 'Others', item does not qualify for a specific landmark section
+  if (!nearest || nearest.toLowerCase() === 'others' || nearest.toLowerCase() === 'other') {
+    return null;
+  }
+
+  const clean = nearest.replace(/^near\s+/i, '').trim().toLowerCase();
+  const cleanCondensed = clean.replace(/[-_ ]+/g, '');
+
+  // 1. Direct landmark name or ID match
   for (const landmark of BRAJ_LANDMARK_REGISTRY) {
-    if (searchCorpus.includes(landmark.name.toLowerCase())) {
+    const lmNameLower = landmark.name.toLowerCase();
+    const lmIdLower = landmark.id.toLowerCase();
+    if (
+      lmNameLower === clean ||
+      lmIdLower === clean ||
+      lmNameLower.replace(/[-_ ]+/g, '') === cleanCondensed ||
+      lmIdLower.replace(/[-_ ]+/g, '') === cleanCondensed
+    ) {
       return landmark;
     }
   }
 
-  // 2. Keyword/alias match
+  // 2. Keyword/alias match against verified Braj landmarks
   for (const landmark of BRAJ_LANDMARK_REGISTRY) {
     for (const kw of landmark.keywords) {
-      if (searchCorpus.includes(kw)) {
+      const kwLower = kw.toLowerCase();
+      if (clean === kwLower || clean.includes(kwLower) || kwLower.includes(clean)) {
         return landmark;
       }
     }
   }
 
-  // 3. Fallback based on town name in location
-  if (searchCorpus.includes('govardhan') || searchCorpus.includes('goverdhan')) {
-    return BRAJ_LANDMARK_REGISTRY.find((l) => l.id === 'govardhan') || null;
-  }
-  if (searchCorpus.includes('mathura')) {
-    return BRAJ_LANDMARK_REGISTRY.find((l) => l.id === 'mathura_junction') || null;
-  }
-  if (searchCorpus.includes('vrindavan')) {
-    return BRAJ_LANDMARK_REGISTRY.find((l) => l.id === 'prem_mandir') || null;
+  // 3. Dynamic landmark fallback for specific custom temple/landmark (at least 3 chars)
+  if (clean.length >= 3) {
+    return createDynamicLandmark(nearest);
   }
 
   return null;
@@ -337,7 +487,10 @@ export function groupItemsIntoLocationSections<T extends { _id: string }>(
 
   for (const item of items) {
     const landmark = resolveItemLandmark(item);
-    if (landmark && landmarkBuckets.has(landmark.id)) {
+    if (landmark) {
+      if (!landmarkBuckets.has(landmark.id)) {
+        landmarkBuckets.set(landmark.id, { landmark, items: [] });
+      }
       landmarkBuckets.get(landmark.id)!.items.push(item);
     } else {
       unassigned.push(item);
