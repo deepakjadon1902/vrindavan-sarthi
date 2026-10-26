@@ -16,6 +16,44 @@ const getLocalDateKey = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+export interface TourPriceBreakdown {
+  pricePerPerson: number;
+  persons: number;
+  subtotal: number;
+  convenienceFee: number;
+  total: number;
+  advanceAmount: number;
+  balanceAmount: number;
+}
+
+export const calculateTourPriceBreakdown = (
+  pricePerPerson: number | null | undefined,
+  persons: number | null | undefined,
+): TourPriceBreakdown => {
+  const safePrice = typeof pricePerPerson === 'number' && Number.isFinite(pricePerPerson) && pricePerPerson > 0
+    ? pricePerPerson
+    : 0;
+  const safePersons = typeof persons === 'number' && Number.isFinite(persons) && persons > 0
+    ? Math.max(1, Math.floor(persons))
+    : 1;
+
+  const subtotal = safePrice * safePersons;
+  const convenienceFee = Math.round(subtotal * 0.0445);
+  const total = subtotal + convenienceFee;
+  const advanceAmount = total > 0 ? Math.round(total * 0.3) : 0;
+  const balanceAmount = Math.max(0, total - advanceAmount);
+
+  return {
+    pricePerPerson: safePrice,
+    persons: safePersons,
+    subtotal,
+    convenienceFee,
+    total,
+    advanceAmount,
+    balanceAmount,
+  };
+};
+
 const TourDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -53,17 +91,15 @@ const TourDetail = () => {
     return (
       <div className="pt-20 pb-8 text-center min-h-screen bg-background">
         <p className="font-heading text-2xl text-muted-foreground">Tour not found</p>
-        <Link to="/tours" className="btn-gold px-6 py-2 rounded-lg text-sm mt-4 inline-block">Back to Tours</Link>
+        <Link to="/tours" className="btn-emerald px-6 py-2 rounded-lg text-sm mt-4 inline-block">Back to Tours</Link>
       </div>
     );
   }
 
-  const pricePerPerson = Number(tour.pricePerPerson || 0);
-  const subtotal = pricePerPerson * persons;
-  const convenienceFee = Math.round(subtotal * 0.0445);
-  const total = subtotal + convenienceFee;
-  const advanceAmount = total > 0 ? Math.round(total * 0.3) : 0;
-  const balanceAmount = Math.max(0, total - advanceAmount);
+  const { pricePerPerson, subtotal, convenienceFee, total, advanceAmount, balanceAmount } = calculateTourPriceBreakdown(
+    Number(tour.pricePerPerson || 0),
+    persons,
+  );
   const phoneDigits = companyPhone.replace(/\D/g, '');
   const whatsappDigits = phoneDigits;
   const allImages = [tour.image, ...(tour.images || [])].filter(Boolean);
@@ -95,7 +131,7 @@ const TourDetail = () => {
   ];
 
   return (
-    <div className="braj-page pt-4 pb-10 min-h-screen">
+    <div className="braj-page pt-4 pb-24 lg:pb-10 min-h-screen">
       <SEO title={`${tour.name} Tour Package`} description={tourDescription} image={allImages[0]} canonicalPath={`/tours/${tour._id}`} jsonLd={tourJsonLd} />
       <div className="container mx-auto px-4 max-w-6xl">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-4 mt-0 transition-colors">
@@ -197,7 +233,7 @@ const TourDetail = () => {
               </div>
 
               <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                <a href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-body text-sm font-bold">
+                <a href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="btn-emerald inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-body text-sm font-bold shadow-md">
                   <MessageCircle size={17} /> Confirm on WhatsApp
                 </a>
                 <a href={`tel:${phoneDigits}`} className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-5 py-3 font-body text-sm font-bold text-foreground hover:border-brand-gold/50">
@@ -211,6 +247,23 @@ const TourDetail = () => {
               </div>
             </div>
           </div>
+        </div>
+        {/* Mobile Sticky Booking Bar */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-neutral-200/80 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-3">
+          <div>
+            <p className="font-body text-[11px] text-neutral-500 font-medium">Estimated Total ({persons} {persons === 1 ? 'Guest' : 'Guests'})</p>
+            <p className="font-body text-base font-bold text-slate-900">
+              {total > 0 ? `₹${total.toLocaleString('en-IN')}` : 'On Confirmation'}
+            </p>
+          </div>
+          <a
+            href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappMessage)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-emerald inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl shadow-sm"
+          >
+            <MessageCircle size={15} /> Confirm on WhatsApp
+          </a>
         </div>
       </div>
     </div>
