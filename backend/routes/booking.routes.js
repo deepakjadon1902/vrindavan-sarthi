@@ -11,6 +11,8 @@ const Tour = require('../models/Tour');
 const User = require('../models/User');
 const { protect, optionalProtect, authorize } = require('../middleware/auth');
 const { qrVerificationRateLimiter } = require('../middleware/rateLimit');
+const { recordBookingAudit } = require('../utils/bookingAudit');
+
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
 const { generateBookingInvoicePdf } = require('../utils/customerMessages');
 const { getNextBookingId, deriveStableNumericId } = require('../utils/idAllocation');
@@ -1132,6 +1134,144 @@ router.post('/:id/refund', protect, authorize('admin'), async (req, res) => {
   }
 });
 
+
+// Authenticated role-based QR booking lookup for partners and admins
+router.get('/qr-lookup/:ref', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const rawRef = String(req.params.ref || '').trim();
+    if (!rawRef) {
+      return res.status(400).json({ success: false, message: 'Booking reference is required' });
+    }
+
+    // Support full scanned URL (e.g. https://domain/verify-booking?ref=VS-12345)
+    let parsedRef = rawRef;
+    if (rawRef.includes('?')) {
+      try {
+        const queryPart = rawRef.split('?')[1];
+        const params = new URLSearchParams(queryPart);
+        parsedRef = params.get('ref') || params.get('id') || params.get('bookingId') || rawRef;
+      } catch {
+        parsedRef = rawRef;
+      }
+    } else if (rawRef.includes('/verify-booking/')) {
+      parsedRef = rawRef.split('/verify-booking/')[1] || rawRef;
+    }
+    parsedRef = String(parsedRef).trim();
+
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(parsedRef);
+    const query = isObjectId
+      ? { $or: [{ _id: parsedRef }, { bookingId: parsedRef }, { displayBookingId: parsedRef }] }
+      : { $or: [{ bookingId: parsedRef }, { displayBookingId: parsedRef }] };
+
+    const booking = await Booking.findOne(query).lean();
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found for reference: ' + parsedRef });
+    }
+
+    // Partner Authorization Guard: Must belong to authenticated partner
+    if (req.user.role === 'partner') {
+      if (!booking.partnerId || String(booking.partnerId) !== String(req.user._id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not authorized to access this booking. It belongs to another property partner.',
+        });
+      }
+    }
+
+    let hotel = null;
+    if (booking.hotelId) {
+      hotel = await Hotel.findById(booking.hotelId)
+        .select('name fullAddress address location contactPhone partnerPhone nearestTemple')
+        .lean();
+    }
+
+    const propertyName = booking.propertyName || hotel?.name || String(booking.itemName || '').split(' - ')[0] || 'Property';
+    const roomType = String(booking.itemName || '').includes(' - ') ? String(booking.itemName).split(' - ')[1] : String(booking.itemName || 'Standard Room');
+    const roomNumber = booking.roomNumber || (Array.isArray(booking.roomNumbers) && booking.roomNumbers.length ? booking.roomNumbers.join(', ') : null);
+
+    // Authoritative Financial Reconciliation
+    const totalAmount = Math.round(Number(booking.totalAmount || 0));
+    const amountPaidOnline = Math.max(0, Math.round(Number(booking.amountPaidOnline || booking.advanceAmount || (booking.paymentStatus === 'paid' ? booking.totalAmount : 0))));
+    const amountPaidToProperty = Math.max(0, Math.round(Number(booking.amountPaidToProperty || 0)));
+
+    let expectedPropertyPayable = 0;
+    if (booking.paymentOption === 'advance_30') {
+      expectedPropertyPayable = Math.max(0, Math.round(totalAmount - amountPaidOnline));
+    } else if (Number(booking.amountPayableAtProperty || 0) > 0) {
+      expectedPropertyPayable = Math.max(0, Math.round(Number(booking.amountPayableAtProperty) + amountPaidToProperty));
+    }
+
+    const remainingPropertyBalance = Math.max(0, Math.round(expectedPropertyPayable - amountPaidToProperty));
+    const bookingStatus = String(booking.bookingStatus || '');
+    const isEligibleForCheckIn = ['confirmed'].includes(bookingStatus);
+    const isEligibleForPaymentCollection = remainingPropertyBalance > 0 && ['confirmed', 'checked_in'].includes(bookingStatus);
+
+    void recordBookingAudit({
+      action: 'qr_scan_lookup',
+      booking,
+      req,
+      metadata: { rawRef, parsedRef },
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        id: String(booking._id),
+        bookingId: booking.bookingId || String(booking._id),
+        displayBookingId: booking.displayBookingId || null,
+        bookingStatus,
+        paymentStatus: booking.paymentStatus,
+        bookingType: booking.bookingType,
+        service_billing_model: booking.service_billing_model,
+        propertyName,
+        roomType,
+        roomNumber,
+        propertyLocation: booking.propertyLocation || hotel?.location || hotel?.fullAddress || '',
+        guestName: booking.customerFullName || booking.userName || 'Guest Devotee',
+        guestPhone: booking.customerMobile || booking.userPhone || '',
+        guestEmail: booking.customerEmail || booking.userEmail || '',
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        checkInTime: booking.checkInTime || '12:00 PM',
+        guests: booking.guests || ((booking.totalAdults || 1) + (booking.totalChildren || 0)),
+        totalAdults: booking.totalAdults || 1,
+        totalChildren: booking.totalChildren || 0,
+        totalAmount,
+        amountPaidOnline,
+        amountPaidToProperty,
+        remainingPropertyBalance,
+        isEligibleForCheckIn,
+        isEligibleForPaymentCollection,
+        checkedInAt: booking.checkedInAt || null,
+        checkedInByPartnerName: booking.checkedInByPartnerName || null,
+        balanceCollections: (booking.balanceCollections || []).map((c) => ({
+          amount: c.amount,
+          collectedAt: c.collectedAt,
+          collectedByName: c.collectedByName,
+          paymentMethod: c.paymentMethod,
+          receiptNumber: c.receiptNumber,
+          notes: c.notes,
+        })),
+      },
+    });
+  } catch (err) {
+    console.error('[booking.qr_lookup.error]', err?.stack || err?.message || err);
+    return res.status(500).json({ success: false, message: 'Failed to look up booking via QR' });
+  }
+});
+
+function maskGuestName(name) {
+  if (!name) return 'Guest Devotee';
+  const str = String(name).trim();
+  const parts = str.split(/\s+/);
+  return parts
+    .map((p) => {
+      if (p.length <= 2) return p[0] + '*';
+      return p[0] + '*'.repeat(Math.max(1, p.length - 2)) + p[p.length - 1];
+    })
+    .join(' ');
+}
+
 // Public, non-sensitive booking verification endpoint for QR code voucher scans
 router.get('/verify/:bookingId', qrVerificationRateLimiter, async (req, res) => {
   try {
@@ -1183,7 +1323,7 @@ router.get('/verify/:bookingId', qrVerificationRateLimiter, async (req, res) => 
         checkOut: booking.checkOut,
         checkInTime: booking.checkInTime || '12:00 PM',
         guests: booking.guests || ((booking.totalAdults || 1) + (booking.totalChildren || 0)),
-        guestName: booking.customerFullName || booking.userName || 'Guest Devotee',
+        guestName: maskGuestName(booking.customerFullName || booking.userName),
         totalAmount: booking.totalAmount,
         amountPaidOnline: booking.amountPaidOnline,
         amountPayableAtProperty: booking.amountPayableAtProperty,
@@ -1857,6 +1997,92 @@ router.put('/:id/no-show-review', protect, authorize('admin'), async (req, res) 
   }
 });
 
+
+// Unified check-in action for authorized admin and partner
+router.put('/:id/check-in', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const query = req.user.role === 'admin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, partnerId: req.user._id };
+
+    const booking = await Booking.findOne(query);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found or not authorized' });
+    }
+
+    if (booking.bookingStatus === 'checked_in') {
+      return res.status(409).json({
+        success: false,
+        message: 'Guest is already checked in.',
+        code: 'ALREADY_CHECKED_IN',
+        checkedInAt: booking.checkedInAt,
+      });
+    }
+
+    const ineligibleStatuses = ['cancelled', 'expired', 'payment_failed', 'rejected_by_property', 'checked_out', 'completed', 'settled'];
+    if (ineligibleStatuses.includes(booking.bookingStatus)) {
+      return res.status(409).json({
+        success: false,
+        message: `Check-in is not permitted for booking in '${booking.bookingStatus}' status.`,
+        code: 'INVALID_BOOKING_STATE',
+      });
+    }
+
+    if (booking.bookingStatus !== 'confirmed') {
+      return res.status(409).json({
+        success: false,
+        message: `Only confirmed bookings may be checked in. Current status: ${booking.bookingStatus}`,
+        code: 'INVALID_BOOKING_STATE',
+      });
+    }
+
+    if (!['hotel', 'room', 'room_type'].includes(String(booking.bookingType || ''))) {
+      return res.status(400).json({ success: false, message: 'Check-in is only available for lodging bookings' });
+    }
+
+    const beforeState = { bookingStatus: booking.bookingStatus, payout_status: booking.payout_status };
+    const checkedInAt = new Date();
+
+    await transitionBookingStatus(booking, 'checked_in', {
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      reason: 'qr_scanner_guest_check_in',
+    });
+
+    booking.payout_status = 'checked_in';
+    booking.checkedInAt = checkedInAt;
+    booking.checkedInByPartnerId = req.user._id;
+    booking.checkedInByPartnerName = req.user.name;
+    await booking.save();
+
+    const afterState = { bookingStatus: booking.bookingStatus, payout_status: booking.payout_status, checkedInAt };
+
+    await recordBookingAudit({
+      action: 'guest_check_in',
+      booking,
+      req,
+      beforeState,
+      afterState,
+      metadata: { method: 'qr_scanner' },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Guest successfully checked in.',
+      data: {
+        id: String(booking._id),
+        bookingId: booking.bookingId,
+        bookingStatus: booking.bookingStatus,
+        checkedInAt: booking.checkedInAt,
+        checkedInByPartnerName: booking.checkedInByPartnerName,
+      },
+    });
+  } catch (err) {
+    console.error('[booking.checkin.error]', err?.stack || err?.message || err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Check-in failed' });
+  }
+});
+
 // Balance collection endpoint with duplicate prevention and excess-collection safeguard
 router.put('/:id/collect-balance', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
@@ -1890,9 +2116,21 @@ router.put('/:id/collect-balance', protect, authorize('admin', 'partner'), async
     let expectedBalance = 0;
     if (booking.paymentOption === 'advance_30') {
       expectedBalance = Math.max(0, Math.round(Number(booking.totalAmount || 0) - Number(booking.amountPaidOnline || booking.advanceAmount || 0)));
+    } else if (Number(booking.amountPayableAtProperty || 0) > 0) {
+      expectedBalance = Math.max(0, Math.round(Number(booking.amountPayableAtProperty) + Number(booking.amountPaidToProperty || 0)));
     }
 
     const priorCollected = Number(booking.amountPaidToProperty || 0);
+    const remainingBalance = Math.max(0, expectedBalance - priorCollected);
+
+    if (amountCollected > remainingBalance) {
+      return res.status(400).json({
+        success: false,
+        message: `Amount collected (₹${amountCollected}) exceeds remaining balance at property (₹${remainingBalance}).`,
+        remainingBalance,
+      });
+    }
+
     const newTotalCollected = priorCollected + amountCollected;
 
     booking.amountPaidToProperty = newTotalCollected;
@@ -1943,6 +2181,17 @@ router.put('/:id/collect-balance', protect, authorize('admin', 'partner'), async
     });
 
     await booking.save();
+
+    await recordBookingAudit({
+      action: 'property_payment_collected',
+      booking,
+      req,
+      idempotencyKey,
+      beforeState: { amountPaidToProperty: priorCollected, balanceAmount: remainingBalance },
+      afterState: { amountPaidToProperty: newTotalCollected, balanceAmount: booking.balanceAmount },
+      metadata: { amountCollected, paymentMethod: req.body?.paymentMethod || 'cash', receiptNumber: req.body?.receiptNumber },
+    });
+
     res.json({
       success: true,
       data: booking,
