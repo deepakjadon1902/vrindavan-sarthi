@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, LogOut, Menu, X, ClipboardList, CreditCard, Car,
-  Bell, UserCog, Landmark, ShieldCheck, FileText, CalendarDays,
+  Bell, UserCog, Landmark, ShieldCheck, FileText, CalendarDays, QrCode,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
@@ -18,6 +18,7 @@ const sidebarLinks = [
   { name: 'Rates', path: '/partner/rates', icon: CalendarDays },
   { name: 'Availability Calendar', path: '/partner/availability', icon: CalendarDays },
   { name: 'Bookings', path: '/partner/bookings', icon: ClipboardList },
+  { name: 'Scan & Check-in', path: '/partner/scan', icon: QrCode },
   { name: 'Payments', path: '/partner/payments', icon: CreditCard },
   { name: 'Bank Details', path: '/partner/bank-details', icon: Landmark },
   { name: 'Partner T&C', path: '/partner/terms', icon: FileText },

@@ -79,6 +79,7 @@ const PartnerBankDetails = lazy(() => import("@/pages/partner/PartnerBankDetails
 const PartnerProfileSettings = lazy(() => import("@/pages/partner/PartnerProfileSettings"));
 const PartnerCommunications = lazy(() => import("@/pages/partner/PartnerCommunications"));
 const PartnerTermsPdf = lazy(() => import("@/pages/partner/PartnerTermsPdf"));
+const PartnerQRScannerPage = lazy(() => import("@/pages/partner/PartnerQRScannerPage"));
 
 const queryClient = new QueryClient();
 
@@ -190,6 +191,7 @@ const App = () => {
                 <Route path="availability" element={<PartnerAvailabilityCalendar />} />
                 <Route path="listings" element={<Navigate to="/partner/availability" replace />} />
                 <Route path="bookings" element={<PartnerBookings />} />
+                <Route path="scan" element={<PartnerQRScannerPage />} />
                 <Route path="payments" element={<PartnerPayments />} />
                 <Route path="bank-details" element={<PartnerBankDetails />} />
                 <Route path="terms" element={<PartnerTermsPdf />} />
@@ -209,6 +211,7 @@ const App = () => {
                 <Route path="partners" element={<ManagePartners />} />
                 <Route path="partner-requests" element={<ManagePartnerRequests />} />
                 <Route path="bookings" element={<ManageBookings />} />
+                <Route path="scan" element={<PartnerQRScannerPage isAdmin />} />
                 <Route path="payments" element={<AdminPayments />} />
                 <Route path="partner-payouts" element={<AdminPartnerPayouts />} />
                 <Route path="operations" element={<AdminOperations />} />

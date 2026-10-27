@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { CheckCircle2, ShieldCheck, MapPin, Calendar, Clock, Home, AlertCircle, Phone, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, MapPin, Calendar, Clock, Home, AlertCircle, Phone, ArrowLeft, QrCode } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 
 interface VerifiedVoucher {
@@ -42,6 +43,7 @@ const formatDate = (val?: string) => {
 };
 
 export default function VerifyBooking() {
+  const { user } = useAuthStore();
   const [searchParams] = useSearchParams();
   const ref = searchParams.get('ref') || searchParams.get('id') || searchParams.get('bookingId') || '';
   const [voucher, setVoucher] = useState<VerifiedVoucher | null>(null);
@@ -159,6 +161,25 @@ export default function VerifyBooking() {
                     <span>Landmark: {voucher.nearestTemple}</span>
                   </div>
                 )}
+              </div>
+
+                            {/* Partner / Admin Fast Link to Desk */}
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800 shrink-0">
+                    <QrCode className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-emerald-950">Property Partner / Staff Desk Access</p>
+                    <p className="text-[11px] text-emerald-700">Open in authenticated Desk Scanner to verify identity, complete check-in, and collect property balance.</p>
+                  </div>
+                </div>
+                <Link
+                  to={user?.role === 'admin' ? `/admin/scan?ref=${encodeURIComponent(voucher.bookingId)}` : `/partner/scan?ref=${encodeURIComponent(voucher.bookingId)}`}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
+                >
+                  Open Desk Scanner →
+                </Link>
               </div>
 
               {/* Stay Dates Grid */}

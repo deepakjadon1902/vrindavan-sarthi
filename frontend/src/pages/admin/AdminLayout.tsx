@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, Car, Map, ClipboardList,
   Users, LogOut, Menu, X, Handshake, Settings, CreditCard,
-  Landmark, UserCheck, Activity, Network, CalendarDays,
+  Landmark, UserCheck, Activity, Network, CalendarDays, QrCode,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -24,6 +24,7 @@ const sidebarLinks = [
   { name: 'Partners', path: '/admin/partners', icon: UserCheck },
   { name: 'Listing Requests', path: '/admin/partner-requests', icon: Handshake },
   { name: 'Bookings', path: '/admin/bookings', icon: ClipboardList },
+  { name: 'Scan & Check-in', path: '/admin/scan', icon: QrCode },
   { name: 'Payments', path: '/admin/payments', icon: CreditCard },
   { name: 'Partner Payouts', path: '/admin/partner-payouts', icon: Landmark },
   { name: 'Operations', path: '/admin/operations', icon: Activity },
