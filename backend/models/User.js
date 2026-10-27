@@ -29,8 +29,8 @@ const defaultPropertyTermsVersionSchema = new mongoose.Schema(
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  phone: { type: String, required: function () { return !this.googleId; } },
-  password: { type: String, required: function () { return !this.googleId; }, select: false },
+  phone: { type: String, required: function () { return !this.googleId && this.authProvider !== 'email_otp' && !this.isGuest; } },
+  password: { type: String, required: function () { return !this.googleId && this.authProvider !== 'email_otp' && !this.isGuest; }, select: false },
   address: {
     street: String,
     city: String,
@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema({
   },
   avatar: String,
   googleId: String,
-  authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
+  authProvider: { type: String, enum: ['local', 'google', 'email_otp'], default: 'local' },
   role: { type: String, enum: ['user', 'admin', 'partner'], default: 'user' },
   isGuest: { type: Boolean, default: false, index: true },
   // Partner fields

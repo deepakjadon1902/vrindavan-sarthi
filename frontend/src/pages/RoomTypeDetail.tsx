@@ -114,6 +114,7 @@ const RoomTypeDetail = () => {
   const [customerFullName, setCustomerFullName] = useState('');
   const [customerMobile, setCustomerMobile] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [customerOrigin, setCustomerOrigin] = useState('');
   const [totalAdults, setTotalAdults] = useState(1);
   const [totalChildren, setTotalChildren] = useState(0);
   const [roomQuantity, setRoomQuantity] = useState(1);
@@ -429,7 +430,10 @@ const RoomTypeDetail = () => {
     if (!checkIn || !checkOut) { toast.error('Please select check-in and check-out dates'); return false; }
     if (checkIn < todayKey) { toast.error('Check-in date cannot be in the past'); return false; }
     if (checkOut <= checkIn) { toast.error('Check-out must be after check-in'); return false; }
-    if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim()) { toast.error('Please fill your name, mobile and email'); return false; }
+    if (!customerFullName.trim() || !customerMobile.trim() || !customerEmail.trim() || !customerOrigin.trim()) {
+      toast.error('Please fill your name, mobile, email, and city of origin');
+      return false;
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) { toast.error('Please enter a valid email address'); return false; }
     const mobileDigits = customerMobile.replace(/\D/g, '');
     if (mobileDigits.length < 7 || mobileDigits.length > 15) { toast.error('Please enter a valid mobile number'); return false; }
@@ -456,6 +460,7 @@ const RoomTypeDetail = () => {
       customerFullName,
       customerMobile,
       customerEmail,
+      customerOrigin,
       totalAdults,
       totalChildren,
       guestDetails: [],
@@ -957,6 +962,7 @@ const RoomTypeDetail = () => {
                       <input value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="Mobile Number" className={inputCls} />
                       <input value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="Email" className={inputCls} />
                     </div>
+                    <input value={customerOrigin} onChange={(e) => setCustomerOrigin(e.target.value)} placeholder="Origin / City of Departure (e.g. New Delhi, Jaipur, Mumbai)" className={inputCls} />
                     {!isAuthenticated && (
                       <p className="rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2 text-[11px] leading-5 text-amber-800">
                         Booking as a guest. You will receive a secure direct link to track your reservation. Creating an account with a custom password is fully optional.

@@ -112,6 +112,17 @@ export interface Booking {
   customerFullName?: string;
   customerMobile?: string;
   customerEmail?: string;
+  customerOrigin?: string;
+  balanceCollections?: Array<{
+    collectedAt?: string;
+    amount: number;
+    collectedBy?: string;
+    collectedByName?: string;
+    paymentMethod?: string;
+    receiptNumber?: string;
+    notes?: string;
+    idempotencyKey?: string;
+  }>;
   arrivalMode?: 'personal_vehicle' | 'transport';
   vehicleNumber?: string;
   arrivalTime?: string;
@@ -279,6 +290,19 @@ const normalizeBooking = (b: unknown): Booking => {
     customerFullName: getString(obj, 'customerFullName') || undefined,
     customerMobile: getString(obj, 'customerMobile') || undefined,
     customerEmail: getString(obj, 'customerEmail') || undefined,
+    customerOrigin: getString(obj, 'customerOrigin') || undefined,
+    balanceCollections: Array.isArray(obj.balanceCollections)
+      ? obj.balanceCollections.map((c: any) => ({
+          collectedAt: getString(c, 'collectedAt') || undefined,
+          amount: getNumber(c, 'amount') || 0,
+          collectedBy: getString(c, 'collectedBy') || undefined,
+          collectedByName: getString(c, 'collectedByName') || undefined,
+          paymentMethod: getString(c, 'paymentMethod') || undefined,
+          receiptNumber: getString(c, 'receiptNumber') || undefined,
+          notes: getString(c, 'notes') || undefined,
+          idempotencyKey: getString(c, 'idempotencyKey') || undefined,
+        }))
+      : undefined,
     arrivalMode: (getString(obj, 'arrivalMode') as Booking['arrivalMode']) || undefined,
     vehicleNumber: getString(obj, 'vehicleNumber') || undefined,
     arrivalTime: getString(obj, 'arrivalTime') || undefined,

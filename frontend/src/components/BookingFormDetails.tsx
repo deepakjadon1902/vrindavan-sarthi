@@ -35,10 +35,11 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
       <div className="mt-4 space-y-4">
         <div className="rounded-lg border border-border bg-background/70 p-3 sm:p-4">
           <p className="font-body text-xs font-semibold text-foreground mb-3">Guest Identity Profile</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-6">
             <Field label="Customer name" value={booking.customerFullName || booking.userName} />
             <Field label="Mobile" value={booking.customerMobile || booking.userPhone} />
             <Field label="Email" value={canShowEmail ? maskEmail(booking.customerEmail || booking.userEmail) : 'Hidden'} />
+            <Field label="Origin" value={booking.customerOrigin || 'Not specified'} />
             <Field label="Total guests" value={booking.guests} />
             <Field label="Pet" value={booking.hasPet} />
           </div>

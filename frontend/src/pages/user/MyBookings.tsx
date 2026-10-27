@@ -165,7 +165,10 @@ const MyBookings = () => {
     { label: 'Pending', value: bookings.filter(b => pendingStatuses.has(b.bookingStatus)).length, tone: 'text-brand-saffron' },
     {
       label: 'Total spent',
-      value: bookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + b.totalAmount, 0).toLocaleString('en-IN'),
+      value: bookings
+        .filter((b) => b.paymentStatus === 'paid')
+        .reduce((s, b) => s + (Number(b.amountPaidOnline ?? b.advanceAmount ?? b.totalAmount ?? 0) + Number(b.amountPaidToProperty || 0)), 0)
+        .toLocaleString('en-IN'),
       tone: 'text-brand-crimson',
       currency: true,
     },

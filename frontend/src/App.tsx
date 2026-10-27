@@ -64,6 +64,7 @@ const ManageProducts = lazy(() => import("@/pages/admin/ManageProducts"));
 const AdminOrders = lazy(() => import("@/pages/admin/AdminOrders"));
 const ManageUsers = lazy(() => import("@/pages/admin/ManageUsers"));
 const ManagePartnerRequests = lazy(() => import("@/pages/admin/ManagePartnerRequests"));
+const AdminNotifications = lazy(() => import("@/pages/admin/AdminNotifications"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 
 const PartnerLayout = lazy(() => import("@/pages/partner/PartnerLayout"));
@@ -210,6 +211,7 @@ const App = () => {
                 <Route path="tours" element={<ManageTours />} />
                 <Route path="partners" element={<ManagePartners />} />
                 <Route path="partner-requests" element={<ManagePartnerRequests />} />
+                <Route path="notifications" element={<AdminNotifications />} />
                 <Route path="bookings" element={<ManageBookings />} />
                 <Route path="scan" element={<PartnerQRScannerPage isAdmin />} />
                 <Route path="payments" element={<AdminPayments />} />

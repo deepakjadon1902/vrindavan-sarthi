@@ -111,6 +111,7 @@ const bookingSchema = new mongoose.Schema({
   customerFullName: String,
   customerMobile: String,
   customerEmail: String,
+  customerOrigin: String,
 
   arrivalMode: { type: String, enum: ['personal_vehicle', 'transport'], default: null },
   vehicleNumber: String,

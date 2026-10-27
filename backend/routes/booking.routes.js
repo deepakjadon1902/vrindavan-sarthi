@@ -66,6 +66,7 @@ const {
   getGuestAccessTokenFromRequest,
   hashGuestAccessToken,
   isGuestTokenExpired,
+  linkCustomerGuestBookings,
 } = require('../utils/guestBookingAccess');
 const {
   getScheduledCheckInDateTime,
@@ -218,11 +219,11 @@ const enqueueBookingNotifications = async (booking, { invoice = false, partnerAl
 
 const bookingDetailFields = [
   'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone isGuestBooking partnerId partnerName partnerPhone partnerEmail partnerWhatsapp',
-  'service_billing_model propertyType paymentMode propertyPaymentChoice dharamshalaAmount vrindavanSarthiServiceFee amountPaidOnline amountPayableAtProperty amountPaidToProperty requestExpiresAt propertyRespondedAt propertyDecisionRole propertyDecisionReason',
+  'service_billing_model propertyType paymentMode propertyPaymentChoice dharamshalaAmount vrindavanSarthiServiceFee amountPaidOnline amountPayableAtProperty amountPaidToProperty balanceCollections requestExpiresAt propertyRespondedAt propertyDecisionRole propertyDecisionReason',
   'hotelId roomTypeId ratePlanId ratePlanName ratePlanCode ratePlanMealPlan nightlyBreakdown roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
   'assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail',
-  'displayBookingId propertyId categoryId roomId customerFullName customerMobile customerEmail arrivalMode vehicleNumber arrivalTime',
+  'displayBookingId propertyId categoryId roomId customerFullName customerMobile customerEmail customerOrigin arrivalMode vehicleNumber arrivalTime',
   'totalAdults totalChildren hasPet guestDetails',
   'baseAmount taxPercent taxAmount checkoutSubtotal convenienceFeePercent convenienceFeeAmount totalAmount advanceAmount balanceAmount advancePercent paymentOption',
   'base_amount hotel_gst_amount convenience_fee customer_total advance_paid balance_at_property commission_rate commission_amount payment_gateway_fee gross_for_hotel hotel_net_payout payout_status hotel_gstin hotel_invoice_number',
@@ -627,6 +628,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       customerFullName,
       customerMobile,
       customerEmail,
+      customerOrigin: String(req.body?.customerOrigin || req.body?.origin || '').trim() || undefined,
       arrivalMode: req.body?.arrivalMode || null,
       vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
       arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
@@ -732,6 +734,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
         customerFullName,
         customerMobile,
         customerEmail,
+        customerOrigin: String(req.body?.customerOrigin || req.body?.origin || '').trim() || undefined,
         arrivalMode: req.body?.arrivalMode || null,
         vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
         arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
@@ -829,6 +832,7 @@ router.post('/', protect, async (req, res) => {
         'customerFullName',
         'customerMobile',
         'customerEmail',
+        'customerOrigin',
         'additionalInfo',
         'upiTransactionId',
         'paymentProvider',
@@ -870,6 +874,7 @@ router.post('/', protect, async (req, res) => {
 router.get('/my', protect, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
+    await linkCustomerGuestBookings({ userId: req.user._id, email: req.user.email, userName: req.user.name });
     await repairPaidAwaitingCustomerPaymentBookings();
     const limitRaw = Number(req.query?.limit || 0);
     const skipRaw = Number(req.query?.skip || 0);

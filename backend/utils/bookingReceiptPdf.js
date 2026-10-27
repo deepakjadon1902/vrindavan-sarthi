@@ -631,7 +631,7 @@ class ReferenceMatchedPdfBuilder {
     const qrTextX = qrX + qrSize + 8;
     this.text('Scan to Verify', qrTextX, barY + 36, { size: 7.8, font: 'F2', color: COLORS.slateBlue });
     this.text('Booking Voucher', qrTextX, barY + 24, { size: 7, font: 'F1', color: COLORS.muted });
-    const qrRefLabel = identifiers.displayBookingId ? `ID: ${identifiers.displayBookingId}` : `Ref: ${identifiers.canonicalBookingId}`;
+    const qrRefLabel = `ID: ${verifyRef}`;
     this.text(qrRefLabel, qrTextX, barY + 12, { size: 6.2, font: 'F2', color: COLORS.navy });
 
     // =========================================================================
@@ -710,18 +710,10 @@ class ReferenceMatchedPdfBuilder {
       }
       currentY -= 16;
 
-      // 4. Physical Room & Room ID / Allocation Status
-      if (identifiers.roomNumber || identifiers.roomId) {
-        let roomLabel = '';
-        if (identifiers.roomNumber && identifiers.roomId) {
-          roomLabel = identifiers.roomNumber === identifiers.roomId
-            ? `Room ID: ${identifiers.roomId}`
-            : `Room No. ${identifiers.roomNumber} | Room ID: ${identifiers.roomId}`;
-        } else if (identifiers.roomId) {
-          roomLabel = `Room ID: ${identifiers.roomId}`;
-        } else {
-          roomLabel = `Room No. ${identifiers.roomNumber}`;
-        }
+      // 4. Room ID / Allocation Status (Do NOT display "Room No." anywhere on invoice)
+      const assignedRoomId = identifiers.roomId || identifiers.roomNumber;
+      if (assignedRoomId) {
+        const roomLabel = `Room ID: ${assignedRoomId}`;
         this.badge(roomLabel, this.margin + 12, currentY, {
           bg: COLORS.greenBg,
           border: COLORS.greenBorder,
@@ -732,7 +724,7 @@ class ReferenceMatchedPdfBuilder {
           padY: 2,
         });
       } else {
-        this.badge('Room: Allocated at Check-in', this.margin + 12, currentY, {
+        this.badge('Room ID: Allocated at Check-in', this.margin + 12, currentY, {
           bg: COLORS.ivoryBg,
           border: COLORS.border,
           textCol: COLORS.muted,
@@ -744,25 +736,40 @@ class ReferenceMatchedPdfBuilder {
       }
       currentY -= 17;
 
-      // 5. Full Available Address with Red Pin
-      const fullLoc = identifiers.fullAddress || identifiers.location || 'Govardhan, Mathura, Uttar Pradesh 281502';
+      // 5. Complete Property Address (using stored property details, clean fallback)
+      const propAddress = identifiers.fullAddress || identifiers.location || 'Address: Not provided';
       this.drawPinIcon(this.margin + 12, currentY - 1, 8, COLORS.crimson);
-      const addrLines = wrapText(fullLoc, colLeftW - 36, 8, 'F1');
+      const addrLines = wrapText(propAddress, colLeftW - 36, 8, 'F1');
       addrLines.slice(0, 2).forEach((line, idx) => {
         this.text(line, this.margin + 24, currentY - idx * 10, { size: 8, font: 'F1', color: COLORS.slateBlue });
       });
       currentY -= (addrLines.slice(0, 2).length * 10 + 2);
 
-      // 6. Landmark / Nearest Temple
+      // 6. Google Maps location link directly below the address
+      const mapLocationLink = identifiers.googleMapLink || (identifiers.fullAddress || identifiers.location
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${identifiers.propertyName}, ${identifiers.fullAddress || identifiers.location}`)}`
+        : null);
+      if (mapLocationLink) {
+        this.drawPinIcon(this.margin + 12, currentY - 1, 8, COLORS.crimson);
+        this.link('View on Google Maps ->', mapLocationLink, this.margin + 24, currentY, {
+          size: 7.8,
+          font: 'F2',
+          color: COLORS.blueText,
+        });
+        currentY -= 12;
+      }
+
+      // 7. Landmark / Nearest Temple (if genuinely available)
       if (identifiers.nearestTemple) {
         this.drawPinIcon(this.margin + 12, currentY - 1, 8, COLORS.crimson);
         this.text(`Near ${identifiers.nearestTemple}`, this.margin + 24, currentY, { size: 8, font: 'F1', color: COLORS.slateBlue });
         currentY -= 12;
       }
 
-      // 7. Reception Phone
+      // 8. Property Reception Contact Number
       this.drawPhoneIcon(this.margin + 12, currentY - 1, 8, COLORS.crimson);
-      this.text(`Reception Phone: +91 ${propPhone}`, this.margin + 24, currentY, { size: 8.2, font: 'F2', color: COLORS.crimson });
+      const receptionPhone = identifiers.partnerPhone ? `+91 ${identifiers.partnerPhone}` : 'Not provided';
+      this.text(`Reception Phone: ${receptionPhone}`, this.margin + 24, currentY, { size: 8.2, font: 'F2', color: COLORS.crimson });
 
       // Bottom 3-box stay grid (Check-in, Check-out, Duration/Guests)
       const gridBoxY = mainY + 14;
@@ -977,12 +984,31 @@ class ReferenceMatchedPdfBuilder {
     this.text('Email :', this.margin + 380, guestY + 26, { size: 8.5, font: 'F2', color: COLORS.muted });
     this.text(gEmail, this.margin + 418, guestY + 26, { size: 9, font: 'F1', color: COLORS.navyDark });
 
-    // Row 2: Location
-    this.text('Origin     :', this.margin + 12, guestY + 11, { size: 8.5, font: 'F2', color: COLORS.muted });
-    this.text(`${city}, ${state}`, this.margin + 74, guestY + 11, { size: 9, font: 'F1', color: COLORS.navyDark });
+    // Row 2: Origin & Destination
+    const originVal = clean(booking.customerOrigin || booking.origin || '');
+    const originDisplay = originVal || 'Not provided';
+
+    const deriveDestination = () => {
+      if (identifiers.location && identifiers.location.trim()) {
+        return identifiers.location.trim();
+      }
+      if (identifiers.fullAddress && identifiers.fullAddress.trim()) {
+        const addr = identifiers.fullAddress.trim();
+        const match = addr.match(/\b(Vrindavan|Govardhan|Mathura|Barsana|Nandgaon|Gokul|Radha\s*Kund|Braj)\b/i);
+        if (match) {
+          return `${match[1]}, Braj Dham`;
+        }
+        return addr.split(',').slice(-2).join(', ').trim() || 'Braj Dham';
+      }
+      return 'Vrindavan / Braj Dham';
+    };
+    const destinationDisplay = deriveDestination();
+
+    this.text('Origin      :', this.margin + 12, guestY + 11, { size: 8.5, font: 'F2', color: COLORS.muted });
+    this.text(originDisplay, this.margin + 74, guestY + 11, { size: 9, font: 'F1', color: COLORS.navyDark });
 
     this.text('Destination :', this.margin + 230, guestY + 11, { size: 8.5, font: 'F2', color: COLORS.muted });
-    this.text('Braj Dham (Mathura / Vrindavan / Govardhan)', this.margin + 296, guestY + 11, { size: 8.5, font: 'F1', color: COLORS.slateBlue });
+    this.text(destinationDisplay, this.margin + 296, guestY + 11, { size: 8.5, font: 'F1', color: COLORS.navyDark });
 
     // =========================================================================
     // 5. KEY CONTACTS (Left) vs QUICK ACTIONS (Right) (y = 306 down to 378, Height = 72 pt)
@@ -1129,26 +1155,19 @@ class ReferenceMatchedPdfBuilder {
     const gstText = 'GST No.09HTEPS3784R1ZD';
     this.text(gstText, footAddrX + 38, 68, { size: 8.2, font: 'F2', color: COLORS.crimson });
 
-    // Bottom Contact Row (y = 38): 4 items with circular red icons matching reference
+    // Bottom Contact Row (y = 38): Clean, balanced footer with both official domains once
     const rowY = 38;
-    this.drawRedCircleIcon(36, rowY + 3.5, 'phone');
-    this.text('Helpline: +91 86798 20256', 44, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
+    this.drawRedCircleIcon(28, rowY + 3.5, 'phone');
+    this.text('Helpline: +91 86798 20256', 36, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
 
-    this.drawRedCircleIcon(175, rowY + 3.5, 'mail');
-    this.text('support@vrindavansarthi.in', 183, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
+    this.drawRedCircleIcon(166, rowY + 3.5, 'mail');
+    this.text('support@vrindavansarthi.in', 174, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
 
-    this.drawRedCircleIcon(328, rowY + 3.5, 'globe');
-    this.text('www.vrindavansarthi.in', 336, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
+    this.drawRedCircleIcon(304, rowY + 3.5, 'globe');
+    this.text('www.vrindavansarthi.in', 312, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
 
-    // 4th item: In approved Canva reference authority, www.vrindavansarthi.in appears twice (at x=336 and x=478)
-    if (!context.singleWebsiteFooter) {
-      this.drawRedCircleIcon(470, rowY + 3.5, 'globe');
-      this.text('www.vrindavansarthi.in', 478, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
-    }
-
-    // Decorative Peacock Feathers on footer left and right
-    this.drawPeacockFeather(this.margin + 14, 52, 0.45, 30);
-    this.drawPeacockFeather(rightMargin - 14, 52, 0.45, -30);
+    this.drawRedCircleIcon(436, rowY + 3.5, 'globe');
+    this.text('www.vrindavansarthi.com', 444, rowY, { size: 7.8, font: 'F2', color: COLORS.crimson });
 
     return this.buildOutput(logoData);
   }

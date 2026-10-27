@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
-import { User, Camera, Save, X, Mail, Phone, MapPin, Calendar, Shield, CreditCard, ClipboardList, Edit3, Building2, FileText, Upload } from 'lucide-react';
+import { User, Camera, Save, X, Mail, Phone, MapPin, Calendar, Shield, CreditCard, ClipboardList, Edit3, Building2, FileText, Upload, Lock, KeyRound, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { api, resolveBackendAssetUrl, withAuth } from '@/lib/api';
@@ -45,6 +45,42 @@ const Profile = () => {
   const [editing, setEditing] = useState(false);
   const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType>('aadhar_card');
   const [newDocuments, setNewDocuments] = useState<PartnerDocumentUpload[]>([]);
+  // Password management state
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const { createOrUpdatePassword } = useAuthStore();
+
+  const handleSavePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New password and confirm password do not match');
+      return;
+    }
+    setIsSavingPassword(true);
+    const res = await createOrUpdatePassword({
+      newPassword,
+      currentPassword: user?.hasPassword ? currentPassword : undefined,
+    });
+    setIsSavingPassword(false);
+    if (res.success) {
+      toast.success(res.message || 'Password saved successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowPasswordForm(false);
+      void refreshMe();
+    } else {
+      toast.error(res.error || 'Failed to save password');
+    }
+  };
+
   const [form, setForm] = useState(() => user ? getProfileForm(user) : {
     name: '',
     phone: '',
@@ -287,6 +323,102 @@ NHYtMmgxMnptMC00djJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
                   ))}
                 </div>
               </div>
+
+              {/* Account Security & Password */}
+              <div className="mt-8 pt-6 border-t border-border">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <h4 className="font-heading text-base font-semibold text-foreground flex items-center gap-2">
+                    <Lock size={16} className="text-brand-crimson" /> Account Security & Password
+                  </h4>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-body text-xs font-medium ${
+                    user.hasPassword ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-brand-gold/10 text-brand-gold border border-brand-gold/30'
+                  }`}>
+                    <KeyRound size={12} /> {user.hasPassword ? 'Password Set' : 'OTP Sign-in Active (No Password)'}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl border border-border bg-muted/20">
+                  <p className="font-body text-xs text-muted-foreground">
+                    {user.hasPassword
+                      ? 'Your account has a password configured. You can sign in using your password or fast Email OTP anytime.'
+                      : 'You currently sign in password-free using Email OTP. You can optionally create a password below to enable traditional email/password login as well.'}
+                  </p>
+
+                  {!showPasswordForm ? (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordForm(true)}
+                        className="btn-outline px-4 py-2 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5"
+                      >
+                        <Lock size={13} /> {user.hasPassword ? 'Change Password' : 'Create Optional Password'}
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSavePassword} className="mt-4 space-y-3 pt-3 border-t border-border">
+                      {user.hasPassword && (
+                        <div>
+                          <label className="font-body text-xs text-muted-foreground block mb-1">Current Password</label>
+                          <input
+                            type="password"
+                            required
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="Enter current password"
+                            className="w-full max-w-sm px-3.5 py-2 rounded-lg border border-border bg-background font-body text-xs focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className="font-body text-xs text-muted-foreground block mb-1">New Password (min 6 characters)</label>
+                        <input
+                          type="password"
+                          required
+                          minLength={6}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          className="w-full max-w-sm px-3.5 py-2 rounded-lg border border-border bg-background font-body text-xs focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-body text-xs text-muted-foreground block mb-1">Confirm New Password</label>
+                        <input
+                          type="password"
+                          required
+                          minLength={6}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Re-enter new password"
+                          className="w-full max-w-sm px-3.5 py-2 rounded-lg border border-border bg-background font-body text-xs focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="submit"
+                          disabled={isSavingPassword || !newPassword || newPassword.length < 6}
+                          className="btn-crimson px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
+                        >
+                          {isSavingPassword ? 'Saving...' : user.hasPassword ? 'Update Password' : 'Set Password'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPasswordForm(false);
+                            setCurrentPassword('');
+                            setNewPassword('');
+                            setConfirmPassword('');
+                          }}
+                          className="px-3 py-2 rounded-lg border border-border text-xs text-muted-foreground hover:bg-muted"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+
 
               {user.role === 'partner' && (
                 <>

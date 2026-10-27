@@ -177,7 +177,79 @@ const withGuestAccountReminder = (booking, reminder = null) => {
   return plain;
 };
 
+const linkCustomerGuestBookings = async ({ userId, email, userName }) => {
+  const targetEmail = normalizeEmail(email);
+  if (!userId || !targetEmail) return { linkedCount: 0 };
+
+  try {
+    const escapedEmail = targetEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const emailRegex = new RegExp('^' + escapedEmail + '$', 'i');
+
+    // 1. Find candidate bookings matching the verified email that are still flagged as guest bookings
+    // and not yet assigned to this user (case-insensitive for robust matching).
+    const candidates = await Booking.find({
+      $or: [
+        { customerEmail: emailRegex },
+        { userEmail: emailRegex },
+      ],
+      userId: { $ne: userId },
+      isGuestBooking: true,
+    })
+      .select('_id userId customerEmail userEmail isGuestBooking')
+      .lean();
+
+    if (!candidates || !candidates.length) {
+      return { linkedCount: 0 };
+    }
+
+    // 2. Security guard: Ensure none of these bookings belong to another registered customer
+    // who has isGuest: false and a different verified email.
+    const candidateUserIds = [...new Set(candidates.map((b) => String(b.userId)).filter(Boolean))];
+    const otherRegisteredUsers = await User.find({
+      _id: { $in: candidateUserIds },
+      isGuest: false,
+      email: { $not: emailRegex },
+    })
+      .select('_id')
+      .lean();
+
+    const forbiddenUserIds = new Set(otherRegisteredUsers.map((u) => String(u._id)));
+
+    const eligibleBookingIds = candidates
+      .filter((b) => !forbiddenUserIds.has(String(b.userId)))
+      .map((b) => b._id);
+
+    if (!eligibleBookingIds.length) {
+      return { linkedCount: 0 };
+    }
+
+    // 3. Atomically transfer ownership to the authenticated customer
+    // We preserve isGuestBooking: true and guestAccessTokenHash so existing email voucher links still work.
+    const updateResult = await Booking.updateMany(
+      { _id: { $in: eligibleBookingIds } },
+      {
+        $set: {
+          userId,
+          claimedAt: new Date(),
+          claimedByUserId: userId,
+          customerEmail: targetEmail,
+          userEmail: targetEmail,
+          ...(userName ? { userName } : {}),
+        },
+      }
+    );
+
+    return { linkedCount: updateResult.modifiedCount || 0 };
+  } catch (err) {
+    console.error('[guestBookingAccess.linkCustomerGuestBookings.error]:', err?.message || err);
+    return { linkedCount: 0, error: err?.message };
+  }
+};
+
 module.exports = {
+  linkCustomerGuestBookings,
+  generateGuestAccessToken,
+
   GUEST_TOKEN_EXPIRY_DAYS,
   buildGuestAccountReminder,
   calculateGuestAccessTokenExpiresAt,

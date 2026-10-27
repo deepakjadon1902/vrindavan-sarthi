@@ -20,6 +20,7 @@ const ExternalReservation = require('../models/ExternalReservation');
 const ChannelConnection = require('../models/ChannelConnection');
 const ChannelReconciliation = require('../models/ChannelReconciliation');
 const AuditLog = require('../models/AuditLog');
+const EmailOtp = require('../models/EmailOtp');
 const mongoose = require('mongoose');
 
 const ensureIndexesOnce = (() => {
@@ -30,7 +31,7 @@ const ensureIndexesOnce = (() => {
     if (mongoose.connection.readyState !== 1) return;
     started = true;
 
-    const models = [Hotel, RoomType, RoomUnit, RoomUnitBookingDay, Booking, Cab, Tour, Order, Product, WebhookEvent, RefundOperation, PaymentReconciliation, NotificationDelivery, RatePlan, RateCalendar, ChannelMapping, ChannelSyncOperation, ChannelInboundEvent, ExternalReservation, ChannelConnection, ChannelReconciliation, AuditLog];
+    const models = [Hotel, RoomType, RoomUnit, RoomUnitBookingDay, Booking, Cab, Tour, Order, Product, WebhookEvent, RefundOperation, PaymentReconciliation, NotificationDelivery, RatePlan, RateCalendar, ChannelMapping, ChannelSyncOperation, ChannelInboundEvent, ExternalReservation, ChannelConnection, ChannelReconciliation, AuditLog, EmailOtp];
 
     for (const Model of models) {
       try {

@@ -44,17 +44,43 @@ const AdminPayments = () => {
     razorpayPaymentId?: string;
     date: string;
     source: 'booking' | 'order';
+    totalCost?: number;
+    propertyBalance?: number;
+    paymentContext?: 'online' | 'property';
   };
 
-  const unified: UnifiedPayment[] = [
-    ...allBookings.map((b) => ({
+  const bookingPayments: UnifiedPayment[] = [];
+  allBookings.forEach((b) => {
+    // Authoritative captured / transaction amount:
+    // For paid online bookings, show amountPaidOnline if available, or advanceAmount, or totalAmount.
+    // For pending/failed, show expected online payment amount.
+    let onlineAmount = 0;
+    if (b.paymentStatus === 'paid') {
+      if (typeof b.amountPaidOnline === 'number' && b.amountPaidOnline > 0) {
+        onlineAmount = b.amountPaidOnline;
+      } else if (typeof b.advanceAmount === 'number' && b.advanceAmount > 0) {
+        onlineAmount = b.advanceAmount;
+      } else {
+        onlineAmount = Number(b.totalAmount || 0);
+      }
+    } else {
+      if (typeof b.amountPaidOnline === 'number' && b.amountPaidOnline > 0) {
+        onlineAmount = b.amountPaidOnline;
+      } else if (typeof b.advanceAmount === 'number' && b.advanceAmount > 0) {
+        onlineAmount = b.advanceAmount;
+      } else {
+        onlineAmount = Number(b.totalAmount || 0);
+      }
+    }
+
+    bookingPayments.push({
       recordId: b.id,
       displayId: b.bookingId,
       type: b.bookingType,
       itemName: b.itemName,
       userName: b.userName,
       userPhone: b.userPhone,
-      amount: b.totalAmount,
+      amount: onlineAmount,
       method: b.paymentMethod,
       paymentStatus: b.paymentStatus,
       partnerName: b.partnerName,
@@ -63,7 +89,61 @@ const AdminPayments = () => {
       razorpayPaymentId: b.razorpayPaymentId,
       date: b.createdAt,
       source: 'booking' as const,
-    })),
+      totalCost: b.totalAmount,
+      propertyBalance: b.amountPayableAtProperty,
+      paymentContext: 'online',
+    });
+
+    // Multiple successful payments: desk balance collections at property
+    if (Array.isArray(b.balanceCollections) && b.balanceCollections.length > 0) {
+      b.balanceCollections.forEach((col, idx) => {
+        bookingPayments.push({
+          recordId: `${b.id}-balance-${idx}`,
+          displayId: `${b.bookingId}-P${idx + 1}`,
+          type: b.bookingType,
+          itemName: `${b.itemName} (Property Collection)`,
+          userName: b.userName,
+          userPhone: b.userPhone,
+          amount: Number(col.amount || 0),
+          method: col.paymentMethod || 'cash',
+          paymentStatus: 'paid',
+          partnerName: col.collectedByName || b.partnerName,
+          upiTxnId: col.receiptNumber || undefined,
+          paymentProvider: 'property_counter',
+          razorpayPaymentId: undefined,
+          date: col.collectedAt || b.checkedInAt || b.createdAt,
+          source: 'booking' as const,
+          totalCost: b.totalAmount,
+          propertyBalance: b.amountPayableAtProperty,
+          paymentContext: 'property',
+        });
+      });
+    } else if (Number(b.amountPaidToProperty || 0) > 0) {
+      bookingPayments.push({
+        recordId: `${b.id}-property`,
+        displayId: `${b.bookingId}-PROP`,
+        type: b.bookingType,
+        itemName: `${b.itemName} (Property Collection)`,
+        userName: b.userName,
+        userPhone: b.userPhone,
+        amount: Number(b.amountPaidToProperty),
+        method: 'doorstep',
+        paymentStatus: 'paid',
+        partnerName: b.partnerName,
+        upiTxnId: undefined,
+        paymentProvider: 'property_counter',
+        razorpayPaymentId: undefined,
+        date: b.checkedInAt || b.createdAt,
+        source: 'booking' as const,
+        totalCost: b.totalAmount,
+        propertyBalance: b.amountPayableAtProperty,
+        paymentContext: 'property',
+      });
+    }
+  });
+
+  const unified: UnifiedPayment[] = [
+    ...bookingPayments,
     ...allOrders.map((o) => ({
       recordId: o.id,
       displayId: o.orderId || o.id,
@@ -77,6 +157,7 @@ const AdminPayments = () => {
       upiTxnId: o.upiTransactionId,
       date: o.createdAt,
       source: 'order' as const,
+      totalCost: o.totalAmount,
     })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -201,7 +282,17 @@ const AdminPayments = () => {
                   <td className="px-4 py-3"><span className="font-body text-xs bg-secondary px-2 py-0.5 rounded capitalize">{p.type}</span></td>
                   <td className="px-4 py-3 font-body text-sm font-medium text-foreground max-w-[180px] truncate">{p.itemName}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted-foreground hidden sm:table-cell">{p.userName}</td>
-                  <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">₹{p.amount.toLocaleString('en-IN')}</td>
+                  <td className="px-4 py-3 font-body text-sm font-semibold text-foreground">
+                    <div>₹{p.amount.toLocaleString('en-IN')}</div>
+                    {p.totalCost && p.totalCost !== p.amount ? (
+                      <div className="text-[11px] font-normal text-muted-foreground mt-0.5">
+                        <span>Total: ₹{p.totalCost.toLocaleString('en-IN')}</span>
+                        {typeof p.propertyBalance === 'number' && p.propertyBalance > 0 ? (
+                          <span className="block text-amber-700 font-medium">Bal: ₹{p.propertyBalance.toLocaleString('en-IN')}</span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3">
                     {p.razorpayPaymentId ? (
                       <button onClick={() => setSelectedUpi(p.razorpayPaymentId!)} className="flex items-center gap-1 font-body text-xs text-brand-gold hover:underline">

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const express = require('express');
 const Hotel = require('../models/Hotel');
 const { getNextPropertyId } = require('../utils/idAllocation');
@@ -709,10 +710,97 @@ router.put('/payouts/:partnerId/settled', protect, authorize('admin'), async (re
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
-// Partner: notices and notifications
+// Admin: Searchable recipient registry (properties and registered partners)
+router.get('/recipients', protect, authorize('admin'), async (req, res) => {
+  try {
+    const [partners, hotels] = await Promise.all([
+      User.find({ role: 'partner' })
+        .select('_id name email phone businessName businessType partnerStatus')
+        .sort({ name: 1 })
+        .lean(),
+      Hotel.find({})
+        .select('_id name propertyType propertyId partnerId partnerName partnerEmail partnerPhone address location')
+        .sort({ name: 1 })
+        .lean(),
+    ]);
+
+    const partnerMap = new Map();
+    for (const p of partners) {
+      partnerMap.set(String(p._id), p);
+    }
+
+    const properties = hotels.map((h) => {
+      const assignedPartner = h.partnerId ? partnerMap.get(String(h.partnerId)) : null;
+      return {
+        id: String(h._id),
+        name: h.name,
+        propertyType: h.propertyType || 'hotel',
+        propertyId: h.propertyId || '',
+        location: h.location || '',
+        address: h.address || '',
+        partnerId: h.partnerId ? String(h.partnerId) : null,
+        partnerName: h.partnerName || assignedPartner?.name || assignedPartner?.businessName || '',
+        partnerEmail: h.partnerEmail || assignedPartner?.email || '',
+        partnerPhone: h.partnerPhone || assignedPartner?.phone || '',
+        hasAssignedPartner: Boolean(h.partnerId),
+      };
+    });
+
+    const partnerList = partners.map((p) => ({
+      id: String(p._id),
+      name: p.businessName ? `${p.businessName} (${p.name})` : p.name,
+      contactName: p.name,
+      businessName: p.businessName || '',
+      businessType: p.businessType || 'Partner',
+      email: p.email,
+      phone: p.phone || '',
+      status: p.partnerStatus || 'approved',
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        properties,
+        partners: partnerList,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Notification & Notice dispatch history
+router.get('/notifications/history', protect, authorize('admin'), async (req, res) => {
+  try {
+    const items = await PartnerNotification.find({
+      $or: [
+        { createdByUserId: req.user._id },
+        { audience: { $in: ['all_partners', 'partner'] } },
+      ],
+    })
+      .populate('partnerId', 'name email businessName phone')
+      .populate('hotelId', 'name propertyType propertyId')
+      .populate('createdByUserId', 'name email role')
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json({ success: true, data: items });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Partner: notices (broadcast or specifically targeted to this partner)
 router.get('/notices', protect, authorize('partner'), async (req, res) => {
   try {
-    const notices = await PartnerNotification.find({ type: 'notice', audience: 'all_partners' })
+    const notices = await PartnerNotification.find({
+      type: 'notice',
+      $or: [
+        { audience: 'all_partners' },
+        { audience: 'partner', partnerId: req.user._id },
+        { recipientUserId: req.user._id },
+      ],
+    })
       .sort({ createdAt: -1 })
       .limit(100)
       .lean();
@@ -720,6 +808,7 @@ router.get('/notices', protect, authorize('partner'), async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Partner: notifications (broadcast or specifically targeted to this partner)
 router.get('/notifications', protect, authorize('partner'), async (req, res) => {
   try {
     const notifications = await PartnerNotification.find({
@@ -727,6 +816,7 @@ router.get('/notifications', protect, authorize('partner'), async (req, res) => 
       $or: [
         { audience: 'all_partners' },
         { audience: 'partner', partnerId: req.user._id },
+        { recipientUserId: req.user._id },
       ],
     })
       .sort({ createdAt: -1 })
@@ -736,6 +826,7 @@ router.get('/notifications', protect, authorize('partner'), async (req, res) => 
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Admin: in-system admin notifications
 router.get('/admin-notifications', protect, authorize('admin'), async (req, res) => {
   try {
     const notifications = await PartnerNotification.find({ type: 'notification', audience: 'admin' })
@@ -746,22 +837,139 @@ router.get('/admin-notifications', protect, authorize('admin'), async (req, res)
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
-// Admin: push partner notices/notifications
+// Admin: push partner notices/notifications (supports Broadcast or Targeted Property / Partner)
 router.post('/notifications', protect, authorize('admin'), async (req, res) => {
   try {
     const title = String(req.body?.title || '').trim();
     const message = String(req.body?.message || '').trim();
     const type = String(req.body?.type || 'notification').trim() === 'notice' ? 'notice' : 'notification';
-    if (!title || !message) return res.status(400).json({ success: false, message: 'Title and message are required' });
+    const targetType = String(req.body?.targetType || req.body?.audience || 'all').trim().toLowerCase();
+    const priority = ['normal', 'high', 'critical'].includes(String(req.body?.priority || '').toLowerCase())
+      ? String(req.body.priority).toLowerCase()
+      : 'normal';
+
+    if (!title || !message) {
+      return res.status(400).json({ success: false, message: 'Title and message are required' });
+    }
+
+    // Idempotency / deduplication check
+    const idempotencyKey = String(req.body?.idempotencyKey || req.headers?.['idempotency-key'] || '').trim();
+    if (idempotencyKey) {
+      const existing = await PartnerNotification.findOne({ eventKey: idempotencyKey }).lean();
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          data: existing,
+          idempotent: true,
+          message: 'Notification already submitted (idempotent)',
+        });
+      }
+    }
+
+    let audience = 'all_partners';
+    let partnerId = null;
+    let recipientUserId = null;
+    let hotelId = null;
+    const metadata = {
+      targetType,
+      sentByAdminName: req.user?.name || 'Administrator',
+      sentByAdminEmail: req.user?.email || '',
+    };
+
+    if (targetType === 'all' || targetType === 'all_partners') {
+      audience = 'all_partners';
+      metadata.targetDescription = 'All Registered Partners';
+    } else if (targetType === 'property' || targetType === 'hotel' || targetType === 'dharamshala') {
+      const rawPropertyId = String(req.body?.hotelId || req.body?.propertyId || '').trim();
+      if (!rawPropertyId || !mongoose.Types.ObjectId.isValid(rawPropertyId)) {
+        return res.status(400).json({ success: false, message: 'Valid property ID is required' });
+      }
+
+      const hotel = await Hotel.findById(rawPropertyId).lean();
+      if (!hotel) {
+        return res.status(404).json({ success: false, message: 'Selected property was not found' });
+      }
+      if (!hotel.partnerId) {
+        return res.status(400).json({
+          success: false,
+          message: `The property "${hotel.name}" has no registered partner assigned.`,
+        });
+      }
+
+      const partnerUser = await User.findById(hotel.partnerId).lean();
+      if (!partnerUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'The partner account for this property was not found.',
+        });
+      }
+
+      audience = 'partner';
+      partnerId = partnerUser._id;
+      recipientUserId = partnerUser._id;
+      hotelId = hotel._id;
+      metadata.targetDescription = `${hotel.name} (${hotel.propertyType || 'Property'})`;
+      metadata.propertyName = hotel.name;
+      metadata.propertyType = hotel.propertyType || 'hotel';
+      metadata.propertyId = hotel.propertyId || '';
+      metadata.partnerName = partnerUser.name;
+      metadata.partnerEmail = partnerUser.email;
+      metadata.partnerBusinessName = partnerUser.businessName || '';
+    } else if (targetType === 'partner') {
+      const rawPartnerId = String(req.body?.partnerId || req.body?.recipientUserId || '').trim();
+      if (!rawPartnerId || !mongoose.Types.ObjectId.isValid(rawPartnerId)) {
+        return res.status(400).json({ success: false, message: 'Valid partner ID is required' });
+      }
+
+      const partnerUser = await User.findOne({ _id: rawPartnerId, role: 'partner' }).lean();
+      if (!partnerUser) {
+        return res.status(404).json({ success: false, message: 'Partner account not found' });
+      }
+
+      audience = 'partner';
+      partnerId = partnerUser._id;
+      recipientUserId = partnerUser._id;
+      metadata.targetDescription = partnerUser.businessName
+        ? `${partnerUser.businessName} (${partnerUser.name})`
+        : partnerUser.name;
+      metadata.partnerName = partnerUser.name;
+      metadata.partnerEmail = partnerUser.email;
+      metadata.partnerBusinessName = partnerUser.businessName || '';
+    } else {
+      return res.status(400).json({ success: false, message: `Invalid recipient target type: ${targetType}` });
+    }
+
     const item = await PartnerNotification.create({
+      eventKey: idempotencyKey || undefined,
       title,
       message,
       type,
-      audience: 'all_partners',
+      audience,
+      partnerId: partnerId || undefined,
+      recipientUserId: recipientUserId || undefined,
+      hotelId: hotelId || undefined,
+      metadata,
+      priority,
+      entityType: 'notice',
       createdByUserId: req.user._id,
     });
-    res.status(201).json({ success: true, data: item });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+
+    res.status(201).json({
+      success: true,
+      data: item,
+      message: audience === 'all_partners'
+        ? (type === 'notice' ? 'Broadcast notice published to all partners' : 'Broadcast notification sent to all partners')
+        : (type === 'notice' ? `Notice sent to ${metadata.targetDescription}` : `Notification sent to ${metadata.targetDescription}`),
+    });
+  } catch (err) {
+    if (err?.code === 11000) {
+      const existing = await PartnerNotification.findOne({ eventKey: req.body?.idempotencyKey }).lean();
+      if (existing) {
+        return res.status(200).json({ success: true, data: existing, idempotent: true });
+      }
+    }
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = router;

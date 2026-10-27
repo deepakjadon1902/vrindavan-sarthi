@@ -129,7 +129,8 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
 
     const res = buildBookingReceiptPdf(booking);
     const pdfText = res.buffer.toString('binary');
-    assert.ok(pdfText.includes('Room No. 104 | Room ID: 1004'), 'Must display room number and room ID together');
+    assert.ok(pdfText.includes('Room ID: 1004'), 'Must display Room ID');
+    assert.ok(!pdfText.includes('Room No.'), 'Must NOT display "Room No." anywhere on invoice');
     assert.ok(pdfText.includes('Property ID: 100002'), 'Must display Property ID');
     assert.ok(pdfText.includes('Category ID: 2001'), 'Must display Category ID');
   });
@@ -159,7 +160,8 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
 
     const res = buildBookingReceiptPdf(booking);
     const pdfText = res.buffer.toString('binary');
-    assert.ok(pdfText.includes('Room: Allocated at Check-in'), 'Must display Allocated at Check-in when unallocated');
+    assert.ok(pdfText.includes('Room ID: Allocated at Check-in'), 'Must display Room ID: Allocated at Check-in when unallocated');
+    assert.ok(!pdfText.includes('Room No.'), 'Must NOT display "Room No." anywhere on invoice');
     assert.ok(!pdfText.includes('Room No. undefined'), 'Must not display undefined room number');
     assert.ok(!pdfText.includes('Room ID: null'), 'Must not display null room ID');
   });
@@ -208,8 +210,6 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
       results.forEach((id) => {
         assert.match(id, /^\d{8}$/, 'Each ID must be 8 numeric digits');
       });
-      assert.strictEqual(results[0], '10000001');
-      assert.strictEqual(results[49], '10000050');
     } finally {
       Counter.findByIdAndUpdate = originalFindByIdAndUpdate;
     }
@@ -360,7 +360,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
       const roomType = { _id: '6718a38b2222222222222201', categoryId: '2002', name: 'Deluxe AC' };
 
       const displayBookingId = await getNextBookingId();
-      assert.strictEqual(displayBookingId, '10000101');
+      assert.match(displayBookingId, /^\d{8}$/, 'Must be an 8-digit PNR numeric reference');
       assert.match(displayBookingId, /^\d{8}$/);
 
       const identifiers = resolveReceiptIdentifiers(
@@ -374,7 +374,7 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
         roomType
       );
 
-      assert.strictEqual(identifiers.displayBookingId, '10000101');
+      assert.strictEqual(identifiers.displayBookingId, displayBookingId);
       assert.strictEqual(identifiers.propertyId, '100001');
       assert.strictEqual(identifiers.categoryId, '2002');
       assert.strictEqual(identifiers.canonicalBookingId, 'VVS-REQ-0101');
@@ -405,12 +405,13 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
       };
 
       const identifiers = resolveReceiptIdentifiers(otaBooking);
-      assert.strictEqual(identifiers.displayBookingId, '10000201');
+      assert.strictEqual(identifiers.displayBookingId, displayBookingId);
+      assert.match(displayBookingId, /^\d{8}$/);
       assert.strictEqual(identifiers.canonicalBookingId, 'VVS-2026-98765');
 
       const res = buildBookingReceiptPdf(otaBooking);
       const pdfText = res.buffer.toString('binary');
-      assert.ok(pdfText.includes('10000201'), 'Must include numeric display ID');
+      assert.ok(pdfText.includes(displayBookingId), 'Must include numeric display ID');
       assert.ok(pdfText.includes('Ref: VVS-2026-98765'), 'Must preserve canonical booking ID');
     } finally {
       Counter.findByIdAndUpdate = originalFindByIdAndUpdate;
@@ -598,4 +599,127 @@ test('Receipt Redesign & Numeric ID System Test Suite', async (t) => {
     }
   });
 
+  // 21. Footer cleanup: both official domains once, no duplicates, no decorative stems/feathers
+  await t.test('21. Footer cleanup displays both official domains once and removes decorative feathers', () => {
+    const booking = {
+      bookingId: 'VVS-FOOTER-1',
+      displayBookingId: '69853246',
+      bookingType: 'hotel',
+      itemName: 'Braj Haveli - Deluxe Room',
+      totalAmount: 2000,
+      amountPaidOnline: 2000,
+      paymentStatus: 'paid',
+      bookingStatus: 'confirmed',
+    };
+
+    const res = buildBookingReceiptPdf(booking);
+    const pdfText = res.buffer.toString('binary');
+
+    // Both domains present once each
+    // Check visible footer text Tj operator (each domain rendered once)
+    const textTjIn = (pdfText.match(/\(www\.vrindavansarthi\.in\)\s*Tj/g) || []).length;
+    const textTjCom = (pdfText.match(/\(www\.vrindavansarthi\.com\)\s*Tj/g) || []).length;
+    assert.strictEqual(textTjIn, 1, 'www.vrindavansarthi.in must be rendered in text exactly once');
+    assert.strictEqual(textTjCom, 1, 'www.vrindavansarthi.com must be rendered in text exactly once');
+
+    // Helpline and email preserved
+    assert.ok(pdfText.includes('support@vrindavansarthi.in'), 'Must include support email');
+    assert.ok(pdfText.includes('+91 86798 20256'), 'Must include helpline number');
+    assert.ok(pdfText.includes('GST No.09HTEPS3784R1ZD'), 'Must include GST number');
+  });
+
+  // 22. Accommodation & Stay details: Room ID, complete property address, Google Maps link, reception phone
+  await t.test('22. Accommodation details render Room ID, complete address, Google Maps link, and reception phone', () => {
+    const hotel = {
+      _id: 'hotel-stay-1',
+      propertyId: '100045',
+      name: 'Shree Krishna Seva Sadan',
+      fullAddress: 'Near Danghati Temple, Parikrama Marg, Govardhan, Mathura, UP 281502',
+      googleMapLink: 'https://maps.google.com/?q=Danghati+Temple+Govardhan',
+      partnerPhone: '9876543210',
+    };
+    const roomType = { _id: 'rt-1', categoryId: '2010', name: 'Deluxe AC Room' };
+
+    const booking = {
+      bookingId: 'VVS-STAY-1',
+      displayBookingId: '69853246',
+      bookingType: 'room_type',
+      hotelId: hotel._id,
+      roomNumber: '302',
+      roomId: '1302',
+      totalAmount: 2500,
+      amountPaidOnline: 750,
+      amountPayableAtProperty: 1750,
+      paymentStatus: 'paid',
+      bookingStatus: 'confirmed',
+      checkIn: new Date('2026-11-10'),
+      checkOut: new Date('2026-11-12'),
+    };
+
+    const res = buildBookingReceiptPdf(booking, { hotel, roomType });
+    const pdfText = res.buffer.toString('binary');
+
+    // Room ID displayed, "Room No." NOT displayed anywhere
+    assert.ok(pdfText.includes('Room ID: 1302'), 'Must display Room ID');
+    assert.ok(!pdfText.includes('Room No.'), 'Must NOT display "Room No." anywhere on invoice');
+
+    // Complete property address
+    assert.ok(pdfText.includes('Near Danghati Temple'), 'Must display property address');
+    assert.ok(pdfText.includes('Govardhan, Mathura'), 'Must display property location in address');
+
+    // Google Maps link directly below address
+    assert.ok(pdfText.includes('View on Google Maps ->'), 'Must include Google Maps link text');
+    assert.ok(pdfText.includes('https://maps.google.com/?q=Danghati+Temple+Govardhan'), 'Must include Google Maps URL');
+
+    // Reception phone
+    assert.ok(pdfText.includes('Reception Phone: +91 9876543210'), 'Must display reception phone');
+  });
+
+  // 23. Origin & Destination: customer origin saved & displayed, destination derived from property
+  await t.test('23. Primary & Guest details display saved customer origin and property-derived destination', () => {
+    // Case A: New booking with customer origin
+    const hotelGovardhan = {
+      _id: 'hotel-gov-1',
+      propertyId: '100088',
+      name: 'Giriraj Kripa Dham',
+      location: 'Govardhan, Mathura',
+      fullAddress: 'Radha Kund Road, Govardhan, Uttar Pradesh 281502',
+    };
+    const bookingWithOrigin = {
+      bookingId: 'VVS-ORIGIN-1',
+      displayBookingId: '69853246',
+      bookingType: 'room_type',
+      customerFullName: 'Devotee Sharma',
+      customerOrigin: 'Jaipur, Rajasthan',
+      totalAmount: 1500,
+      amountPaidOnline: 1500,
+      paymentStatus: 'paid',
+      bookingStatus: 'confirmed',
+    };
+
+    const resA = buildBookingReceiptPdf(bookingWithOrigin, { hotel: hotelGovardhan });
+    const textA = resA.buffer.toString('binary');
+    assert.ok(textA.includes('Origin'), 'Must display Origin label');
+    assert.ok(textA.includes('Jaipur, Rajasthan'), 'Must display customer origin');
+    assert.ok(textA.includes('Destination'), 'Must display Destination label');
+    assert.ok(textA.includes('Govardhan, Mathura'), 'Must display destination derived from property location');
+    assert.ok(!textA.includes('Braj Dham (Mathura / Vrindavan / Govardhan)'), 'Must NOT display generic Braj Dham fallback when property location exists');
+
+    // Case B: Older historical booking without origin (clean fallback)
+    const bookingWithoutOrigin = {
+      bookingId: 'VVS-LEGACY-ORIGIN',
+      displayBookingId: '10000099',
+      bookingType: 'room_type',
+      customerFullName: 'Radha Devotee',
+      totalAmount: 1800,
+      amountPaidOnline: 1800,
+      paymentStatus: 'paid',
+      bookingStatus: 'confirmed',
+    };
+
+    const resB = buildBookingReceiptPdf(bookingWithoutOrigin);
+    const textB = resB.buffer.toString('binary');
+    assert.ok(textB.includes('Origin'), 'Must display Origin label');
+    assert.ok(textB.includes('Not provided'), 'Must display "Not provided" fallback for older bookings without origin');
+  });
 });

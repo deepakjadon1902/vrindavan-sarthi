@@ -16,6 +16,9 @@ interface AuthState {
   uploadPartnerDocuments: (documents: Array<{ data: string; name: string; type: NonNullable<PartnerDocument['type']>; mimeType: string }>) => Promise<{ success: boolean; error?: string }>;
   refreshMe: () => Promise<void>;
   completeOAuth: (token: string) => Promise<{ success: boolean; error?: string }>;
+  sendLoginOtp: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  verifyLoginOtp: (email: string, otp: string) => Promise<{ success: boolean; error?: string; user?: User; linkedBookingsCount?: number }>;
+  createOrUpdatePassword: (payload: { newPassword: string; currentPassword?: string }) => Promise<{ success: boolean; error?: string; message?: string }>;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -85,6 +88,7 @@ const mapUser = (u: unknown): User => {
     profilePicture: getString(obj, 'profilePicture') || undefined,
     partnerStatus: normalizedPartnerStatus,
     partnerDocuments: mapPartnerDocuments(obj.partnerDocuments),
+    hasPassword: typeof obj.hasPassword === 'boolean' ? obj.hasPassword : undefined,
     createdAt: getString(obj, 'createdAt') || new Date().toISOString(),
   };
 };
@@ -156,6 +160,54 @@ export const useAuthStore = create<AuthState>()(
           set({ user, isAuthenticated: true });
         } catch {
           set({ user: null, token: null, isAuthenticated: false });
+        }
+      },
+
+      
+      sendLoginOtp: async (email: string) => {
+        try {
+          set({ isLoading: true });
+          const res = await api.post('/auth/send-otp', { email });
+          return { success: true, message: res.data?.message };
+        } catch (err) {
+          return { success: false, error: getApiErrorMessage(err, 'Failed to send verification code') };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      verifyLoginOtp: async (email: string, otp: string) => {
+        try {
+          set({ isLoading: true });
+          const res = await api.post('/auth/verify-otp', { email, otp });
+          const token = res.data?.token;
+          const user = mapUser(res.data?.user);
+          if (token && user) {
+            set({ token, user, isAuthenticated: true, isLoading: false });
+            return { success: true, user, linkedBookingsCount: res.data?.linkedBookingsCount || 0 };
+          }
+          return { success: false, error: 'Authentication failed' };
+        } catch (err) {
+          return { success: false, error: getApiErrorMessage(err, 'Verification failed') };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      createOrUpdatePassword: async (payload: { newPassword: string; currentPassword?: string }) => {
+        const token = get().token;
+        if (!token) return { success: false, error: 'Not authenticated' };
+        try {
+          const res = await api.post('/auth/me/password', payload, withAuth(token));
+          if (res.data?.success) {
+            set((state) => ({
+              user: state.user ? { ...state.user, hasPassword: true } : null,
+            }));
+            return { success: true, message: res.data?.message };
+          }
+          return { success: false, error: res.data?.message || 'Failed to update password' };
+        } catch (err) {
+          return { success: false, error: getApiErrorMessage(err, 'Failed to update password') };
         }
       },
 

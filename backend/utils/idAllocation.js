@@ -46,11 +46,56 @@ async function getNextRoomId(hotelId, physicalRoomNumber = '') {
   return getNextNumericId('room_id_v2', 4, 1000, 9999);
 }
 
+// In-memory allocation cache to protect against duplicate allocation during rapid bursts in-process
+const allocatedRecentBookingIds = new Set();
+
 /**
- * Allocate a globally unique 8-digit Booking ID (e.g. '10000001', '10000002').
+ * Allocate a globally unique 8-digit PNR-style numeric booking reference (e.g. '69853246').
+ * Uses cryptographically secure random integers [10000000..99999999] with
+ * database-backed uniqueness check against Booking records (displayBookingId & bookingId)
+ * and collision handling.
  */
 async function getNextBookingId() {
-  return getNextNumericId('booking_id_v2', 8, 10000000, 99999999);
+  let Booking = null;
+  try {
+    Booking = require('../models/Booking');
+  } catch {
+    Booking = null;
+  }
+
+  const maxAttempts = 30;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Generate secure 8-digit numeric integer: 10000000 to 99999999
+    const candidate = String(crypto.randomInt(10000000, 100000000));
+
+    if (allocatedRecentBookingIds.has(candidate)) {
+      continue;
+    }
+
+    try {
+      if (Booking && typeof Booking.exists === 'function' && Booking.db?.readyState === 1) {
+        const collision = await Booking.exists({
+          $or: [{ displayBookingId: candidate }, { bookingId: candidate }],
+        });
+        if (collision) {
+          continue;
+        }
+      }
+    } catch {
+      // If db check encounters transient error, continue with candidate
+    }
+
+    allocatedRecentBookingIds.add(candidate);
+    if (allocatedRecentBookingIds.size > 2000) {
+      const firstEntry = allocatedRecentBookingIds.values().next().value;
+      allocatedRecentBookingIds.delete(firstEntry);
+    }
+    return candidate;
+  }
+
+  // Fallback to high-entropy numeric offset if retry limit reached
+  const fallback = String(10000000 + Math.floor(Math.random() * 90000000));
+  return fallback;
 }
 
 /**
@@ -111,7 +156,7 @@ function resolveReceiptIdentifiers(booking = {}, hotel = null, roomType = null, 
 
   if (rawRoomNumber && String(rawRoomNumber).trim()) {
     roomNumber = String(rawRoomNumber).trim();
-    if (!roomId && isPureNumeric(roomNumber) && roomNumber.length === 4) {
+    if (!roomId) {
       roomId = roomNumber;
     }
   }

@@ -7,6 +7,8 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const EmailOtp = require('../models/EmailOtp');
+const { linkCustomerGuestBookings, isValidEmail } = require('../utils/guestBookingAccess');
 const { protect } = require('../middleware/auth');
 const { uploadDataUri, isCloudinaryEnabled } = require('../utils/cloudinary');
 const router = express.Router();
@@ -269,7 +271,7 @@ const postJson = (urlString, { headers = {}, body, timeoutMs = 15_000 } = {}) =>
     req.end();
   });
 
-const resendSendEmail = async ({ apiKey, from, to, subject, text }) => {
+const resendSendEmail = async ({ apiKey, from, to, subject, text, html }) => {
   const fromLower = String(from || '').trim().toLowerCase();
   if (!fromLower) {
     const err = new Error('Missing RESEND_FROM (or SMTP_FROM/SMTP_USER)');
@@ -289,7 +291,7 @@ const resendSendEmail = async ({ apiKey, from, to, subject, text }) => {
 
   const resp = await postJson('https://api.resend.com/emails', {
     headers: { Authorization: `Bearer ${apiKey}` },
-    body: { from, to: [to], subject, text },
+    body: { from, to: [to], subject, text, ...(html ? { html } : {}) },
     timeoutMs: 15_000,
   });
 
@@ -311,6 +313,118 @@ const resendSendEmail = async ({ apiKey, from, to, subject, text }) => {
   throw err;
 };
 
+
+// Trusted requester IP resolution (spoofed header protection)
+const getTrustedRequesterIp = (req) => {
+  if (!req) return 'Unavailable';
+  const isTrustProxy = Boolean(req.app && typeof req.app.get === 'function' && req.app.get('trust proxy'));
+  if (isTrustProxy) {
+    const forwarded = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
+    if (forwarded) return forwarded.replace(/^::ffff:/, '');
+    if (req.ip) return String(req.ip).replace(/^::ffff:/, '');
+  }
+  const socketIp = req.socket?.remoteAddress || req.connection?.remoteAddress || (typeof req.ip === 'string' && !req.headers?.['x-forwarded-for'] ? req.ip : null);
+  if (socketIp) {
+    return String(socketIp).replace(/^::ffff:/, '');
+  }
+  return 'Unavailable';
+};
+
+const buildCustomerOtpHtml = (otp) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Vrindavan Sarthi Verification Code</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.6;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 520px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <tr>
+            <td style="background-color: #0f766e; padding: 28px 32px; text-align: center;">
+              <span style="display: inline-block; font-size: 13px; font-weight: 700; color: #ccfbf1; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">Pilgrimage Platform</span>
+              <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">VRINDAVAN SARTHI</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 36px 32px 32px 32px;">
+              <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #0f172a;">Hello,</p>
+              <p style="margin: 0 0 24px 0; font-size: 15px; color: #334155; line-height: 1.6;">
+                We received a request to sign in to your Vrindavan Sarthi account. Use the one-time verification code below to complete your login:
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 28px 0;">
+                <tr>
+                  <td align="center" style="background-color: #f0fdfa; border: 1.5px solid #99f6e4; border-radius: 12px; padding: 20px 24px;">
+                    <div style="font-family: 'Courier New', Courier, monospace, sans-serif; font-size: 36px; font-weight: 800; letter-spacing: 10px; color: #0f766e; line-height: 1;">
+                      ${otp}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #0f766e; text-align: center;">
+                ⏱ This verification code will expire in 10 minutes.
+              </p>
+              <div style="background-color: #f8fafc; border-left: 3px solid #0d9488; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 24px 0 0 0;">
+                <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                  <strong>Security Reminder:</strong> Never share this verification code with anyone. Vrindavan Sarthi staff will never ask for your code. If you did not request this code, you can safely ignore this email.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
+              <p style="margin: 0 0 6px 0; font-size: 12px; color: #64748b;">
+                Vrindavan Sarthi Enterprises &bull; Pilgrimage & Hospitality Services
+              </p>
+              <p style="margin: 0; font-size: 12px;">
+                <a href="https://vrindavansarthi.in" style="color: #0f766e; text-decoration: none; font-weight: 600;">https://vrindavansarthi.in</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+const buildCustomerOtpText = (otp) => `Hello,
+
+Your verification code for Vrindavan Sarthi is:
+
+${otp}
+
+This verification code will expire in 10 minutes.
+
+Security Reminder: Never share this verification code with anyone. Vrindavan Sarthi staff will never ask for your code. If you did not request this code, you can safely ignore this email.
+
+Vrindavan Sarthi Enterprises
+https://vrindavansarthi.in`;
+
+const sendCustomerOtpEmail = async ({ to, otp }) => {
+  const subject = 'Your Vrindavan Sarthi Login Code: ' + otp;
+  const html = buildCustomerOtpHtml(otp);
+  const text = buildCustomerOtpText(otp);
+
+  if (canSendResend()) {
+    const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+    const from = String(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
+    await resendSendEmail({ apiKey, from, to, subject, text, html });
+    return;
+  }
+
+  if (canSendEmail()) {
+    const transport = buildMailer();
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+    await transport.sendMail({ from, to, subject, text, html });
+    return;
+  }
+
+  console.log('[VVS-AUTH] Login OTP for ' + to + ': ' + otp + ' (valid for 10 min)');
+};
+
 const sendOtpEmail = async ({ to, otp }) => {
   const subject = 'Vrindavan Sarthi Enterprises Password Reset OTP';
   const text = `Your OTP for password reset is: ${otp}\n\nThis OTP expires in 10 minutes.`;
@@ -329,33 +443,129 @@ const sendOtpEmail = async ({ to, otp }) => {
   await transport.sendMail({ from, to, subject, text });
 };
 
-const sendPartnerRegistrationAlert = async (user) => {
+const buildPartnerRegistrationHtml = ({ user, formattedTimestampIST, formattedTimestampUTC, requesterIp }) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Partner Registration Alert</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.6;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <tr>
+            <td style="background-color: #0f766e; padding: 24px 32px;">
+              <span style="font-size: 11px; font-weight: 700; color: #ccfbf1; text-transform: uppercase; letter-spacing: 1.5px;">Admin Alert &bull; Internal Review Required</span>
+              <h1 style="margin: 4px 0 0 0; font-size: 20px; font-weight: 700; color: #ffffff;">New Partner Registration</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 28px 32px;">
+              <p style="margin: 0 0 20px 0; font-size: 14px; color: #334155;">
+                A new property partner has registered on Vrindavan Sarthi and is awaiting administrative verification.
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; font-size: 13px; margin-bottom: 24px;">
+                <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 10px 16px; font-weight: 600; color: #64748b; width: 38%;">Partner Name</td>
+                  <td style="padding: 10px 16px; font-weight: 600; color: #0f172a;">${user.name || '-'}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 10px 16px; font-weight: 600; color: #64748b;">Registered Email</td>
+                  <td style="padding: 10px 16px; color: #0f172a;">${user.email || '-'}</td>
+                </tr>
+                <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 10px 16px; font-weight: 600; color: #64748b;">Property / Business Name</td>
+                  <td style="padding: 10px 16px; font-weight: 600; color: #0f172a;">${user.businessName || 'Not specified'}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 10px 16px; font-weight: 600; color: #64748b;">Contact Number</td>
+                  <td style="padding: 10px 16px; color: #0f172a;">${user.businessPhone || user.phone || 'Not specified'}</td>
+                </tr>
+                <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 10px 16px; font-weight: 600; color: #64748b;">Category / Business Type</td>
+                  <td style="padding: 10px 16px; color: #0f172a;">${user.businessType || 'Not specified'}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 10px 16px; font-weight: 600; color: #64748b;">Registration Timestamp</td>
+                  <td style="padding: 10px 16px; color: #0f172a;">
+                    ${formattedTimestampIST}<br/>
+                    <span style="font-size: 11px; color: #64748b;">${formattedTimestampUTC} (UTC)</span>
+                  </td>
+                </tr>
+                <tr style="background-color: #f8fafc;">
+                  <td style="padding: 10px 16px; font-weight: 600; color: #64748b;">Requester IP Address</td>
+                  <td style="padding: 10px 16px; font-family: monospace; font-size: 12px; color: #0f766e;">${requesterIp}</td>
+                </tr>
+              </table>
+              <div style="background-color: #f0fdfa; border-left: 3px solid #0f766e; padding: 14px 18px; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; font-size: 13px; color: #115e59; line-height: 1.5;">
+                  <strong>Action Required:</strong> This partner registration is currently pending review. Please sign in to the Vrindavan Sarthi Admin Dashboard to inspect their submitted documents and approve or reject this listing.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b;">
+              Vrindavan Sarthi Internal Operations &bull; Automated Security Notification
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+const buildPartnerRegistrationText = ({ user, formattedTimestampIST, formattedTimestampUTC, requesterIp }) => `VRINDAVAN SARTHI — Internal Admin Alert: New Partner Registration
+
+A new property partner has registered on Vrindavan Sarthi and is awaiting administrative verification.
+
+Partner Details:
+- Partner Name: ${user.name || '-'}
+- Registered Email: ${user.email || '-'}
+- Property / Business Name: ${user.businessName || 'Not specified'}
+- Contact Number: ${user.businessPhone || user.phone || 'Not specified'}
+- Category / Business Type: ${user.businessType || 'Not specified'}
+- Registration Timestamp: ${formattedTimestampIST} [${formattedTimestampUTC} UTC]
+- Requester IP Address: ${requesterIp}
+
+Action Required:
+This partner registration is currently pending review. Please sign in to the Vrindavan Sarthi Admin Dashboard to inspect their submitted documents and approve or reject this listing.
+
+Vrindavan Sarthi Internal Operations
+https://vrindavansarthi.in`;
+
+const sendPartnerRegistrationAlert = async (user, req) => {
   const to = 'vrindavansarthi108@gmail.com';
-  const timestamp = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-  const rows = [
-    ['Partner Name', user.name],
-    ['Contact Number', user.businessPhone || user.phone],
-    ['Property Name', user.businessName],
-    ['Category', user.businessType || ''],
-    ['Timestamp', timestamp],
-  ];
+  const serverTime = new Date();
+  const formattedTimestampIST = serverTime.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'full',
+    timeStyle: 'long',
+  }) + ' (IST / UTC+05:30)';
+  const formattedTimestampUTC = serverTime.toISOString();
+  const requesterIp = getTrustedRequesterIp(req);
+
   const subject = `New partner registration: ${user.businessName || user.name}`;
-  const text = ['New partner registration completed', ...rows.map(([label, value]) => `${label}: ${value || '-'}`)].join('\n');
+  const html = buildPartnerRegistrationHtml({ user, formattedTimestampIST, formattedTimestampUTC, requesterIp });
+  const text = buildPartnerRegistrationText({ user, formattedTimestampIST, formattedTimestampUTC, requesterIp });
 
   try {
     if (canSendResend()) {
       const apiKey = String(process.env.RESEND_API_KEY || '').trim();
       const from = String(process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
-      await resendSendEmail({ apiKey, from, to, subject, text });
+      await resendSendEmail({ apiKey, from, to, subject, text, html });
       return;
     }
     if (!canSendEmail()) {
-      console.warn(`[VVS] SMTP not configured (${getMissingSmtpKeys().join(', ') || 'unknown missing keys'}). Partner registration alert skipped for ${user.email}.`);
+      console.warn(`[VVS] SMTP not configured. Partner registration alert skipped for ${user.email}.`);
       return;
     }
     const transport = buildMailer();
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-    await transport.sendMail({ from, to, subject, text });
+    await transport.sendMail({ from, to, subject, text, html });
   } catch (err) {
     console.warn('[VVS] Partner registration alert failed:', err?.code || err?.name || err, err?.message || '');
   }
@@ -520,6 +730,183 @@ router.get('/google/callback', async (req, res, next) => {
 });
 
 // Register
+
+// Send customer login OTP with layered abuse protections
+router.post('/send-otp', async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address' });
+    }
+
+    // Role check: Staff accounts (admin, partner) must use staff login with password
+    const existingStaff = await User.findOne({ email, role: { $in: ['admin', 'partner'] } });
+    if (existingStaff) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin and partner accounts must sign in using staff login with their password.',
+      });
+    }
+
+    // Capture trusted requester IP
+    const requesterIp = getTrustedRequesterIp(req);
+    const oneHourAgo = new Date(Date.now() - 3600000);
+
+    // Limit 1: Per-email cooldown (60 seconds minimum interval)
+    const activeOtp = await EmailOtp.findOne({ email, consumedAt: null, purpose: 'login' }).sort({ createdAt: -1 });
+    if (activeOtp && activeOtp.lastSentAt) {
+      const elapsedMs = Date.now() - new Date(activeOtp.lastSentAt).getTime();
+      if (elapsedMs < 60000) {
+        const retryAfterSec = Math.ceil((60000 - elapsedMs) / 1000);
+        return res.status(429).json({
+          success: false,
+          message: 'Please wait ' + retryAfterSec + ' seconds before requesting a new code.',
+          retryAfter: retryAfterSec,
+        });
+      }
+    }
+
+    // Limit 2: Per-email rolling window limit (max 5 OTP requests per hour)
+    const hourlyEmailCount = await EmailOtp.countDocuments({
+      email,
+      purpose: 'login',
+      createdAt: { $gte: oneHourAgo },
+    });
+    if (hourlyEmailCount >= 5) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many verification code requests for this email address. Please try again later.',
+      });
+    }
+
+    // Limit 3: Per-IP rolling window limit (max 10 OTP requests per hour)
+    if (requesterIp && requesterIp !== 'Unavailable') {
+      const hourlyIpCount = await EmailOtp.countDocuments({
+        ip: requesterIp,
+        purpose: 'login',
+        createdAt: { $gte: oneHourAgo },
+      });
+      if (hourlyIpCount >= 10) {
+        return res.status(429).json({
+          success: false,
+          message: 'Too many verification code requests from this network. Please try again later.',
+        });
+      }
+    }
+
+    // Invalidate previous unconsumed login OTPs for this email
+    await EmailOtp.updateMany({ email, consumedAt: null, purpose: 'login' }, { $set: { consumedAt: new Date() } });
+
+    // Uniform 6-digit cryptographic OTP generation: [100000, 1000000) covers all values 100000 through 999999
+    const otp = String(crypto.randomInt(100000, 1000000));
+    const salt = process.env.OTP_SALT || process.env.JWT_SECRET || 'vvs_otp_salt';
+    const otpHash = crypto.createHash('sha256').update(email + '|' + otp + '|' + salt).digest('hex');
+
+    await EmailOtp.create({
+      email,
+      otpHash,
+      purpose: 'login',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      attempts: 0,
+      lastSentAt: new Date(),
+      ip: requesterIp,
+    });
+
+    // Send OTP via configured email provider
+    await sendCustomerOtpEmail({ to: email, otp });
+
+    return res.json({
+      success: true,
+      message: 'A 6-digit verification code has been sent to your email address.',
+    });
+  } catch (err) {
+    console.error('[auth.send-otp.error]', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Failed to send OTP' });
+  }
+});
+
+// Verify customer login OTP & authenticate
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    const cleanOtp = String(req.body?.otp || '').trim();
+
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address' });
+    }
+    if (!cleanOtp || cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid 6-digit code' });
+    }
+
+    const otpRecord = await EmailOtp.findOne({ email, consumedAt: null, purpose: 'login' }).sort({ createdAt: -1 });
+    if (!otpRecord) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification code. Please request a new code.' });
+    }
+
+    if (otpRecord.attempts >= 5) {
+      return res.status(429).json({ success: false, message: 'Too many incorrect attempts. Please request a new verification code.' });
+    }
+
+    if (new Date(otpRecord.expiresAt).getTime() < Date.now()) {
+      return res.status(400).json({ success: false, message: 'Verification code has expired. Please request a new code.' });
+    }
+
+    const salt = process.env.OTP_SALT || process.env.JWT_SECRET || 'vvs_otp_salt';
+    const expectedHash = crypto.createHash('sha256').update(email + '|' + cleanOtp + '|' + salt).digest('hex');
+
+    if (otpRecord.otpHash !== expectedHash) {
+      await EmailOtp.updateOne({ _id: otpRecord._id }, { $inc: { attempts: 1 } });
+      return res.status(400).json({ success: false, message: 'Invalid verification code. Please check and try again.' });
+    }
+
+    // Mark OTP consumed immediately
+    await EmailOtp.updateOne({ _id: otpRecord._id }, { $set: { consumedAt: new Date() } });
+
+    // Find or create customer account
+    let user = await User.findOne({ email }).select('+password');
+    if (user) {
+      if (user.role === 'admin' || user.role === 'partner') {
+        return res.status(403).json({ success: false, message: 'Staff accounts must sign in using staff login with password.' });
+      }
+      if (user.isGuest) {
+        user.isGuest = false;
+        user.authProvider = user.authProvider || 'email_otp';
+        await user.save();
+      }
+    } else {
+      const defaultName = email.split('@')[0];
+      user = await User.create({
+        name: defaultName,
+        email,
+        role: 'user',
+        isGuest: false,
+        authProvider: 'email_otp',
+      });
+    }
+
+    // Link any eligible historical guest bookings
+    const linkResult = await linkCustomerGuestBookings({
+      userId: user._id,
+      email,
+      userName: user.name,
+    });
+
+    const token = generateToken(user._id);
+    const hasPassword = Boolean(user.password);
+    const { password: _, ...userData } = user.toObject();
+
+    return res.json({
+      success: true,
+      token,
+      user: { ...userData, hasPassword },
+      linkedBookingsCount: linkResult.linkedCount || 0,
+    });
+  } catch (err) {
+    console.error('[auth.verify-otp.error]', err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Verification failed' });
+  }
+});
+
 router.post('/register', async (req, res) => {
   try {
     const { name, email, phone, password, role, street, city, state, pin,
@@ -563,7 +950,7 @@ router.post('/register', async (req, res) => {
     });
 
     if (accountRole === 'partner') {
-      void sendPartnerRegistrationAlert(user);
+      void sendPartnerRegistrationAlert(user, req);
     }
 
     const token = generateToken(user._id);
@@ -596,7 +983,49 @@ router.post('/login', async (req, res) => {
 
 // Get profile
 router.get('/me', protect, async (req, res) => {
-  res.json({ success: true, user: req.user });
+  try {
+    const userWithPassword = await User.findById(req.user._id).select('+password');
+    const hasPassword = Boolean(userWithPassword?.password);
+    const safeUser = req.user.toObject ? req.user.toObject() : { ...req.user };
+    res.json({ success: true, user: { ...safeUser, hasPassword } });
+  } catch {
+    res.json({ success: true, user: req.user });
+  }
+});
+
+// Update or create password (authenticated customer)
+router.post('/me/password', protect, async (req, res) => {
+  try {
+    const newPassword = String(req.body?.newPassword || '');
+    const currentPassword = String(req.body?.currentPassword || '');
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // If user already has a password, verify current password
+    if (user.password) {
+      if (!currentPassword || !(await user.matchPassword(currentPassword))) {
+        return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+      }
+    }
+
+    user.password = newPassword;
+    user.authProvider = user.authProvider || 'local';
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: user.password ? 'Password saved successfully' : 'Password created successfully',
+      hasPassword: true,
+    });
+  } catch (err) {
+    console.error('[auth.me.password.error]', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to update password' });
+  }
 });
 
 // Update profile
@@ -816,3 +1245,12 @@ router.post('/reset-password', async (req, res) => {
 
 module.exports = router;
 
+
+// Export test helpers for automated test verification
+router._testHelpers = {
+  getTrustedRequesterIp,
+  buildCustomerOtpHtml,
+  buildCustomerOtpText,
+  buildPartnerRegistrationHtml,
+  buildPartnerRegistrationText,
+};

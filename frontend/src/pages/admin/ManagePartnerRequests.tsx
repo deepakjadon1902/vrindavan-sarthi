@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Eye, X, Hotel, Car, Map, Clock, User, Phone, Mail, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
@@ -143,7 +144,15 @@ const ManagePartnerRequests = () => {
   return (
     <div className="space-y-6">
       <div className="bg-card rounded-xl border border-border p-5">
-        <h3 className="font-heading text-base font-semibold text-foreground mb-3">Partner Communication</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-heading text-base font-semibold text-foreground">Partner Communication</h3>
+          <Link
+            to="/admin/notifications"
+            className="text-xs font-semibold text-brand-crimson hover:underline flex items-center gap-1"
+          >
+            Targeted Property & Partner Notice Desk →
+          </Link>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <select value={noticeType} onChange={(e) => setNoticeType(e.target.value as any)} className="px-3 py-2 rounded-lg border border-border bg-background font-body text-sm">
             <option value="notification">Notification</option>
@@ -151,7 +160,7 @@ const ManagePartnerRequests = () => {
           </select>
           <input value={noticeTitle} onChange={(e) => setNoticeTitle(e.target.value)} placeholder="Title" className="md:col-span-1 px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
           <input value={noticeMessage} onChange={(e) => setNoticeMessage(e.target.value)} placeholder="Message" className="md:col-span-1 px-3 py-2 rounded-lg border border-border bg-background font-body text-sm" />
-          <button onClick={sendPartnerMessage} className="btn-crimson px-4 py-2 rounded-lg text-sm">Send to Partners</button>
+          <button onClick={sendPartnerMessage} className="btn-crimson px-4 py-2 rounded-lg text-sm">Send Broadcast Notice</button>
         </div>
       </div>
 
