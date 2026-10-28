@@ -1,0 +1,112 @@
+name: Build Vrindavan Sarthi Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type (release = production signed, debug = isolated test only)'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK Platform 35
+        uses: android-actions/setup-android@v3
+
+      - name: Configure Firebase Credentials
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          BUILD_TYPE: ${{ inputs.build_type }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > android/app/google-services.json
+            echo "Successfully restored android/app/google-services.json from repository secret."
+          elif [ "$BUILD_TYPE" = "release" ]; then
+            echo "::error::Production release build failed: GOOGLE_SERVICES_JSON secret is required."
+            echo "Please supply base64-encoded google-services.json as GitHub repository secret 'GOOGLE_SERVICES_JSON'."
+            echo "A release APK with broken/missing Firebase credentials will not receive native booking alarms."
+            exit 1
+          else
+            echo "::warning::Using placeholder google-services.example.json for isolated debug build. FCM alarms will be disabled."
+            cp android/app/google-services.example.json android/app/google-services.json
+          fi
+
+      - name: Configure Release Signing Keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          BUILD_TYPE: ${{ inputs.build_type }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > android/release-keystore.jks
+            cat <<EOF > android/keystore.properties
+            storeFile=release-keystore.jks
+            storePassword=$KEYSTORE_PASSWORD
+            keyAlias=$KEY_ALIAS
+            keyPassword=$KEY_PASSWORD
+            EOF
+            echo "Successfully configured release signing credentials in android/keystore.properties."
+          elif [ "$BUILD_TYPE" = "release" ]; then
+            echo "::error::Production release build failed: Missing production signing secrets."
+            echo "Required GitHub repository secrets:"
+            echo "  - ANDROID_KEYSTORE_BASE64 : base64-encoded release .jks or .keystore file"
+            echo "  - KEYSTORE_PASSWORD       : Keystore password"
+            echo "  - KEY_ALIAS               : Keystore key alias"
+            echo "  - KEY_PASSWORD            : Key alias password"
+            echo "A debug-signed APK cannot update existing installations on partner phones due to Android signature mismatch."
+            echo "If you want to run a pipeline validation build without production keys, select 'build_type: debug'."
+            exit 1
+          else
+            echo "Debug build requested: Gradle will sign using standard debug keystore for isolated testing only."
+          fi
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x android/gradlew
+
+      - name: Build APK with Gradle Wrapper
+        working-directory: android
+        run: |
+          if [ "${{ inputs.build_type }}" = "release" ]; then
+            ./gradlew assembleRelease --no-daemon --stacktrace
+          else
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          fi
+
+      - name: Clean Up Sensitive Build Assets
+        if: always()
+        run: |
+          rm -f android/release-keystore.jks
+          rm -f android/keystore.properties
+          rm -f android/app/google-services.json
+          echo "Cleaned up temporary signing assets and credentials."
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vrindavan-sarthi-v1.0.3-${{ inputs.build_type }}-apk
+          path: |
+            android/app/build/outputs/apk/**/*.apk
+          retention-days: 14
+          if-no-files-found: error

@@ -14,6 +14,7 @@ import {
   CameraDevice,
   CameraErrorCode,
   checkCameraEnvironment,
+  isNativeApkEnvironment,
   requestCameraPermissionAndEnumerate,
   stopAndClearScanner,
 } from '@/lib/qrCameraManager';
@@ -186,8 +187,17 @@ export const CameraQRScanner: React.FC<CameraQRScannerProps> = ({
 
         if (rawMsg.includes('NotAllowedError') || rawMsg.includes('Permission')) {
           setErrorCode('PERMISSION_DENIED');
-          setErrorMessage('Camera permission was denied in your browser.');
-          setErrorGuidance('Please allow camera access in browser site settings.');
+          const isApk = isNativeApkEnvironment();
+          setErrorMessage(
+            isApk
+              ? 'Camera permission was denied in the Android app.'
+              : 'Camera permission was denied in your browser.'
+          );
+          setErrorGuidance(
+            isApk
+              ? 'Please open Android Settings → Apps → Vrindavan Sarthi → Permissions, allow Camera access, and tap Try Again.'
+              : 'Please allow camera access in browser site settings.'
+          );
         } else if (rawMsg.includes('NotFoundError') || rawMsg.includes('no camera')) {
           setErrorCode('NO_CAMERA');
           setErrorMessage('No camera found on this device.');

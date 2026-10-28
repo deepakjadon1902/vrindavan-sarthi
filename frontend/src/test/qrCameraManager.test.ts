@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   checkCameraEnvironment,
+  isNativeApkEnvironment,
   requestCameraPermissionAndEnumerate,
   extractBookingReference,
   stopAndClearScanner,
@@ -57,6 +58,33 @@ describe('qrCameraManager', () => {
       expect(extractBookingReference('  VSB-12345  ')).toBe('VSB-12345');
       expect(extractBookingReference('10000005')).toBe('10000005');
       expect(extractBookingReference('')).toBe('');
+    });
+  });
+
+  describe('isNativeApkEnvironment', () => {
+    afterEach(() => {
+      localStorage.removeItem('vrs_native_apk');
+      sessionStorage.removeItem('vrs_native_apk');
+      window.history.replaceState({}, '', '/');
+    });
+
+    it('returns false in a normal browser window', () => {
+      expect(isNativeApkEnvironment()).toBe(false);
+    });
+
+    it('returns true when localStorage has vrs_native_apk=1', () => {
+      localStorage.setItem('vrs_native_apk', '1');
+      expect(isNativeApkEnvironment()).toBe(true);
+    });
+
+    it('returns true when sessionStorage has vrs_native_apk=1', () => {
+      sessionStorage.setItem('vrs_native_apk', '1');
+      expect(isNativeApkEnvironment()).toBe(true);
+    });
+
+    it('returns true when URL query parameter contains vrsApk=1', () => {
+      window.history.replaceState({}, '', '/login?staff=1&role=partner&vrsApk=1');
+      expect(isNativeApkEnvironment()).toBe(true);
     });
   });
 
@@ -160,6 +188,32 @@ describe('qrCameraManager', () => {
       expect(result.error?.code).toBe('PERMISSION_DENIED');
       expect(result.error?.message).toContain('Camera permission was denied');
       expect(result.error?.guidance).toContain('Allow');
+    });
+
+    it('returns Android Settings guidance for permission denial inside the native APK', async () => {
+      Object.defineProperty(window, 'isSecureContext', { value: true, writable: true, configurable: true });
+      localStorage.setItem('vrs_native_apk', '1');
+
+      const permError = new Error('Permission denied');
+      permError.name = 'NotAllowedError';
+
+      Object.defineProperty(navigator, 'mediaDevices', {
+        value: {
+          getUserMedia: vi.fn().mockRejectedValue(permError),
+          enumerateDevices: vi.fn().mockResolvedValue([]),
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const result = await requestCameraPermissionAndEnumerate();
+      localStorage.removeItem('vrs_native_apk');
+
+      expect(result.granted).toBe(false);
+      expect(result.error?.code).toBe('PERMISSION_DENIED');
+      expect(result.error?.message).toContain('denied in the Android app');
+      expect(result.error?.guidance).toContain('Android Settings');
+      expect(result.error?.guidance).toContain('Vrindavan Sarthi');
     });
 
     it('handles NotFoundError when no camera is present', async () => {

@@ -25,6 +25,22 @@ export interface CameraDiagnostic {
 }
 
 /**
+ * Detects whether the current session is running inside the Vrindavan Sarthi Android native APK.
+ */
+export function isNativeApkEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (
+      window.localStorage.getItem('vrs_native_apk') === '1' ||
+      window.sessionStorage.getItem('vrs_native_apk') === '1' ||
+      new URLSearchParams(window.location.search).get('vrsApk') === '1'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Checks whether the current browser and network context can support camera access.
  */
 export function checkCameraEnvironment(): CameraDiagnostic {
@@ -174,13 +190,18 @@ export async function requestCameraPermissionAndEnumerate(
     const errMsg = String(err?.message || err || '');
 
     if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError' || errMsg.includes('Permission')) {
+      const isApk = isNativeApkEnvironment();
       return {
         granted: false,
         cameras: [],
         error: {
           code: 'PERMISSION_DENIED',
-          message: 'Camera permission was denied in your browser.',
-          guidance: 'Please tap the camera/lock icon in your address bar, set Camera to "Allow", and click Start Scanner again.',
+          message: isApk
+            ? 'Camera permission was denied in the Android app.'
+            : 'Camera permission was denied in your browser.',
+          guidance: isApk
+            ? 'Please open Android Settings → Apps → Vrindavan Sarthi → Permissions, allow Camera access, and tap Try Again.'
+            : 'Please tap the camera/lock icon in your address bar, set Camera to "Allow", and click Start Scanner again.',
         },
       };
     }

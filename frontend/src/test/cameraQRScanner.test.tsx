@@ -83,6 +83,33 @@ describe('CameraQRScanner component', () => {
     });
   });
 
+  it('displays Android Settings guidance when permission is denied inside native APK', async () => {
+    localStorage.setItem('vrs_native_apk', '1');
+    const permError = new Error('Permission denied by user');
+    permError.name = 'NotAllowedError';
+
+    const getUserMediaMock = vi.fn().mockRejectedValue(permError);
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: getUserMediaMock, enumerateDevices: vi.fn() },
+      writable: true,
+      configurable: true,
+    });
+
+    render(<CameraQRScanner onScanSuccess={vi.fn()} />);
+
+    const startBtn = screen.getByRole('button', { name: /camera/i });
+    fireEvent.click(startBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Camera Permission Required')).toBeInTheDocument();
+      expect(screen.getByText(/Camera permission was denied in the Android app/i)).toBeInTheDocument();
+      expect(screen.getByText(/Android Settings/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Try Again/i })).toBeInTheDocument();
+    });
+
+    localStorage.removeItem('vrs_native_apk');
+  });
+
   it('handles no camera found error with informative notice', async () => {
     const notFoundErr = new Error('Requested device not found');
     notFoundErr.name = 'NotFoundError';

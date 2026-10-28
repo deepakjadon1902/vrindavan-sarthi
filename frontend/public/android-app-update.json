@@ -1,7 +1,7 @@
 {
-  "versionCode": 3,
-  "versionName": "1.0.2",
+  "versionCode": 4,
+  "versionName": "1.0.3",
   "apkUrl": "/downloads/vrindavan-sarthi.apk",
-  "releaseNotes": "Shareable signed APK with Vrindavan Sarthi logo, booking alarms, notifications, and app updater.",
+  "releaseNotes": "Added Camera permission for built-in QR voucher scanner, booking alarms, notifications, and app updater.",
   "force": false
 }
