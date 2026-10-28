@@ -1,12 +1,31 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { CheckCircle2, ShieldCheck, MapPin, Calendar, Clock, Home, AlertCircle, Phone, ArrowLeft, QrCode } from 'lucide-react';
+import {
+  CheckCircle2,
+  ShieldCheck,
+  MapPin,
+  Calendar,
+  Clock,
+  AlertCircle,
+  Phone,
+  ArrowLeft,
+  QrCode,
+  Search,
+  RotateCcw,
+  Loader2,
+} from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
+import { extractBookingReference } from '@/lib/qrCameraManager';
+import CameraQRScanner from '@/components/common/CameraQRScanner';
 
 interface VerifiedVoucher {
   verified: boolean;
   bookingId: string;
+  displayBookingId?: string | null;
+  propertyId?: string | null;
+  categoryId?: string | null;
+  roomId?: string | null;
   bookingStatus: string;
   paymentStatus: string;
   propertyName: string;
@@ -28,6 +47,7 @@ interface VerifiedVoucher {
 }
 
 const formatMoney = (val?: number) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
+
 const formatDate = (val?: string) => {
   if (!val) return '-';
   try {
@@ -44,44 +64,73 @@ const formatDate = (val?: string) => {
 
 export default function VerifyBooking() {
   const { user } = useAuthStore();
-  const [searchParams] = useSearchParams();
-  const ref = searchParams.get('ref') || searchParams.get('id') || searchParams.get('bookingId') || '';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialRef = searchParams.get('ref') || searchParams.get('id') || searchParams.get('bookingId') || '';
+
+  const [activeRef, setActiveRef] = useState(initialRef);
+  const [manualInput, setManualInput] = useState('');
   const [voucher, setVoucher] = useState<VerifiedVoucher | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(initialRef));
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!ref) {
-      setError('No booking reference provided in QR code URL.');
+  const fetchVerification = useCallback(async (rawTarget: string) => {
+    const cleanRef = extractBookingReference(rawTarget);
+    if (!cleanRef) {
+      setError('Please enter a valid booking reference or scan a QR voucher.');
       setLoading(false);
       return;
     }
 
-    const fetchVerification = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await api.get(`/bookings/verify/${encodeURIComponent(ref.trim())}`);
-        if (res.data?.success && res.data?.data?.verified) {
-          setVoucher(res.data.data);
-        } else {
-          setError(res.data?.message || 'Booking could not be verified.');
-        }
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Booking not found or verification failed.');
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    setError(null);
+    setActiveRef(cleanRef);
 
-    fetchVerification();
-  }, [ref]);
+    try {
+      const res = await api.get(`/bookings/verify/${encodeURIComponent(cleanRef)}`);
+      if (res.data?.success && res.data?.data?.verified) {
+        setVoucher(res.data.data);
+      } else {
+        setError(res.data?.message || 'Booking could not be verified.');
+        setVoucher(null);
+      }
+    } catch (err: any) {
+      const status = err.response?.status;
+      if (status === 404) {
+        setError(`No booking found for reference "${cleanRef}". Please check your voucher code.`);
+      } else if (status === 429) {
+        setError('Too many verification requests. Please wait a moment and try again.');
+      } else {
+        setError(err.response?.data?.message || 'Verification failed. Please check the code and try again.');
+      }
+      setVoucher(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialRef) {
+      fetchVerification(initialRef);
+    }
+  }, [initialRef, fetchVerification]);
+
+  const handleScanSuccess = async (decodedText: string) => {
+    await fetchVerification(decodedText);
+  };
+
+  const handleReset = () => {
+    setVoucher(null);
+    setError(null);
+    setActiveRef('');
+    setManualInput('');
+    setSearchParams({});
+  };
 
   return (
     <div className="min-h-screen bg-[#fcfaf7] py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto space-y-6">
         {/* Brand Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <img
             src="/vrindavan_sarthi_official_logo.jpg"
             alt="Vrindavan Sarthi"
@@ -95,42 +144,46 @@ export default function VerifyBooking() {
           </p>
         </div>
 
-        {loading ? (
+        {/* Loading State */}
+        {loading && (
           <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#e5e7eb] text-center">
             <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-[#14532d] border-t-transparent mb-4" />
             <p className="text-gray-600 font-medium">Verifying booking reference with central database...</p>
+            {activeRef && (
+              <p className="text-xs font-mono text-gray-400 mt-1">Ref: {activeRef}</p>
+            )}
           </div>
-        ) : error || !voucher ? (
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-red-200 text-center">
-            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-              <AlertCircle className="w-8 h-8" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Verification Notice</h2>
-            <p className="text-gray-600 mb-6">{error || 'Unable to authenticate booking reference.'}</p>
-            <p className="text-sm text-gray-500 mb-6">
-              If you hold a valid confirmation receipt, please contact Vrindavan Sarthi 24/7 Helpline at{' '}
-              <a href="tel:+918679820256" className="text-[#14532d] font-bold underline">
-                +91 86798 20256
-              </a>.
-            </p>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#14532d] text-white rounded-xl font-medium hover:bg-[#0f3d21] transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" /> Go to Homepage
-            </Link>
-          </div>
-        ) : (
+        )}
+
+        {/* Verified Voucher View */}
+        {!loading && voucher && (
           <div className="bg-white rounded-2xl shadow-lg border border-[#e2e8f0] overflow-hidden">
             {/* Top Verification Status Banner */}
-            <div className="bg-gradient-to-r from-[#14532d] to-[#15803d] text-white p-6 text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
-                <ShieldCheck className="w-4 h-4 text-[#fbbf24]" /> Authenticated Voucher
+            <div className="bg-gradient-to-r from-[#14532d] to-[#15803d] text-white p-6">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
+                    <ShieldCheck className="w-4 h-4 text-[#fbbf24]" /> Authenticated Voucher
+                  </div>
+                  <h2 className="text-2xl font-bold font-serif mb-1">Booking Verified & Confirmed</h2>
+                  <p className="text-sm text-emerald-100 font-mono tracking-wide">
+                    Ref: <span className="font-bold text-white text-base">{voucher.bookingId}</span>
+                    {voucher.displayBookingId && (
+                      <span className="ml-2 text-xs text-emerald-200">
+                        (#{voucher.displayBookingId})
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Verify Another
+                </button>
               </div>
-              <h2 className="text-2xl font-bold font-serif mb-1">Booking Verified & Confirmed</h2>
-              <p className="text-sm text-emerald-100 font-mono tracking-wide">
-                Ref: <span className="font-bold text-white text-base">{voucher.bookingId}</span>
-              </p>
             </div>
 
             <div className="p-6 sm:p-8 space-y-6">
@@ -138,7 +191,9 @@ export default function VerifyBooking() {
               <div className="border border-[#fed7aa] bg-[#fffaf5] rounded-xl p-5">
                 <div className="flex items-start justify-between flex-wrap gap-2">
                   <div>
-                    <span className="text-xs font-bold text-[#ea580c] uppercase tracking-wide">Accommodation</span>
+                    <span className="text-xs font-bold text-[#ea580c] uppercase tracking-wide">
+                      Accommodation
+                    </span>
                     <h3 className="text-xl font-bold text-[#1e293b] mt-0.5">{voucher.propertyName}</h3>
                     <p className="text-sm font-semibold text-[#475569] mt-1">
                       Room: {voucher.roomType}
@@ -163,7 +218,7 @@ export default function VerifyBooking() {
                 )}
               </div>
 
-                            {/* Partner / Admin Fast Link to Desk */}
+              {/* Partner / Admin Fast Link to Desk */}
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800 shrink-0">
@@ -171,7 +226,9 @@ export default function VerifyBooking() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-emerald-950">Property Partner / Staff Desk Access</p>
-                    <p className="text-[11px] text-emerald-700">Open in authenticated Desk Scanner to verify identity, complete check-in, and collect property balance.</p>
+                    <p className="text-[11px] text-emerald-700">
+                      Open in authenticated Desk Scanner to verify identity, complete check-in, and collect property balance.
+                    </p>
                   </div>
                 </div>
                 <Link
@@ -265,6 +322,93 @@ export default function VerifyBooking() {
                 This verification screen contains official voucher authenticity data for check-in verification.
                 Personal contact details and authentication credentials are protected under Vrindavan Sarthi Security Standards.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Scanner and Lookup Form (Shown when no voucher loaded or when error occurred) */}
+        {!loading && !voucher && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
+            {/* Error banner if previous lookup failed */}
+            {error && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-800 text-sm">
+                <AlertCircle className="w-5 h-5 shrink-0 text-red-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold">Verification Notice</p>
+                  <p className="mt-0.5 text-red-700 text-xs">{error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Camera Scanner Component */}
+            <CameraQRScanner
+              onScanSuccess={handleScanSuccess}
+              elementId="vs-public-qr-viewfinder"
+              buttonLabel="Scan Voucher QR with Camera"
+            />
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-gray-200" />
+              <span className="flex-shrink mx-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Or Enter Booking Reference
+              </span>
+              <div className="flex-grow border-t border-gray-200" />
+            </div>
+
+            {/* Manual Lookup Form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (manualInput.trim()) {
+                  fetchVerification(manualInput.trim());
+                }
+              }}
+              className="space-y-3"
+            >
+              <label htmlFor="public-ref-input" className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+                Booking Reference, PNR, or Scanned URL
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3.5 top-3 text-gray-400" />
+                  <input
+                    id="public-ref-input"
+                    type="text"
+                    value={manualInput}
+                    onChange={(e) => setManualInput(e.target.value)}
+                    placeholder="e.g. 10000001 or VS-261024-DH8201 or paste voucher URL"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#14532d] focus:border-[#14532d] transition-colors font-mono"
+                    disabled={loading}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading || !manualInput.trim()}
+                  className="px-5 py-2.5 bg-[#14532d] hover:bg-[#0f3d21] text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm transition-colors disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" /> Verify
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-500">
+                Found on your Vrindavan Sarthi booking confirmation email, SMS, or PDF invoice.
+              </p>
+            </form>
+
+            <div className="pt-2 text-center">
+              <Link
+                to="/"
+                className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Return to Homepage
+              </Link>
             </div>
           </div>
         )}

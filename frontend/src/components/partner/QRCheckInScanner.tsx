@@ -1,31 +1,27 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Camera,
-  CameraOff,
   QrCode,
   Search,
   CheckCircle2,
-  XCircle,
   AlertTriangle,
   UserCheck,
   CreditCard,
   Calendar,
   Clock,
   Phone,
-  Mail,
   Receipt,
   RotateCcw,
   ShieldCheck,
-  AlertCircle,
   Loader2,
   Banknote,
   IndianRupee,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Html5Qrcode } from 'html5-qrcode';
 import { useAuthStore } from '@/store/authStore';
 import { api, withAuth } from '@/lib/api';
+import { extractBookingReference } from '@/lib/qrCameraManager';
+import CameraQRScanner from '@/components/common/CameraQRScanner';
 
 export interface QRBookingData {
   id: string;
@@ -102,37 +98,11 @@ export const QRCheckInScanner: React.FC<QRCheckInScannerProps> = ({ isAdmin = fa
   const [searchParams, setSearchParams] = useSearchParams();
   const { token, user } = useAuthStore();
 
-  // Reference extraction helper
-  const extractRef = (input: string): string => {
-    const raw = String(input || '').trim();
-    if (!raw) return '';
-    if (raw.includes('?')) {
-      try {
-        const queryPart = raw.split('?')[1];
-        const params = new URLSearchParams(queryPart);
-        return params.get('ref') || params.get('id') || params.get('bookingId') || raw;
-      } catch {
-        return raw;
-      }
-    }
-    if (raw.includes('/verify-booking/')) {
-      return raw.split('/verify-booking/')[1] || raw;
-    }
-    return raw;
-  };
-
   // State
   const [manualInput, setManualInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [booking, setBooking] = useState<QRBookingData | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Scanner state
-  const [isScannerActive, setIsScannerActive] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [scannerSupported, setScannerSupported] = useState(true);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const isStoppingRef = useRef(false);
 
   // Check-in modal
   const [isCheckInConfirmOpen, setIsCheckInConfirmOpen] = useState(false);
@@ -145,29 +115,10 @@ export const QRCheckInScanner: React.FC<QRCheckInScannerProps> = ({ isAdmin = fa
   const [collectionNotes, setCollectionNotes] = useState('');
   const [isCollectingPayment, setIsCollectingPayment] = useState(false);
 
-  // Stop camera helper
-  const stopScanner = useCallback(async () => {
-    if (!scannerRef.current) return;
-    if (isStoppingRef.current) return;
-    isStoppingRef.current = true;
-    try {
-      if (scannerRef.current.isScanning) {
-        await scannerRef.current.stop();
-      }
-      scannerRef.current.clear();
-    } catch (err) {
-      console.warn('[QRScanner] Failed stopping scanner:', err);
-    } finally {
-      scannerRef.current = null;
-      isStoppingRef.current = false;
-      setIsScannerActive(false);
-    }
-  }, []);
-
   // Lookup booking reference from backend
   const lookupBooking = useCallback(
     async (refInput: string) => {
-      const targetRef = extractRef(refInput);
+      const targetRef = extractBookingReference(refInput);
       if (!targetRef) {
         toast.error('Please enter a valid booking reference or scan a QR voucher.');
         return;
@@ -175,9 +126,6 @@ export const QRCheckInScanner: React.FC<QRCheckInScannerProps> = ({ isAdmin = fa
 
       setIsLoading(true);
       setError(null);
-
-      // Stop camera once a code is scanned or submitted
-      await stopScanner();
 
       try {
         const res = await api.get(`/bookings/qr-lookup/${encodeURIComponent(targetRef)}`, withAuth(token));
@@ -208,74 +156,8 @@ export const QRCheckInScanner: React.FC<QRCheckInScannerProps> = ({ isAdmin = fa
         setIsLoading(false);
       }
     },
-    [token, stopScanner]
+    [token]
   );
-
-  // Start camera scanner
-  const startScanner = useCallback(async () => {
-    setCameraError(null);
-    setError(null);
-    await stopScanner();
-
-    const elementId = 'vs-qr-viewfinder';
-    const container = document.getElementById(elementId);
-    if (!container) {
-      setCameraError('Viewfinder element not mounted. Please refresh.');
-      return;
-    }
-
-    try {
-      const html5QrCode = new Html5Qrcode(elementId);
-      scannerRef.current = html5QrCode;
-      setIsScannerActive(true);
-
-      const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0,
-      };
-
-      await html5QrCode.start(
-        { facingMode: 'environment' },
-        config,
-        async (decodedText) => {
-          // Scanned successfully!
-          toast.info('QR Code detected! Fetching booking details...');
-          await lookupBooking(decodedText);
-        },
-        () => {
-          // Frame scan error - normal while searching for QR
-        }
-      );
-    } catch (err: any) {
-      console.error('[QRScanner] Failed starting scanner:', err);
-      setIsScannerActive(false);
-      const errMsg = String(err?.message || err);
-      if (errMsg.includes('NotAllowedError') || errMsg.includes('Permission')) {
-        setCameraError('Camera permission was denied. Please allow camera access in your browser settings, or enter the Booking Reference below.');
-      } else if (errMsg.includes('NotFoundError') || errMsg.includes('no camera')) {
-        setCameraError('No camera found on this device. Please use the manual booking search below.');
-        setScannerSupported(false);
-      } else {
-        setCameraError('Could not initialize camera scanner. Please use manual booking search.');
-      }
-    }
-  }, [lookupBooking, stopScanner]);
-
-  // Clean up scanner on unmount
-  useEffect(() => {
-    return () => {
-      if (scannerRef.current) {
-        try {
-          if (scannerRef.current.isScanning) {
-            scannerRef.current.stop().then(() => scannerRef.current?.clear()).catch(console.warn);
-          }
-        } catch (e) {
-          console.warn('[QRScanner] Cleanup error:', e);
-        }
-      }
-    };
-  }, []);
 
   // Handle URL query param `?ref=...`
   useEffect(() => {
@@ -359,12 +241,11 @@ export const QRCheckInScanner: React.FC<QRCheckInScannerProps> = ({ isAdmin = fa
   };
 
   // Reset to scan another booking
-  const handleReset = async () => {
+  const handleReset = () => {
     setBooking(null);
     setError(null);
     setManualInput('');
     setSearchParams({});
-    await stopScanner();
   };
 
   return (
@@ -390,57 +271,11 @@ export const QRCheckInScanner: React.FC<QRCheckInScannerProps> = ({ isAdmin = fa
       {!booking && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-6">
           {/* Camera Scanner View */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                <Camera className="w-4 h-4 text-emerald-700" /> Camera Scanner
-              </span>
-              {isScannerActive ? (
-                <button
-                  type="button"
-                  onClick={stopScanner}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
-                >
-                  <CameraOff className="w-3.5 h-3.5" /> Stop Camera
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={startScanner}
-                  disabled={!scannerSupported || isLoading}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-sm transition-colors disabled:opacity-50"
-                >
-                  <Camera className="w-4 h-4" /> Open Camera Scanner
-                </button>
-              )}
-            </div>
-
-            {/* Viewfinder mount */}
-            <div
-              id="vs-qr-viewfinder"
-              className={`w-full max-w-sm mx-auto overflow-hidden rounded-2xl border-2 transition-all ${
-                isScannerActive
-                  ? 'border-emerald-600 bg-black min-h-[280px]'
-                  : 'hidden'
-              }`}
-            />
-
-            {isScannerActive && (
-              <p className="text-xs text-center text-gray-500 animate-pulse">
-                Align the voucher QR code inside the viewfinder box to scan automatically.
-              </p>
-            )}
-
-            {cameraError && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-amber-800 text-xs">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-                <div>
-                  <p className="font-semibold">Camera Access Notice</p>
-                  <p className="mt-0.5 text-amber-700">{cameraError}</p>
-                </div>
-              </div>
-            )}
-          </div>
+          <CameraQRScanner
+            onScanSuccess={lookupBooking}
+            elementId="vs-desk-qr-viewfinder"
+            buttonLabel="Open Camera Scanner"
+          />
 
           <div className="relative flex py-1 items-center">
             <div className="flex-grow border-t border-gray-200"></div>
