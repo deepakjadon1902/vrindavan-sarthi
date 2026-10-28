@@ -62,12 +62,12 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
             echo "$KEYSTORE_B64" | base64 -d > android/release-keystore.jks
-            cat <<EOF > android/keystore.properties
-            storeFile=release-keystore.jks
-            storePassword=$KEYSTORE_PASSWORD
-            keyAlias=$KEY_ALIAS
-            keyPassword=$KEY_PASSWORD
-            EOF
+            {
+              echo "storeFile=release-keystore.jks"
+              echo "storePassword=$KEYSTORE_PASSWORD"
+              echo "keyAlias=$KEY_ALIAS"
+              echo "keyPassword=$KEY_PASSWORD"
+            } > android/keystore.properties
             echo "Successfully configured release signing credentials in android/keystore.properties."
           elif [ "$BUILD_TYPE" = "release" ]; then
             echo "::error::Production release build failed: Missing production signing secrets."
