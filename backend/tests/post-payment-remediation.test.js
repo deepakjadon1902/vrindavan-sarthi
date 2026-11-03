@@ -610,6 +610,7 @@ test('Post-Payment Remediation Regression Suite', async (t) => {
       customerFullName: 'Owner Verification Test',
       customerMobile: '+91 9927600017',
       customerCity: 'Govardhan',
+      propertyAddress: 'Govardhan, Mathura, Uttar Pradesh 281502',
     };
 
     const receipt = buildBookingReceiptPdf(booking);

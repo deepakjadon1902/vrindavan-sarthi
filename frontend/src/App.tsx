@@ -179,6 +179,7 @@ const App = () => {
 
               <Route path="/profile" element={<ProtectedRoute><PublicLayout><Profile /></PublicLayout></ProtectedRoute>} />
               <Route path="/bookings" element={<ProtectedRoute><PublicLayout><MyBookings /></PublicLayout></ProtectedRoute>} />
+              <Route path="/my-bookings" element={<Navigate to="/bookings" replace />} />
               <Route path="/bookings/:id/confirmed" element={<ProtectedRoute allowGuest><PublicLayout><BookingConfirmation /></PublicLayout></ProtectedRoute>} />
               <Route path="/bookings/:id" element={<ProtectedRoute allowGuest><PublicLayout><BookingDetail /></PublicLayout></ProtectedRoute>} />
               <Route path="/my-orders" element={<FeatureRoute enabled={shopEnabled}><ProtectedRoute><PublicLayout><MyOrders /></PublicLayout></ProtectedRoute></FeatureRoute>} />

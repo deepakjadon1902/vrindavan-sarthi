@@ -289,11 +289,11 @@ const BookingDetail = () => {
   const handleCancel = async () => {
     const needsReason = booking.bookingStatus === 'confirmed';
     const policyNotice = 'Cancellation Schedule:\n• > 48h before check-in: 75% refund\n• 24h-48h before check-in: 50% refund\n• < 24h: 0% refund\n• 30% advance is non-refundable on voluntary cancellation.\n\nEnter cancellation reason:';
-    const reason = needsReason ? window.prompt(policyNotice) || '' : '';
-    if (needsReason && !reason.trim()) return toast.error('Cancellation reason is required for confirmed bookings');
-    const details = needsReason ? window.prompt('Please add cancellation details:') || '' : '';
-    if (needsReason && !details.trim()) return toast.error('Cancellation details are required');
-    const res = await cancelBooking(booking.id, reason.trim() || undefined, details.trim() || undefined);
+    const reason = needsReason ? (window.prompt(policyNotice) || '').trim() : 'Cancelled by customer before confirmation';
+    if (needsReason && !reason) return toast.error('Cancellation reason is required for confirmed bookings');
+    const details = needsReason ? (window.prompt('Please add cancellation details:') || '').trim() : 'Customer requested cancellation prior to property confirmation';
+    if (needsReason && !details) return toast.error('Cancellation details are required');
+    const res = await cancelBooking(booking.id, reason, details);
     if (res.success) {
       toast.success('Booking cancelled successfully');
       await refreshBooking();

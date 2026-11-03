@@ -1589,8 +1589,9 @@ router.put('/:id/cancel', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Partner listing bookings can be managed by the partner only' });
     }
 
-    const reason = normalize(req.body?.reason || req.body?.cancellationReason);
-    const cancellationDetails = normalize(req.body?.details || req.body?.cancellationDetails);
+    const isConfirmed = booking.bookingStatus === 'confirmed';
+    const reason = normalize(req.body?.reason || req.body?.cancellationReason) || (!isConfirmed ? 'Cancelled by customer before confirmation' : '');
+    const cancellationDetails = normalize(req.body?.details || req.body?.cancellationDetails) || (!isConfirmed ? 'Customer cancelled the booking request prior to property confirmation' : '');
     if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
     if (!cancellationDetails) return res.status(400).json({ success: false, message: 'Cancellation details are required' });
     if (['cancelled', 'expired', 'payment_failed', 'checked_out'].includes(String(booking.bookingStatus || ''))) {

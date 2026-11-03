@@ -278,3 +278,34 @@ test('Refund Caps: Customer cancellation on advance_30 is non-refundable; platfo
   assert.equal(refundablePlatform, 3494, 'Platform failure must refund 100% of online captured amount');
   assert.ok(refundablePlatform <= capturedOnline, 'Refund can never refund uncollected desk cash');
 });
+
+test('Cancellation Reason Resolution: unconfirmed bookings supply safe default reasons while confirmed bookings require them', () => {
+  const normalize = (val) => String(val || '').trim();
+
+  // Scenario 1: Unconfirmed booking (pending_property_confirmation) without reason/details supplied
+  const unconfirmedBooking = { bookingStatus: 'pending_property_confirmation' };
+  const reqBodyEmpty = {};
+  const isConfirmed1 = unconfirmedBooking.bookingStatus === 'confirmed';
+  const reason1 = normalize(reqBodyEmpty.reason || reqBodyEmpty.cancellationReason) || (!isConfirmed1 ? 'Cancelled by customer before confirmation' : '');
+  const details1 = normalize(reqBodyEmpty.details || reqBodyEmpty.cancellationDetails) || (!isConfirmed1 ? 'Customer cancelled the booking request prior to property confirmation' : '');
+
+  assert.equal(reason1, 'Cancelled by customer before confirmation');
+  assert.equal(details1, 'Customer cancelled the booking request prior to property confirmation');
+
+  // Scenario 2: Confirmed booking without reason/details supplied
+  const confirmedBooking = { bookingStatus: 'confirmed' };
+  const isConfirmed2 = confirmedBooking.bookingStatus === 'confirmed';
+  const reason2 = normalize(reqBodyEmpty.reason || reqBodyEmpty.cancellationReason) || (!isConfirmed2 ? 'Cancelled by customer before confirmation' : '');
+  const details2 = normalize(reqBodyEmpty.details || reqBodyEmpty.cancellationDetails) || (!isConfirmed2 ? 'Customer cancelled the booking request prior to property confirmation' : '');
+
+  assert.equal(reason2, '', 'Confirmed booking must not receive automatic fallback reason');
+  assert.equal(details2, '', 'Confirmed booking must not receive automatic fallback details');
+
+  // Scenario 3: Confirmed booking with explicit reason/details supplied
+  const reqBodyExplicit = { reason: 'Medical emergency', details: 'Doctor advised bed rest' };
+  const reason3 = normalize(reqBodyExplicit.reason || reqBodyExplicit.cancellationReason) || (!isConfirmed2 ? 'Cancelled by customer before confirmation' : '');
+  const details3 = normalize(reqBodyExplicit.details || reqBodyExplicit.cancellationDetails) || (!isConfirmed2 ? 'Customer cancelled the booking request prior to property confirmation' : '');
+
+  assert.equal(reason3, 'Medical emergency');
+  assert.equal(details3, 'Doctor advised bed rest');
+});
