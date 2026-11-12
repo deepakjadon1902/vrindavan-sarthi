@@ -87,7 +87,7 @@ const Navbar = () => {
                 height={44}
                 loading="eager"
                 decoding="async"
-                fetchpriority="high"
+                fetchPriority="high"
                 className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-amber-500/30 object-cover shadow-sm transition-transform duration-200 group-hover:scale-105"
               />
               <div className="flex flex-col">

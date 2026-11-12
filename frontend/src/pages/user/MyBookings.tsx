@@ -30,7 +30,7 @@ const typeIcon: Record<string, typeof Hotel> = {
   tour: MapIcon,
 };
 
-const filters = ['All', 'Upcoming', 'Pending', 'Waitlist', 'Completed', 'Expired', 'Cancelled'];
+const filters = ['All', 'Upcoming', 'Current', 'Pending', 'Waitlist', 'Completed', 'Expired', 'Cancelled'];
 
 const typeLabels: Record<string, string> = {
   cab: 'Cab',
@@ -154,14 +154,15 @@ const MyBookings = () => {
     filter === 'All' ? bookings :
     filter === 'Waitlist' ? bookings.filter(b => Boolean(b.isWaitlisted) && !['cancelled', 'expired', 'payment_failed'].includes(b.bookingStatus)) :
     filter === 'Upcoming' ? bookings.filter(b => b.bookingStatus === 'confirmed') :
+    filter === 'Current' ? bookings.filter(b => b.bookingStatus === 'checked_in') :
     filter === 'Pending' ? bookings.filter(b => pendingStatuses.has(b.bookingStatus)) :
-    filter === 'Completed' ? bookings.filter(b => b.bookingStatus === 'completed') :
+    filter === 'Completed' ? bookings.filter(b => ['completed', 'checked_out', 'settled'].includes(b.bookingStatus)) :
     filter === 'Expired' ? bookings.filter(b => b.bookingStatus === 'expired' || b.bookingStatus === 'payment_failed') :
     bookings.filter(b => b.bookingStatus === 'cancelled');
 
   const stats = [
     { label: 'Total bookings', value: bookings.length, tone: 'text-foreground' },
-    { label: 'Confirmed', value: bookings.filter(b => b.bookingStatus === 'confirmed').length, tone: 'text-brand-green' },
+    { label: 'Confirmed', value: bookings.filter(b => ['confirmed', 'checked_in'].includes(b.bookingStatus)).length, tone: 'text-brand-green' },
     { label: 'Pending', value: bookings.filter(b => pendingStatuses.has(b.bookingStatus)).length, tone: 'text-brand-saffron' },
     {
       label: 'Total spent',
@@ -178,18 +179,21 @@ const MyBookings = () => {
     if (tab === 'All') return bookings.length;
     if (tab === 'Waitlist') return bookings.filter(b => Boolean(b.isWaitlisted) && !['cancelled', 'expired', 'payment_failed'].includes(b.bookingStatus)).length;
     if (tab === 'Upcoming') return bookings.filter(b => b.bookingStatus === 'confirmed').length;
+    if (tab === 'Current') return bookings.filter(b => b.bookingStatus === 'checked_in').length;
     if (tab === 'Pending') return bookings.filter(b => pendingStatuses.has(b.bookingStatus)).length;
-    if (tab === 'Completed') return bookings.filter(b => b.bookingStatus === 'completed').length;
+    if (tab === 'Completed') return bookings.filter(b => ['completed', 'checked_out', 'settled'].includes(b.bookingStatus)).length;
     if (tab === 'Expired') return bookings.filter(b => b.bookingStatus === 'expired' || b.bookingStatus === 'payment_failed').length;
     return bookings.filter(b => b.bookingStatus === 'cancelled').length;
   };
 
   const statusBadge = (s: string) => {
     if (s === 'confirmed') return { cls: 'bg-brand-green/12 text-brand-green border-brand-green/25', icon: CheckCircle2 };
+    if (s === 'checked_in') return { cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: CheckCircle2 };
+    if (s === 'checked_out') return { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 };
     if (s === 'awaiting_customer_payment') return { cls: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: IndianRupee };
     if (s === 'cancelled') return { cls: 'bg-destructive/12 text-destructive border-destructive/25', icon: XCircle };
     if (s === 'expired' || s === 'payment_failed') return { cls: 'bg-destructive/12 text-destructive border-destructive/25', icon: XCircle };
-    if (s === 'completed') return { cls: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CheckCircle2 };
+    if (s === 'completed' || s === 'settled') return { cls: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CheckCircle2 };
     return { cls: 'bg-muted text-muted-foreground border-border', icon: Clock };
   };
 
@@ -395,7 +399,16 @@ const MyBookings = () => {
 
                         <div className="mt-auto flex items-end justify-between gap-3 pt-5">
                           {canShowDharamshalaAmount && b.totalAmount > 0 && (
-                            <span className="flex items-center font-body text-[22px] font-bold leading-none text-brand-crimson"><IndianRupee size={17} />{b.totalAmount.toLocaleString('en-IN')}</span>
+                            <div>
+                              <span className="flex items-center font-body text-[22px] font-bold leading-none text-brand-crimson">
+                                <IndianRupee size={17} />{b.totalAmount.toLocaleString('en-IN')}
+                              </span>
+                              {Number(b.balanceAmount || b.amountPayableAtProperty || 0) > 0 && ['confirmed', 'checked_in'].includes(b.bookingStatus) && (
+                                <p className="mt-1 text-[11px] font-medium text-amber-700">
+                                  ₹{(Number(b.balanceAmount || b.amountPayableAtProperty)).toLocaleString('en-IN')} due at check-in
+                                </p>
+                              )}
+                            </div>
                           )}
                           <span className="text-right font-body text-[11px] font-semibold capitalize text-muted-foreground">{paymentCopy}</span>
                         </div>

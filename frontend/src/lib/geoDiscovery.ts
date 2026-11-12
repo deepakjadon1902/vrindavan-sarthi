@@ -15,7 +15,7 @@ export interface LandmarkLocation {
   id: string;
   name: string;
   sectionHeading: string;
-  place: 'Vrindavan' | 'Mathura' | 'Govardhan' | 'Barsana' | 'Gokul' | 'Other';
+  place: 'Vrindavan' | 'Mathura' | 'Govardhan' | 'Barsana' | 'Gokul' | 'Nandgaon' | 'Baldeo' | 'Other';
   lat: number;
   lng: number;
   subtitle: string;

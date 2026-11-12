@@ -769,7 +769,7 @@ const RoomTypeDetail = () => {
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl bg-gray-50 border border-gray-100 p-3">
                     <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">{item.label}</p>
-                    <p className="text-sm font-semibold text-gray-700">{item.icon}{item.value}</p>
+                    <p className="text-sm font-semibold text-gray-700">{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -1022,15 +1022,40 @@ const RoomTypeDetail = () => {
                     )}
 
                     {isDharamshala && (
-                      <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm">
+                      <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm space-y-1">
                         <p className="font-semibold text-gray-800">No online payment now</p>
-                        <p className="mt-1 text-xs leading-5 text-gray-500">Your request goes to the Dharamshala first. Payment or contribution details come after acceptance.</p>
+                        <p className="text-xs leading-5 text-gray-500">
+                          Your request goes to the Dharamshala first. Stay contribution or room donation is handled after property approval.
+                        </p>
+                        <div className="pt-1 text-xs font-semibold text-emerald-800">
+                          Platform Service Fee: ₹{hotel?.dharamshalaServiceFee ?? 79} (due only upon stay acceptance)
+                        </div>
                       </div>
                     )}
 
-                                        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 p-2.5 text-xs text-emerald-950 font-medium">
-                      <ShieldCheck size={16} className="text-emerald-700 shrink-0" />
-                      <span><strong>Cancellation Policy:</strong> Free cancellation & 100% refund available per property policy before check-in.</span>
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-xs text-emerald-950 font-medium space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                        <ShieldCheck size={16} className="text-emerald-700 shrink-0" />
+                        <span>
+                          Cancellation Policy: {isDharamshala ? 'Dharamshala Pilgrimage Terms' : effectivePaymentOption === 'advance_30' ? '30% Advance Deposit Rule' : (hotel?.cancellationPolicyType === 'custom' ? 'Hotel Custom Policy' : 'Platform Default Policy')}
+                        </span>
+                      </div>
+                      {isDharamshala ? (
+                        <p className="text-[11px] text-emerald-800 leading-relaxed">
+                          Pilgrimage stay requests can be cancelled free of charge prior to arrival. Service fee covers pilgrim assistance operations.
+                        </p>
+                      ) : effectivePaymentOption === 'advance_30' ? (
+                        <p className="text-[11px] text-emerald-800 leading-relaxed">
+                          The 30% advance deposit is <strong>non-refundable</strong> upon voluntary customer cancellation. A <strong>100% full online refund</strong> is guaranteed if the hotel or platform fails to fulfill accommodation.
+                        </p>
+                      ) : (
+                        <div className="text-[11px] text-emerald-800 leading-relaxed space-y-0.5">
+                          <p>• <strong>&gt; 48 hours</strong> before check-in: 75% refund</p>
+                          <p>• <strong>24 to 48 hours</strong> before check-in (inclusive): 50% refund</p>
+                          <p>• <strong>&lt; 24 hours</strong> before check-in: 0% refund</p>
+                          <p className="text-[10px] text-emerald-700 italic mt-0.5">* 100% refund guaranteed if property or platform cannot fulfill accommodation.</p>
+                        </div>
+                      )}
                     </div>
 
                     {mustAcceptPropertyTerms && (

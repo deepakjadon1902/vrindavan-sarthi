@@ -66,6 +66,13 @@ const ManageUsers = lazy(() => import("@/pages/admin/ManageUsers"));
 const ManagePartnerRequests = lazy(() => import("@/pages/admin/ManagePartnerRequests"));
 const AdminNotifications = lazy(() => import("@/pages/admin/AdminNotifications"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
+const AdminCancellations = lazy(() => import("@/pages/admin/AdminCancellations"));
+const AdminRevenue = lazy(() => import("@/pages/admin/AdminRevenue"));
+const AdminSupport = lazy(() => import("@/pages/admin/AdminSupport"));
+const AdminReports = lazy(() => import("@/pages/admin/AdminReports"));
+const AdminAuditLogs = lazy(() => import("@/pages/admin/AdminAuditLogs"));
+const AdminRoles = lazy(() => import("@/pages/admin/AdminRoles"));
+const AdminBusinessPolicies = lazy(() => import("@/pages/admin/AdminBusinessPolicies"));
 
 const PartnerLayout = lazy(() => import("@/pages/partner/PartnerLayout"));
 const PartnerDashboard = lazy(() => import("@/pages/partner/PartnerDashboard"));
@@ -222,6 +229,13 @@ const App = () => {
                 <Route path="products" element={<ManageProducts />} />
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="users" element={<ManageUsers />} />
+                <Route path="cancellations" element={<AdminCancellations />} />
+                <Route path="policies" element={<AdminBusinessPolicies />} />
+                <Route path="revenue" element={<AdminRevenue />} />
+                <Route path="support" element={<AdminSupport />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="audit-logs" element={<AdminAuditLogs />} />
+                <Route path="roles" element={<AdminRoles />} />
                 <Route path="settings" element={<AdminSettings />} />
               </Route>
 

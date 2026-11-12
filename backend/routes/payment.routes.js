@@ -1,5 +1,6 @@
 const express = require('express');
 const Booking = require('../models/Booking');
+const Hotel = require('../models/Hotel');
 const RefundOperation = require('../models/RefundOperation');
 const PaymentReconciliation = require('../models/PaymentReconciliation');
 const { protect, optionalProtect, authorize } = require('../middleware/auth');
@@ -33,6 +34,8 @@ const {
 const { reconcileRefundOperation } = require('../utils/refundOperations');
 const { payableAmountForBooking } = require('../utils/bookingPayable');
 const { findBookingForCustomerPayment } = require('../utils/guestBookingAccess');
+const { validateDharamshalaFeeApproval } = require('../utils/dharamshalaLifecycle');
+const { createDharamshalaFeeSnapshot } = require('../services/refundCalculationService');
 const router = express.Router();
 
 router.param('id', (req, res, next, id) => {
@@ -95,8 +98,28 @@ router.post('/razorpay/orders', optionalProtect, async (req, res) => {
     if (booking.bookingStatus === 'pending_property_confirmation') {
       return res.status(409).json({ success: false, message: 'Payment is available only after property acceptance' });
     }
-    if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.bookingStatus !== 'awaiting_customer_payment') {
-      return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
+    if (String(booking.propertyType || '').toLowerCase() === 'dharamshala') {
+      if (booking.bookingStatus !== 'awaiting_customer_payment') {
+        return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
+      }
+      const dharamshalaHotel = booking.hotelId ? await Hotel.findById(booking.hotelId).lean() : null;
+      if (!dharamshalaHotel) {
+        return res.status(400).json({ success: false, message: 'Dharamshala property record not found for payment validation' });
+      }
+      validateDharamshalaFeeApproval({ ...dharamshalaHotel, propertyType: dharamshalaHotel.propertyType || 'dharamshala' });
+      if (booking.dharamshalaFeeSnapshot?.applied) {
+        const currentSnapshot = createDharamshalaFeeSnapshot({ ...dharamshalaHotel, propertyType: dharamshalaHotel.propertyType || 'dharamshala' });
+        if (
+          Number(booking.dharamshalaFeeSnapshot.fee) !== Number(currentSnapshot.fee) ||
+          String(booking.dharamshalaFeeSnapshot.approvalStatus || '').trim() !== String(currentSnapshot.approvalStatus || '').trim() ||
+          Number(booking.dharamshalaFeeSnapshot.version || 1) !== Number(currentSnapshot.version || 1)
+        ) {
+          return res.status(409).json({
+            success: false,
+            message: 'Dharamshala service fee configuration has changed. Payment order cannot proceed.',
+          });
+        }
+      }
     }
     if (booking.paymentHoldExpiresAt && new Date(booking.paymentHoldExpiresAt).getTime() <= Date.now()) {
       await transitionBookingStatus(booking, 'expired', { actorRole: 'system', reason: 'payment_hold_expired' });

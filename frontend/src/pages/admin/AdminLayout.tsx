@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Hotel, BedDouble, Car, Map, ClipboardList,
   Users, LogOut, Menu, X, Handshake, Settings, CreditCard,
   Landmark, UserCheck, Activity, Network, CalendarDays, QrCode, Bell,
+  RotateCcw, TrendingUp, HelpCircle, FileText, ShieldAlert, ShieldCheck, Sliders,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -21,7 +22,14 @@ const sidebarLinks = [
   { name: 'Taxi Booking', path: '/admin/cabs', icon: Car },
   { name: 'Taxi Rates', path: '/admin/cab-fares', icon: ClipboardList },
   { name: 'Tour Packages', path: '/admin/tours', icon: Map },
-  { name: 'Partners', path: '/admin/partners', icon: UserCheck },
+  { name: 'Partners & KYC', path: '/admin/partners', icon: UserCheck },
+  { name: 'Cancellations & Refunds', path: '/admin/cancellations', icon: RotateCcw },
+  { name: 'Business Policies', path: '/admin/policies', icon: Sliders },
+  { name: 'Revenue & Commission', path: '/admin/revenue', icon: TrendingUp },
+  { name: 'Support & Grievances', path: '/admin/support', icon: HelpCircle },
+  { name: 'Reports & Analytics', path: '/admin/reports', icon: FileText },
+  { name: 'Audit Logs', path: '/admin/audit-logs', icon: ShieldAlert },
+  { name: 'Admin Roles & RBAC', path: '/admin/roles', icon: ShieldCheck },
   { name: 'Listing Requests', path: '/admin/partner-requests', icon: Handshake },
   { name: 'Partner Notices', path: '/admin/notifications', icon: Bell },
   { name: 'Bookings', path: '/admin/bookings', icon: ClipboardList },

@@ -201,7 +201,7 @@ const BookingFormDetails = ({ booking, viewer = 'admin' }: Props) => {
         )}
       </div>
 
-      {viewer === 'partner' && !isDharamshala && (
+      {viewer === 'admin' && !isDharamshala && (
         <div className="rounded-lg border border-brand-gold/20 bg-brand-cream/60 p-3 sm:p-4">
           <p className="font-body text-xs font-semibold text-foreground mb-3">Partner Settlement Summary</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

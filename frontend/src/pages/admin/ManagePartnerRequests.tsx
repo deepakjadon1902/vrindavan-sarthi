@@ -11,7 +11,7 @@ import RecordPagination, { useRecordPagination } from '@/components/shared/Recor
 
 const ManagePartnerRequests = () => {
   const token = useAuthStore((s) => s.token);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'correction_required'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'hotel' | 'cab' | 'tour'>('all');
   const [viewItem, setViewItem] = useState<any>(null);
   const [remarkText, setRemarkText] = useState('');
@@ -71,7 +71,7 @@ const ManagePartnerRequests = () => {
     setPlatformFeeAmount(Number(item.dharamshalaServiceFee || 79));
   };
 
-  const updateStatus = async (item: any, status: 'approved' | 'rejected', remarks: string = '') => {
+  const updateStatus = async (item: any, status: 'approved' | 'rejected' | 'correction_required', remarks: string = '') => {
     if (!token) return;
     const url =
       item.itemType === 'hotel'
@@ -105,6 +105,7 @@ const ManagePartnerRequests = () => {
   const statusBadge = (status: string) => {
     if (status === 'approved') return 'bg-brand-green/10 text-brand-green';
     if (status === 'rejected') return 'bg-destructive/10 text-destructive';
+    if (status === 'correction_required') return 'bg-amber-500/15 text-amber-600 font-semibold';
     return 'bg-brand-saffron/10 text-brand-saffron';
   };
 
@@ -318,6 +319,17 @@ const ManagePartnerRequests = () => {
               {viewItem.approvalStatus !== 'approved' && (
                 <button onClick={() => updateStatus(viewItem, 'approved', remarkText)} className="px-5 py-2.5 rounded-lg text-sm font-body bg-brand-green text-primary-foreground hover:bg-brand-green/90 flex items-center gap-2">
                   <CheckCircle size={14} /> Approve & Add to Main Site
+                </button>
+              )}
+              {viewItem.itemType === 'hotel' && viewItem.approvalStatus !== 'approved' && (
+                <button
+                  onClick={() => {
+                    if (!remarkText.trim()) return toast.error('Please enter the required correction details in Admin Remarks.');
+                    void updateStatus(viewItem, 'correction_required', remarkText);
+                  }}
+                  className="px-5 py-2.5 rounded-lg text-sm font-body bg-amber-600 text-white hover:bg-amber-700 flex items-center gap-2"
+                >
+                  <Clock size={14} /> Request Correction
                 </button>
               )}
               {viewItem.approvalStatus !== 'rejected' && (

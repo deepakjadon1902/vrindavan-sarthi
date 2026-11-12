@@ -9,7 +9,8 @@ const Cab = require('../models/Cab');
 const CabFare = require('../models/CabFare');
 const Tour = require('../models/Tour');
 const User = require('../models/User');
-const { protect, optionalProtect, authorize } = require('../middleware/auth');
+const { protect, optionalProtect, authorize, authorizeAdmin } = require('../middleware/auth');
+const { logAdminAction } = require('../utils/adminAuditLogger');
 const { qrVerificationRateLimiter } = require('../middleware/rateLimit');
 const { recordBookingAudit } = require('../utils/bookingAudit');
 
@@ -74,6 +75,11 @@ const {
   evaluateNoShowEligibility,
   calculateNoShowSettlement,
 } = require('../utils/cancellationPolicy');
+const {
+  createBookingPolicySnapshot,
+  createDharamshalaFeeSnapshot,
+  calculateRefund,
+} = require('../services/refundCalculationService');
 const router = express.Router();
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
@@ -230,7 +236,7 @@ const bookingDetailFields = [
   'platformCommissionPercent platformCommissionAmount grossForHotel paymentGatewayFeeAmount partnerNetPayout',
   'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId paymentProvider razorpayOrderId razorpayPaymentId razorpayStatus paidAt additionalInfo',
   'paymentHoldExpiresAt confirmedAt checkedInAt checkedOutAt checkedInByPartnerId checkedInByPartnerName guestDigitalSignature paymentFailedAt expiredAt inventoryReleasedAt statusHistory',
-  'acceptedPropertyTerms',
+  'acceptedPropertyTerms cancellationPolicySnapshot dharamshalaFeeSnapshot cancellationResponsibility cancellationExplanation cancellationFaultOverrideReason refundProviderReference',
   'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount refundId refundAmount refundStatus refundRequestedAt refundProcessedAt refundFailureReason refundReconciliationState createdAt',
 ].join(' ');
 
@@ -586,6 +592,8 @@ router.post('/room-type', optionalProtect, async (req, res) => {
     const displayBookingId = await getNextBookingId();
     const propertyId = hotel.propertyId || undefined;
     const categoryId = roomType.categoryId || undefined;
+    const cancellationPolicySnapshot = await createBookingPolicySnapshot(hotel, paymentOption);
+    const dharamshalaFeeSnapshot = createDharamshalaFeeSnapshot(hotel);
     const booking = new Booking({
       bookingId,
       displayBookingId,
@@ -654,6 +662,8 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       bookingSource: bookingCustomer.isGuestBooking ? 'guest_web' : 'web',
       additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
       acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
+      cancellationPolicySnapshot,
+      dharamshalaFeeSnapshot,
     });
 
     const selectedUnits = await tryReserveRoomUnitsForBooking({
@@ -760,6 +770,8 @@ router.post('/room-type', optionalProtect, async (req, res) => {
         bookingSource: bookingCustomer.isGuestBooking ? 'guest_web' : 'web',
         additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
         acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
+      cancellationPolicySnapshot,
+      dharamshalaFeeSnapshot,
         isWaitlisted: true,
       });
 
@@ -1564,6 +1576,28 @@ const cancelBookingNow = async (booking, reason, reviewedByAdmin = false, meta =
   booking.cancellationDeductionPercent = cancellationDeductionPercent;
   booking.cancellationDeductionAmount = cancellationDeductionAmount;
   booking.refundableAmount = refundableAmount;
+  const refundResult = calculateRefund({
+    booking,
+    cancellationTime: meta.cancellationTime || new Date(),
+    responsibility: meta.responsibility || (isPropertyOrPlatformFailure ? 'platform_fault' : 'customer_voluntary'),
+    hotel: meta.hotel || null,
+    requestedByRole: meta.cancelledByRole || (reviewedByAdmin ? 'admin' : 'user'),
+  });
+  booking.cancellationResponsibility = refundResult.cancellationResponsibility;
+  booking.cancellationExplanation = refundResult.explanation;
+  booking.cancellationDeductionPercent = refundResult.cancellationDeductionPercent;
+  booking.cancellationDeductionAmount = refundResult.cancellationDeductionAmount;
+  booking.refundableAmount = refundResult.refundableAmount;
+
+  // Option B Breakage Allocation for advance_30 customer voluntary cancellations
+  if (booking.paymentOption === 'advance_30' && refundResult.cancellationResponsibility === 'customer_voluntary') {
+    const { allocateCancellationBreakageOptionB } = require('../services/financialLedgerService');
+    await allocateCancellationBreakageOptionB({
+      booking,
+      cancellationReason: reason,
+      actor: { _id: meta.actorId, role: meta.cancelledByRole },
+    });
+  }
   await executeBookingRefund({
     booking,
     amount: booking.refundableAmount,
@@ -1594,7 +1628,7 @@ router.put('/:id/cancel', protect, async (req, res) => {
     const cancellationDetails = normalize(req.body?.details || req.body?.cancellationDetails) || (!isConfirmed ? 'Customer cancelled the booking request prior to property confirmation' : '');
     if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
     if (!cancellationDetails) return res.status(400).json({ success: false, message: 'Cancellation details are required' });
-    if (['cancelled', 'expired', 'payment_failed', 'checked_out'].includes(String(booking.bookingStatus || ''))) {
+    if (['cancelled', 'expired', 'payment_failed', 'checked_out', 'checked_in', 'settled'].includes(String(booking.bookingStatus || ''))) {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
     }
 
@@ -1801,7 +1835,7 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
     const nextStatus = normalize(req.body?.bookingStatus || req.body?.status);
     const allowed = ['checked_in', 'checked_out', 'completed', 'settled', 'no_show'];
     if (!allowed.includes(nextStatus)) return res.status(400).json({ success: false, message: 'Invalid booking status' });
-    if (nextStatus === 'settled' && booking.bookingStatus !== 'checked_out') {
+    if (nextStatus === 'settled' && !['checked_out', 'completed'].includes(booking.bookingStatus)) {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
     }
     if (nextStatus !== 'settled' && booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'not_required') {
@@ -1815,7 +1849,11 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
         reason: 'admin_status_update',
       });
     } else {
-      booking.bookingStatus = 'settled';
+      await transitionBookingStatus(booking, 'settled', {
+        actorId: req.user._id,
+        actorRole: 'admin',
+        reason: 'admin_status_update',
+      });
     }
     if (nextStatus === 'checked_in') booking.payout_status = 'checked_in';
     if (nextStatus === 'checked_out') booking.payout_status = 'checked_out';
@@ -2090,6 +2128,92 @@ router.put('/:id/check-in', protect, authorize('admin', 'partner'), async (req, 
 });
 
 // Balance collection endpoint with duplicate prevention and excess-collection safeguard
+// Guest check-out endpoint for partner and admin: releases inventory locks and marks checked_out
+const handleBookingCheckout = async (req, res) => {
+  try {
+    const query = req.user.role === 'admin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, partnerId: req.user._id };
+
+    const booking = await Booking.findOne(query);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found or not authorized' });
+    }
+
+    if (booking.bookingStatus === 'checked_out') {
+      return res.status(409).json({
+        success: false,
+        message: 'Guest is already checked out.',
+        code: 'ALREADY_CHECKED_OUT',
+        checkedOutAt: booking.checkedOutAt,
+      });
+    }
+
+    if (booking.bookingStatus !== 'checked_in') {
+      return res.status(409).json({
+        success: false,
+        message: `Only checked-in bookings may be checked out. Current status: ${booking.bookingStatus}`,
+        code: 'INVALID_BOOKING_STATE',
+      });
+    }
+
+    const beforeState = { bookingStatus: booking.bookingStatus, payout_status: booking.payout_status };
+    const checkedOutAt = new Date();
+
+    await transitionBookingStatus(booking, 'checked_out', {
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      reason: normalize(req.body?.notes || req.body?.reason || 'guest_check_out'),
+    });
+
+    booking.payout_status = 'checked_out';
+    booking.checkedOutAt = checkedOutAt;
+    booking.checkedOutBy = req.user._id;
+    booking.checkedOutByName = req.user.name;
+    if (req.body?.notes) {
+      booking.checkoutNotes = normalize(req.body.notes);
+    }
+
+    await booking.save();
+
+    try {
+      await releaseBookingInventory(booking);
+    } catch (invErr) {
+      console.warn('[checkout.inventory_release.warn]', invErr?.message || invErr);
+    }
+
+    const afterState = { bookingStatus: booking.bookingStatus, payout_status: booking.payout_status, checkedOutAt };
+
+    await recordBookingAudit({
+      action: 'guest_check_out',
+      booking,
+      req,
+      beforeState,
+      afterState,
+      metadata: { method: 'desk_checkout', notes: req.body?.notes },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Guest successfully checked out.',
+      data: {
+        id: String(booking._id),
+        bookingId: booking.bookingId,
+        bookingStatus: booking.bookingStatus,
+        checkedOutAt: booking.checkedOutAt,
+        checkedOutByName: booking.checkedOutByName,
+      },
+    });
+  } catch (err) {
+    console.error('[booking.checkout.error]', err?.stack || err?.message || err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Check-out failed' });
+  }
+};
+
+router.put('/:id/checkout', protect, authorize('admin', 'partner'), handleBookingCheckout);
+router.put('/:id/check-out', protect, authorize('admin', 'partner'), handleBookingCheckout);
+
+// Balance collection endpoint with duplicate prevention and excess-collection safeguard
 router.put('/:id/collect-balance', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
     const query = req.user.role === 'admin'
@@ -2332,6 +2456,224 @@ router.put('/:id/partner-reject', protect, authorize('partner'), async (req, res
     });
 
     res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Cancellations & Refunds Directory
+router.get('/admin/cancellations', protect, authorizeAdmin('manage_refunds'), async (req, res) => {
+  try {
+    const { status, q, page = 1, limit = 20 } = req.query;
+    const filter = { bookingStatus: 'cancelled' };
+
+    if (status && status !== 'all') {
+      filter.refundStatus = status;
+    }
+
+    if (q) {
+      const re = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [
+        { bookingId: re },
+        { customerFullName: re },
+        { userName: re },
+        { customerMobile: re },
+        { propertyName: re },
+      ];
+    }
+
+    const skip = (Math.max(1, parseInt(page, 10)) - 1) * parseInt(limit, 10);
+    const [bookings, total] = await Promise.all([
+      Booking.find(filter)
+        .sort({ cancelledAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit, 10))
+        .select('bookingId displayBookingId bookingType propertyName customerFullName customerMobile customerEmail totalAmount amountPaidOnline amountPayableAtProperty paymentOption paymentStatus bookingStatus cancellationReason cancellationDetails cancelledAt cancelledByRole cancelledByName refundableAmount cancellationDeductionAmount cancellationDeductionPercent cancellationResponsibility cancellationExplanation cancellationFaultOverrideReason cancellationPolicySnapshot dharamshalaFeeSnapshot refundStatus refundProviderReference refundProcessedAt')
+        .lean(),
+      Booking.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      data: bookings,
+      pagination: {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+        total,
+        pages: Math.max(1, Math.ceil(total / parseInt(limit, 10))),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Simulate Refund in Staging
+router.post('/admin/cancellations/:id/simulate-refund', protect, authorizeAdmin('manage_refunds'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (booking.bookingStatus !== 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Only cancelled bookings can be refunded' });
+    }
+
+    const refundAmount = Number(req.body?.amount ?? booking.refundableAmount ?? 0);
+    const refundRef = `sim_rfnd_${Date.now()}`;
+    const beforeState = {
+      refundStatus: booking.refundStatus,
+      refundableAmount: booking.refundableAmount,
+      refundProviderReference: booking.refundProviderReference,
+    };
+
+    booking.refundStatus = 'processed';
+    booking.refundId = refundRef;
+    booking.refundProviderReference = refundRef;
+    booking.refundAmount = refundAmount;
+    booking.refundProcessedAt = new Date();
+    booking.refundableAmount = refundAmount;
+    await booking.save();
+
+    await logAdminAction({
+      actor: req.user,
+      action: 'refund_simulated_in_staging',
+      targetEntityType: 'refund',
+      targetEntityId: booking._id,
+      bookingId: booking.bookingId,
+      beforeState,
+      afterState: {
+        refundStatus: booking.refundStatus,
+        refundableAmount: booking.refundableAmount,
+        refundProviderReference: booking.refundProviderReference,
+        refundProcessedAt: booking.refundProcessedAt,
+      },
+      reason: req.body?.reason || 'Simulated staging refund approval',
+      req,
+    });
+
+    res.json({ success: true, message: 'Refund simulated successfully in staging.', data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Preview Cancellation Refund (Customer or Admin)
+router.post('/:id/cancellation-preview', protect, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    if (req.user.role === 'user' && String(booking.userId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to inspect this reservation' });
+    }
+
+    const hotel = booking.hotelId ? await Hotel.findById(booking.hotelId).lean() : null;
+    const requestedResponsibility = req.user.role === 'admin' ? req.body?.responsibility : 'customer_voluntary';
+
+    const calculation = calculateRefund({
+      booking,
+      cancellationTime: req.body?.cancellationTime ? new Date(req.body.cancellationTime) : new Date(),
+      responsibility: requestedResponsibility,
+      hotel,
+      requestedByRole: req.user.role,
+    });
+
+    res.json({ success: true, data: calculation });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Override Cancellation Fault Responsibility (Reclassify with mandatory reason)
+router.put('/admin/cancellations/:id/override-fault', protect, authorizeAdmin('manage_refunds'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (booking.bookingStatus !== 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Only cancelled reservations can have fault reclassified.' });
+    }
+
+    const { responsibility, reason } = req.body;
+    const trimmedReason = String(reason || '').trim();
+    if (!trimmedReason) {
+      return res.status(400).json({
+        success: false,
+        message: 'A mandatory justification reason is required to override cancellation fault responsibility.',
+      });
+    }
+
+    const validResponsibilities = ['customer_voluntary', 'hotel_fault', 'platform_fault', 'system_technical', 'administrative'];
+    if (!validResponsibilities.includes(responsibility)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid responsibility. Must be one of: ${validResponsibilities.join(', ')}`,
+      });
+    }
+
+    const beforeState = {
+      cancellationResponsibility: booking.cancellationResponsibility,
+      refundableAmount: booking.refundableAmount,
+      cancellationDeductionAmount: booking.cancellationDeductionAmount,
+      cancellationDeductionPercent: booking.cancellationDeductionPercent,
+    };
+
+    const hotel = booking.hotelId ? await Hotel.findById(booking.hotelId).lean() : null;
+    const recalculated = calculateRefund({
+      booking,
+      cancellationTime: booking.cancelledAt || new Date(),
+      responsibility,
+      hotel,
+      requestedByRole: 'admin',
+    });
+
+    booking.cancellationResponsibility = responsibility;
+    booking.cancellationExplanation = recalculated.explanation;
+    booking.refundableAmount = recalculated.refundableAmount;
+    booking.cancellationDeductionAmount = recalculated.cancellationDeductionAmount;
+    booking.cancellationDeductionPercent = recalculated.cancellationDeductionPercent;
+    booking.cancellationFaultOverrideReason = trimmedReason;
+    booking.cancellationFaultOverriddenBy = req.user._id;
+    booking.cancellationFaultOverriddenAt = new Date();
+
+    // Option B Breakage Ledger Reversal or Re-allocation upon fault change
+    const { allocateCancellationBreakageOptionB, reverseCancellationBreakage } = require('../services/financialLedgerService');
+    if (['hotel_fault', 'platform_fault', 'system_technical'].includes(responsibility)) {
+      await reverseCancellationBreakage({
+        booking,
+        reason: trimmedReason,
+        actor: req.user,
+      });
+    } else if (responsibility === 'customer_voluntary' && booking.paymentOption === 'advance_30') {
+      await allocateCancellationBreakageOptionB({
+        booking,
+        cancellationReason: trimmedReason,
+        actor: req.user,
+      });
+    }
+
+    await booking.save();
+
+    await logAdminAction({
+      actor: req.user,
+      action: 'cancellation_fault_overridden',
+      targetEntityType: 'booking',
+      targetEntityId: booking._id,
+      bookingId: booking.bookingId,
+      beforeState,
+      afterState: {
+        cancellationResponsibility: booking.cancellationResponsibility,
+        refundableAmount: booking.refundableAmount,
+        cancellationDeductionAmount: booking.cancellationDeductionAmount,
+        cancellationDeductionPercent: booking.cancellationDeductionPercent,
+      },
+      reason: trimmedReason,
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: 'Cancellation responsibility updated and refund recalculation applied.',
+      data: booking,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

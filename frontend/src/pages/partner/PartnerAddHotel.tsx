@@ -64,7 +64,7 @@ const PartnerAddHotel = () => {
     taxPercent: '12',
     gstMode: 'automatic' as 'manual' | 'automatic',
     showPrices: true,
-    dharamshalaPaymentMode: 'pay_at_dharamshala' as const,
+    dharamshalaPaymentMode: 'pay_at_dharamshala' as 'pay_at_dharamshala' | 'full_online' | 'request_only',
     dharamshalaPlatformFeeEnabled: true,
     dharamshalaServiceFee: '79',
     dharamshalaResponseTimeoutMinutes: '30',
@@ -606,7 +606,7 @@ const PartnerAddHotel = () => {
 
             <PropertyTermsEditor
               value={form.propertyTerms}
-              onChange={(propertyTerms) => setForm({ ...form, propertyTerms })}
+              onChange={(propertyTerms) => setForm({ ...form, propertyTerms: normalizePropertyTerms(propertyTerms) })}
             />
 
             <div>

@@ -478,7 +478,7 @@ const Register = () => {
                     <input
                       type="checkbox"
                       checked={partnerPoliciesAccepted}
-                      disabled={!canAcceptPartnerPolicies}
+                      disabled={false}
                       onChange={(e) => setPartnerPoliciesAccepted(e.target.checked)}
                       className="mt-1 h-4 w-4 rounded border-border accent-[hsl(var(--brand-gold))]"
                     />
@@ -495,7 +495,7 @@ const Register = () => {
                 </div>
               </div>
             )}
-            <button type="submit" disabled={!canSubmit} className={`w-full py-3.5 rounded-xl text-sm mt-2 disabled:cursor-not-allowed disabled:opacity-50 ${role === 'partner' ? 'bg-brand-gold text-foreground font-semibold hover:bg-brand-gold/90' : 'btn-crimson'}`}>
+            <button type="submit" disabled={isLoading} className={`w-full py-3.5 rounded-xl text-sm mt-2 disabled:cursor-not-allowed disabled:opacity-50 ${role === 'partner' ? 'bg-brand-gold text-foreground font-semibold hover:bg-brand-gold/90' : 'btn-crimson'}`}>
               {isLoading ? 'Creating Account...' : role === 'partner' ? 'Register as Partner' : 'Create Account'}
             </button>
           </form>

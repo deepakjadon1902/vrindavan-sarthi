@@ -18,7 +18,7 @@ const BOOKING_TRANSITIONS = {
   confirmed: new Set(['checked_in', 'cancelled', 'no_show']),
   checked_in: new Set(['checked_out', 'completed']),
   no_show: new Set(['cancelled', 'completed']),
-  checked_out: new Set(['completed']),
+  checked_out: new Set(['completed', 'settled']),
   cancelled: new Set([]),
   expired: new Set([]),
   payment_failed: new Set([]),

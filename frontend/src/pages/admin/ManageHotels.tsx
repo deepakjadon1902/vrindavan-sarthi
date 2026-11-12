@@ -75,7 +75,7 @@ const ManageHotels = () => {
     showPrices: true,
     bookingMode: 'request' as 'instant' | 'request',
     instantBookingEnabled: false,
-    dharamshalaPaymentMode: 'pay_at_dharamshala' as const,
+    dharamshalaPaymentMode: 'pay_at_dharamshala' as 'pay_at_dharamshala' | 'full_online' | 'request_only',
     dharamshalaPlatformFeeEnabled: true,
     dharamshalaServiceFee: '79',
     dharamshalaResponseTimeoutMinutes: '30',
@@ -676,7 +676,7 @@ const ManageHotels = () => {
 
             <PropertyTermsEditor
               value={form.propertyTerms}
-              onChange={(propertyTerms) => setForm({ ...form, propertyTerms })}
+              onChange={(propertyTerms) => setForm({ ...form, propertyTerms: normalizePropertyTerms(propertyTerms) })}
             />
 
             <div className="flex gap-3 pt-2">

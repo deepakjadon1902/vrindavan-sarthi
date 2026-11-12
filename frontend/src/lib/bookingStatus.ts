@@ -42,6 +42,7 @@ export const formatBookingStatusFilter = (status: string) =>
   bookingStatusFilterLabels[status] || formatBookingStatus(status);
 
 export type AuthoritativeStateCode =
+  | 'pending'
   | 'pending_property_confirmation'
   | 'awaiting_customer_payment'
   | 'payment_verifying'

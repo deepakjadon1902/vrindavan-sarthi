@@ -5,7 +5,7 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const proxyTarget = env.VITE_API_PROXY_TARGET || env.VITE_BACKEND_URL || "http://localhost:5000";
+  const proxyTarget = env.VITE_API_PROXY_TARGET || env.VITE_BACKEND_URL || "http://localhost:5001";
   const devPort = Number(env.VITE_DEV_PORT || 8081);
 
   return {

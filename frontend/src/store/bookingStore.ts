@@ -5,6 +5,7 @@ import axios from 'axios';
 
 export interface Booking {
   id: string; // Mongo _id
+  _id?: string;
   bookingId: string; // human code like VVS-...
   bookingType: 'hotel' | 'room' | 'cab' | 'tour' | 'room_type';
   itemId: string;
@@ -34,6 +35,9 @@ export interface Booking {
   nearestTemple?: string;
   checkIn?: string;
   checkOut?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
+  checkInTime?: string;
   guests?: number;
   totalAmount: number;
   baseAmount?: number;
@@ -57,6 +61,7 @@ export interface Booking {
   grossForHotel?: number;
   paymentGatewayFeeAmount?: number;
   partnerNetPayout?: number;
+  hotel_net_payout?: number;
   payout_status?: 'pending' | 'checked_in' | 'checked_out' | 'cancelled' | 'settled';
   hotel_gstin?: string;
   hotel_invoice_number?: string;
@@ -88,6 +93,26 @@ export interface Booking {
   inventoryReleasedAt?: string;
   statusHistory?: Array<{ from?: string; to?: string; at?: string; actorRole?: string; reason?: string }>;
   additionalInfo?: string;
+  noShowMarkedAt?: string;
+  noShowMarkedByName?: string;
+  noShowMarkedByRole?: string;
+  noShowReason?: string;
+  noShowDisputed?: boolean;
+  noShowDisputeResolution?: string;
+  collectionDiscrepancy?: {
+    detected?: boolean;
+    expectedAmount?: number;
+    collectedAmount?: number;
+    excessAmount?: number;
+    detectedAt?: string;
+    reportedToAdmin?: boolean;
+    resolved?: boolean;
+    resolutionNotes?: string;
+    resolvedAt?: string;
+    amount?: number;
+    reason?: string;
+    reportedAt?: string;
+  };
   createdAt: string;
   // Inventory booking extras
   hotelId?: string;
@@ -159,6 +184,20 @@ export interface Booking {
   cancellationDeductionPercent?: number;
   cancellationDeductionAmount?: number;
   refundableAmount?: number;
+  cancellationResponsibility?: string;
+  cancellationExplanation?: string;
+  cancellationPolicySnapshot?: {
+    policyType?: string;
+    policyName?: string;
+    policyVersion?: number;
+    isCustom?: boolean;
+    tiers?: Array<{ hoursBeforeCheckIn: number; refundPercent: number; description?: string }>;
+    disclaimer?: string;
+  };
+  dharamshalaFeeSnapshot?: {
+    fee?: number;
+    version?: number;
+  };
   refundId?: string;
   refundAmount?: number;
   refundStatus?: 'not_required' | 'pending' | 'processed' | 'failed';
@@ -335,6 +374,10 @@ const normalizeBooking = (b: unknown): Booking => {
     cancellationDeductionPercent: getNumber(obj, 'cancellationDeductionPercent') || undefined,
     cancellationDeductionAmount: getNumber(obj, 'cancellationDeductionAmount') || undefined,
     refundableAmount: getNumber(obj, 'refundableAmount') || undefined,
+    cancellationResponsibility: getString(obj, 'cancellationResponsibility') || undefined,
+    cancellationExplanation: getString(obj, 'cancellationExplanation') || undefined,
+    cancellationPolicySnapshot: isRecord(obj.cancellationPolicySnapshot) ? (obj.cancellationPolicySnapshot as any) : undefined,
+    dharamshalaFeeSnapshot: isRecord(obj.dharamshalaFeeSnapshot) ? (obj.dharamshalaFeeSnapshot as any) : undefined,
     refundId: getString(obj, 'refundId') || undefined,
     refundAmount: getNumber(obj, 'refundAmount') || undefined,
     refundStatus: (getString(obj, 'refundStatus') as Booking['refundStatus']) || undefined,
@@ -386,6 +429,7 @@ interface BookingState {
   disputeNoShow: (id: string, reason: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   reviewNoShowDispute: (id: string, resolution: 'upheld' | 'overturned_customer_refund', notes?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerCheckIn: (id: string, guestDigitalSignature: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  partnerCheckOut: (id: string, notes?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
 }
 
 export const useBookingStore = create<BookingState>()((set, get) => ({
@@ -767,6 +811,23 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
       return { success: true, data: updated };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Check-in failed') };
+    }
+  },
+
+  partnerCheckOut: async (id, notes) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/checkout`, { notes }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Check-out failed') };
     }
   },
 }));

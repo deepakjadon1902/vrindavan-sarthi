@@ -288,7 +288,18 @@ const BookingDetail = () => {
 
   const handleCancel = async () => {
     const needsReason = booking.bookingStatus === 'confirmed';
-    const policyNotice = 'Cancellation Schedule:\n• > 48h before check-in: 75% refund\n• 24h-48h before check-in: 50% refund\n• < 24h: 0% refund\n• 30% advance is non-refundable on voluntary cancellation.\n\nEnter cancellation reason:';
+    let policyNotice = 'Cancellation Terms for this reservation:\n';
+    if (booking.cancellationPolicySnapshot?.tiers?.length) {
+      policyNotice += `Policy: ${booking.cancellationPolicySnapshot.policyName || 'Standard Policy'}\n`;
+      booking.cancellationPolicySnapshot.tiers.forEach((t) => {
+        policyNotice += `• ${t.description || `${t.hoursBeforeCheckIn}h notice: ${t.refundPercent}% refund`}\n`;
+      });
+    } else if (booking.paymentOption === 'advance_30') {
+      policyNotice += '• 30% advance is non-refundable on voluntary customer cancellation.\n• 100% refund if property or platform cannot fulfill accommodation.\n';
+    } else {
+      policyNotice += '• > 48h before check-in: 75% refund\n• 24h-48h before check-in: 50% refund\n• < 24h: 0% refund\n';
+    }
+    policyNotice += '\nPlease enter cancellation reason:';
     const reason = needsReason ? (window.prompt(policyNotice) || '').trim() : 'Cancelled by customer before confirmation';
     if (needsReason && !reason) return toast.error('Cancellation reason is required for confirmed bookings');
     const details = needsReason ? (window.prompt('Please add cancellation details:') || '').trim() : 'Customer requested cancellation prior to property confirmation';
@@ -1113,6 +1124,39 @@ const BookingDetail = () => {
                         className="w-full inline-flex items-center justify-center py-2.5 px-4 rounded-xl bg-brand-crimson text-white font-body text-xs font-bold hover:bg-brand-crimson/90 transition-colors shadow-sm"
                       >
                         Find Another Stay in Braj
+                      </Link>
+                    </div>
+                  ) : booking.bookingStatus === 'cancelled' ? (
+                    /* Case 6: Cancelled Reservation */
+                    <div className="rounded-2xl border border-destructive/25 bg-destructive/5 p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-destructive font-bold text-sm">
+                        <XCircle size={18} />
+                        <span>Reservation Cancelled</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-1.5 border-t border-border/40 pt-2">
+                        <div className="flex justify-between">
+                          <span>Refundable Amount:</span>
+                          <span className="font-bold text-emerald-600 font-heading">
+                            {formatMoney(booking.refundableAmount || 0)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Refund Status:</span>
+                          <span className="font-semibold text-foreground capitalize">
+                            {booking.refundStatus || 'pending'}
+                          </span>
+                        </div>
+                        {booking.cancellationExplanation && (
+                          <p className="text-[11px] text-foreground italic mt-1">
+                            "{booking.cancellationExplanation}"
+                          </p>
+                        )}
+                      </div>
+                      <Link
+                        to="/hotels"
+                        className="w-full inline-flex items-center justify-center py-2.5 px-4 rounded-xl bg-brand-crimson text-white font-body text-xs font-bold hover:bg-brand-crimson/90 transition-colors shadow-sm"
+                      >
+                        Explore Other Hotels in Braj
                       </Link>
                     </div>
                   ) : null}

@@ -6,7 +6,7 @@ import { getApiErrorMessage } from '@/lib/apiError';
 import { useAuthStore } from '@/store/authStore';
 import RecordPagination, { useRecordPagination } from '@/components/shared/RecordPagination';
 
-type PartnerStatus = 'pending' | 'approved' | 'rejected';
+type PartnerStatus = 'pending' | 'approved' | 'rejected' | 'correction_required';
 
 type PartnerDocument = {
   name?: string;
@@ -65,7 +65,7 @@ const formatKb = (bytes?: number) => {
 const normalizePartner = (value: unknown): PartnerUser => {
   const obj = isRecord(value) ? value : {};
   const status = getString(obj, 'partnerStatus');
-  const partnerStatus: PartnerStatus = status === 'approved' || status === 'rejected' ? status : 'pending';
+  const partnerStatus: PartnerStatus = status === 'approved' || status === 'rejected' || status === 'correction_required' ? status : 'pending';
   const docs = Array.isArray(obj.partnerDocuments)
     ? obj.partnerDocuments.filter(isRecord).map((doc) => ({
       name: getString(doc, 'name') || 'Document',
@@ -100,6 +100,7 @@ const normalizePartner = (value: unknown): PartnerUser => {
 const statusBadge = (status: PartnerStatus) => {
   if (status === 'approved') return 'bg-brand-green/10 text-brand-green';
   if (status === 'rejected') return 'bg-destructive/10 text-destructive';
+  if (status === 'correction_required') return 'bg-amber-500/15 text-amber-600 font-semibold';
   return 'bg-brand-saffron/10 text-brand-saffron';
 };
 
@@ -150,6 +151,7 @@ const ManagePartners = () => {
     pending: partners.filter((p) => p.partnerStatus === 'pending').length,
     approved: partners.filter((p) => p.partnerStatus === 'approved').length,
     rejected: partners.filter((p) => p.partnerStatus === 'rejected').length,
+    correction_required: partners.filter((p) => p.partnerStatus === 'correction_required').length,
   }), [partners]);
 
   const filtered = useMemo(() => {
@@ -187,7 +189,7 @@ const ManagePartners = () => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {(['pending', 'approved', 'rejected', 'all'] as const).map((status) => (
+        {(['pending', 'approved', 'rejected', 'correction_required', 'all'] as const).map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}

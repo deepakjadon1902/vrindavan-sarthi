@@ -7,7 +7,8 @@ const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
 const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const Review = require('../models/Review');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, authorizeAdmin } = require('../middleware/auth');
+const { logAdminAction } = require('../utils/adminAuditLogger');
 const { parseDateOnlyToUTC, isValidDate } = require('../utils/date');
 const { normalizeImageFields } = require('../utils/imageFields');
 const { normalizePublicImageSet, normalizePublicImages, stripLargeInlineImage } = require('../utils/publicImages');
@@ -151,6 +152,9 @@ const publicHotelListProjection = {
   dharamshalaPaymentMode: 1,
   dharamshalaPlatformFeeEnabled: 1,
   dharamshalaServiceFee: 1,
+  dharamshalaServiceFeeVersion: 1,
+  cancellationPolicyType: 1,
+  customCancellationPolicy: 1,
   dharamshalaTerminology: 1,
   dharamshalaResponseTimeoutMinutes: 1,
   dharamshalaCancellationPolicy: 1,
@@ -529,7 +533,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(limit)
       // Do not fetch image by default; it may be huge base64.
-      .select('name propertyType location rating image status approvalStatus partnerName taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaPlatformFeeEnabled dharamshalaServiceFee dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
+      .select('name propertyType location rating image status approvalStatus partnerName taxEnabled taxPercent gstMode platform_commission_percentage showPrices dharamshalaPaymentMode dharamshalaPlatformFeeEnabled dharamshalaServiceFee dharamshalaServiceFeeVersion cancellationPolicyType customCancellationPolicy dharamshalaTerminology dharamshalaResponseTimeoutMinutes dharamshalaCancellationPolicy dharamshalaNoShowPolicy dharamshalaIdRequirement hotelGstin description amenities googleMapLink nearestTemple checkInTime checkOutTime propertyTerms createdAt updatedAt')
       .lean();
 
     for (const h of hotels) h.image = stripLargeInlineImage(h.image) || '/placeholder.svg';
@@ -696,6 +700,96 @@ router.delete('/:id', protect, authorize('admin'), async (req, res) => {
     await Hotel.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Hotel deleted' });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// Admin: Property approval / rejection
+router.put('/:id/approval', protect, authorizeAdmin('manage_properties'), async (req, res) => {
+  try {
+    const { approvalStatus, reason } = req.body;
+    if (!approvalStatus || !['approved', 'rejected'].includes(approvalStatus)) {
+      return res.status(400).json({ success: false, message: 'Valid approvalStatus (approved or rejected) is required' });
+    }
+    if (approvalStatus === 'rejected' && (!reason || !String(reason).trim())) {
+      return res.status(400).json({ success: false, message: 'Rejection reason is mandatory' });
+    }
+    const hotel = await Hotel.findById(req.params.id);
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    const before = { approvalStatus: hotel.approvalStatus, status: hotel.status };
+    hotel.approvalStatus = approvalStatus;
+    hotel.status = approvalStatus === 'approved' ? 'active' : 'inactive';
+    if (reason) hotel.adminRemarks = String(reason).trim();
+    await hotel.save();
+    await logAdminAction({
+      actor: req.user,
+      action: `property_${approvalStatus}`,
+      targetEntityType: 'property',
+      targetEntityId: hotel._id,
+      beforeState: before,
+      afterState: { approvalStatus: hotel.approvalStatus, status: hotel.status },
+      reason: reason || `Property ${approvalStatus} by admin`,
+      req,
+    });
+    res.json({ success: true, data: hotel });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Property correction request
+router.put('/:id/correction-request', protect, authorizeAdmin('manage_properties'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({ success: false, message: 'Correction remarks are mandatory' });
+    }
+    const hotel = await Hotel.findById(req.params.id);
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    const before = { approvalStatus: hotel.approvalStatus, status: hotel.status };
+    hotel.approvalStatus = 'correction_required';
+    hotel.adminRemarks = String(reason).trim();
+    await hotel.save();
+    await logAdminAction({
+      actor: req.user,
+      action: 'property_correction_requested',
+      targetEntityType: 'property',
+      targetEntityId: hotel._id,
+      beforeState: before,
+      afterState: { approvalStatus: hotel.approvalStatus, status: hotel.status, adminRemarks: hotel.adminRemarks },
+      reason: String(reason).trim(),
+      req,
+    });
+    res.json({ success: true, data: hotel });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Property status toggle (activate / deactivate)
+router.put('/:id/status-toggle', protect, authorizeAdmin('manage_properties'), async (req, res) => {
+  try {
+    const { status, reason } = req.body;
+    if (!['active', 'inactive'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status must be active or inactive' });
+    }
+    const hotel = await Hotel.findById(req.params.id);
+    if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    const before = { status: hotel.status };
+    hotel.status = status;
+    await hotel.save();
+    await logAdminAction({
+      actor: req.user,
+      action: `property_status_${status}`,
+      targetEntityType: 'property',
+      targetEntityId: hotel._id,
+      beforeState: before,
+      afterState: { status: hotel.status },
+      reason: reason || `Status changed to ${status}`,
+      req,
+    });
+    res.json({ success: true, data: hotel });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = router;
