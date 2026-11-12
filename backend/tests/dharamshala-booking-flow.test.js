@@ -104,7 +104,16 @@ test('Dharamshala accounting applies configurable platform fee for check-in paym
 });
 
 test('Dharamshala full-online acceptance charges platform fee plus contribution online', async () => {
-  const hotel = { _id: oid(), dharamshalaPlatformFeeEnabled: true, dharamshalaServiceFee: 79, petsAllowed: false };
+  const hotel = {
+    _id: oid(),
+    propertyType: 'dharamshala',
+    dharamshalaPlatformFeeEnabled: true,
+    dharamshalaServiceFee: 79,
+    dharamshalaFeeApprovalStatus: 'approved',
+    dharamshalaFeeConfigured: true,
+    dharamshalaFeeApprovedAt: new Date(),
+    petsAllowed: false,
+  };
   const roomType = { _id: oid(), pricePerNight: 1000, petsAllowed: false };
   const unit = { _id: oid(), hotelId: hotel._id, roomTypeId: roomType._id, number: 'A101' };
   const booking = saveableDharamshalaBooking({
@@ -138,7 +147,16 @@ test('Dharamshala full-online acceptance charges platform fee plus contribution 
 });
 
 test('Dharamshala check-in acceptance charges only platform fee online', async () => {
-  const hotel = { _id: oid(), dharamshalaPlatformFeeEnabled: true, dharamshalaServiceFee: 99, petsAllowed: false };
+  const hotel = {
+    _id: oid(),
+    propertyType: 'dharamshala',
+    dharamshalaPlatformFeeEnabled: true,
+    dharamshalaServiceFee: 99,
+    dharamshalaFeeApprovalStatus: 'approved',
+    dharamshalaFeeConfigured: true,
+    dharamshalaFeeApprovedAt: new Date(),
+    petsAllowed: false,
+  };
   const roomType = { _id: oid(), pricePerNight: 500, petsAllowed: false };
   const unit = { _id: oid(), hotelId: hotel._id, roomTypeId: roomType._id, number: 'B202' };
   const booking = saveableDharamshalaBooking({
@@ -169,7 +187,16 @@ test('Dharamshala check-in acceptance charges only platform fee online', async (
 });
 
 test('Dharamshala check-in acceptance confirms immediately when platform fee is disabled', async () => {
-  const hotel = { _id: oid(), dharamshalaPlatformFeeEnabled: false, dharamshalaServiceFee: 79, petsAllowed: false };
+  const hotel = {
+    _id: oid(),
+    propertyType: 'dharamshala',
+    dharamshalaPlatformFeeEnabled: false,
+    dharamshalaServiceFee: 79,
+    dharamshalaFeeApprovalStatus: 'explicitly_free',
+    dharamshalaFeeConfigured: true,
+    dharamshalaFeeApprovedAt: new Date(),
+    petsAllowed: false,
+  };
   const roomType = { _id: oid(), pricePerNight: 600, petsAllowed: false };
   const unit = { _id: oid(), hotelId: hotel._id, roomTypeId: roomType._id, number: 'C303' };
   const booking = saveableDharamshalaBooking({
