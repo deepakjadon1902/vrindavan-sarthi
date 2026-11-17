@@ -2,6 +2,8 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { API_BASE_URL } from '@/lib/api';
 
+const NATIVE_OAUTH_FRONTEND_ORIGIN = 'https://www.vrindavansarthi.in';
+
 const getGoogleStartUrl = (redirect: string, isNative: boolean) => {
   const configuredBase = API_BASE_URL.replace(/\/+$/, '');
   const startUrl = /^https?:\/\//i.test(configuredBase)
@@ -11,6 +13,7 @@ const getGoogleStartUrl = (redirect: string, isNative: boolean) => {
   startUrl.searchParams.set('redirect', redirect);
   if (isNative) {
     startUrl.searchParams.set('native', '1');
+    startUrl.searchParams.set('origin', NATIVE_OAUTH_FRONTEND_ORIGIN);
   } else {
     startUrl.searchParams.set('origin', window.location.origin);
   }
