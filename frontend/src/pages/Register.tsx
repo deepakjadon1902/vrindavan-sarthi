@@ -149,7 +149,9 @@ const Register = () => {
   }, [policyModal]);
 
   const handleGoogle = () => {
-    startGoogleSignIn('/');
+    void startGoogleSignIn('/').catch(() => {
+      toast.error('Could not open the secure browser for Google sign-in. Please try again.');
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

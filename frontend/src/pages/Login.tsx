@@ -97,7 +97,9 @@ const Login = () => {
   }, [searchParams, setSearchParams]);
 
   const handleGoogle = () => {
-    startGoogleSignIn('/');
+    void startGoogleSignIn('/').catch(() => {
+      toast.error('Could not open the secure browser for Google sign-in. Please try again.');
+    });
   };
 
 

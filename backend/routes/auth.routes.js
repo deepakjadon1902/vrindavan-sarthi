@@ -597,8 +597,22 @@ const getOAuthFrontendBase = (req, state = {}) => {
 const getGoogleRedirectUri = (frontendBase) =>
   `${String(frontendBase || '').replace(/\/+$/, '')}/api/auth/google/callback`;
 
-const redirectToLoginWithError = (res, error) => {
-  const frontendBase = getFrontendBase();
+const NATIVE_GOOGLE_CALLBACK = 'com.vrindavansarthi.app://oauth/callback';
+
+const buildNativeGoogleCallbackUrl = (params = {}) => {
+  const url = new URL(NATIVE_GOOGLE_CALLBACK);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && String(value)) {
+      url.searchParams.set(key, String(value));
+    }
+  }
+  return url.toString();
+};
+
+const redirectToLoginWithError = (res, error, frontendBase = getFrontendBase(), isNative = false) => {
+  if (isNative) {
+    return res.redirect(buildNativeGoogleCallbackUrl({ error }));
+  }
   const url = new URL('/login', frontendBase);
   url.searchParams.set('error', error);
   return res.redirect(url.toString());
@@ -608,12 +622,15 @@ const redirectToLoginWithError = (res, error) => {
 router.get('/google', async (req, res, next) => {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID;
+    const isNative = req.query.native === '1';
     const frontendBase = getOAuthFrontendBase(req);
     const redirectUri = getGoogleRedirectUri(frontendBase) || process.env.GOOGLE_REDIRECT_URI;
-    if (!clientId || !redirectUri) return redirectToLoginWithError(res, 'google_oauth_not_configured');
+    if (!clientId || !redirectUri) {
+      return redirectToLoginWithError(res, 'google_oauth_not_configured', frontendBase, isNative);
+    }
 
     const redirect = typeof req.query.redirect === 'string' ? req.query.redirect : '/';
-    const state = Buffer.from(JSON.stringify({ redirect, frontendBase, redirectUri })).toString('base64url');
+    const state = Buffer.from(JSON.stringify({ redirect, frontendBase, redirectUri, native: isNative })).toString('base64url');
 
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id', clientId);
@@ -637,20 +654,18 @@ router.get('/google/callback', async (req, res, next) => {
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     const statePayload = decodeGoogleState(req.query.state);
     const frontendBase = getOAuthFrontendBase(req, statePayload);
+    const isNative = statePayload?.native === true;
+    const redirectWithError = (error) => redirectToLoginWithError(res, error, frontendBase, isNative);
     const redirectUri = getGoogleRedirectUri(frontendBase) || process.env.GOOGLE_REDIRECT_URI;
-    if (!clientId || !clientSecret || !redirectUri) return redirectToLoginWithError(res, 'google_oauth_not_configured');
+    if (!clientId || !clientSecret || !redirectUri) return redirectWithError('google_oauth_not_configured');
 
     const { code, error, state } = req.query;
     if (error) {
-      const url = new URL('/login', frontendBase);
-      url.searchParams.set('error', String(error));
-      return res.redirect(url.toString());
+      return redirectWithError(String(error));
     }
 
     if (!code || typeof code !== 'string') {
-      const url = new URL('/login', frontendBase);
-      url.searchParams.set('error', 'missing_code');
-      return res.redirect(url.toString());
+      return redirectWithError('missing_code');
     }
 
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -668,34 +683,26 @@ router.get('/google/callback', async (req, res, next) => {
     const tokenJson = await tokenRes.json();
     if (!tokenRes.ok) {
       const errMsg = tokenJson?.error_description || tokenJson?.error || 'google_token_exchange_failed';
-      const url = new URL('/login', frontendBase);
-      url.searchParams.set('error', String(errMsg));
-      return res.redirect(url.toString());
+      return redirectWithError(String(errMsg));
     }
 
     const idToken = tokenJson.id_token;
     if (!idToken) {
-      const url = new URL('/login', frontendBase);
-      url.searchParams.set('error', 'missing_id_token');
-      return res.redirect(url.toString());
+      return redirectWithError('missing_id_token');
     }
 
     const infoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
     const info = await infoRes.json();
     if (!infoRes.ok || !info?.email) {
-      const url = new URL('/login', frontendBase);
-      url.searchParams.set('error', 'google_tokeninfo_failed');
-      return res.redirect(url.toString());
+      return redirectWithError('google_tokeninfo_failed');
     }
 
     if (info.aud !== clientId) {
-      const url = new URL('/login', frontendBase);
-      url.searchParams.set('error', 'invalid_audience');
-      return res.redirect(url.toString());
+      return redirectWithError('invalid_audience');
     }
 
     if (mongoose.connection.readyState !== 1) {
-      return redirectToLoginWithError(res, 'db_not_connected');
+      return redirectWithError('db_not_connected');
     }
 
     const normalizedEmail = normalizeEmail(info.email);
@@ -718,6 +725,13 @@ router.get('/google/callback', async (req, res, next) => {
     }
 
     const token = generateToken(user._id);
+    if (isNative) {
+      return res.redirect(buildNativeGoogleCallbackUrl({
+        token,
+        redirect: statePayload?.redirect,
+      }));
+    }
+
     const redirectUrl = new URL('/auth/google/callback', frontendBase);
     redirectUrl.searchParams.set('token', token);
 

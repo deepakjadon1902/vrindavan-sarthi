@@ -14,6 +14,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import RouteSEO from "@/components/RouteSEO";
 import SEOBreadcrumbs from "@/components/SEOBreadcrumbs";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import NativeOAuthDeepLinkHandler from "@/components/NativeOAuthDeepLinkHandler";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Hotels = lazy(() => import("@/pages/Hotels"));
@@ -153,6 +154,7 @@ const App = () => {
       <TooltipProvider>
         <Sonner />
         <BrowserRouter>
+          <NativeOAuthDeepLinkHandler />
           <RouteSEO />
           <ScrollToTop />
           <Suspense fallback={<div className="pt-24 pb-16 text-center font-body text-muted-foreground">Loading…</div>}>
