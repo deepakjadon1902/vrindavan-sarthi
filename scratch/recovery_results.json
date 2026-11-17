@@ -1,0 +1,136 @@
+{
+  "routes": {
+    "home": {
+      "path": "/",
+      "viewports": {
+        "mobile_390": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "screenshot": "recovery_home_mobile_390.png"
+        },
+        "desktop_1280": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "screenshot": "recovery_home_desktop_1280.png"
+        }
+      },
+      "refreshPassed": true
+    },
+    "hotels": {
+      "path": "/hotels",
+      "viewports": {
+        "mobile_390": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "screenshot": "recovery_hotels_mobile_390.png"
+        },
+        "desktop_1280": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "screenshot": "recovery_hotels_desktop_1280.png"
+        }
+      },
+      "refreshPassed": true
+    },
+    "rooms": {
+      "path": "/rooms",
+      "viewports": {
+        "mobile_390": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "screenshot": "recovery_rooms_mobile_390.png"
+        },
+        "desktop_1280": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "screenshot": "recovery_rooms_desktop_1280.png"
+        }
+      },
+      "refreshPassed": true
+    },
+    "cabs": {
+      "path": "/cabs",
+      "viewports": {
+        "mobile_390": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "screenshot": "recovery_cabs_mobile_390.png"
+        },
+        "desktop_1280": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "screenshot": "recovery_cabs_desktop_1280.png"
+        }
+      },
+      "refreshPassed": true
+    },
+    "tours": {
+      "path": "/tours",
+      "viewports": {
+        "mobile_390": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "screenshot": "recovery_tours_mobile_390.png"
+        },
+        "desktop_1280": {
+          "rendered": true,
+          "rootChildCount": 2,
+          "hasText": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "screenshot": "recovery_tours_desktop_1280.png"
+        }
+      },
+      "refreshPassed": true
+    }
+  },
+  "summary": {
+    "totalChecks": 10,
+    "passedChecks": 10,
+    "failedChecks": 0,
+    "errors": []
+  },
+  "screenshots": [
+    "recovery_home_mobile_390.png",
+    "recovery_home_desktop_1280.png",
+    "recovery_hotels_mobile_390.png",
+    "recovery_hotels_desktop_1280.png",
+    "recovery_rooms_mobile_390.png",
+    "recovery_rooms_desktop_1280.png",
+    "recovery_cabs_mobile_390.png",
+    "recovery_cabs_desktop_1280.png",
+    "recovery_tours_mobile_390.png",
+    "recovery_tours_desktop_1280.png"
+  ]
+}

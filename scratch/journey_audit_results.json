@@ -1,0 +1,192 @@
+[
+  {
+    "name": "journey_home_320.png",
+    "vp": "320",
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "name": "journey_hotels_320.png",
+    "vp": "320",
+    "path": "/hotels",
+    "overflow": false
+  },
+  {
+    "name": "journey_dharamshala_320.png",
+    "vp": "320",
+    "path": "/hotels?type=dharamshala",
+    "overflow": false
+  },
+  {
+    "name": "journey_rooms_320.png",
+    "vp": "320",
+    "path": "/rooms",
+    "overflow": false
+  },
+  {
+    "name": "journey_home_390.png",
+    "vp": "390",
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "name": "journey_hotels_390.png",
+    "vp": "390",
+    "path": "/hotels",
+    "overflow": false
+  },
+  {
+    "name": "journey_dharamshala_390.png",
+    "vp": "390",
+    "path": "/hotels?type=dharamshala",
+    "overflow": false
+  },
+  {
+    "name": "journey_rooms_390.png",
+    "vp": "390",
+    "path": "/rooms",
+    "overflow": false
+  },
+  {
+    "name": "journey_home_768.png",
+    "vp": "768",
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "name": "journey_hotels_768.png",
+    "vp": "768",
+    "path": "/hotels",
+    "overflow": false
+  },
+  {
+    "name": "journey_dharamshala_768.png",
+    "vp": "768",
+    "path": "/hotels?type=dharamshala",
+    "overflow": false
+  },
+  {
+    "name": "journey_rooms_768.png",
+    "vp": "768",
+    "path": "/rooms",
+    "overflow": false
+  },
+  {
+    "name": "journey_home_1280.png",
+    "vp": "1280",
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "name": "journey_hotels_1280.png",
+    "vp": "1280",
+    "path": "/hotels",
+    "overflow": false
+  },
+  {
+    "name": "journey_dharamshala_1280.png",
+    "vp": "1280",
+    "path": "/hotels?type=dharamshala",
+    "overflow": false
+  },
+  {
+    "name": "journey_rooms_1280.png",
+    "vp": "1280",
+    "path": "/rooms",
+    "overflow": false
+  },
+  {
+    "name": "journey_home_1440.png",
+    "vp": "1440",
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "name": "journey_hotels_1440.png",
+    "vp": "1440",
+    "path": "/hotels",
+    "overflow": false
+  },
+  {
+    "name": "journey_dharamshala_1440.png",
+    "vp": "1440",
+    "path": "/hotels?type=dharamshala",
+    "overflow": false
+  },
+  {
+    "name": "journey_rooms_1440.png",
+    "vp": "1440",
+    "path": "/rooms",
+    "overflow": false
+  },
+  {
+    "name": "journey_hotel_detail_anukampa_390.png",
+    "vp": "390",
+    "path": "/hotels/6a93f456114b753bb641effe",
+    "overflow": false,
+    "title": "ANUKAMPA DHAM"
+  },
+  {
+    "name": "journey_room_detail_triple_390.png",
+    "vp": "390",
+    "path": "/rooms/6a93f6db114b753bb641f138",
+    "overflow": false,
+    "title": "Rooms & Accommodations Across Braj"
+  },
+  {
+    "name": "journey_cabs_390.png",
+    "vp": "390",
+    "path": "/cabs",
+    "overflow": false,
+    "title": "Cabs"
+  },
+  {
+    "name": "journey_tours_390.png",
+    "vp": "390",
+    "path": "/tours",
+    "overflow": false,
+    "title": "Tour Packages"
+  },
+  {
+    "name": "journey_login_390.png",
+    "vp": "390",
+    "path": "/login",
+    "overflow": false,
+    "title": "Vrindavan Sarthi"
+  },
+  {
+    "name": "journey_hotel_detail_anukampa_1280.png",
+    "vp": "1280",
+    "path": "/hotels/6a93f456114b753bb641effe",
+    "overflow": false,
+    "title": "ANUKAMPA DHAM"
+  },
+  {
+    "name": "journey_room_detail_triple_1280.png",
+    "vp": "1280",
+    "path": "/rooms/6a93f6db114b753bb641f138",
+    "overflow": false,
+    "title": "Rooms & Accommodations Across Braj"
+  },
+  {
+    "name": "journey_cabs_1280.png",
+    "vp": "1280",
+    "path": "/cabs",
+    "overflow": false,
+    "title": "Cabs"
+  },
+  {
+    "name": "journey_tours_1280.png",
+    "vp": "1280",
+    "path": "/tours",
+    "overflow": false,
+    "title": "Tour Packages"
+  },
+  {
+    "name": "journey_login_1280.png",
+    "vp": "1280",
+    "path": "/login",
+    "overflow": false,
+    "title": "Vrindavan Sarthi"
+  }
+]

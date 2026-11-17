@@ -50,12 +50,44 @@ const PartnerCommunications = () => {
       ) : (
         <>
         {items.map((item) => (
-          <div key={item._id} className="rounded-lg border border-border bg-background p-4">
-            <div className="flex items-start justify-between gap-3">
-              <p className="font-body text-sm font-semibold text-foreground">{item.title}</p>
-              <p className="font-body text-[11px] text-muted-foreground whitespace-nowrap">{new Date(item.createdAt).toLocaleDateString()}</p>
+          <div key={item._id} className="rounded-lg border border-border bg-background p-4 space-y-2">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                  {item.priority && item.priority !== 'normal' && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-destructive/15 text-destructive">
+                      {item.priority}
+                    </span>
+                  )}
+                  {item.audience === 'partner' && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                      Targeted Memo
+                    </span>
+                  )}
+                  {item.metadata?.propertyName && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">
+                      {item.metadata.propertyName}
+                    </span>
+                  )}
+                </div>
+                <p className="font-body text-sm font-semibold text-foreground">{item.title}</p>
+              </div>
+              <p className="font-body text-[11px] text-muted-foreground whitespace-nowrap">
+                {new Date(item.createdAt).toLocaleDateString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
             </div>
-            <p className="font-body text-sm text-muted-foreground mt-2 whitespace-pre-line">{item.message}</p>
+            <p className="font-body text-sm text-muted-foreground whitespace-pre-line">{item.message}</p>
+            {item.metadata?.sentByAdminName && (
+              <p className="font-body text-[11px] text-muted-foreground/80 pt-1 border-t border-border/50">
+                Issued by: {item.metadata.sentByAdminName}
+              </p>
+            )}
           </div>
         ))}
         <RecordPagination page={page} total={total} onPageChange={setPage} />

@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard, Hotel, BedDouble, LogOut, Menu, X, ClipboardList, CreditCard, Car,
-  Bell, UserCog, Landmark, ShieldCheck, FileText, CalendarDays,
+  Bell, UserCog, Landmark, ShieldCheck, FileText, CalendarDays, QrCode,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useBookingStore } from '@/store/bookingStore';
@@ -18,6 +18,7 @@ const sidebarLinks = [
   { name: 'Rates', path: '/partner/rates', icon: CalendarDays },
   { name: 'Availability Calendar', path: '/partner/availability', icon: CalendarDays },
   { name: 'Bookings', path: '/partner/bookings', icon: ClipboardList },
+  { name: 'Scan & Check-in', path: '/partner/scan', icon: QrCode },
   { name: 'Payments', path: '/partner/payments', icon: CreditCard },
   { name: 'Bank Details', path: '/partner/bank-details', icon: Landmark },
   { name: 'Partner T&C', path: '/partner/terms', icon: FileText },
@@ -45,8 +46,8 @@ const PartnerLayout = () => {
 
   const bookingCount = partnerBookings.length;
   const isApproved = user?.partnerStatus === 'approved';
-  const isStatusPage = location.pathname === '/partner' || location.pathname === '/partner/profile-settings';
-  const showApprovalGate = user?.role === 'partner' && !isApproved && !isStatusPage;
+  const operationalRoutes = ['/partner/bookings', '/partner/scan', '/partner/payments'];
+  const showApprovalGate = user?.role === 'partner' && !isApproved && operationalRoutes.includes(location.pathname);
 
   const handleLogout = () => {
     logout();
@@ -140,12 +141,12 @@ const PartnerLayout = () => {
                   <ShieldCheck size={22} className="text-brand-saffron" />
                 </div>
                 <div>
-                  <h2 className="font-heading text-xl font-semibold text-foreground">Admin verification required</h2>
+                  <h2 className="font-heading text-xl font-semibold text-foreground">Live Operations Locked</h2>
                   <p className="font-body text-sm text-muted-foreground mt-2">
-                    Your partner account is currently {user?.partnerStatus || 'pending'}. Admin must verify your business details and legal documents before you can list hotels, inventory, cabs, or other properties.
+                    Your partner account is currently {user?.partnerStatus || 'pending'}. Complete your onboarding setup from your Dashboard and submit your property for review. Live guest bookings, QR check-in, and payouts unlock once verified and approved.
                   </p>
                   <button onClick={() => navigate('/partner')} className="mt-4 btn-gold px-5 py-2.5 rounded-lg text-sm">
-                    Back to Dashboard
+                    Back to Onboarding Checklist
                   </button>
                 </div>
               </div>

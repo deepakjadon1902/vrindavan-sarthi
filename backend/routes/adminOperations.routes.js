@@ -333,6 +333,12 @@ router.post('/notifications/:id/retry', async (req, res) => {
     delivery.lastErrorAt = undefined;
     await delivery.save();
     const queued = await enqueueNotificationDelivery(delivery);
+    if (delivery.channel === 'email') {
+      const { processNotificationDeliveryJob } = require('../utils/notificationDelivery');
+      await processNotificationDeliveryJob({ notificationDeliveryId: String(delivery._id) }).catch((err) => {
+        console.warn('[operations.notification_retry.immediate_failed]', err?.message || err);
+      });
+    }
     console.log(`[operations] admin=${req.user._id} action=notification_retry id=${delivery._id}`);
     res.json({ success: true, data: sanitizeNotificationDelivery(delivery), queued });
   } catch (err) {

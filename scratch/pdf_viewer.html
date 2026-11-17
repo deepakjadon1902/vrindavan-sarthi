@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    body { margin: 0; background: #525659; display: flex; flex-direction: column; align-items: center; padding: 20px; font-family: sans-serif; }
+    canvas { box-shadow: 0 4px 15px rgba(0,0,0,0.3); margin-bottom: 30px; background: white; border-radius: 4px; }
+    .page-wrapper { margin-bottom: 24px; text-align: center; }
+    .page-title { color: #f1f5f9; font-size: 14px; font-weight: bold; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div id="pages"></div>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    
+    window.__QR_RESULT__ = null;
+    window.__PAGE_COUNT__ = 0;
+
+    async function renderPdf(base64Data) {
+      const loadingTask = pdfjsLib.getDocument({ data: atob(base64Data) });
+      const pdf = await loadingTask.promise;
+      window.__PAGE_COUNT__ = pdf.numPages;
+      const container = document.getElementById('pages');
+      container.innerHTML = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2.0 }); // 2.0 scale for ultra high resolution
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = 'page-wrapper';
+        
+        const title = document.createElement('div');
+        title.className = 'page-title';
+        title.textContent = `Page ${i} of ${pdf.numPages}`;
+        wrapper.appendChild(title);
+
+        const canvas = document.createElement('canvas');
+        canvas.id = `page-canvas-${i}`;
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        wrapper.appendChild(canvas);
+        container.appendChild(wrapper);
+
+        if (i === 1 && window.jsQR) {
+          try {
+            const imgData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const decoded = jsQR(imgData.data, canvas.width, canvas.height);
+            if (decoded) {
+              window.__QR_RESULT__ = decoded.data;
+            }
+          } catch (e) {
+            console.error('QR decode error:', e);
+          }
+        }
+      }
+      window.__PDF_RENDERED__ = true;
+    }
+  </script>
+</body>
+</html>

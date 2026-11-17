@@ -1,0 +1,770 @@
+{
+  "home_320": {
+    "viewport": {
+      "width": 320,
+      "height": 600,
+      "label": "320"
+    },
+    "url": "http://localhost:8081/",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/cabs",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/tours?withImages=true",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 65,
+        "top": 0,
+        "right": 320,
+        "bottom": 65,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 760,
+        "top": 0,
+        "right": 320,
+        "bottom": 760,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 16,
+        "y": 138,
+        "width": 288,
+        "height": 90,
+        "top": 138,
+        "right": 304,
+        "bottom": 228,
+        "left": 16
+      },
+      "headingText": "Sacred Stays in Holy Braj",
+      "propertyCardsCount": 5,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "hotels_dharamshala_320": {
+    "viewport": {
+      "width": 320,
+      "height": 600,
+      "label": "320"
+    },
+    "url": "http://localhost:8081/hotels?type=dharamshala",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 65,
+        "top": 0,
+        "right": 320,
+        "bottom": 65,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 64,
+        "width": 320,
+        "height": 141,
+        "top": 64,
+        "right": 320,
+        "bottom": 205,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 16,
+        "y": 229,
+        "width": 288,
+        "height": 56,
+        "top": 229,
+        "right": 304,
+        "bottom": 285,
+        "left": 16
+      },
+      "headingText": "Dharamshalas Across Vrindavan & Braj",
+      "propertyCardsCount": 0,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "rooms_320": {
+    "viewport": {
+      "width": 320,
+      "height": 600,
+      "label": "320"
+    },
+    "url": "http://localhost:8081/rooms",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 65,
+        "top": 0,
+        "right": 320,
+        "bottom": 65,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 64,
+        "width": 320,
+        "height": 209,
+        "top": 64,
+        "right": 320,
+        "bottom": 273,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 16,
+        "y": 293,
+        "width": 288,
+        "height": 56,
+        "top": 293,
+        "right": 304,
+        "bottom": 349,
+        "left": 16
+      },
+      "headingText": "Rooms & Accommodations Across Braj",
+      "propertyCardsCount": 0,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "home_390": {
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "label": "390"
+    },
+    "url": "http://localhost:8081/",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/cabs",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/tours?withImages=true",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/products?withImages=true",
+        "status": 503
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/cabs",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/tours?withImages=true",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65,
+        "top": 0,
+        "right": 390,
+        "bottom": 65,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 708,
+        "top": 0,
+        "right": 390,
+        "bottom": 708,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 16,
+        "y": 138,
+        "width": 358,
+        "height": 90,
+        "top": 138,
+        "right": 374,
+        "bottom": 228,
+        "left": 16
+      },
+      "headingText": "Sacred Stays in Holy Braj",
+      "propertyCardsCount": 5,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "hotels_dharamshala_390": {
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "label": "390"
+    },
+    "url": "http://localhost:8081/hotels?type=dharamshala",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65,
+        "top": 0,
+        "right": 390,
+        "bottom": 65,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 64,
+        "width": 390,
+        "height": 141,
+        "top": 64,
+        "right": 390,
+        "bottom": 205,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 16,
+        "y": 229,
+        "width": 358,
+        "height": 28,
+        "top": 229,
+        "right": 374,
+        "bottom": 257,
+        "left": 16
+      },
+      "headingText": "Dharamshalas Across Vrindavan & Braj",
+      "propertyCardsCount": 0,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "rooms_390": {
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "label": "390"
+    },
+    "url": "http://localhost:8081/rooms",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65,
+        "top": 0,
+        "right": 390,
+        "bottom": 65,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 64,
+        "width": 390,
+        "height": 193,
+        "top": 64,
+        "right": 390,
+        "bottom": 257,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 16,
+        "y": 277,
+        "width": 358,
+        "height": 28,
+        "top": 277,
+        "right": 374,
+        "bottom": 305,
+        "left": 16
+      },
+      "headingText": "Rooms & Accommodations Across Braj",
+      "propertyCardsCount": 0,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "home_768": {
+    "viewport": {
+      "width": 768,
+      "height": 1024,
+      "label": "768"
+    },
+    "url": "http://localhost:8081/",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/cabs",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/tours?withImages=true",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/products?withImages=true",
+        "status": 503
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/cabs",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/tours?withImages=true",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 768,
+        "height": 86,
+        "top": 0,
+        "right": 768,
+        "bottom": 86,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 0,
+        "width": 768,
+        "height": 689.3125,
+        "top": 0,
+        "right": 768,
+        "bottom": 689.3125,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 17,
+        "y": 146.5,
+        "width": 734,
+        "height": 153,
+        "top": 146.5,
+        "right": 751,
+        "bottom": 299.5,
+        "left": 17
+      },
+      "headingText": "Sacred Stays in Holy Braj",
+      "propertyCardsCount": 5,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "hotels_dharamshala_768": {
+    "viewport": {
+      "width": 768,
+      "height": 1024,
+      "label": "768"
+    },
+    "url": "http://localhost:8081/hotels?type=dharamshala",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 768,
+        "height": 86,
+        "top": 0,
+        "right": 768,
+        "bottom": 86,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 85,
+        "width": 768,
+        "height": 149.25,
+        "top": 85,
+        "right": 768,
+        "bottom": 234.25,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 25.5,
+        "y": 268.25,
+        "width": 531.109375,
+        "height": 38.25,
+        "top": 268.25,
+        "right": 556.609375,
+        "bottom": 306.5,
+        "left": 25.5
+      },
+      "headingText": "Dharamshalas Across Vrindavan & Braj",
+      "propertyCardsCount": 0,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "rooms_768": {
+    "viewport": {
+      "width": 768,
+      "height": 1024,
+      "label": "768"
+    },
+    "url": "http://localhost:8081/rooms",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 768,
+        "height": 86,
+        "top": 0,
+        "right": 768,
+        "bottom": 86,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 85,
+        "width": 768,
+        "height": 150.5,
+        "top": 85,
+        "right": 768,
+        "bottom": 235.5,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 25.5,
+        "y": 265.25,
+        "width": 557.359375,
+        "height": 38.25,
+        "top": 265.25,
+        "right": 582.859375,
+        "bottom": 303.5,
+        "left": 25.5
+      },
+      "headingText": "Rooms & Accommodations Across Braj",
+      "propertyCardsCount": 0,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "home_1280": {
+    "viewport": {
+      "width": 1280,
+      "height": 800,
+      "label": "1280"
+    },
+    "url": "http://localhost:8081/",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/cabs",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/tours?withImages=true",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/products?withImages=true",
+        "status": 503
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/cabs",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/tours?withImages=true",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 86,
+        "top": 0,
+        "right": 1280,
+        "bottom": 86,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 640,
+        "top": 0,
+        "right": 1280,
+        "bottom": 640,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 245.671875,
+        "y": 185.125,
+        "width": 788.640625,
+        "height": 76.5,
+        "top": 185.125,
+        "right": 1034.3125,
+        "bottom": 261.625,
+        "left": 245.671875
+      },
+      "headingText": "Sacred Stays in Holy Braj",
+      "propertyCardsCount": 5,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "hotels_dharamshala_1280": {
+    "viewport": {
+      "width": 1280,
+      "height": 800,
+      "label": "1280"
+    },
+    "url": "http://localhost:8081/hotels?type=dharamshala",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/hotels",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 86,
+        "top": 0,
+        "right": 1280,
+        "bottom": 86,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 85,
+        "width": 1280,
+        "height": 104.625,
+        "top": 85,
+        "right": 1280,
+        "bottom": 189.625,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 34,
+        "y": 223.625,
+        "width": 682.28125,
+        "height": 38.25,
+        "top": 223.625,
+        "right": 716.28125,
+        "bottom": 261.875,
+        "left": 34
+      },
+      "headingText": "Dharamshalas Across Vrindavan & Braj",
+      "propertyCardsCount": 0,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  },
+  "rooms_1280": {
+    "viewport": {
+      "width": 1280,
+      "height": 800,
+      "label": "1280"
+    },
+    "url": "http://localhost:8081/rooms",
+    "apiCalls": [
+      {
+        "url": "http://localhost:8081/api/settings",
+        "status": 200
+      },
+      {
+        "url": "http://localhost:8081/api/room-types",
+        "status": 200
+      }
+    ],
+    "domData": {
+      "navRect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 86,
+        "top": 0,
+        "right": 1280,
+        "bottom": 86,
+        "left": 0
+      },
+      "sectionRect": {
+        "x": 0,
+        "y": 85,
+        "width": 1280,
+        "height": 150.5,
+        "top": 85,
+        "right": 1280,
+        "bottom": 235.5,
+        "left": 0
+      },
+      "headingRect": {
+        "x": 34,
+        "y": 265.25,
+        "width": 557.359375,
+        "height": 38.25,
+        "top": 265.25,
+        "right": 591.359375,
+        "bottom": 303.5,
+        "left": 34
+      },
+      "headingText": "Rooms & Accommodations Across Braj",
+      "propertyCardsCount": 0,
+      "listingLinksCount": 0,
+      "optionBFallback": true,
+      "hasHorizontalOverflow": false
+    }
+  }
+}

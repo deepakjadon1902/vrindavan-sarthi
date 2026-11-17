@@ -1,4 +1,5 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Mail, KeyRound, ArrowLeft, RotateCcw, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -30,6 +31,24 @@ const Login = () => {
   const [isNativeApk, setIsNativeApk] = useState(() => searchParams.get('vrsApk') === '1' || hasNativeApkMarker());
   const [loginRole, setLoginRole] = useState<StaffLoginRole>(roleParam === 'admin' ? 'admin' : 'partner');
   const isPartnerOnlyStaffLogin = isStaffLogin && (roleParam === 'partner' || isNativeApk);
+
+  // Customer OTP vs Password state
+  const [customerAuthMode, setCustomerAuthMode] = useState<'otp' | 'password'>('otp');
+  const [otpStep, setOtpStep] = useState<'email' | 'code'>('email');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const { sendLoginOtp, verifyLoginOtp } = useAuthStore();
+
+  // Cooldown countdown
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setOtpCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpCooldown]);
 
   useEffect(() => {
     if (searchParams.get('vrsApk') !== '1') return;
@@ -79,6 +98,48 @@ const Login = () => {
 
   const handleGoogle = () => {
     startGoogleSignIn('/');
+  };
+
+
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    setIsSendingOtp(true);
+    const result = await sendLoginOtp(cleanEmail);
+    setIsSendingOtp(false);
+    if (result.success) {
+      toast.success(result.message || 'Verification code sent to your email');
+      setOtpStep('code');
+      setOtpCooldown(60);
+    } else {
+      toast.error(result.error || 'Failed to send verification code');
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = otpCode.trim();
+    if (!cleanCode || cleanCode.length !== 6) {
+      toast.error('Please enter the 6-digit verification code');
+      return;
+    }
+    setIsVerifyingOtp(true);
+    const result = await verifyLoginOtp(email.trim(), cleanCode);
+    setIsVerifyingOtp(false);
+    if (result.success) {
+      if (result.linkedBookingsCount && result.linkedBookingsCount > 0) {
+        toast.success('Welcome! ' + result.linkedBookingsCount + ' past guest booking(s) linked to your account.');
+      } else {
+        toast.success('Welcome back, ' + (result.user?.name || 'Devotee') + '!');
+      }
+      navigate('/', { replace: true });
+    } else {
+      toast.error(result.error || 'Verification failed. Please check the code.');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,10 +259,18 @@ const Login = () => {
             </div>
           )}
 
+          {isStaffLogin || customerAuthMode === 'password' ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Email</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50" placeholder="your@email.com" />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                placeholder="your@email.com"
+              />
             </div>
             <div>
               <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Password</label>
@@ -214,13 +283,151 @@ const Login = () => {
                 placeholder="............."
               />
             </div>
-            <div className="text-right">
-              <Link to="/forgot-password" className="font-body text-xs text-brand-gold hover:underline">Forgot Password?</Link>
+            <div className="flex items-center justify-between">
+              {!isStaffLogin ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomerAuthMode('otp');
+                    setOtpStep('email');
+                  }}
+                  className="font-body text-xs text-brand-gold hover:underline flex items-center gap-1"
+                >
+                  <Mail className="w-3.5 h-3.5" /> Sign in with One-Time Code
+                </button>
+              ) : <div />}
+              <Link to="/forgot-password" className="font-body text-xs text-brand-gold hover:underline">
+                Forgot Password?
+              </Link>
             </div>
             <button type="submit" disabled={isLoading} className="btn-crimson w-full py-3.5 rounded-xl text-sm disabled:opacity-50">
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+        ) : (
+          /* Option A: Customer Email OTP Mode */
+          <div className="space-y-5">
+            {otpStep === 'email' ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div>
+                  <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                    placeholder="name@example.com"
+                    autoFocus
+                  />
+                  <p className="mt-1.5 font-body text-xs text-muted-foreground">
+                    We will send a 6-digit login code to your email. No password required.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSendingOtp || !email.trim()}
+                  className="btn-crimson w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSendingOtp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Sending Code...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" /> Send Login Code
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setCustomerAuthMode('password')}
+                    className="font-body text-xs text-brand-gold hover:underline inline-flex items-center gap-1"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" /> Or sign in with password
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div className="p-3 bg-muted/40 rounded-xl border border-border flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-muted-foreground block">Code sent to:</span>
+                    <span className="font-semibold text-foreground">{email}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpStep('email');
+                      setOtpCode('');
+                    }}
+                    className="text-brand-gold font-semibold hover:underline flex items-center gap-1 text-xs"
+                  >
+                    <ArrowLeft className="w-3 h-3" /> Change
+                  </button>
+                </div>
+
+                <div>
+                  <label className="font-body text-sm font-medium text-foreground mb-1.5 block">
+                    6-Digit Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    className="w-full text-center tracking-[0.5em] text-xl font-mono font-bold px-4 py-3 rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
+                    autoFocus
+                  />
+                  <div className="flex items-center justify-between mt-2 text-xs">
+                    <span className="text-muted-foreground">Expires in 10 minutes</span>
+                    {otpCooldown > 0 ? (
+                      <span className="text-muted-foreground">Resend in {otpCooldown}s</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSendOtp()}
+                        disabled={isSendingOtp}
+                        className="text-brand-gold font-semibold hover:underline flex items-center gap-1"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Resend Code
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isVerifyingOtp || otpCode.trim().length !== 6}
+                  className="btn-crimson w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isVerifyingOtp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Verifying...
+                    </>
+                  ) : (
+                    'Verify & Sign In'
+                  )}
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setCustomerAuthMode('password')}
+                    className="font-body text-xs text-brand-gold hover:underline inline-flex items-center gap-1"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" /> Sign in with password instead
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
 
           <p className="font-body text-sm text-muted-foreground text-center mt-6">
             {isStaffLogin ? (loginRole === 'partner' ? 'New partner?' : 'Need a partner account?') : `New to ${settings.siteName}?`}{' '}

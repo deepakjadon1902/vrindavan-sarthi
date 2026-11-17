@@ -62,6 +62,13 @@ const publicWriteRateLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max
 const paymentRateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 40, message: 'Too many payment requests' });
 const webhookRateLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 300, message: 'Too many webhook requests' });
 const uploadRateLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 30, message: 'Too many upload requests' });
+const qrVerificationRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Too many verification requests. Please try again later.',
+  keyGenerator: (req) => getClientIp(req) + ':qr_verify',
+});
+
 
 module.exports = {
   createMemoryStore,
@@ -72,4 +79,5 @@ module.exports = {
   paymentRateLimiter,
   webhookRateLimiter,
   uploadRateLimiter,
+  qrVerificationRateLimiter,
 };

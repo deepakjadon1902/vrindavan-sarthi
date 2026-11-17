@@ -5,6 +5,7 @@ import axios from 'axios';
 
 export interface Booking {
   id: string; // Mongo _id
+  _id?: string;
   bookingId: string; // human code like VVS-...
   bookingType: 'hotel' | 'room' | 'cab' | 'tour' | 'room_type';
   itemId: string;
@@ -19,7 +20,6 @@ export interface Booking {
   guestAccount?: {
     email?: string;
     username?: string;
-    passwordHint?: string;
     created?: boolean;
     message?: string;
   };
@@ -28,8 +28,16 @@ export interface Booking {
   partnerPhone?: string;
   partnerEmail?: string;
   partnerWhatsapp?: string;
+  propertyName?: string;
+  propertyLocation?: string;
+  propertyAddress?: string;
+  googleMapLink?: string;
+  nearestTemple?: string;
   checkIn?: string;
   checkOut?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
+  checkInTime?: string;
   guests?: number;
   totalAmount: number;
   baseAmount?: number;
@@ -53,6 +61,7 @@ export interface Booking {
   grossForHotel?: number;
   paymentGatewayFeeAmount?: number;
   partnerNetPayout?: number;
+  hotel_net_payout?: number;
   payout_status?: 'pending' | 'checked_in' | 'checked_out' | 'cancelled' | 'settled';
   hotel_gstin?: string;
   hotel_invoice_number?: string;
@@ -84,6 +93,26 @@ export interface Booking {
   inventoryReleasedAt?: string;
   statusHistory?: Array<{ from?: string; to?: string; at?: string; actorRole?: string; reason?: string }>;
   additionalInfo?: string;
+  noShowMarkedAt?: string;
+  noShowMarkedByName?: string;
+  noShowMarkedByRole?: string;
+  noShowReason?: string;
+  noShowDisputed?: boolean;
+  noShowDisputeResolution?: string;
+  collectionDiscrepancy?: {
+    detected?: boolean;
+    expectedAmount?: number;
+    collectedAmount?: number;
+    excessAmount?: number;
+    detectedAt?: string;
+    reportedToAdmin?: boolean;
+    resolved?: boolean;
+    resolutionNotes?: string;
+    resolvedAt?: string;
+    amount?: number;
+    reason?: string;
+    reportedAt?: string;
+  };
   createdAt: string;
   // Inventory booking extras
   hotelId?: string;
@@ -108,6 +137,17 @@ export interface Booking {
   customerFullName?: string;
   customerMobile?: string;
   customerEmail?: string;
+  customerOrigin?: string;
+  balanceCollections?: Array<{
+    collectedAt?: string;
+    amount: number;
+    collectedBy?: string;
+    collectedByName?: string;
+    paymentMethod?: string;
+    receiptNumber?: string;
+    notes?: string;
+    idempotencyKey?: string;
+  }>;
   arrivalMode?: 'personal_vehicle' | 'transport';
   vehicleNumber?: string;
   arrivalTime?: string;
@@ -144,6 +184,20 @@ export interface Booking {
   cancellationDeductionPercent?: number;
   cancellationDeductionAmount?: number;
   refundableAmount?: number;
+  cancellationResponsibility?: string;
+  cancellationExplanation?: string;
+  cancellationPolicySnapshot?: {
+    policyType?: string;
+    policyName?: string;
+    policyVersion?: number;
+    isCustom?: boolean;
+    tiers?: Array<{ hoursBeforeCheckIn: number; refundPercent: number; description?: string }>;
+    disclaimer?: string;
+  };
+  dharamshalaFeeSnapshot?: {
+    fee?: number;
+    version?: number;
+  };
   refundId?: string;
   refundAmount?: number;
   refundStatus?: 'not_required' | 'pending' | 'processed' | 'failed';
@@ -197,7 +251,6 @@ const normalizeBooking = (b: unknown): Booking => {
     guestAccount: isRecord(obj.guestAccount) ? {
       email: getString(obj.guestAccount, 'email') || undefined,
       username: getString(obj.guestAccount, 'username') || undefined,
-      passwordHint: getString(obj.guestAccount, 'passwordHint') || undefined,
       created: typeof obj.guestAccount.created === 'boolean' ? obj.guestAccount.created : undefined,
       message: getString(obj.guestAccount, 'message') || undefined,
     } : undefined,
@@ -276,6 +329,19 @@ const normalizeBooking = (b: unknown): Booking => {
     customerFullName: getString(obj, 'customerFullName') || undefined,
     customerMobile: getString(obj, 'customerMobile') || undefined,
     customerEmail: getString(obj, 'customerEmail') || undefined,
+    customerOrigin: getString(obj, 'customerOrigin') || undefined,
+    balanceCollections: Array.isArray(obj.balanceCollections)
+      ? obj.balanceCollections.map((c: any) => ({
+          collectedAt: getString(c, 'collectedAt') || undefined,
+          amount: getNumber(c, 'amount') || 0,
+          collectedBy: getString(c, 'collectedBy') || undefined,
+          collectedByName: getString(c, 'collectedByName') || undefined,
+          paymentMethod: getString(c, 'paymentMethod') || undefined,
+          receiptNumber: getString(c, 'receiptNumber') || undefined,
+          notes: getString(c, 'notes') || undefined,
+          idempotencyKey: getString(c, 'idempotencyKey') || undefined,
+        }))
+      : undefined,
     arrivalMode: (getString(obj, 'arrivalMode') as Booking['arrivalMode']) || undefined,
     vehicleNumber: getString(obj, 'vehicleNumber') || undefined,
     arrivalTime: getString(obj, 'arrivalTime') || undefined,
@@ -308,6 +374,10 @@ const normalizeBooking = (b: unknown): Booking => {
     cancellationDeductionPercent: getNumber(obj, 'cancellationDeductionPercent') || undefined,
     cancellationDeductionAmount: getNumber(obj, 'cancellationDeductionAmount') || undefined,
     refundableAmount: getNumber(obj, 'refundableAmount') || undefined,
+    cancellationResponsibility: getString(obj, 'cancellationResponsibility') || undefined,
+    cancellationExplanation: getString(obj, 'cancellationExplanation') || undefined,
+    cancellationPolicySnapshot: isRecord(obj.cancellationPolicySnapshot) ? (obj.cancellationPolicySnapshot as any) : undefined,
+    dharamshalaFeeSnapshot: isRecord(obj.dharamshalaFeeSnapshot) ? (obj.dharamshalaFeeSnapshot as any) : undefined,
     refundId: getString(obj, 'refundId') || undefined,
     refundAmount: getNumber(obj, 'refundAmount') || undefined,
     refundStatus: (getString(obj, 'refundStatus') as Booking['refundStatus']) || undefined,
@@ -337,7 +407,7 @@ interface BookingState {
   fetchMyBookings: () => Promise<void>;
   fetchPartnerBookings: () => Promise<void>;
   fetchAllBookings: () => Promise<void>;
-  fetchBookingById: (id: string) => Promise<Booking | null>;
+  fetchBookingById: (id: string, guestAccessToken?: string) => Promise<Booking | null>;
 
   createBooking: (data: Omit<Booking, 'id' | 'bookingId' | 'createdAt' | 'userId' | 'userName' | 'userEmail' | 'userPhone'>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   createRoomTypeBooking: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: Booking; error?: string }>;
@@ -354,7 +424,12 @@ interface BookingState {
   rejectDharamshalaRequest: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   markDharamshalaNoShow: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   completeDharamshalaBooking: (id: string, reason?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  markNoShow: (id: string, reason?: string, gracePeriodHours?: number) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  collectBalance: (id: string, payload: { amountCollected: number; paymentMethod?: string; notes?: string; receiptNumber?: string; idempotencyKey?: string }) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  disputeNoShow: (id: string, reason: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  reviewNoShowDispute: (id: string, resolution: 'upheld' | 'overturned_customer_refund', notes?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
   partnerCheckIn: (id: string, guestDigitalSignature: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
+  partnerCheckOut: (id: string, notes?: string) => Promise<{ success: boolean; data?: Booking; error?: string }>;
 }
 
 export const useBookingStore = create<BookingState>()((set, get) => ({
@@ -402,19 +477,23 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     }
   },
 
-  fetchBookingById: async (id) => {
+  fetchBookingById: async (id, guestAccessToken) => {
     if (!id) return null;
     const token = useAuthStore.getState().token;
-    if (!token) return null;
+    if (!token && !guestAccessToken) return null;
 
     const fromCache =
       get().myBookings.find((b) => b.id === id) ||
       get().partnerBookings.find((b) => b.id === id) ||
       get().adminBookings.find((b) => b.id === id);
-    if (fromCache) return fromCache;
+    if (fromCache && !guestAccessToken) return fromCache;
 
     try {
-      const res = await api.get(`/bookings/${id}`, withAuth(token));
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (guestAccessToken) headers['x-guest-access-token'] = guestAccessToken;
+      const params = guestAccessToken ? { token: guestAccessToken, guestAccessToken } : undefined;
+      const res = await api.get(`/bookings/${id}`, { headers, params });
       const booking = normalizeBooking(res.data?.data);
       if (!booking.id) return null;
       set((state) => ({ myBookings: [booking, ...state.myBookings.filter((b) => b.id !== booking.id)] }));
@@ -633,6 +712,74 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
     }
   },
 
+  markNoShow: async (id, reason, gracePeriodHours) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/no-show`, { reason, gracePeriodHours }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'No-show update failed') };
+    }
+  },
+
+  collectBalance: async (id, payload) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/collect-balance`, payload, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Balance collection failed') };
+    }
+  },
+
+  disputeNoShow: async (id, reason) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.post(`/bookings/${id}/no-show-dispute`, { reason }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Dispute submission failed') };
+    }
+  },
+
+  reviewNoShowDispute: async (id, resolution, notes) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/no-show-review`, { resolution, notes }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Dispute review failed') };
+    }
+  },
+
   completeDharamshalaBooking: async (id, reason) => {
     const token = useAuthStore.getState().token;
     if (!token) return { success: false, error: 'Not authenticated' };
@@ -664,6 +811,23 @@ export const useBookingStore = create<BookingState>()((set, get) => ({
       return { success: true, data: updated };
     } catch (err: unknown) {
       return { success: false, error: getApiErrorMessage(err, 'Check-in failed') };
+    }
+  },
+
+  partnerCheckOut: async (id, notes) => {
+    const token = useAuthStore.getState().token;
+    if (!token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await api.put(`/bookings/${id}/checkout`, { notes }, withAuth(token));
+      const updated = normalizeBooking(res.data?.data);
+      set((state) => ({
+        partnerBookings: state.partnerBookings.map((b) => (b.id === id ? updated : b)),
+        adminBookings: state.adminBookings.map((b) => (b.id === id ? updated : b)),
+        myBookings: state.myBookings.map((b) => (b.id === id ? updated : b)),
+      }));
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err, 'Check-out failed') };
     }
   },
 }));

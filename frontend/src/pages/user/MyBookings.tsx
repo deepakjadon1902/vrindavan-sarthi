@@ -7,6 +7,7 @@ import {
   Calendar,
   Car,
   CheckCircle2,
+  Download,
   ClipboardList,
   Clock,
   Hotel,
@@ -15,9 +16,11 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { formatBookingStatus } from '@/lib/bookingStatus';
+import { BookingCountdownTimer } from '@/components/BookingCountdownTimer';
 
 const typeIcon: Record<string, typeof Hotel> = {
   hotel: Hotel,
@@ -27,7 +30,7 @@ const typeIcon: Record<string, typeof Hotel> = {
   tour: MapIcon,
 };
 
-const filters = ['All', 'Upcoming', 'Pending', 'Waitlist', 'Completed', 'Expired', 'Cancelled'];
+const filters = ['All', 'Upcoming', 'Current', 'Pending', 'Waitlist', 'Completed', 'Expired', 'Cancelled'];
 
 const typeLabels: Record<string, string> = {
   cab: 'Cab',
@@ -53,6 +56,51 @@ const MyBookings = () => {
   const [cancelBookingId, setCancelBookingId] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [cancelDetails, setCancelDetails] = useState('');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const downloadInvoice = async (e: MouseEvent, id: string, bookingId?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = useAuthStore.getState().token;
+    if (!token) return;
+    const targetId = id || bookingId;
+    if (!targetId) return;
+    try {
+      setDownloadingId(targetId);
+      const res = await api.get(`/bookings/${targetId}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', `booking-receipt-${bookingId || targetId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Booking receipt downloaded successfully');
+    } catch (err: any) {
+      let msg = 'Could not download receipt. Please try again.';
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed?.message && typeof parsed.message === 'string') {
+            msg = parsed.message;
+          }
+        } catch {
+          // Keep safe generic fallback
+        }
+      } else if (typeof err?.response?.data?.message === 'string') {
+        msg = err.response.data.message;
+      }
+      toast.error(msg);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -106,18 +154,22 @@ const MyBookings = () => {
     filter === 'All' ? bookings :
     filter === 'Waitlist' ? bookings.filter(b => Boolean(b.isWaitlisted) && !['cancelled', 'expired', 'payment_failed'].includes(b.bookingStatus)) :
     filter === 'Upcoming' ? bookings.filter(b => b.bookingStatus === 'confirmed') :
+    filter === 'Current' ? bookings.filter(b => b.bookingStatus === 'checked_in') :
     filter === 'Pending' ? bookings.filter(b => pendingStatuses.has(b.bookingStatus)) :
-    filter === 'Completed' ? bookings.filter(b => b.bookingStatus === 'completed') :
+    filter === 'Completed' ? bookings.filter(b => ['completed', 'checked_out', 'settled'].includes(b.bookingStatus)) :
     filter === 'Expired' ? bookings.filter(b => b.bookingStatus === 'expired' || b.bookingStatus === 'payment_failed') :
     bookings.filter(b => b.bookingStatus === 'cancelled');
 
   const stats = [
     { label: 'Total bookings', value: bookings.length, tone: 'text-foreground' },
-    { label: 'Confirmed', value: bookings.filter(b => b.bookingStatus === 'confirmed').length, tone: 'text-brand-green' },
+    { label: 'Confirmed', value: bookings.filter(b => ['confirmed', 'checked_in'].includes(b.bookingStatus)).length, tone: 'text-brand-green' },
     { label: 'Pending', value: bookings.filter(b => pendingStatuses.has(b.bookingStatus)).length, tone: 'text-brand-saffron' },
     {
       label: 'Total spent',
-      value: bookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + b.totalAmount, 0).toLocaleString('en-IN'),
+      value: bookings
+        .filter((b) => b.paymentStatus === 'paid')
+        .reduce((s, b) => s + (Number(b.amountPaidOnline ?? b.advanceAmount ?? b.totalAmount ?? 0) + Number(b.amountPaidToProperty || 0)), 0)
+        .toLocaleString('en-IN'),
       tone: 'text-brand-crimson',
       currency: true,
     },
@@ -127,18 +179,21 @@ const MyBookings = () => {
     if (tab === 'All') return bookings.length;
     if (tab === 'Waitlist') return bookings.filter(b => Boolean(b.isWaitlisted) && !['cancelled', 'expired', 'payment_failed'].includes(b.bookingStatus)).length;
     if (tab === 'Upcoming') return bookings.filter(b => b.bookingStatus === 'confirmed').length;
+    if (tab === 'Current') return bookings.filter(b => b.bookingStatus === 'checked_in').length;
     if (tab === 'Pending') return bookings.filter(b => pendingStatuses.has(b.bookingStatus)).length;
-    if (tab === 'Completed') return bookings.filter(b => b.bookingStatus === 'completed').length;
+    if (tab === 'Completed') return bookings.filter(b => ['completed', 'checked_out', 'settled'].includes(b.bookingStatus)).length;
     if (tab === 'Expired') return bookings.filter(b => b.bookingStatus === 'expired' || b.bookingStatus === 'payment_failed').length;
     return bookings.filter(b => b.bookingStatus === 'cancelled').length;
   };
 
   const statusBadge = (s: string) => {
     if (s === 'confirmed') return { cls: 'bg-brand-green/12 text-brand-green border-brand-green/25', icon: CheckCircle2 };
+    if (s === 'checked_in') return { cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: CheckCircle2 };
+    if (s === 'checked_out') return { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 };
     if (s === 'awaiting_customer_payment') return { cls: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: IndianRupee };
     if (s === 'cancelled') return { cls: 'bg-destructive/12 text-destructive border-destructive/25', icon: XCircle };
     if (s === 'expired' || s === 'payment_failed') return { cls: 'bg-destructive/12 text-destructive border-destructive/25', icon: XCircle };
-    if (s === 'completed') return { cls: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CheckCircle2 };
+    if (s === 'completed' || s === 'settled') return { cls: 'bg-brand-gold/15 text-brand-crimson border-brand-gold/30', icon: CheckCircle2 };
     return { cls: 'bg-muted text-muted-foreground border-border', icon: Clock };
   };
 
@@ -226,7 +281,7 @@ const MyBookings = () => {
               <p className="font-body text-muted-foreground mb-6">
                 Choose a stay, cab, or tour and your bookings will appear here.
               </p>
-              <Link to="/hotels" className="btn-gold px-6 py-3 rounded-lg text-sm inline-flex items-center gap-2 font-semibold">
+              <Link to="/hotels" className="btn-emerald px-6 py-3 rounded-lg text-sm inline-flex items-center gap-2 font-semibold">
                 Find a Stay <ArrowRight size={16} />
               </Link>
             </div>
@@ -300,14 +355,32 @@ const MyBookings = () => {
                           </p>
                         )}
                         {b.bookingStatus === 'pending_property_confirmation' && (
-                          <p className="mt-2 rounded-lg border border-brand-saffron/25 bg-brand-saffron/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-saffron">
-                            Request sent. The property team is reviewing availability.
-                          </p>
+                          <div className="mt-2 space-y-1.5 rounded-lg border border-brand-saffron/25 bg-brand-saffron/10 p-3">
+                            <p className="font-body text-xs font-semibold leading-5 text-brand-saffron">
+                              Request sent. Host is reviewing availability.
+                            </p>
+                            {b.requestExpiresAt && (
+                              <BookingCountdownTimer
+                                timerType="request_approval"
+                                expiresAt={b.requestExpiresAt}
+                                compact={true}
+                              />
+                            )}
+                          </div>
                         )}
                         {b.bookingStatus === 'awaiting_customer_payment' && (
-                          <p className="mt-2 rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-3 py-2 font-body text-xs font-semibold leading-5 text-brand-crimson">
-                            Request accepted. Pay {acceptedOnlineAmount > 0 ? `Rs. ${acceptedOnlineAmount.toLocaleString('en-IN')}` : 'the shown amount'} within 30 minutes to confirm this booking.
-                          </p>
+                          <div className="mt-2 space-y-1.5 rounded-lg border border-brand-gold/30 bg-brand-gold/10 p-3">
+                            <p className="font-body text-xs font-semibold leading-5 text-brand-crimson">
+                              Request accepted! Pay {acceptedOnlineAmount > 0 ? `Rs. ${acceptedOnlineAmount.toLocaleString('en-IN')}` : 'the shown amount'} to secure room.
+                            </p>
+                            {b.paymentHoldExpiresAt && (
+                              <BookingCountdownTimer
+                                timerType="payment_hold"
+                                expiresAt={b.paymentHoldExpiresAt}
+                                compact={true}
+                              />
+                            )}
+                          </div>
                         )}
                         {canShowDharamshalaContact && (b.partnerName || b.partnerPhone) && (
                           <div className="mt-2 rounded-lg border border-brand-green/20 bg-brand-green/10 px-3 py-2 font-body text-xs leading-5 text-foreground">
@@ -326,16 +399,53 @@ const MyBookings = () => {
 
                         <div className="mt-auto flex items-end justify-between gap-3 pt-5">
                           {canShowDharamshalaAmount && b.totalAmount > 0 && (
-                            <span className="flex items-center font-body text-[22px] font-bold leading-none text-brand-crimson"><IndianRupee size={17} />{b.totalAmount.toLocaleString('en-IN')}</span>
+                            <div>
+                              <span className="flex items-center font-body text-[22px] font-bold leading-none text-brand-crimson">
+                                <IndianRupee size={17} />{b.totalAmount.toLocaleString('en-IN')}
+                              </span>
+                              {Number(b.balanceAmount || b.amountPayableAtProperty || 0) > 0 && ['confirmed', 'checked_in'].includes(b.bookingStatus) && (
+                                <p className="mt-1 text-[11px] font-medium text-amber-700">
+                                  ₹{(Number(b.balanceAmount || b.amountPayableAtProperty)).toLocaleString('en-IN')} due at check-in
+                                </p>
+                              )}
+                            </div>
                           )}
                           <span className="text-right font-body text-[11px] font-semibold capitalize text-muted-foreground">{paymentCopy}</span>
                         </div>
 
-                        {b.bookingStatus === 'confirmed' && (
-                          <button onClick={(e) => openCancel(e, b.id)} className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md px-0 font-body text-xs font-bold text-destructive hover:underline">
-                            <XCircle size={13} /> Cancel
-                          </button>
-                        )}
+                        {(() => {
+                          const rawStatus = String(b.bookingStatus || '').toLowerCase();
+                          const isEligible = Boolean(
+                            b.paymentStatus === 'paid' ||
+                            ['confirmed', 'checked_in', 'checked_out', 'completed', 'settled'].includes(rawStatus)
+                          ) && !(
+                            ['pending', 'pending_property_confirmation', 'awaiting_customer_payment', 'rejected_by_property', 'expired', 'expired_property_no_response', 'payment_failed'].includes(rawStatus) &&
+                            b.paymentStatus !== 'paid'
+                          );
+                          const canCancel = rawStatus === 'confirmed';
+
+                          if (!isEligible && !canCancel) return null;
+
+                          return (
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                              {isEligible ? (
+                                <button
+                                  onClick={(e) => downloadInvoice(e, b.id, b.bookingId)}
+                                  disabled={downloadingId === (b.id || b.bookingId)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/30 bg-emerald-50 text-emerald-900 px-3 py-1.5 font-body text-xs font-bold hover:bg-emerald-100 transition-colors disabled:opacity-50 shadow-2xs"
+                                >
+                                  <Download size={12} className={downloadingId === (b.id || b.bookingId) ? 'animate-bounce' : ''} />
+                                  <span>{downloadingId === (b.id || b.bookingId) ? 'Downloading...' : 'PDF Receipt'}</span>
+                                </button>
+                              ) : <span />}
+                              {canCancel && (
+                                <button onClick={(e) => openCancel(e, b.id)} className="inline-flex items-center gap-1.5 rounded-md px-0 font-body text-xs font-bold text-destructive hover:underline">
+                                  <XCircle size={13} /> Cancel
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {b.bookingStatus === 'awaiting_customer_payment' && (
                           <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-md font-body text-xs font-bold text-brand-crimson group-hover:underline">
                             Pay & confirm <ArrowRight size={13} />

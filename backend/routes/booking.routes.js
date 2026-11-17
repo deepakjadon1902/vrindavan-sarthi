@@ -9,8 +9,14 @@ const Cab = require('../models/Cab');
 const CabFare = require('../models/CabFare');
 const Tour = require('../models/Tour');
 const User = require('../models/User');
-const { protect, optionalProtect, authorize } = require('../middleware/auth');
+const { protect, optionalProtect, authorize, authorizeAdmin } = require('../middleware/auth');
+const { logAdminAction } = require('../utils/adminAuditLogger');
+const { qrVerificationRateLimiter } = require('../middleware/rateLimit');
+const { recordBookingAudit } = require('../utils/bookingAudit');
+
 const { parseDateOnlyToUTC, isValidDate, enumerateDatesUTC } = require('../utils/date');
+const { generateBookingInvoicePdf } = require('../utils/customerMessages');
+const { getNextBookingId, deriveStableNumericId } = require('../utils/idAllocation');
 const {
   assertValidBookingTransition,
   transitionBookingStatus,
@@ -58,7 +64,22 @@ const {
   resolveBookingCustomer,
   withGuestAccountReminder,
   withGuestAccessToken,
+  getGuestAccessTokenFromRequest,
+  hashGuestAccessToken,
+  isGuestTokenExpired,
+  linkCustomerGuestBookings,
 } = require('../utils/guestBookingAccess');
+const {
+  getScheduledCheckInDateTime,
+  calculateCancellationRefund,
+  evaluateNoShowEligibility,
+  calculateNoShowSettlement,
+} = require('../utils/cancellationPolicy');
+const {
+  createBookingPolicySnapshot,
+  createDharamshalaFeeSnapshot,
+  calculateRefund,
+} = require('../services/refundCalculationService');
 const router = express.Router();
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
@@ -204,22 +225,33 @@ const enqueueBookingNotifications = async (booking, { invoice = false, partnerAl
 
 const bookingDetailFields = [
   'bookingId bookingType itemId itemName itemImage userId userName userEmail userPhone isGuestBooking partnerId partnerName partnerPhone partnerEmail partnerWhatsapp',
-  'service_billing_model propertyType paymentMode propertyPaymentChoice dharamshalaAmount vrindavanSarthiServiceFee amountPaidOnline amountPayableAtProperty amountPaidToProperty requestExpiresAt propertyRespondedAt propertyDecisionRole propertyDecisionReason',
+  'service_billing_model propertyType paymentMode propertyPaymentChoice dharamshalaAmount vrindavanSarthiServiceFee amountPaidOnline amountPayableAtProperty amountPaidToProperty balanceCollections requestExpiresAt propertyRespondedAt propertyDecisionRole propertyDecisionReason',
   'hotelId roomTypeId ratePlanId ratePlanName ratePlanCode ratePlanMealPlan nightlyBreakdown roomUnitId roomUnitIds roomNumber roomNumbers roomQuantity checkIn checkOut guests',
   'pickupLocation dropLocation pickupDate pickupTime cabType cabFareTotal tollOption',
   'assignedVehicleName assignedVehicleType assignedDriverName assignedDriverPhone assignedDriverEmail',
-  'customerFullName customerMobile customerEmail arrivalMode vehicleNumber arrivalTime',
+  'displayBookingId propertyId categoryId roomId customerFullName customerMobile customerEmail customerOrigin arrivalMode vehicleNumber arrivalTime',
   'totalAdults totalChildren hasPet guestDetails',
   'baseAmount taxPercent taxAmount checkoutSubtotal convenienceFeePercent convenienceFeeAmount totalAmount advanceAmount balanceAmount advancePercent paymentOption',
   'base_amount hotel_gst_amount convenience_fee customer_total advance_paid balance_at_property commission_rate commission_amount payment_gateway_fee gross_for_hotel hotel_net_payout payout_status hotel_gstin hotel_invoice_number',
   'platformCommissionPercent platformCommissionAmount grossForHotel paymentGatewayFeeAmount partnerNetPayout',
   'paymentMethod paymentStatus bookingStatus verificationStage partnerPaymentVerified adminPaymentVerified upiTransactionId paymentProvider razorpayOrderId razorpayPaymentId razorpayStatus paidAt additionalInfo',
   'paymentHoldExpiresAt confirmedAt checkedInAt checkedOutAt checkedInByPartnerId checkedInByPartnerName guestDigitalSignature paymentFailedAt expiredAt inventoryReleasedAt statusHistory',
-  'acceptedPropertyTerms',
+  'acceptedPropertyTerms cancellationPolicySnapshot dharamshalaFeeSnapshot cancellationResponsibility cancellationExplanation cancellationFaultOverrideReason refundProviderReference',
   'isWaitlisted waitlistAssignedAt cancellationRequested cancellationReason cancellationRequestedAt cancellationReviewedByAdmin cancelledByRole cancelledByName cancelledAt cancellationDetails cancellationDeductionPercent cancellationDeductionAmount refundableAmount refundId refundAmount refundStatus refundRequestedAt refundProcessedAt refundFailureReason refundReconciliationState createdAt',
 ].join(' ');
 
 router.param('id', (req, res, next, id) => {
+  // Routes GET /:id and GET /:id/invoice intentionally resolve both MongoDB _id and alphanumeric bookingId
+  const normalizedPath = String(req.path || '').replace(/\/+$/, '');
+  const isInvoiceOrRead = req.method === 'GET' && (normalizedPath === `/${id}` || normalizedPath === `/${id}/invoice`);
+  if (isInvoiceOrRead) {
+    const cleanId = String(id || '').trim();
+    if (!cleanId || cleanId.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(cleanId)) {
+      return res.status(400).json({ success: false, message: 'Invalid booking id' });
+    }
+    return next();
+  }
+
   if (rejectInvalidObjectId(res, id, 'booking id')) return;
   next();
 });
@@ -318,9 +350,11 @@ router.post('/cab', protect, async (req, res) => {
     if (!paymentOption) return res.status(400).json({ success: false, message: 'Cab bookings only support 30% advance online payment' });
     const money = buildMoneyFields({ subtotal: breakdown.total, baseAmount: breakdown.total, taxAmount: 0, paymentOption, gatewayFeeAmount: req.body?.paymentGatewayFeeAmount });
     const bookingId = generateBookingCode();
+    const displayBookingId = await getNextBookingId();
 
     const booking = await Booking.create({
       bookingId,
+      displayBookingId,
       bookingType: 'cab',
       service_billing_model: 'taxi_direct',
       itemId: 'cab_request',
@@ -382,6 +416,12 @@ router.post('/room-type', optionalProtect, async (req, res) => {
 
     const hotel = await Hotel.findById(hotelId).lean();
     if (!hotel) return res.status(404).json({ success: false, message: 'Hotel not found' });
+    if (hotel.approvalStatus !== 'approved') {
+      return res.status(403).json({
+        success: false,
+        message: 'This property is not approved for accepting reservations.',
+      });
+    }
 
     const roomType = await RoomType.findOne({ _id: roomTypeId, hotelId: hotel._id, status: 'active' }).lean();
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
@@ -398,7 +438,13 @@ router.post('/room-type', optionalProtect, async (req, res) => {
     if (!customerFullName || !customerMobile || !customerEmail) {
       return res.status(400).json({ success: false, message: 'customerFullName, customerMobile and customerEmail are required' });
     }
-    const bookingCustomer = await resolveBookingCustomer({ req, customerFullName, customerMobile, customerEmail });
+    const bookingCustomer = await resolveBookingCustomer({
+      req,
+      customerFullName,
+      customerMobile,
+      customerEmail,
+      bookingDates: { checkIn, checkOut, createdAt: new Date() },
+    });
     const customerUser = bookingCustomer.user;
     const acceptedTermsSnapshot = getActivePropertyTermsSnapshot(hotel, customerUser._id);
     if (acceptedTermsSnapshot) {
@@ -450,42 +496,51 @@ router.post('/room-type', optionalProtect, async (req, res) => {
     }
 
     const isDharamshala = String(hotel.propertyType || '').trim().toLowerCase() === 'dharamshala';
-    const result = await createDharamshalaRequest({
-      req,
-      hotel,
-      roomType,
-      checkIn,
-      checkOut,
-      roomQuantity,
-      totalAdults,
-      totalChildren,
-      hasPet,
-      guestDetails,
-      customerFullName,
-      customerMobile,
-      customerEmail,
-      acceptedTermsSnapshot,
-      customerUser,
-      isGuestBooking: bookingCustomer.isGuestBooking,
-      guestAccessTokenHash: bookingCustomer.guestAccessTokenHash,
-    });
-    try {
-      await ensureDharamshalaPropertyReviewAlarmNotifications(result.booking);
-      await enqueueBookingNotifications(result.booking, { partnerAlert: !result.idempotent, background: true });
-    } catch (notifyErr) {
-      console.warn('[property.request.notification_failed]', notifyErr?.message || notifyErr);
+    // Confirmed business rules:
+    // - Commercial hotels: instant booking is permitted ONLY when explicitly enabled by an administrator for the property.
+    // - Homestays: booking mode is configurable by an administrator per property (instant vs request).
+    // - Dharamshalas: manual property approval is mandatory (always uses property review request flow).
+    const isInstantEligible = !isDharamshala && (hotel.bookingMode ? hotel.bookingMode === 'instant' : Boolean(hotel.instantBookingEnabled));
+
+    if (!isInstantEligible) {
+      const result = await createDharamshalaRequest({
+        req,
+        hotel,
+        roomType,
+        checkIn,
+        checkOut,
+        roomQuantity,
+        totalAdults,
+        totalChildren,
+        hasPet,
+        guestDetails,
+        customerFullName,
+        customerMobile,
+        customerEmail,
+        acceptedTermsSnapshot,
+        customerUser,
+        isGuestBooking: bookingCustomer.isGuestBooking,
+        guestAccessTokenHash: bookingCustomer.guestAccessTokenHash,
+        guestAccessTokenExpiresAt: bookingCustomer.guestAccessTokenExpiresAt,
+      });
+      try {
+        await ensureDharamshalaPropertyReviewAlarmNotifications(result.booking);
+        await enqueueBookingNotifications(result.booking, { partnerAlert: !result.idempotent, background: true });
+      } catch (notifyErr) {
+        console.warn('[property.request.notification_failed]', notifyErr?.message || notifyErr);
+      }
+      return res.status(result.idempotent ? 200 : 201).json({
+        success: true,
+        data: withGuestAccountReminder(
+          withGuestAccessToken(sanitizeCustomerBooking(result.booking), result.idempotent ? '' : bookingCustomer.guestAccessToken),
+          result.idempotent ? null : bookingCustomer.guestAccountReminder
+        ),
+        idempotent: result.idempotent,
+        message: isDharamshala
+          ? 'Dharamshala request submitted. The property will confirm availability before any online payment.'
+          : 'Booking request submitted. The property will confirm availability before payment.',
+      });
     }
-    return res.status(result.idempotent ? 200 : 201).json({
-      success: true,
-      data: withGuestAccountReminder(
-        withGuestAccessToken(sanitizeCustomerBooking(result.booking), result.idempotent ? '' : bookingCustomer.guestAccessToken),
-        result.idempotent ? null : bookingCustomer.guestAccountReminder
-      ),
-      idempotent: result.idempotent,
-      message: isDharamshala
-        ? 'Dharamshala request submitted. The property will confirm availability before any online payment.'
-        : 'Booking request submitted. The property will confirm availability before payment.',
-    });
 
     // Server-side quote calculation (date rates + existing GST/fee formulas).
     const paymentOption = isDharamshala ? 'full_100' : getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']);
@@ -534,8 +589,16 @@ router.post('/room-type', optionalProtect, async (req, res) => {
     const blockedSet = new Set(blockedByBlocks.map(String));
 
     const bookingId = generateBookingCode();
+    const displayBookingId = await getNextBookingId();
+    const propertyId = hotel.propertyId || undefined;
+    const categoryId = roomType.categoryId || undefined;
+    const cancellationPolicySnapshot = await createBookingPolicySnapshot(hotel, paymentOption);
+    const dharamshalaFeeSnapshot = createDharamshalaFeeSnapshot(hotel);
     const booking = new Booking({
       bookingId,
+      displayBookingId,
+      propertyId,
+      categoryId,
       bookingType: 'room_type',
       service_billing_model: 'hotel_marketplace',
       itemId: String(roomType._id),
@@ -548,6 +611,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       userPhone: customerUser.phone,
       isGuestBooking: bookingCustomer.isGuestBooking,
       guestAccessTokenHash: bookingCustomer.guestAccessTokenHash || undefined,
+      guestAccessTokenExpiresAt: bookingCustomer.guestAccessTokenExpiresAt || undefined,
 
       partnerId: hotel.partnerId,
       partnerName: hotel.partnerName,
@@ -565,12 +629,14 @@ router.post('/room-type', optionalProtect, async (req, res) => {
 
       checkIn,
       checkOut,
+      checkInTime: hotel.checkInTime || '12:00',
       guests: totalAdults + totalChildren,
       roomQuantity,
 
       customerFullName,
       customerMobile,
       customerEmail,
+      customerOrigin: String(req.body?.customerOrigin || req.body?.origin || '').trim() || undefined,
       arrivalMode: req.body?.arrivalMode || null,
       vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
       arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
@@ -596,6 +662,8 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       bookingSource: bookingCustomer.isGuestBooking ? 'guest_web' : 'web',
       additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
       acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
+      cancellationPolicySnapshot,
+      dharamshalaFeeSnapshot,
     });
 
     const selectedUnits = await tryReserveRoomUnitsForBooking({
@@ -614,6 +682,11 @@ router.post('/room-type', optionalProtect, async (req, res) => {
       booking.roomNumbers = selectedUnits.map((unit) => unit.number);
       booking.roomUnitId = selectedUnits[0]._id;
       booking.roomNumber = selectedUnits[0].number;
+      if (selectedUnits[0]?.roomId) {
+        booking.roomId = selectedUnits[0].roomId;
+      } else if (selectedUnits[0]?.number && /^\d+$/.test(selectedUnits[0].number)) {
+        booking.roomId = selectedUnits[0].number;
+      }
       try {
         await booking.save();
       } catch (err) {
@@ -636,6 +709,9 @@ router.post('/room-type', optionalProtect, async (req, res) => {
     if (selectedUnits.length < roomQuantity) {
       const waitlistedBooking = await Booking.create({
         bookingId,
+        displayBookingId,
+        propertyId,
+        categoryId,
         bookingType: 'room_type',
         service_billing_model: 'hotel_marketplace',
         itemId: String(roomType._id),
@@ -648,6 +724,7 @@ router.post('/room-type', optionalProtect, async (req, res) => {
         userPhone: customerUser.phone,
         isGuestBooking: bookingCustomer.isGuestBooking,
         guestAccessTokenHash: bookingCustomer.guestAccessTokenHash || undefined,
+        guestAccessTokenExpiresAt: bookingCustomer.guestAccessTokenExpiresAt || undefined,
 
         partnerId: hotel.partnerId,
         partnerName: hotel.partnerName,
@@ -661,11 +738,13 @@ router.post('/room-type', optionalProtect, async (req, res) => {
 
         checkIn,
         checkOut,
-        guests: totalAdults + totalChildren,
+        checkInTime: hotel.checkInTime || '12:00',
+      guests: totalAdults + totalChildren,
 
         customerFullName,
         customerMobile,
         customerEmail,
+        customerOrigin: String(req.body?.customerOrigin || req.body?.origin || '').trim() || undefined,
         arrivalMode: req.body?.arrivalMode || null,
         vehicleNumber: String(req.body?.vehicleNumber || '').trim() || undefined,
         arrivalTime: String(req.body?.arrivalTime || '').trim() || undefined,
@@ -691,6 +770,8 @@ router.post('/room-type', optionalProtect, async (req, res) => {
         bookingSource: bookingCustomer.isGuestBooking ? 'guest_web' : 'web',
         additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
         acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
+      cancellationPolicySnapshot,
+      dharamshalaFeeSnapshot,
         isWaitlisted: true,
       });
 
@@ -763,6 +844,7 @@ router.post('/', protect, async (req, res) => {
         'customerFullName',
         'customerMobile',
         'customerEmail',
+        'customerOrigin',
         'additionalInfo',
         'upiTransactionId',
         'paymentProvider',
@@ -793,6 +875,7 @@ router.post('/', protect, async (req, res) => {
       guests,
     };
 
+    payload.displayBookingId = await getNextBookingId();
     const booking = await Booking.create(payload);
     await enqueueBookingNotifications(booking, { partnerAlert: true });
     res.status(201).json({ success: true, data: sanitizeCustomerBooking(booking) });
@@ -803,6 +886,7 @@ router.post('/', protect, async (req, res) => {
 router.get('/my', protect, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
+    await linkCustomerGuestBookings({ userId: req.user._id, email: req.user.email, userName: req.user.name });
     await repairPaidAwaitingCustomerPaymentBookings();
     const limitRaw = Number(req.query?.limit || 0);
     const skipRaw = Number(req.query?.skip || 0);
@@ -1067,25 +1151,378 @@ router.post('/:id/refund', protect, authorize('admin'), async (req, res) => {
   }
 });
 
-// Get single booking (owner/admin/partner)
-router.get('/:id', protect, async (req, res) => {
+
+// Authenticated role-based QR booking lookup for partners and admins
+router.get('/qr-lookup/:ref', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const rawRef = String(req.params.ref || '').trim();
+    if (!rawRef) {
+      return res.status(400).json({ success: false, message: 'Booking reference is required' });
+    }
+
+    // Support full scanned URL (e.g. https://domain/verify-booking?ref=VS-12345)
+    let parsedRef = rawRef;
+    if (rawRef.includes('?')) {
+      try {
+        const queryPart = rawRef.split('?')[1];
+        const params = new URLSearchParams(queryPart);
+        parsedRef = params.get('ref') || params.get('id') || params.get('bookingId') || rawRef;
+      } catch {
+        parsedRef = rawRef;
+      }
+    } else if (rawRef.includes('/verify-booking/')) {
+      parsedRef = rawRef.split('/verify-booking/')[1] || rawRef;
+    }
+    parsedRef = String(parsedRef).trim();
+
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(parsedRef);
+    const query = isObjectId
+      ? { $or: [{ _id: parsedRef }, { bookingId: parsedRef }, { displayBookingId: parsedRef }] }
+      : { $or: [{ bookingId: parsedRef }, { displayBookingId: parsedRef }] };
+
+    const booking = await Booking.findOne(query).lean();
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found for reference: ' + parsedRef });
+    }
+
+    // Partner Authorization Guard: Must belong to authenticated partner
+    if (req.user.role === 'partner') {
+      if (!booking.partnerId || String(booking.partnerId) !== String(req.user._id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not authorized to access this booking. It belongs to another property partner.',
+        });
+      }
+    }
+
+    let hotel = null;
+    if (booking.hotelId) {
+      hotel = await Hotel.findById(booking.hotelId)
+        .select('name fullAddress address location contactPhone partnerPhone nearestTemple')
+        .lean();
+    }
+
+    const propertyName = booking.propertyName || hotel?.name || String(booking.itemName || '').split(' - ')[0] || 'Property';
+    const roomType = String(booking.itemName || '').includes(' - ') ? String(booking.itemName).split(' - ')[1] : String(booking.itemName || 'Standard Room');
+    const roomNumber = booking.roomNumber || (Array.isArray(booking.roomNumbers) && booking.roomNumbers.length ? booking.roomNumbers.join(', ') : null);
+
+    // Authoritative Financial Reconciliation
+    const totalAmount = Math.round(Number(booking.totalAmount || 0));
+    const amountPaidOnline = Math.max(0, Math.round(Number(booking.amountPaidOnline || booking.advanceAmount || (booking.paymentStatus === 'paid' ? booking.totalAmount : 0))));
+    const amountPaidToProperty = Math.max(0, Math.round(Number(booking.amountPaidToProperty || 0)));
+
+    let expectedPropertyPayable = 0;
+    if (booking.paymentOption === 'advance_30') {
+      expectedPropertyPayable = Math.max(0, Math.round(totalAmount - amountPaidOnline));
+    } else if (Number(booking.amountPayableAtProperty || 0) > 0) {
+      expectedPropertyPayable = Math.max(0, Math.round(Number(booking.amountPayableAtProperty) + amountPaidToProperty));
+    }
+
+    const remainingPropertyBalance = Math.max(0, Math.round(expectedPropertyPayable - amountPaidToProperty));
+    const bookingStatus = String(booking.bookingStatus || '');
+    const isEligibleForCheckIn = ['confirmed'].includes(bookingStatus);
+    const isEligibleForPaymentCollection = remainingPropertyBalance > 0 && ['confirmed', 'checked_in'].includes(bookingStatus);
+
+    void recordBookingAudit({
+      action: 'qr_scan_lookup',
+      booking,
+      req,
+      metadata: { rawRef, parsedRef },
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        id: String(booking._id),
+        bookingId: booking.bookingId || String(booking._id),
+        displayBookingId: booking.displayBookingId || null,
+        bookingStatus,
+        paymentStatus: booking.paymentStatus,
+        bookingType: booking.bookingType,
+        service_billing_model: booking.service_billing_model,
+        propertyName,
+        roomType,
+        roomNumber,
+        propertyLocation: booking.propertyLocation || hotel?.location || hotel?.fullAddress || '',
+        guestName: booking.customerFullName || booking.userName || 'Guest Devotee',
+        guestPhone: booking.customerMobile || booking.userPhone || '',
+        guestEmail: booking.customerEmail || booking.userEmail || '',
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        checkInTime: booking.checkInTime || '12:00 PM',
+        guests: booking.guests || ((booking.totalAdults || 1) + (booking.totalChildren || 0)),
+        totalAdults: booking.totalAdults || 1,
+        totalChildren: booking.totalChildren || 0,
+        totalAmount,
+        amountPaidOnline,
+        amountPaidToProperty,
+        remainingPropertyBalance,
+        isEligibleForCheckIn,
+        isEligibleForPaymentCollection,
+        checkedInAt: booking.checkedInAt || null,
+        checkedInByPartnerName: booking.checkedInByPartnerName || null,
+        balanceCollections: (booking.balanceCollections || []).map((c) => ({
+          amount: c.amount,
+          collectedAt: c.collectedAt,
+          collectedByName: c.collectedByName,
+          paymentMethod: c.paymentMethod,
+          receiptNumber: c.receiptNumber,
+          notes: c.notes,
+        })),
+      },
+    });
+  } catch (err) {
+    console.error('[booking.qr_lookup.error]', err?.stack || err?.message || err);
+    return res.status(500).json({ success: false, message: 'Failed to look up booking via QR' });
+  }
+});
+
+function maskGuestName(name) {
+  if (!name) return 'Guest Devotee';
+  const str = String(name).trim();
+  const parts = str.split(/\s+/);
+  return parts
+    .map((p) => {
+      if (p.length <= 2) return p[0] + '*';
+      return p[0] + '*'.repeat(Math.max(1, p.length - 2)) + p[p.length - 1];
+    })
+    .join(' ');
+}
+
+// Public, non-sensitive booking verification endpoint for QR code voucher scans
+router.get('/verify/:bookingId', qrVerificationRateLimiter, async (req, res) => {
+  try {
+    const rawId = String(req.params.bookingId || '').trim();
+    if (!rawId) {
+      return res.status(400).json({ success: false, message: 'Booking ID is required' });
+    }
+
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }, { displayBookingId: rawId }] } : { $or: [{ bookingId: rawId }, { displayBookingId: rawId }] };
+
+    const booking = await Booking.findOne(query)
+      .select('bookingId displayBookingId propertyId categoryId roomId bookingType service_billing_model itemName propertyName propertyAddress propertyLocation checkIn checkOut checkInTime guests totalAdults totalChildren totalAmount amountPaidOnline amountPayableAtProperty bookingStatus paymentStatus paymentMethod customerFullName userName paidAt createdAt hotelId roomNumber')
+      .lean();
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.hotelId) {
+      const hotel = await Hotel.findById(booking.hotelId).select('name fullAddress address location contactPhone partnerPhone googleMapLink nearestTemple propertyId').lean();
+      if (hotel) {
+        booking.propertyName = booking.propertyName || hotel.name || '';
+        booking.propertyAddress = hotel.fullAddress || hotel.address || hotel.location || '';
+        booking.propertyLocation = hotel.location || hotel.fullAddress || hotel.address || '';
+        booking.googleMapLink = hotel.googleMapLink || '';
+        booking.nearestTemple = hotel.nearestTemple || '';
+        booking.partnerPhone = booking.partnerPhone || hotel.contactPhone || hotel.partnerPhone || '';
+        if (hotel.propertyId) booking.propertyId = hotel.propertyId;
+      }
+    }
+
+    // Return strictly non-sensitive voucher summary (no passwords, hashes, tokens, emails, phone numbers)
+    return res.json({
+      success: true,
+      data: {
+        verified: true,
+        bookingId: booking.bookingId || String(booking._id),
+        displayBookingId: booking.displayBookingId || null,
+        propertyId: booking.propertyId || null,
+        categoryId: booking.categoryId || null,
+        roomId: booking.roomId || null,
+        bookingStatus: booking.bookingStatus,
+        paymentStatus: booking.paymentStatus,
+        propertyName: booking.propertyName || String(booking.itemName || '').split(' - ')[0] || 'Property',
+        roomType: String(booking.itemName || '').includes(' - ') ? String(booking.itemName).split(' - ')[1] : String(booking.itemName || 'Standard Room'),
+        roomNumber: booking.roomNumber || null,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        checkInTime: booking.checkInTime || '12:00 PM',
+        guests: booking.guests || ((booking.totalAdults || 1) + (booking.totalChildren || 0)),
+        guestName: maskGuestName(booking.customerFullName || booking.userName),
+        totalAmount: booking.totalAmount,
+        amountPaidOnline: booking.amountPaidOnline,
+        amountPayableAtProperty: booking.amountPayableAtProperty,
+        paymentMethod: booking.paymentMethod,
+        paidAt: booking.paidAt,
+        bookedOn: booking.createdAt,
+        propertyLocation: booking.propertyLocation || '',
+        nearestTemple: booking.nearestTemple || '',
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Verification failed' });
+  }
+});
+
+// Get single booking (owner/admin/partner/authorized guest)
+router.get('/:id', optionalProtect, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
     await repairPaidAwaitingCustomerPaymentBookings();
-    const booking = await Booking.findById(req.params.id).lean();
+    const rawId = String(req.params.id || '').trim();
+    if (!rawId) return res.status(400).json({ success: false, message: 'Booking ID is required' });
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }, { displayBookingId: rawId }] } : { $or: [{ bookingId: rawId }, { displayBookingId: rawId }] };
+    const booking = await Booking.findOne(query).lean();
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
-    const isOwner = String(booking.userId) === String(req.user._id);
-    const isPartner = booking.partnerId && String(booking.partnerId) === String(req.user._id);
-    const isAdmin = req.user.role === 'admin';
+    let isOwner = false;
+    let isPartner = false;
+    let isAdmin = false;
 
-    if (!isOwner && !isPartner && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+    if (req.user?._id) {
+      isOwner = String(booking.userId) === String(req.user._id);
+      isPartner = booking.partnerId && String(booking.partnerId) === String(req.user._id);
+      isAdmin = req.user.role === 'admin';
     }
 
-    res.json({ success: true, data: isOwner && !isAdmin && !isPartner ? sanitizeCustomerBooking(booking) : booking });
+    const guestToken = getGuestAccessTokenFromRequest(req);
+    const guestTokenMatches = Boolean(
+      guestToken &&
+      booking.isGuestBooking &&
+      booking.guestAccessTokenHash &&
+      booking.guestAccessTokenHash === hashGuestAccessToken(guestToken)
+    );
+    const isGuestExpired = guestTokenMatches && isGuestTokenExpired(booking);
+    const isAuthorizedGuest = guestTokenMatches && !isGuestExpired;
+
+    if (guestTokenMatches && isGuestExpired && !isOwner && !isPartner && !isAdmin) {
+      return res.status(401).json({ success: false, message: 'Guest access token has expired', code: 'GUEST_TOKEN_EXPIRED' });
+    }
+
+    if (!isOwner && !isPartner && !isAdmin && !isAuthorizedGuest) {
+      return res.status(401).json({ success: false, message: 'Not authorized' });
+    }
+
+    if (booking.hotelId) {
+      const hotel = await Hotel.findById(booking.hotelId)
+        .select('name address fullAddress location nearestTemple googleMapLink contactPhone contactWhatsapp partnerPhone partnerWhatsapp')
+        .lean();
+      if (hotel) {
+        booking.propertyName = booking.propertyName || hotel.name || '';
+        booking.propertyLocation = hotel.location || hotel.fullAddress || hotel.address || '';
+        booking.propertyAddress = hotel.fullAddress || hotel.address || hotel.location || '';
+        booking.googleMapLink = hotel.googleMapLink || '';
+        booking.nearestTemple = hotel.nearestTemple || '';
+      }
+    }
+
+    res.json({
+      success: true,
+      data: (isOwner || isAuthorizedGuest) && !isAdmin && !isPartner
+        ? sanitizeCustomerBooking(booking)
+        : booking,
+    });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Payment rejection failed' });
+    console.error(`[booking.get.error] id=${String(req.params?.id || '').slice(0, 50)}:`, err?.stack || err?.message || err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Failed to retrieve booking' });
+  }
+});
+
+// Download booking invoice PDF (authenticated customer, partner, admin, or verified guest)
+router.get('/:id/invoice', optionalProtect, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const rawId = String(req.params.id || '').trim();
+    if (!rawId) return res.status(400).json({ success: false, message: 'Booking ID is required' });
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const query = isObjectId ? { $or: [{ _id: rawId }, { bookingId: rawId }, { displayBookingId: rawId }] } : { $or: [{ bookingId: rawId }, { displayBookingId: rawId }] };
+    const booking = await Booking.findOne(query).lean();
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    let isOwner = false;
+    let isPartner = false;
+    let isAdmin = false;
+
+    if (req.user?._id) {
+      isOwner = String(booking.userId) === String(req.user._id);
+      isPartner = booking.partnerId && String(booking.partnerId) === String(req.user._id);
+      isAdmin = req.user.role === 'admin';
+    }
+
+    const guestToken = getGuestAccessTokenFromRequest(req);
+    const guestTokenMatches = Boolean(
+      guestToken &&
+      booking.isGuestBooking &&
+      booking.guestAccessTokenHash &&
+      booking.guestAccessTokenHash === hashGuestAccessToken(guestToken)
+    );
+    const isGuestExpired = guestTokenMatches && isGuestTokenExpired(booking);
+    const isAuthorizedGuest = guestTokenMatches && !isGuestExpired;
+
+    if (guestTokenMatches && isGuestExpired && !isOwner && !isPartner && !isAdmin) {
+      return res.status(401).json({ success: false, message: 'Guest access token has expired', code: 'GUEST_TOKEN_EXPIRED' });
+    }
+
+    if (!isOwner && !isPartner && !isAdmin && !isAuthorizedGuest) {
+      return res.status(401).json({ success: false, message: 'Not authorized' });
+    }
+
+    let hotel = null;
+    let roomType = null;
+    let roomUnit = null;
+
+    if (booking.hotelId) {
+      hotel = await Hotel.findById(booking.hotelId)
+        .select('name address fullAddress location nearestTemple googleMapLink contactPhone contactWhatsapp partnerPhone partnerWhatsapp propertyType propertyId')
+        .lean();
+      if (hotel) {
+        booking.propertyName = booking.propertyName || hotel.name || '';
+        booking.propertyLocation = hotel.location || hotel.fullAddress || hotel.address || '';
+        booking.propertyAddress = hotel.fullAddress || hotel.address || hotel.location || '';
+        booking.googleMapLink = hotel.googleMapLink || '';
+        booking.nearestTemple = hotel.nearestTemple || '';
+        booking.partnerPhone = booking.partnerPhone || hotel.contactPhone || hotel.partnerPhone || hotel.contactWhatsapp || '';
+        if (hotel.propertyId) booking.propertyId = hotel.propertyId;
+      }
+    }
+
+    if (booking.roomTypeId) {
+      roomType = await RoomType.findById(booking.roomTypeId).select('name categoryId pricePerNight').lean();
+      if (roomType?.categoryId) booking.categoryId = roomType.categoryId;
+    }
+
+    if (booking.roomUnitId) {
+      roomUnit = await RoomUnit.findById(booking.roomUnitId).select('number floor roomId').lean();
+      if (roomUnit?.roomId) booking.roomId = roomUnit.roomId;
+    }
+
+    // Secure invoice eligibility: prevent premature receipt download for unverified/pending/failed bookings
+    const bookingStatus = String(booking.bookingStatus || '').toLowerCase();
+    const paymentStatus = String(booking.paymentStatus || '').toLowerCase();
+    const unverifiedStatuses = [
+      'pending',
+      'pending_property_confirmation',
+      'awaiting_customer_payment',
+      'rejected_by_property',
+      'expired_property_no_response',
+      'expired',
+      'payment_failed',
+    ];
+    if (unverifiedStatuses.includes(bookingStatus) && paymentStatus !== 'paid') {
+      return res.status(409).json({
+        success: false,
+        message: 'Booking receipt is only available after booking confirmation and verified payment.',
+        code: 'INVOICE_NOT_READY',
+      });
+    }
+    if (paymentStatus === 'failed') {
+      return res.status(409).json({
+        success: false,
+        message: 'Cannot generate receipt for a failed payment.',
+        code: 'PAYMENT_FAILED',
+      });
+    }
+
+    const { buffer, filename } = generateBookingInvoicePdf(booking, { hotel, roomType, roomUnit });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error(`[booking.invoice.error] id=${String(req.params?.id || '').slice(0, 50)}:`, err?.stack || err?.message || err);
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Failed to generate invoice' });
   }
 });
 
@@ -1105,10 +1542,62 @@ const cancelBookingNow = async (booking, reason, reviewedByAdmin = false, meta =
   booking.cancelledAt = booking.cancelledAt || new Date();
   booking.payout_status = 'cancelled';
   booking.cancellationDetails = meta.cancellationDetails || booking.cancellationDetails || '';
-  const refundableBase = String(booking.propertyType || '').toLowerCase() === 'dharamshala'
-    ? booking.amountPaidOnline
-    : booking.totalAmount;
-  Object.assign(booking, cancellationMoney(refundableBase));
+  // Confirmed business rules:
+  // - If hotel or platform cannot provide the room, customer is entitled to full refund of amount paid online.
+  // - For customer cancellations, 30% advance is non-refundable.
+  // - Refund can never exceed amount actually paid online.
+  const paidOnline = Math.max(0, Number(booking.amountPaidOnline || booking.advanceAmount || (booking.paymentStatus === 'paid' ? booking.totalAmount : 0)));
+  const isPropertyOrPlatformFailure = Boolean(reviewedByAdmin && (
+    String(reason || '').toLowerCase().includes('property') ||
+    String(reason || '').toLowerCase().includes('unavailable') ||
+    String(reason || '').toLowerCase().includes('platform') ||
+    String(meta?.cancelledByRole || '').toLowerCase() === 'admin'
+  ));
+
+  let refundableAmount = 0;
+  let cancellationDeductionAmount = 0;
+  let cancellationDeductionPercent = 0;
+
+  if (isPropertyOrPlatformFailure) {
+    refundableAmount = paidOnline;
+  } else if (booking.paymentOption === 'advance_30') {
+    refundableAmount = 0;
+    cancellationDeductionAmount = paidOnline;
+    cancellationDeductionPercent = 100;
+  } else {
+    const money = booking.checkIn
+      ? calculateCancellationRefund({ booking, cancellationTime: meta.cancellationTime || new Date(), isPropertyOrPlatformFailure: false })
+      : cancellationMoney(paidOnline);
+    refundableAmount = money.refundableAmount;
+    cancellationDeductionAmount = money.cancellationDeductionAmount;
+    cancellationDeductionPercent = money.cancellationDeductionPercent;
+  }
+
+  booking.cancellationDeductionPercent = cancellationDeductionPercent;
+  booking.cancellationDeductionAmount = cancellationDeductionAmount;
+  booking.refundableAmount = refundableAmount;
+  const refundResult = calculateRefund({
+    booking,
+    cancellationTime: meta.cancellationTime || new Date(),
+    responsibility: meta.responsibility || (isPropertyOrPlatformFailure ? 'platform_fault' : 'customer_voluntary'),
+    hotel: meta.hotel || null,
+    requestedByRole: meta.cancelledByRole || (reviewedByAdmin ? 'admin' : 'user'),
+  });
+  booking.cancellationResponsibility = refundResult.cancellationResponsibility;
+  booking.cancellationExplanation = refundResult.explanation;
+  booking.cancellationDeductionPercent = refundResult.cancellationDeductionPercent;
+  booking.cancellationDeductionAmount = refundResult.cancellationDeductionAmount;
+  booking.refundableAmount = refundResult.refundableAmount;
+
+  // Option B Breakage Allocation for advance_30 customer voluntary cancellations
+  if (booking.paymentOption === 'advance_30' && refundResult.cancellationResponsibility === 'customer_voluntary') {
+    const { allocateCancellationBreakageOptionB } = require('../services/financialLedgerService');
+    await allocateCancellationBreakageOptionB({
+      booking,
+      cancellationReason: reason,
+      actor: { _id: meta.actorId, role: meta.cancelledByRole },
+    });
+  }
   await executeBookingRefund({
     booking,
     amount: booking.refundableAmount,
@@ -1134,11 +1623,12 @@ router.put('/:id/cancel', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Partner listing bookings can be managed by the partner only' });
     }
 
-    const reason = normalize(req.body?.reason || req.body?.cancellationReason);
-    const cancellationDetails = normalize(req.body?.details || req.body?.cancellationDetails);
+    const isConfirmed = booking.bookingStatus === 'confirmed';
+    const reason = normalize(req.body?.reason || req.body?.cancellationReason) || (!isConfirmed ? 'Cancelled by customer before confirmation' : '');
+    const cancellationDetails = normalize(req.body?.details || req.body?.cancellationDetails) || (!isConfirmed ? 'Customer cancelled the booking request prior to property confirmation' : '');
     if (!reason) return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
     if (!cancellationDetails) return res.status(400).json({ success: false, message: 'Cancellation details are required' });
-    if (['cancelled', 'expired', 'payment_failed', 'checked_out'].includes(String(booking.bookingStatus || ''))) {
+    if (['cancelled', 'expired', 'payment_failed', 'checked_out', 'checked_in', 'settled'].includes(String(booking.bookingStatus || ''))) {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
     }
 
@@ -1224,6 +1714,7 @@ router.put('/:id/assign-cab', protect, authorize('admin'), async (req, res) => {
     await booking.save();
     try {
       await ensureBookingConfirmedAlarmNotifications(booking);
+      await ensureBookingInvoiceNotification(booking);
     } catch (notifyErr) {
       console.warn('[cab.confirmed.notification_failed]', notifyErr?.message || notifyErr);
     }
@@ -1300,7 +1791,7 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
       reason: 'manual_upi_admin_verified',
     });
     await enqueueBookingNotifications(booking, {
-      invoice: !['cab', 'tour'].includes(String(booking.bookingType || '')),
+      invoice: !['cab'].includes(String(booking.bookingType || '')),
       partnerAlert: false,
     });
     res.json({ success: true, data: booking });
@@ -1344,7 +1835,7 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
     const nextStatus = normalize(req.body?.bookingStatus || req.body?.status);
     const allowed = ['checked_in', 'checked_out', 'completed', 'settled', 'no_show'];
     if (!allowed.includes(nextStatus)) return res.status(400).json({ success: false, message: 'Invalid booking status' });
-    if (nextStatus === 'settled' && booking.bookingStatus !== 'checked_out') {
+    if (nextStatus === 'settled' && !['checked_out', 'completed'].includes(booking.bookingStatus)) {
       return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
     }
     if (nextStatus !== 'settled' && booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'not_required') {
@@ -1358,7 +1849,11 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
         reason: 'admin_status_update',
       });
     } else {
-      booking.bookingStatus = 'settled';
+      await transitionBookingStatus(booking, 'settled', {
+        actorId: req.user._id,
+        actorRole: 'admin',
+        reason: 'admin_status_update',
+      });
     }
     if (nextStatus === 'checked_in') booking.payout_status = 'checked_in';
     if (nextStatus === 'checked_out') booking.payout_status = 'checked_out';
@@ -1372,29 +1867,469 @@ router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
   }
 });
 
+// Mark booking as no-show (partner or admin)
+// Enforces check-in grace period and handles 100% online prepaid entitlement vs property failure
 router.put('/:id/no-show', protect, authorize('admin', 'partner'), async (req, res) => {
   try {
     const query = req.user.role === 'admin'
-      ? { _id: req.params.id, propertyType: 'dharamshala' }
-      : { _id: req.params.id, propertyType: 'dharamshala', partnerId: req.user._id };
+      ? { _id: req.params.id }
+      : { _id: req.params.id, partnerId: req.user._id };
     const booking = await Booking.findOne(query);
-    if (!booking) return res.status(404).json({ success: false, message: 'Dharamshala booking not found' });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
     if (req.user.role === 'admin' && isPartnerOwnedBooking(booking)) {
       return res.status(403).json({ success: false, message: 'Partner listing bookings can be managed by the partner only' });
     }
-    if (booking.bookingStatus !== 'confirmed') return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+
+    if (booking.bookingStatus === 'no_show') {
+      return res.json({ success: true, data: booking, idempotent: true });
+    }
+    if (booking.bookingStatus !== 'confirmed') {
+      return res.status(409).json({ success: false, message: 'INVALID_BOOKING_STATE' });
+    }
+
+    // Property or platform failure check: Never mark customer no-show if property was unavailable/failed
+    const isPropertyFailure = Boolean(
+      req.body?.propertyFailure ||
+      String(req.body?.reason || '').toLowerCase().includes('property') ||
+      String(req.body?.reason || '').toLowerCase().includes('overbook') ||
+      String(req.body?.reason || '').toLowerCase().includes('unavailable')
+    );
+    if (isPropertyFailure) {
+      await cancelBookingNow(booking, req.body?.reason || 'Property failure: unable to provide accommodation', true, {
+        cancelledByRole: req.user.role,
+        cancelledByName: req.user.name,
+        actorId: req.user._id,
+      });
+      return res.json({ success: true, data: booking, message: 'Property failure recorded. Full refund issued to guest.' });
+    }
+
+    // Check-in deadline + grace period check
+    const gracePeriodHours = Number(req.body?.gracePeriodHours || 6);
+    if (booking.checkIn) {
+      const eligibility = evaluateNoShowEligibility({
+        booking,
+        currentTime: req.body?.currentTime ? new Date(req.body.currentTime) : new Date(),
+        gracePeriodHours,
+      });
+      if (eligibility.isGracePeriodActive) {
+        return res.status(400).json({
+          success: false,
+          code: 'CHECK_IN_GRACE_PERIOD_ACTIVE',
+          message: `Check-in grace period of ${gracePeriodHours} hours is active until ${eligibility.noShowDeadline.toISOString()}`,
+          deadline: eligibility.noShowDeadline,
+        });
+      }
+    }
+
     await transitionBookingStatus(booking, 'no_show', {
       actorId: req.user._id,
       actorRole: req.user.role,
-      reason: normalize(req.body?.reason || 'dharamshala_no_show'),
+      reason: normalize(req.body?.reason || 'guest_no_show'),
     });
-    booking.payout_status = 'cancelled';
-    booking.propertyDecisionReason = booking.propertyDecisionReason || normalize(req.body?.reason || 'Guest did not arrive');
+
+    // Record audit fields
+    booking.noShowMarkedAt = new Date();
+    booking.noShowMarkedBy = req.user._id;
+    booking.noShowMarkedByName = req.user.name;
+    booking.noShowMarkedByRole = req.user.role;
+    booking.noShowReason = normalize(req.body?.reason || 'Guest did not arrive within scheduled window');
+    booking.noShowGracePeriodHours = gracePeriodHours;
+
+    // Calculate entitlement: hotel held room and is entitled to net room tariff; gateway fee absorbed by platform
+    const settlement = calculateNoShowSettlement({ booking });
+    booking.cancellationDeductionPercent = settlement.cancellationDeductionPercent;
+    booking.cancellationDeductionAmount = settlement.cancellationDeductionAmount;
+    booking.refundableAmount = settlement.refundableAmount;
+    booking.refundStatus = 'not_required';
+    booking.partnerNetPayout = settlement.hotelNetPayout;
+    booking.hotel_net_payout = settlement.hotelNetPayout;
+    booking.payout_status = settlement.payout_status;
+
     await booking.save();
     await releaseBookingInventory(booking);
     res.json({ success: true, data: booking });
   } catch (err) {
     res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'No-show update failed' });
+  }
+});
+
+// Customer dispute endpoint for no-show
+router.post('/:id/no-show-dispute', protect, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    const isOwner = Boolean(booking.userId && booking.userId.equals(req.user._id));
+    if (!isOwner && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized to dispute this booking' });
+    }
+    if (booking.bookingStatus !== 'no_show') {
+      return res.status(409).json({ success: false, message: 'Dispute can only be raised for bookings marked no-show' });
+    }
+    const reason = normalize(req.body?.reason || req.body?.disputeReason);
+    if (!reason) {
+      return res.status(400).json({ success: false, message: 'Dispute reason is required' });
+    }
+
+    booking.noShowDisputed = true;
+    booking.noShowDisputeReason = reason;
+    booking.noShowDisputedAt = new Date();
+    booking.noShowDisputeReviewedByAdmin = false;
+
+    booking.statusHistory = booking.statusHistory || [];
+    booking.statusHistory.push({
+      from: 'no_show',
+      to: 'no_show',
+      at: new Date(),
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      reason: `customer_no_show_dispute: ${reason}`,
+    });
+
+    await booking.save();
+    res.json({
+      success: true,
+      data: req.user.role === 'admin' ? booking : sanitizeCustomerBooking(booking),
+      message: 'Dispute submitted for admin review.',
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Dispute submission failed' });
+  }
+});
+
+// Admin review of no-show dispute
+router.put('/:id/no-show-review', protect, authorize('admin'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (booking.bookingStatus !== 'no_show') {
+      return res.status(409).json({ success: false, message: 'Only no-show bookings can be reviewed' });
+    }
+    const resolution = normalize(req.body?.resolution);
+    if (!['upheld', 'overturned_customer_refund'].includes(resolution)) {
+      return res.status(400).json({ success: false, message: "Resolution must be 'upheld' or 'overturned_customer_refund'" });
+    }
+
+    booking.noShowDisputeReviewedByAdmin = true;
+    booking.noShowDisputeReviewedAt = new Date();
+    booking.noShowDisputeReviewedBy = req.user._id;
+    booking.noShowDisputeResolution = resolution;
+    booking.noShowDisputeNotes = normalize(req.body?.notes);
+
+    if (resolution === 'overturned_customer_refund') {
+      await transitionBookingStatus(booking, 'cancelled', {
+        actorId: req.user._id,
+        actorRole: 'admin',
+        reason: `no_show_overturned: ${req.body?.notes || 'Customer dispute approved'}`,
+      });
+      booking.payout_status = 'cancelled';
+      const paidOnline = Math.max(0, Math.round(Number(booking.amountPaidOnline || booking.advanceAmount || (booking.paymentStatus === 'paid' ? booking.totalAmount : 0))));
+      booking.refundableAmount = paidOnline;
+      booking.cancellationDeductionAmount = 0;
+      booking.cancellationDeductionPercent = 0;
+      await executeBookingRefund({
+        booking,
+        amount: booking.refundableAmount,
+        idempotencyKey: `no-show-overturn:${booking._id}`,
+        reason: 'no_show_overturned_by_admin',
+      });
+    }
+
+    await booking.save();
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Dispute review failed' });
+  }
+});
+
+
+// Unified check-in action for authorized admin and partner
+router.put('/:id/check-in', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const query = req.user.role === 'admin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, partnerId: req.user._id };
+
+    const booking = await Booking.findOne(query);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found or not authorized' });
+    }
+
+    if (booking.bookingStatus === 'checked_in') {
+      return res.status(409).json({
+        success: false,
+        message: 'Guest is already checked in.',
+        code: 'ALREADY_CHECKED_IN',
+        checkedInAt: booking.checkedInAt,
+      });
+    }
+
+    const ineligibleStatuses = ['cancelled', 'expired', 'payment_failed', 'rejected_by_property', 'checked_out', 'completed', 'settled'];
+    if (ineligibleStatuses.includes(booking.bookingStatus)) {
+      return res.status(409).json({
+        success: false,
+        message: `Check-in is not permitted for booking in '${booking.bookingStatus}' status.`,
+        code: 'INVALID_BOOKING_STATE',
+      });
+    }
+
+    if (booking.bookingStatus !== 'confirmed') {
+      return res.status(409).json({
+        success: false,
+        message: `Only confirmed bookings may be checked in. Current status: ${booking.bookingStatus}`,
+        code: 'INVALID_BOOKING_STATE',
+      });
+    }
+
+    if (!['hotel', 'room', 'room_type'].includes(String(booking.bookingType || ''))) {
+      return res.status(400).json({ success: false, message: 'Check-in is only available for lodging bookings' });
+    }
+
+    const beforeState = { bookingStatus: booking.bookingStatus, payout_status: booking.payout_status };
+    const checkedInAt = new Date();
+
+    await transitionBookingStatus(booking, 'checked_in', {
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      reason: 'qr_scanner_guest_check_in',
+    });
+
+    booking.payout_status = 'checked_in';
+    booking.checkedInAt = checkedInAt;
+    booking.checkedInByPartnerId = req.user._id;
+    booking.checkedInByPartnerName = req.user.name;
+    await booking.save();
+
+    const afterState = { bookingStatus: booking.bookingStatus, payout_status: booking.payout_status, checkedInAt };
+
+    await recordBookingAudit({
+      action: 'guest_check_in',
+      booking,
+      req,
+      beforeState,
+      afterState,
+      metadata: { method: 'qr_scanner' },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Guest successfully checked in.',
+      data: {
+        id: String(booking._id),
+        bookingId: booking.bookingId,
+        bookingStatus: booking.bookingStatus,
+        checkedInAt: booking.checkedInAt,
+        checkedInByPartnerName: booking.checkedInByPartnerName,
+      },
+    });
+  } catch (err) {
+    console.error('[booking.checkin.error]', err?.stack || err?.message || err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Check-in failed' });
+  }
+});
+
+// Balance collection endpoint with duplicate prevention and excess-collection safeguard
+// Guest check-out endpoint for partner and admin: releases inventory locks and marks checked_out
+const handleBookingCheckout = async (req, res) => {
+  try {
+    const query = req.user.role === 'admin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, partnerId: req.user._id };
+
+    const booking = await Booking.findOne(query);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found or not authorized' });
+    }
+
+    if (booking.bookingStatus === 'checked_out') {
+      return res.status(409).json({
+        success: false,
+        message: 'Guest is already checked out.',
+        code: 'ALREADY_CHECKED_OUT',
+        checkedOutAt: booking.checkedOutAt,
+      });
+    }
+
+    if (booking.bookingStatus !== 'checked_in') {
+      return res.status(409).json({
+        success: false,
+        message: `Only checked-in bookings may be checked out. Current status: ${booking.bookingStatus}`,
+        code: 'INVALID_BOOKING_STATE',
+      });
+    }
+
+    const beforeState = { bookingStatus: booking.bookingStatus, payout_status: booking.payout_status };
+    const checkedOutAt = new Date();
+
+    await transitionBookingStatus(booking, 'checked_out', {
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      reason: normalize(req.body?.notes || req.body?.reason || 'guest_check_out'),
+    });
+
+    booking.payout_status = 'checked_out';
+    booking.checkedOutAt = checkedOutAt;
+    booking.checkedOutBy = req.user._id;
+    booking.checkedOutByName = req.user.name;
+    if (req.body?.notes) {
+      booking.checkoutNotes = normalize(req.body.notes);
+    }
+
+    await booking.save();
+
+    try {
+      await releaseBookingInventory(booking);
+    } catch (invErr) {
+      console.warn('[checkout.inventory_release.warn]', invErr?.message || invErr);
+    }
+
+    const afterState = { bookingStatus: booking.bookingStatus, payout_status: booking.payout_status, checkedOutAt };
+
+    await recordBookingAudit({
+      action: 'guest_check_out',
+      booking,
+      req,
+      beforeState,
+      afterState,
+      metadata: { method: 'desk_checkout', notes: req.body?.notes },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Guest successfully checked out.',
+      data: {
+        id: String(booking._id),
+        bookingId: booking.bookingId,
+        bookingStatus: booking.bookingStatus,
+        checkedOutAt: booking.checkedOutAt,
+        checkedOutByName: booking.checkedOutByName,
+      },
+    });
+  } catch (err) {
+    console.error('[booking.checkout.error]', err?.stack || err?.message || err);
+    return res.status(err.statusCode || 500).json({ success: false, message: err.message || 'Check-out failed' });
+  }
+};
+
+router.put('/:id/checkout', protect, authorize('admin', 'partner'), handleBookingCheckout);
+router.put('/:id/check-out', protect, authorize('admin', 'partner'), handleBookingCheckout);
+
+// Balance collection endpoint with duplicate prevention and excess-collection safeguard
+router.put('/:id/collect-balance', protect, authorize('admin', 'partner'), async (req, res) => {
+  try {
+    const query = req.user.role === 'admin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, partnerId: req.user._id };
+    const booking = await Booking.findOne(query);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (req.user.role === 'admin' && isPartnerOwnedBooking(booking)) {
+      return res.status(403).json({ success: false, message: 'Partner listing bookings can be managed by the partner only' });
+    }
+    if (!['confirmed', 'checked_in'].includes(String(booking.bookingStatus || ''))) {
+      return res.status(409).json({ success: false, message: 'Balance collection is only permitted for confirmed or checked-in bookings' });
+    }
+
+    const idempotencyKey = String(req.get('Idempotency-Key') || req.body?.idempotencyKey || '').trim();
+    if (idempotencyKey && Array.isArray(booking.balanceCollections)) {
+      const existing = booking.balanceCollections.find((c) => c.idempotencyKey === idempotencyKey);
+      if (existing) {
+        return res.json({ success: true, data: booking, idempotent: true });
+      }
+    }
+
+    const rawAmount = Number(req.body?.amountCollected || req.body?.amount);
+    if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'A valid positive amountCollected is required' });
+    }
+    const amountCollected = Math.round(rawAmount);
+
+    // Server-side balance calculation: For 100% online, balance is strictly 0
+    let expectedBalance = 0;
+    if (booking.paymentOption === 'advance_30') {
+      expectedBalance = Math.max(0, Math.round(Number(booking.totalAmount || 0) - Number(booking.amountPaidOnline || booking.advanceAmount || 0)));
+    } else if (Number(booking.amountPayableAtProperty || 0) > 0) {
+      expectedBalance = Math.max(0, Math.round(Number(booking.amountPayableAtProperty) + Number(booking.amountPaidToProperty || 0)));
+    }
+
+    const priorCollected = Number(booking.amountPaidToProperty || 0);
+    const remainingBalance = Math.max(0, expectedBalance - priorCollected);
+
+    if (amountCollected > remainingBalance) {
+      return res.status(400).json({
+        success: false,
+        message: `Amount collected (₹${amountCollected}) exceeds remaining balance at property (₹${remainingBalance}).`,
+        remainingBalance,
+      });
+    }
+
+    const newTotalCollected = priorCollected + amountCollected;
+
+    booking.amountPaidToProperty = newTotalCollected;
+    booking.balanceAmount = Math.max(0, expectedBalance - newTotalCollected);
+    booking.balance_at_property = booking.balanceAmount;
+    booking.amountPayableAtProperty = booking.balanceAmount;
+
+    // Excess-collection safeguard: preserve auditable discrepancy, do not silently discard
+    if (newTotalCollected > expectedBalance) {
+      const excessAmount = newTotalCollected - expectedBalance;
+      booking.collectionDiscrepancy = {
+        detected: true,
+        expectedAmount: expectedBalance,
+        collectedAmount: newTotalCollected,
+        excessAmount,
+        detectedAt: new Date(),
+        reportedToAdmin: true,
+        notes: normalize(req.body?.notes) || 'Desk collection exceeds expected booking balance',
+      };
+      console.warn('[balance_collection_excess_discrepancy]', {
+        bookingId: booking.bookingId,
+        expectedBalance,
+        newTotalCollected,
+        excessAmount,
+      });
+    }
+
+    booking.balanceCollections = booking.balanceCollections || [];
+    booking.balanceCollections.push({
+      collectedAt: new Date(),
+      amount: amountCollected,
+      collectedBy: req.user._id,
+      collectedByName: req.user.name,
+      paymentMethod: req.body?.paymentMethod || 'cash',
+      receiptNumber: normalize(req.body?.receiptNumber),
+      notes: normalize(req.body?.notes),
+      idempotencyKey: idempotencyKey || undefined,
+    });
+
+    booking.statusHistory = booking.statusHistory || [];
+    booking.statusHistory.push({
+      from: booking.bookingStatus,
+      to: booking.bookingStatus,
+      at: new Date(),
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      reason: `desk_balance_collected: ₹${amountCollected} (total collected: ₹${newTotalCollected}, remaining balance: ₹${booking.balanceAmount})`,
+    });
+
+    await booking.save();
+
+    await recordBookingAudit({
+      action: 'property_payment_collected',
+      booking,
+      req,
+      idempotencyKey,
+      beforeState: { amountPaidToProperty: priorCollected, balanceAmount: remainingBalance },
+      afterState: { amountPaidToProperty: newTotalCollected, balanceAmount: booking.balanceAmount },
+      metadata: { amountCollected, paymentMethod: req.body?.paymentMethod || 'cash', receiptNumber: req.body?.receiptNumber },
+    });
+
+    res.json({
+      success: true,
+      data: booking,
+      excessDiscrepancy: Boolean(booking.collectionDiscrepancy?.detected),
+      remainingBalance: booking.balanceAmount,
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : 'Balance collection failed' });
   }
 });
 
@@ -1485,7 +2420,7 @@ router.put('/:id/partner-verify', protect, authorize('partner'), async (req, res
       reason: 'manual_upi_partner_verified',
     });
     await enqueueBookingNotifications(updated, {
-      invoice: !['cab', 'tour'].includes(String(updated.bookingType || '')),
+      invoice: !['cab'].includes(String(updated.bookingType || '')),
       partnerAlert: false,
     });
 
@@ -1521,6 +2456,224 @@ router.put('/:id/partner-reject', protect, authorize('partner'), async (req, res
     });
 
     res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Cancellations & Refunds Directory
+router.get('/admin/cancellations', protect, authorizeAdmin('manage_refunds'), async (req, res) => {
+  try {
+    const { status, q, page = 1, limit = 20 } = req.query;
+    const filter = { bookingStatus: 'cancelled' };
+
+    if (status && status !== 'all') {
+      filter.refundStatus = status;
+    }
+
+    if (q) {
+      const re = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [
+        { bookingId: re },
+        { customerFullName: re },
+        { userName: re },
+        { customerMobile: re },
+        { propertyName: re },
+      ];
+    }
+
+    const skip = (Math.max(1, parseInt(page, 10)) - 1) * parseInt(limit, 10);
+    const [bookings, total] = await Promise.all([
+      Booking.find(filter)
+        .sort({ cancelledAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit, 10))
+        .select('bookingId displayBookingId bookingType propertyName customerFullName customerMobile customerEmail totalAmount amountPaidOnline amountPayableAtProperty paymentOption paymentStatus bookingStatus cancellationReason cancellationDetails cancelledAt cancelledByRole cancelledByName refundableAmount cancellationDeductionAmount cancellationDeductionPercent cancellationResponsibility cancellationExplanation cancellationFaultOverrideReason cancellationPolicySnapshot dharamshalaFeeSnapshot refundStatus refundProviderReference refundProcessedAt')
+        .lean(),
+      Booking.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      data: bookings,
+      pagination: {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+        total,
+        pages: Math.max(1, Math.ceil(total / parseInt(limit, 10))),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Simulate Refund in Staging
+router.post('/admin/cancellations/:id/simulate-refund', protect, authorizeAdmin('manage_refunds'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (booking.bookingStatus !== 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Only cancelled bookings can be refunded' });
+    }
+
+    const refundAmount = Number(req.body?.amount ?? booking.refundableAmount ?? 0);
+    const refundRef = `sim_rfnd_${Date.now()}`;
+    const beforeState = {
+      refundStatus: booking.refundStatus,
+      refundableAmount: booking.refundableAmount,
+      refundProviderReference: booking.refundProviderReference,
+    };
+
+    booking.refundStatus = 'processed';
+    booking.refundId = refundRef;
+    booking.refundProviderReference = refundRef;
+    booking.refundAmount = refundAmount;
+    booking.refundProcessedAt = new Date();
+    booking.refundableAmount = refundAmount;
+    await booking.save();
+
+    await logAdminAction({
+      actor: req.user,
+      action: 'refund_simulated_in_staging',
+      targetEntityType: 'refund',
+      targetEntityId: booking._id,
+      bookingId: booking.bookingId,
+      beforeState,
+      afterState: {
+        refundStatus: booking.refundStatus,
+        refundableAmount: booking.refundableAmount,
+        refundProviderReference: booking.refundProviderReference,
+        refundProcessedAt: booking.refundProcessedAt,
+      },
+      reason: req.body?.reason || 'Simulated staging refund approval',
+      req,
+    });
+
+    res.json({ success: true, message: 'Refund simulated successfully in staging.', data: booking });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Preview Cancellation Refund (Customer or Admin)
+router.post('/:id/cancellation-preview', protect, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    if (req.user.role === 'user' && String(booking.userId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to inspect this reservation' });
+    }
+
+    const hotel = booking.hotelId ? await Hotel.findById(booking.hotelId).lean() : null;
+    const requestedResponsibility = req.user.role === 'admin' ? req.body?.responsibility : 'customer_voluntary';
+
+    const calculation = calculateRefund({
+      booking,
+      cancellationTime: req.body?.cancellationTime ? new Date(req.body.cancellationTime) : new Date(),
+      responsibility: requestedResponsibility,
+      hotel,
+      requestedByRole: req.user.role,
+    });
+
+    res.json({ success: true, data: calculation });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Override Cancellation Fault Responsibility (Reclassify with mandatory reason)
+router.put('/admin/cancellations/:id/override-fault', protect, authorizeAdmin('manage_refunds'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (booking.bookingStatus !== 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Only cancelled reservations can have fault reclassified.' });
+    }
+
+    const { responsibility, reason } = req.body;
+    const trimmedReason = String(reason || '').trim();
+    if (!trimmedReason) {
+      return res.status(400).json({
+        success: false,
+        message: 'A mandatory justification reason is required to override cancellation fault responsibility.',
+      });
+    }
+
+    const validResponsibilities = ['customer_voluntary', 'hotel_fault', 'platform_fault', 'system_technical', 'administrative'];
+    if (!validResponsibilities.includes(responsibility)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid responsibility. Must be one of: ${validResponsibilities.join(', ')}`,
+      });
+    }
+
+    const beforeState = {
+      cancellationResponsibility: booking.cancellationResponsibility,
+      refundableAmount: booking.refundableAmount,
+      cancellationDeductionAmount: booking.cancellationDeductionAmount,
+      cancellationDeductionPercent: booking.cancellationDeductionPercent,
+    };
+
+    const hotel = booking.hotelId ? await Hotel.findById(booking.hotelId).lean() : null;
+    const recalculated = calculateRefund({
+      booking,
+      cancellationTime: booking.cancelledAt || new Date(),
+      responsibility,
+      hotel,
+      requestedByRole: 'admin',
+    });
+
+    booking.cancellationResponsibility = responsibility;
+    booking.cancellationExplanation = recalculated.explanation;
+    booking.refundableAmount = recalculated.refundableAmount;
+    booking.cancellationDeductionAmount = recalculated.cancellationDeductionAmount;
+    booking.cancellationDeductionPercent = recalculated.cancellationDeductionPercent;
+    booking.cancellationFaultOverrideReason = trimmedReason;
+    booking.cancellationFaultOverriddenBy = req.user._id;
+    booking.cancellationFaultOverriddenAt = new Date();
+
+    // Option B Breakage Ledger Reversal or Re-allocation upon fault change
+    const { allocateCancellationBreakageOptionB, reverseCancellationBreakage } = require('../services/financialLedgerService');
+    if (['hotel_fault', 'platform_fault', 'system_technical'].includes(responsibility)) {
+      await reverseCancellationBreakage({
+        booking,
+        reason: trimmedReason,
+        actor: req.user,
+      });
+    } else if (responsibility === 'customer_voluntary' && booking.paymentOption === 'advance_30') {
+      await allocateCancellationBreakageOptionB({
+        booking,
+        cancellationReason: trimmedReason,
+        actor: req.user,
+      });
+    }
+
+    await booking.save();
+
+    await logAdminAction({
+      actor: req.user,
+      action: 'cancellation_fault_overridden',
+      targetEntityType: 'booking',
+      targetEntityId: booking._id,
+      bookingId: booking.bookingId,
+      beforeState,
+      afterState: {
+        cancellationResponsibility: booking.cancellationResponsibility,
+        refundableAmount: booking.refundableAmount,
+        cancellationDeductionAmount: booking.cancellationDeductionAmount,
+        cancellationDeductionPercent: booking.cancellationDeductionPercent,
+      },
+      reason: trimmedReason,
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: 'Cancellation responsibility updated and refund recalculation applied.',
+      data: booking,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

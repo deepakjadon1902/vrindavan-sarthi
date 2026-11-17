@@ -1,5 +1,6 @@
 const express = require('express');
 const Booking = require('../models/Booking');
+const Hotel = require('../models/Hotel');
 const RefundOperation = require('../models/RefundOperation');
 const PaymentReconciliation = require('../models/PaymentReconciliation');
 const { protect, optionalProtect, authorize } = require('../middleware/auth');
@@ -7,7 +8,16 @@ const { rejectInvalidObjectId } = require('../utils/security');
 const {
   markBookingPaymentPaid,
   markBookingPaymentFailed,
+  hasExpectedInventoryLocks,
+  isLodgingBooking,
+  transitionBookingStatus,
+  releaseBookingInventory,
 } = require('../utils/reservationLifecycle');
+const {
+  createOrGetPaymentReconciliation,
+  markReconciliationRequired,
+  enqueuePaymentReconciliation,
+} = require('../utils/paymentReconciliation');
 const {
   getRazorpayConfig,
   verifyPaymentSignature,
@@ -22,9 +32,10 @@ const {
   processWebhookEventJob,
 } = require('../utils/razorpayWebhook');
 const { reconcileRefundOperation } = require('../utils/refundOperations');
-const { enqueuePaymentReconciliation } = require('../utils/paymentReconciliation');
 const { payableAmountForBooking } = require('../utils/bookingPayable');
 const { findBookingForCustomerPayment } = require('../utils/guestBookingAccess');
+const { validateDharamshalaFeeApproval } = require('../utils/dharamshalaLifecycle');
+const { createDharamshalaFeeSnapshot } = require('../services/refundCalculationService');
 const router = express.Router();
 
 router.param('id', (req, res, next, id) => {
@@ -87,8 +98,38 @@ router.post('/razorpay/orders', optionalProtect, async (req, res) => {
     if (booking.bookingStatus === 'pending_property_confirmation') {
       return res.status(409).json({ success: false, message: 'Payment is available only after property acceptance' });
     }
-    if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.bookingStatus !== 'awaiting_customer_payment') {
-      return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
+    if (String(booking.propertyType || '').toLowerCase() === 'dharamshala') {
+      if (booking.bookingStatus !== 'awaiting_customer_payment') {
+        return res.status(409).json({ success: false, message: 'Dharamshala payment is available only after property acceptance' });
+      }
+      const dharamshalaHotel = booking.hotelId ? await Hotel.findById(booking.hotelId).lean() : null;
+      if (!dharamshalaHotel) {
+        return res.status(400).json({ success: false, message: 'Dharamshala property record not found for payment validation' });
+      }
+      validateDharamshalaFeeApproval({ ...dharamshalaHotel, propertyType: dharamshalaHotel.propertyType || 'dharamshala' });
+      if (booking.dharamshalaFeeSnapshot?.applied) {
+        const currentSnapshot = createDharamshalaFeeSnapshot({ ...dharamshalaHotel, propertyType: dharamshalaHotel.propertyType || 'dharamshala' });
+        if (
+          Number(booking.dharamshalaFeeSnapshot.fee) !== Number(currentSnapshot.fee) ||
+          String(booking.dharamshalaFeeSnapshot.approvalStatus || '').trim() !== String(currentSnapshot.approvalStatus || '').trim() ||
+          Number(booking.dharamshalaFeeSnapshot.version || 1) !== Number(currentSnapshot.version || 1)
+        ) {
+          return res.status(409).json({
+            success: false,
+            message: 'Dharamshala service fee configuration has changed. Payment order cannot proceed.',
+          });
+        }
+      }
+    }
+    if (booking.paymentHoldExpiresAt && new Date(booking.paymentHoldExpiresAt).getTime() <= Date.now()) {
+      await transitionBookingStatus(booking, 'expired', { actorRole: 'system', reason: 'payment_hold_expired' });
+      booking.paymentStatus = 'expired';
+      booking.verificationStage = 'rejected';
+      booking.payout_status = 'cancelled';
+      booking.expiredAt = new Date();
+      await booking.save();
+      await releaseBookingInventory(booking);
+      return res.status(409).json({ success: false, message: 'PAYMENT_HOLD_EXPIRED' });
     }
 
     const amountRupees = payableAmountForBooking(booking);
@@ -187,6 +228,39 @@ router.post('/razorpay/verify', optionalProtect, async (req, res) => {
     }
     if (String(payment.status || '') !== 'captured') {
       return res.status(400).json({ success: false, message: `Razorpay payment is ${payment.status || 'not complete'}` });
+    }
+
+    const inventoryLocksValid = !isLodgingBooking(booking) || await hasExpectedInventoryLocks(booking);
+    const holdExpired = Boolean(booking.paymentHoldExpiresAt && new Date(booking.paymentHoldExpiresAt).getTime() < Date.now());
+    if (!inventoryLocksValid || holdExpired) {
+      const reconciliation = await createOrGetPaymentReconciliation({
+        targetType: 'booking',
+        booking,
+        orderId: razorpayOrderId,
+        paymentId: razorpayPaymentId,
+        expectedAmount: expectedPaise,
+        reason: 'provider_captured_inventory_incomplete',
+        status: 'reconciliation_required',
+      });
+      await markReconciliationRequired(reconciliation, 'provider_captured_inventory_incomplete', {
+        providerAmount: Number(payment.amount || 0),
+        providerStatus: payment.status,
+        currency: payment.currency,
+        providerResponseMetadata: payment,
+      });
+      await enqueuePaymentReconciliation({
+        targetType: 'booking',
+        targetId: booking._id,
+        paymentId: razorpayPaymentId,
+      });
+      booking.paymentStatus = 'reconciliation_required';
+      booking.razorpayPaymentId = razorpayPaymentId;
+      await booking.save();
+      return res.status(409).json({
+        success: false,
+        message: 'Payment hold expired. Your payment was captured and flagged for urgent administrative confirmation.',
+        code: 'PAYMENT_HOLD_EXPIRED_RECONCILIATION_REQUIRED',
+      });
     }
 
     const updated = await markBookingPaid(booking, {
@@ -417,6 +491,8 @@ router.put('/:id/verify', protect, authorize('admin'), async (req, res) => {
       actorRole: 'admin',
       reason: 'payment_admin_verified',
     });
+    const { ensureBookingInvoiceNotification } = require('../utils/notificationDelivery');
+    await ensureBookingInvoiceNotification(booking);
     res.json({ success: true, data: booking });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });

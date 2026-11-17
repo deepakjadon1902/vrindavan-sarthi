@@ -38,7 +38,7 @@ const Shop = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-6 pt-20">
+    <div className="min-h-screen bg-background pb-6 pt-16 sm:pt-20">
       <div className="container mx-auto px-3 sm:px-4 max-w-7xl">
         <div className="text-center mb-3">
           <p className="font-ui text-[11px] uppercase tracking-[0.3em] text-brand-gold mb-2"> Divine Shop </p>

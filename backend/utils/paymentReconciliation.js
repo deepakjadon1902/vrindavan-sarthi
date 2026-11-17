@@ -148,8 +148,8 @@ const createOrGetPaymentReconciliation = async ({
   const normalizedPaymentId = normalize(paymentId);
   const reconciliationKey = buildPaymentReconciliationKey({ targetType, targetId, orderId, paymentId: normalizedPaymentId });
   const targetQuery = targetType === 'booking'
-    ? { bookingId: booking._id }
-    : { modificationId: modification._id };
+    ? (booking?._id ? { bookingId: booking._id } : {})
+    : (modification?._id ? { modificationId: modification._id } : {});
   const possibleKeys = [reconciliationKey];
   if (normalizedPaymentId) {
     possibleKeys.push(buildPaymentReconciliationKey({ targetType, targetId, orderId, paymentId: undefined }));
@@ -179,8 +179,8 @@ const createOrGetPaymentReconciliation = async ({
       provider: 'razorpay',
       reconciliationKey,
       targetType,
-      bookingId: targetType === 'booking' ? booking._id : undefined,
-      modificationId: targetType === 'modification' ? modification._id : undefined,
+      bookingId: targetType === 'booking' ? booking?._id : undefined,
+      modificationId: targetType === 'modification' ? modification?._id : undefined,
       orderId,
       paymentId: normalizedPaymentId,
       expectedAmount,

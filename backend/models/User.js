@@ -29,8 +29,8 @@ const defaultPropertyTermsVersionSchema = new mongoose.Schema(
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  phone: { type: String, required: function () { return !this.googleId; } },
-  password: { type: String, required: function () { return !this.googleId; }, select: false },
+  phone: { type: String, required: function () { return !this.googleId && this.authProvider !== 'email_otp' && !this.isGuest; } },
+  password: { type: String, required: function () { return !this.googleId && this.authProvider !== 'email_otp' && !this.isGuest; }, select: false },
   address: {
     street: String,
     city: String,
@@ -39,8 +39,17 @@ const userSchema = new mongoose.Schema({
   },
   avatar: String,
   googleId: String,
-  authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
+  authProvider: { type: String, enum: ['local', 'google', 'email_otp'], default: 'local' },
   role: { type: String, enum: ['user', 'admin', 'partner'], default: 'user' },
+  adminRole: {
+    type: String,
+    enum: ['super_admin', 'operations_admin', 'finance_admin', 'support_admin'],
+    default: 'super_admin',
+  },
+  isSuspended: { type: Boolean, default: false, index: true },
+  suspensionReason: { type: String, default: '' },
+  suspendedAt: Date,
+  suspendedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   isGuest: { type: Boolean, default: false, index: true },
   // Partner fields
   businessName: String,
@@ -53,7 +62,8 @@ const userSchema = new mongoose.Schema({
   profileDisplayName: String,
   profileBio: String,
   profilePicture: String,
-  partnerStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  partnerStatus: { type: String, enum: ['pending', 'approved', 'rejected', 'correction_required'], default: 'pending' },
+  adminRemarks: String,
   partnerLocation: {
     lat: Number,
     lng: Number,

@@ -31,6 +31,9 @@ type PayoutPartner = {
     advanceReceived: number;
     balanceAtProperty: number;
     netPayableRemittanceBalance: number;
+    excessPartnerCollection?: number;
+    partnerLiability?: number;
+    netPayableToPartner?: number;
     refunds: number;
     tdsTcs: number;
     bookingCount: number;
@@ -85,7 +88,7 @@ const AdminPartnerPayouts = () => {
 
   const exportCsv = () => {
     const rows = [
-      ['Partner Name', 'Business Name', 'Email', 'Phone', 'Account Holder', 'Bank Name', 'Account Number', 'IFSC Code', 'Bookings', 'Hotel Room Amount', 'Hotel GST Collected', 'Platform Convenience Fee', 'Gross for Hotel', 'OTA Commission', 'Payment Gateway Charges', 'Advance Received', 'Balance at Property', 'Hotel Payout', 'Refunds', 'TDS/TCS', 'Settlement Status', 'Paid At', 'Updated At'],
+      ['Partner Name', 'Business Name', 'Email', 'Phone', 'Account Holder', 'Bank Name', 'Account Number', 'IFSC Code', 'Bookings', 'Hotel Room Amount', 'Hotel GST Collected', 'Platform Convenience Fee', 'Gross for Hotel', 'OTA Commission', 'Payment Gateway Charges', 'Advance Received', 'Balance at Property', 'Hotel Net Remittance', 'Excess Collection / Liability', 'Refunds', 'TDS/TCS', 'Settlement Status', 'Paid At', 'Updated At'],
       ...filtered.map((p) => [
         p.name,
         p.businessName || '',
@@ -105,6 +108,7 @@ const AdminPartnerPayouts = () => {
         p.ledger?.advanceReceived || 0,
         p.ledger?.balanceAtProperty || 0,
         p.ledger?.netPayableRemittanceBalance || 0,
+        p.ledger?.excessPartnerCollection || (p.ledger?.netPayableRemittanceBalance && p.ledger.netPayableRemittanceBalance < 0 ? Math.abs(p.ledger.netPayableRemittanceBalance) : 0),
         p.ledger?.refunds || 0,
         p.ledger?.tdsTcs || 0,
         p.ledger?.isPaid ? 'Settled' : 'Pending',
@@ -194,13 +198,31 @@ const AdminPartnerPayouts = () => {
                       <p>Gateway: {money(p.ledger?.paymentGatewayCharges)}</p>
                     </td>
                     <td className="px-4 py-3 font-body text-sm text-muted-foreground">{money(p.ledger?.deductedPlatformCommission)}</td>
-                    <td className="px-4 py-3 font-body text-sm font-semibold text-brand-green">{money(p.ledger?.netPayableRemittanceBalance)}</td>
+                    <td className="px-4 py-3 font-body text-sm font-semibold">
+                      {(p.ledger?.netPayableRemittanceBalance ?? 0) >= 0 ? (
+                        <span className="text-brand-green">{money(p.ledger?.netPayableRemittanceBalance)}</span>
+                      ) : (
+                        <div>
+                          <span className="text-destructive font-bold">-{money(Math.abs(p.ledger?.netPayableRemittanceBalance || 0))}</span>
+                          <span className="block text-[10px] text-destructive/80 font-normal">Excess Collected (Partner Debt)</span>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-body text-xs">
-                      <span className={`rounded-full px-2 py-1 ${p.ledger?.eligibleForPayout ? 'bg-brand-green/10 text-brand-green' : 'bg-muted text-muted-foreground'}`}>
-                        {p.ledger?.eligibleForPayout ? 'Eligible' : 'Rollover'}
-                      </span>
-                      {!p.ledger?.eligibleForPayout && (
+                      {(p.ledger?.netPayableRemittanceBalance ?? 0) < 0 ? (
+                        <span className="rounded-full px-2 py-1 bg-destructive/10 text-destructive font-semibold">
+                          Partner Liability
+                        </span>
+                      ) : (
+                        <span className={`rounded-full px-2 py-1 ${p.ledger?.eligibleForPayout ? 'bg-brand-green/10 text-brand-green' : 'bg-muted text-muted-foreground'}`}>
+                          {p.ledger?.eligibleForPayout ? 'Eligible' : 'Rollover'}
+                        </span>
+                      )}
+                      {(p.ledger?.netPayableRemittanceBalance ?? 0) >= 0 && !p.ledger?.eligibleForPayout && (
                         <p className="mt-1 text-muted-foreground">Below Rs. {Number(p.ledger?.minimumThreshold || 1000).toLocaleString('en-IN')}</p>
+                      )}
+                      {(p.ledger?.netPayableRemittanceBalance ?? 0) < 0 && (
+                        <p className="mt-1 text-destructive/80">Excess desk collection</p>
                       )}
                       {!p.ledger?.isPayoutCycleToday && (
                         <p className="mt-1 text-muted-foreground">Release only Mon/Wed</p>

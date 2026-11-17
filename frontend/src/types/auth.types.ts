@@ -24,6 +24,7 @@ export interface User {
   profilePicture?: string;
   partnerStatus?: 'pending' | 'approved' | 'rejected';
   partnerDocuments?: PartnerDocument[];
+  hasPassword?: boolean;
   createdAt: string;
 }
 

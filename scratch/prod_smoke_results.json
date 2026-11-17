@@ -1,0 +1,153 @@
+{
+  "testedAt": "2026-10-23T05:24:32.834Z",
+  "baseUrl": "https://www.vrindavansarthi.in",
+  "routes": {
+    "home": {
+      "path": "/",
+      "viewports": {
+        "mobile_390": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 ()"
+          ],
+          "brokenImagesCount": 0,
+          "cardsFound": 59,
+          "screenshot": "prod_smoke_home_mobile_390.png"
+        },
+        "desktop_1280": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 ()"
+          ],
+          "brokenImagesCount": 0,
+          "cardsFound": 59,
+          "screenshot": "prod_smoke_home_desktop_1280.png"
+        }
+      }
+    },
+    "hotels": {
+      "path": "/hotels",
+      "viewports": {
+        "mobile_390": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "brokenImagesCount": 0,
+          "cardsFound": 23,
+          "screenshot": "prod_smoke_hotels_mobile_390.png"
+        },
+        "desktop_1280": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "brokenImagesCount": 0,
+          "cardsFound": 23,
+          "screenshot": "prod_smoke_hotels_desktop_1280.png"
+        }
+      }
+    },
+    "rooms": {
+      "path": "/rooms",
+      "viewports": {
+        "mobile_390": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "brokenImagesCount": 0,
+          "cardsFound": 36,
+          "screenshot": "prod_smoke_rooms_mobile_390.png"
+        },
+        "desktop_1280": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "brokenImagesCount": 0,
+          "cardsFound": 36,
+          "screenshot": "prod_smoke_rooms_desktop_1280.png"
+        }
+      }
+    },
+    "cabs": {
+      "path": "/cabs",
+      "viewports": {
+        "mobile_390": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "brokenImagesCount": 0,
+          "cardsFound": 9,
+          "screenshot": "prod_smoke_cabs_mobile_390.png"
+        },
+        "desktop_1280": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "brokenImagesCount": 0,
+          "cardsFound": 9,
+          "screenshot": "prod_smoke_cabs_desktop_1280.png"
+        }
+      }
+    },
+    "tours": {
+      "path": "/tours",
+      "viewports": {
+        "mobile_390": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "brokenImagesCount": 0,
+          "cardsFound": 7,
+          "screenshot": "prod_smoke_tours_mobile_390.png"
+        },
+        "desktop_1280": {
+          "passed": true,
+          "isRenderOk": true,
+          "noOverflow": true,
+          "pageErrors": [],
+          "consoleErrors": [],
+          "brokenImagesCount": 0,
+          "cardsFound": 7,
+          "screenshot": "prod_smoke_tours_desktop_1280.png"
+        }
+      }
+    }
+  },
+  "summary": {
+    "totalChecks": 10,
+    "passedChecks": 10,
+    "failedChecks": 0,
+    "issues": []
+  },
+  "screenshots": [
+    "prod_smoke_home_mobile_390.png",
+    "prod_smoke_home_desktop_1280.png",
+    "prod_smoke_hotels_mobile_390.png",
+    "prod_smoke_hotels_desktop_1280.png",
+    "prod_smoke_rooms_mobile_390.png",
+    "prod_smoke_rooms_desktop_1280.png",
+    "prod_smoke_cabs_mobile_390.png",
+    "prod_smoke_cabs_desktop_1280.png",
+    "prod_smoke_tours_mobile_390.png",
+    "prod_smoke_tours_desktop_1280.png"
+  ]
+}

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const Booking = require('../models/Booking');
 const RoomUnit = require('../models/RoomUnit');
 const RoomUnitBlock = require('../models/RoomUnitBlock');
@@ -12,6 +13,8 @@ const {
 } = require('./reservationLifecycle');
 const { getPaymentOption } = require('./pricing');
 const { createBookingQuote } = require('./rateEngine');
+const { getNextBookingId } = require('./idAllocation');
+const { createBookingPolicySnapshot, createDharamshalaFeeSnapshot } = require('../services/refundCalculationService');
 
 const BOOKABLE_ROOM_STATUSES = ['active', 'available'];
 const DEFAULT_DHARAMSHALA_PLATFORM_FEE = 79;
@@ -19,10 +22,21 @@ const DEFAULT_DHARAMSHALA_PLATFORM_FEE = 79;
 const normalizePaymentMode = () => 'pay_at_dharamshala';
 const isDharamshalaProperty = (value) => String(value || '').trim().toLowerCase() === 'dharamshala';
 
+// Confirmed business rules:
+// - Dharamshala approval window is 5 minutes from server-side request creation timestamp.
+// - Partner reminder is scheduled 2 minutes after request creation.
+// - Customer payment window after acceptance is 15 minutes.
+const DHARAMSHALA_RESPONSE_TIMEOUT_MINUTES = 5;
+const DHARAMSHALA_REMINDER_MINUTES = 2;
+const DHARAMSHALA_PAYMENT_HOLD_MINUTES = 15;
+
 const getDharamshalaResponseTimeoutMinutes = (hotel) => {
+  if (isDharamshalaProperty(hotel?.propertyType)) {
+    return DHARAMSHALA_RESPONSE_TIMEOUT_MINUTES;
+  }
   const minutes = Number(hotel?.dharamshalaResponseTimeoutMinutes || 30);
   if (!Number.isFinite(minutes) || minutes <= 0) return 30;
-  return Math.min(7 * 24 * 60, Math.max(30, Math.floor(minutes)));
+  return Math.min(7 * 24 * 60, Math.max(5, Math.floor(minutes)));
 };
 
 const getDharamshalaRequestExpiresAt = (hotel, from = new Date()) =>
@@ -65,13 +79,13 @@ const buildDharamshalaAccounting = ({ hotel, roomType, nights, roomQuantity, pay
 };
 
 const createRequestIdempotencyKey = ({ req, customerUser, hotel, roomType, checkIn, checkOut, roomQuantity, totalAdults, totalChildren }) => {
-  const provided = String(req.get?.('Idempotency-Key') || req.body?.idempotencyKey || '').trim();
+  const provided = String(req?.get?.('Idempotency-Key') || req?.body?.idempotencyKey || '').trim();
   if (provided) return provided.slice(0, 200);
   return crypto
     .createHash('sha256')
     .update([
       'dharamshala-request',
-      customerUser?._id || req.user?._id,
+      customerUser?._id || req?.user?._id,
       hotel?._id,
       roomType?._id,
       checkIn?.toISOString?.() || checkIn,
@@ -138,6 +152,117 @@ const countAvailableUnits = async ({ units, blockedSet, hotel, roomType, checkIn
   }).length;
 };
 
+
+const createDharamshalaValidationError = (message, statusCode = 400, code = 'DHARAMSHALA_FEE_UNAPPROVED') => {
+  const err = new Error(message);
+  err.statusCode = statusCode;
+  err.code = code;
+  return err;
+};
+
+const evaluateDharamshalaFeeApprovalState = (hotel) => {
+  if (!hotel || typeof hotel !== 'object') {
+    return {
+      status: 'unconfigured',
+      label: 'Unconfigured',
+      isValidForBooking: false,
+      failureCode: 'DHARAMSHALA_FEE_MISSING_PROPERTY',
+      failureMessage: 'This Dharamshala platform service fee is pending owner review and approval. Property fee configuration is missing.',
+    };
+  }
+
+  const rawStatus = String(hotel.dharamshalaFeeApprovalStatus || '').trim();
+  const isConfigured = hotel.dharamshalaFeeConfigured === true;
+  const rawFee = hotel.dharamshalaServiceFee;
+  const hasValidFeeNumber = typeof rawFee === 'number' && Number.isFinite(rawFee) && rawFee >= 0;
+  const roundedFee = hasValidFeeNumber ? Math.round(rawFee) : NaN;
+  const hasApprovalMetadata = Boolean(
+    hotel.dharamshalaFeeApprovedAt ||
+    hotel.dharamshalaFeeApprovedBy ||
+    Number(hotel.dharamshalaServiceFeeVersion || 1) > 1 ||
+    (Array.isArray(hotel.dharamshalaFeeHistory) && hotel.dharamshalaFeeHistory.length > 0)
+  );
+
+  if (rawStatus === 'pending_review') {
+    return {
+      status: 'pending_review',
+      label: 'Pending Review',
+      isValidForBooking: false,
+      failureCode: 'DHARAMSHALA_FEE_UNAPPROVED',
+      failureMessage: 'This Dharamshala platform service fee is pending owner review and approval. An administrator must approve the service fee before bookings can be accepted.',
+    };
+  }
+
+  if (rawStatus === 'unconfigured' || !rawStatus) {
+    return {
+      status: 'unconfigured',
+      label: 'Unconfigured',
+      isValidForBooking: false,
+      failureCode: 'DHARAMSHALA_FEE_UNAPPROVED',
+      failureMessage: 'This Dharamshala platform service fee is pending owner review and approval. An administrator must approve the service fee before bookings can be accepted.',
+    };
+  }
+
+  if (rawStatus === 'explicitly_free') {
+    const isZeroFee = hotel.dharamshalaPlatformFeeEnabled === false || (hasValidFeeNumber && roundedFee === 0);
+    if (!isConfigured || !isZeroFee || !hasApprovalMetadata) {
+      return {
+        status: 'unconfigured',
+        label: 'Unconfigured',
+        isValidForBooking: false,
+        failureCode: 'DHARAMSHALA_FEE_INCONSISTENT_FREE_STATE',
+        failureMessage: 'This Dharamshala platform service fee is pending owner review and approval. Free-seva fee configuration is incomplete or inconsistent.',
+      };
+    }
+    return { status: 'explicitly_free', label: 'Explicitly Free', isValidForBooking: true };
+  }
+
+  if (rawStatus === 'approved') {
+    if (!isConfigured || !hasValidFeeNumber || roundedFee <= 0 || hotel.dharamshalaPlatformFeeEnabled === false || !hasApprovalMetadata) {
+      return {
+        status: 'unconfigured',
+        label: 'Unconfigured',
+        isValidForBooking: false,
+        failureCode: 'DHARAMSHALA_FEE_INCONSISTENT_APPROVED_STATE',
+        failureMessage: 'This Dharamshala platform service fee is pending owner review and approval. Approved service fee requires a valid fee greater than ₹0, configured status, and approval metadata.',
+      };
+    }
+    return { status: 'approved', label: 'Approved', isValidForBooking: true };
+  }
+
+  // Fail closed for any unknown/malformed state.
+  return {
+    status: 'unconfigured',
+    label: 'Unconfigured',
+    isValidForBooking: false,
+    failureCode: 'DHARAMSHALA_FEE_UNAPPROVED',
+    failureMessage: 'This Dharamshala platform service fee is pending owner review and approval. An administrator must approve the service fee before bookings can be accepted.',
+  };
+};
+
+const getDharamshalaFeeApprovalDisplay = (hotel) => {
+  const evaluated = evaluateDharamshalaFeeApprovalState(hotel);
+  return {
+    status: evaluated.status,
+    label: evaluated.label,
+    isValidForBooking: evaluated.isValidForBooking,
+  };
+};
+
+const validateDharamshalaFeeApproval = (hotel) => {
+  if (!hotel || typeof hotel !== 'object') {
+    const evaluated = evaluateDharamshalaFeeApprovalState(hotel);
+    throw createDharamshalaValidationError(evaluated.failureMessage, 400, evaluated.failureCode);
+  }
+  if (!isDharamshalaProperty(hotel.propertyType)) return true;
+
+  const evaluated = evaluateDharamshalaFeeApprovalState(hotel);
+  if (!evaluated.isValidForBooking) {
+    throw createDharamshalaValidationError(evaluated.failureMessage, 400, evaluated.failureCode);
+  }
+  return true;
+};
+
 const createDharamshalaRequest = async ({
   req,
   hotel,
@@ -156,9 +281,13 @@ const createDharamshalaRequest = async ({
   customerUser,
   isGuestBooking = false,
   guestAccessTokenHash = '',
+  guestAccessTokenExpiresAt = undefined,
 }) => {
+  if (isDharamshalaProperty(hotel?.propertyType)) {
+    validateDharamshalaFeeApproval(hotel);
+  }
   const daysToReserve = enumerateDatesUTC(checkIn, checkOut);
-  const user = customerUser || req.user;
+  const user = customerUser || req?.user;
   const idempotencyKey = createRequestIdempotencyKey({ req, customerUser: user, hotel, roomType, checkIn, checkOut, roomQuantity, totalAdults, totalChildren });
   const existing = await Booking.findOne({ userId: user._id, idempotencyKey });
   if (existing) return { booking: existing, idempotent: true };
@@ -177,6 +306,7 @@ const createDharamshalaRequest = async ({
   let quote = null;
   let paymentOption = 'full_100';
   if (isDharamshala) {
+    validateDharamshalaFeeApproval(hotel);
     money = buildDharamshalaAccounting({ hotel, roomType, nights: daysToReserve.length, roomQuantity });
   } else {
     paymentOption = getPaymentOption(req.body?.paymentOption, ['advance_30', 'full_100']) || 'advance_30';
@@ -186,6 +316,8 @@ const createDharamshalaRequest = async ({
       ratePlanId: req.body?.ratePlanId,
       checkIn,
       checkOut,
+    checkInTime: hotel?.checkInTime || '12:00',
+
       roomQuantity,
       adults: totalAdults,
       children: totalChildren,
@@ -198,8 +330,17 @@ const createDharamshalaRequest = async ({
     quote = quoteResult.quote;
   }
 
+  const displayBookingId = await getNextBookingId();
+  const cancellationPolicySnapshot = await createBookingPolicySnapshot(hotel, paymentOption);
+  const dharamshalaFeeSnapshot = createDharamshalaFeeSnapshot(hotel);
+  const propertyId = hotel.propertyId || undefined;
+  const categoryId = roomType.categoryId || undefined;
+
   const booking = await Booking.create({
     bookingId: generateDharamshalaBookingCode(),
+    displayBookingId,
+    propertyId,
+    categoryId,
     bookingType: 'room_type',
     service_billing_model: isDharamshala ? 'dharamshala_booking' : 'hotel_marketplace',
     propertyType: hotel.propertyType || 'hotel',
@@ -214,6 +355,7 @@ const createDharamshalaRequest = async ({
     userPhone: user.phone,
     isGuestBooking,
     guestAccessTokenHash: guestAccessTokenHash || undefined,
+    guestAccessTokenExpiresAt: guestAccessTokenExpiresAt || undefined,
     partnerId: hotel.partnerId,
     partnerName: hotel.partnerName,
     partnerPhone: hotel.partnerPhone,
@@ -228,6 +370,8 @@ const createDharamshalaRequest = async ({
     nightlyBreakdown: quote?.nightlyBreakdown || [],
     checkIn,
     checkOut,
+    checkInTime: hotel?.checkInTime || '12:00',
+
     guests: totalAdults + totalChildren,
     roomQuantity,
     customerFullName,
@@ -252,10 +396,14 @@ const createDharamshalaRequest = async ({
     partnerPaymentVerified: false,
     adminPaymentVerified: false,
     requestExpiresAt: getDharamshalaRequestExpiresAt(hotel),
+    requestReminderAt: new Date(Date.now() + DHARAMSHALA_REMINDER_MINUTES * 60 * 1000),
+    requestReminderSent: false,
     idempotencyKey,
     bookingSource: isGuestBooking ? 'guest_web' : 'web',
     additionalInfo: String(req.body?.additionalInfo || '').trim() || undefined,
     acceptedPropertyTerms: acceptedTermsSnapshot || undefined,
+    cancellationPolicySnapshot,
+    dharamshalaFeeSnapshot,
   });
   return { booking, idempotent: false };
 };
@@ -273,6 +421,93 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
     const err = new Error('Property or room type not found');
     err.statusCode = 404;
     throw err;
+  }
+
+  if (String(booking.paymentStatus || '').toLowerCase() === 'paid') {
+    const err = createDharamshalaValidationError(
+      'Booking payment has already been settled and cannot be altered at acceptance.',
+      409,
+      'BOOKING_ALREADY_PAID'
+    );
+    throw err;
+  }
+
+  const recordBlockedAcceptanceAudit = async (reason, code) => {
+    console.warn('[dharamshala.acceptance.blocked]', {
+      bookingId: booking.bookingId || String(booking._id),
+      hotelId: String(hotel._id),
+      code,
+      reason,
+      actorRole: actor?.role || 'partner',
+    });
+    if (mongoose.connection.readyState === 1) {
+      const actorId = actor?._id || booking.partnerId || booking.userId;
+      if (actorId) {
+        try {
+          const AuditLog = require('../models/AuditLog');
+          await AuditLog.create({
+            action: 'dharamshala_acceptance_blocked',
+            targetEntityType: 'booking',
+            targetEntityId: String(booking._id),
+            bookingId: booking.bookingId || String(booking._id),
+            bookingObjectId: booking._id,
+            propertyId: hotel._id,
+            partnerId: hotel.partnerId || booking.partnerId,
+            actorId,
+            actorRole: actor?.role || 'partner',
+            actorName: actor?.name || actor?.email || 'Partner',
+            reason: String(reason || code).slice(0, 500),
+            beforeState: {
+              bookingStatus: booking.bookingStatus,
+              paymentStatus: booking.paymentStatus,
+              dharamshalaFeeSnapshot: booking.dharamshalaFeeSnapshot || null,
+            },
+            afterState: {
+              blockedCode: code,
+              hotelFeeApprovalStatus: hotel.dharamshalaFeeApprovalStatus || null,
+              hotelFeeConfigured: Boolean(hotel.dharamshalaFeeConfigured),
+              hotelServiceFee: hotel.dharamshalaServiceFee,
+            },
+          });
+        } catch {
+          // Do not mask primary validation rejection if audit collection write fails.
+        }
+      }
+    }
+  };
+
+  const isDharamshalaBooking = isDharamshalaProperty(booking.propertyType) || isDharamshalaProperty(hotel.propertyType);
+  if (isDharamshalaBooking) {
+    const hotelForValidation = { ...hotel, propertyType: hotel.propertyType || booking.propertyType };
+    try {
+      validateDharamshalaFeeApproval(hotelForValidation);
+    } catch (feeErr) {
+      await recordBlockedAcceptanceAudit(feeErr.message, feeErr.code || 'DHARAMSHALA_FEE_UNAPPROVED');
+      throw feeErr;
+    }
+
+    const currentFeeSnapshot = createDharamshalaFeeSnapshot(hotelForValidation);
+    if (booking.dharamshalaFeeSnapshot?.applied) {
+      const snapFee = Number(booking.dharamshalaFeeSnapshot.fee);
+      const snapStatus = String(booking.dharamshalaFeeSnapshot.approvalStatus || '').trim();
+      const snapVersion = Number(booking.dharamshalaFeeSnapshot.version || 1);
+      const isMismatch =
+        snapFee !== Number(currentFeeSnapshot.fee) ||
+        snapStatus !== String(currentFeeSnapshot.approvalStatus || '').trim() ||
+        snapVersion !== Number(currentFeeSnapshot.version || 1);
+
+      if (isMismatch) {
+        const err = createDharamshalaValidationError(
+          'Dharamshala service fee configuration has changed since this request was submitted. Acceptance is blocked to avoid altering customer charges.',
+          409,
+          'DHARAMSHALA_FEE_SNAPSHOT_MISMATCH'
+        );
+        await recordBlockedAcceptanceAudit(err.message, err.code);
+        throw err;
+      }
+    } else {
+      booking.dharamshalaFeeSnapshot = currentFeeSnapshot;
+    }
   }
 
   const roomContext = await getAvailableRoomContext({ hotel, roomType, checkIn: booking.checkIn, checkOut: booking.checkOut });
@@ -339,7 +574,7 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
 
     if (accounting.amountPaidOnline > 0) {
       booking.paymentStatus = 'pending';
-      booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt();
+      booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt(new Date(), DHARAMSHALA_PAYMENT_HOLD_MINUTES);
       await transitionBookingStatus(booking, 'awaiting_customer_payment', {
         actorId: actor?._id,
         actorRole: actor?.role || 'partner',
@@ -355,6 +590,12 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
         actorRole: actor?.role || 'partner',
         reason: 'dharamshala_request_accepted_no_online_payment_required',
       });
+      try {
+        const { ensureBookingInvoiceNotification } = require('./notificationDelivery');
+        await ensureBookingInvoiceNotification(booking);
+      } catch (notifyErr) {
+        console.warn('[dharamshala.confirmed.notification_failed]', notifyErr?.message || notifyErr);
+      }
     }
   } else {
     const paymentOption = getPaymentOption(booking.paymentOption, ['advance_30', 'full_100']) || 'advance_30';
@@ -387,7 +628,7 @@ const acceptDharamshalaRequest = async ({ booking, actor }) => {
     booking.hotel_gst_amount = accounting.taxAmount;
     Object.assign(booking, accounting);
     booking.paymentStatus = 'pending';
-    booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt();
+    booking.paymentHoldExpiresAt = getPaymentHoldExpiresAt(new Date(), DHARAMSHALA_PAYMENT_HOLD_MINUTES);
     await transitionBookingStatus(booking, 'awaiting_customer_payment', {
       actorId: actor?._id,
       actorRole: actor?.role || 'partner',
@@ -456,13 +697,62 @@ const expireDharamshalaRequests = async ({ now = new Date(), limit = 100 } = {})
   return { scanned: bookings.length, expired };
 };
 
+const processDharamshalaReminders = async ({ now = new Date(), limit = 100 } = {}) => {
+  const safeLimit = Math.max(1, Math.min(500, Number(limit) || 100));
+  const candidates = await Booking.find({
+    propertyType: 'dharamshala',
+    bookingStatus: 'pending_property_confirmation',
+    requestReminderAt: { $lte: now },
+    requestReminderSent: { $ne: true },
+  }).sort({ requestReminderAt: 1, createdAt: 1 }).limit(safeLimit);
+
+  let remindersSent = 0;
+  for (const candidate of candidates) {
+    try {
+      const claimed = await Booking.findOneAndUpdate(
+        {
+          _id: candidate._id,
+          bookingStatus: 'pending_property_confirmation',
+          requestReminderSent: { $ne: true },
+        },
+        {
+          $set: {
+            requestReminderSent: true,
+            requestReminderSentAt: now,
+          },
+        },
+        { new: true }
+      );
+      if (!claimed) continue;
+
+      try {
+        const { ensureDharamshalaReminderNotifications } = require('./notificationDelivery');
+        await ensureDharamshalaReminderNotifications(claimed);
+      } catch (err) {
+        console.warn('[dharamshala.reminder.notification_failed]', err?.message || err);
+      }
+      remindersSent += 1;
+    } catch {
+      // Safe to retry in next sweep if not claimed
+    }
+  }
+  return { scanned: candidates.length, remindersSent };
+};
+
 module.exports = {
   buildDharamshalaAccounting,
   createDharamshalaRequest,
   acceptDharamshalaRequest,
   rejectDharamshalaRequest,
   expireDharamshalaRequests,
+  processDharamshalaReminders,
   getDharamshalaRequestExpiresAt,
+  getDharamshalaResponseTimeoutMinutes,
+  DHARAMSHALA_RESPONSE_TIMEOUT_MINUTES,
+  DHARAMSHALA_REMINDER_MINUTES,
+  DHARAMSHALA_PAYMENT_HOLD_MINUTES,
   normalizePaymentMode,
   getDharamshalaPlatformFee,
+  validateDharamshalaFeeApproval,
+  getDharamshalaFeeApprovalDisplay,
 };

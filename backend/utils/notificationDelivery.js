@@ -128,21 +128,29 @@ const createOrGetNotificationDelivery = async ({
 };
 
 const enqueueNotificationDelivery = async (delivery, { queueFactory = createQueue } = {}) => {
-  const queue = queueFactory(QUEUE_NAMES.notification, { required: false });
-  if (!queue) return { queued: false, reason: 'redis_not_configured' };
-  const delay = Math.max(0, new Date(delivery.nextAttemptAt || Date.now()).getTime() - Date.now());
-  await queue.add(
-    JOB_NAMES.notificationDeliverySend,
-    { notificationDeliveryId: String(delivery._id) },
-    {
-      jobId: notificationJobId(delivery._id),
-      attempts: 1,
-      delay,
-      removeOnComplete: { age: 7 * 24 * 60 * 60, count: 1000 },
-      removeOnFail: { age: 30 * 24 * 60 * 60, count: 5000 },
-    }
-  );
-  return { queued: true };
+  try {
+    const queue = queueFactory(QUEUE_NAMES.notification, { required: false });
+    if (!queue) return { queued: false, reason: 'redis_not_configured' };
+    const delay = Math.max(0, new Date(delivery.nextAttemptAt || Date.now()).getTime() - Date.now());
+    await Promise.race([
+      queue.add(
+        JOB_NAMES.notificationDeliverySend,
+        { notificationDeliveryId: String(delivery._id) },
+        {
+          jobId: notificationJobId(delivery._id),
+          attempts: 1,
+          delay,
+          removeOnComplete: { age: 7 * 24 * 60 * 60, count: 1000 },
+          removeOnFail: { age: 30 * 24 * 60 * 60, count: 5000 },
+        }
+      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Queue add timeout')), 1000)),
+    ]);
+    return { queued: true };
+  } catch (err) {
+    console.warn('[notification.enqueue_failed]', err?.message || err);
+    return { queued: false, reason: 'queue_error', error: err?.message || String(err) };
+  }
 };
 
 const ensureNotificationDelivery = async (input, options = {}) => {
@@ -155,6 +163,12 @@ const ensureNotificationDelivery = async (input, options = {}) => {
       await processNotificationDeliveryJob({ notificationDeliveryId: String(delivery._id) }).catch((err) => {
         console.warn('[notification.web_push.immediate_failed]', err?.message || err);
       });
+      return (await NotificationDelivery.findById(delivery._id)) || delivery;
+    } else if (input.channel === 'email' && options.immediateEmail !== false) {
+      await processNotificationDeliveryJob({ notificationDeliveryId: String(delivery._id) }).catch((err) => {
+        console.warn('[notification.email.immediate_failed]', err?.message || err);
+      });
+      return (await NotificationDelivery.findById(delivery._id)) || delivery;
     }
   }
   return delivery;
@@ -716,6 +730,86 @@ const ensureDharamshalaPropertyReviewAlarmNotifications = async (booking, option
   return notifications;
 };
 
+const ensureDharamshalaReminderNotifications = async (booking, options = {}) => {
+  if (!booking ||
+      String(booking.propertyType || '').toLowerCase() !== 'dharamshala' ||
+      String(booking.bookingStatus || '') !== 'pending_property_confirmation') {
+    return [];
+  }
+  if (mongoose.connection.readyState !== 1) {
+    console.warn('[dharamshala.reminder.notification_skipped]', JSON.stringify({
+      bookingId: booking._id,
+      reason: 'database_not_connected',
+      eventType: 'DHARAMSHALA_REMINDER',
+      timestamp: new Date().toISOString(),
+    }));
+    return [];
+  }
+
+  const partnerId = await resolveBookingPartnerId(booking);
+  const admins = await User.find({ role: 'admin' }).select('_id role email').lean();
+  const recipients = admins.map((admin) => ({
+    recipientUserId: admin._id,
+    recipientRole: 'admin',
+    alarm: true,
+    canRespond: !partnerId,
+  }));
+  if (partnerId) {
+    recipients.push({
+      recipientUserId: partnerId,
+      recipientRole: 'partner',
+      partnerId,
+      alarm: true,
+      canRespond: true,
+    });
+  }
+
+  const notifications = await Promise.all(recipients.map((recipient) =>
+    createBookingAlarmNotification({
+      booking,
+      ...recipient,
+      eventType: 'DHARAMSHALA_REMINDER',
+      title: recipient.recipientRole === 'admin'
+        ? `Reminder: Dharamshala booking request ${booking.bookingId}`
+        : `Reminder: Urgent review required for ${booking.bookingId}`,
+      message: `Urgent: Dharamshala request ${booking.bookingId} for ${booking.itemName} expires soon. Please accept or reject within remaining response window.`,
+      alarm: recipient.alarm,
+      canRespond: recipient.canRespond,
+    })
+  ));
+
+  const deliveries = [];
+  for (const notification of notifications.filter(Boolean)) {
+    deliveries.push(ensureNotificationDelivery({
+      notificationKey: buildNotificationKey('dharamshala-reminder', booking._id, notification.recipientUserId, 'panel'),
+      eventType: 'dharamshala.property_reminder',
+      channel: 'in_app',
+      template: notification.recipientRole === 'admin' ? 'dharamshala_reminder_admin_panel' : 'dharamshala_reminder_partner_panel',
+      recipientUserId: notification.recipientUserId,
+      bookingId: booking._id,
+      partnerId,
+      hotelId: booking.hotelId,
+      payload: { notificationId: notification._id },
+    }, options));
+    if (notification.priority === 'critical') {
+      deliveries.push(...ensureBookingAlarmPushDeliveries({
+        notificationKeyPrefix: 'dharamshala-reminder',
+        eventType: 'dharamshala.property_reminder',
+        recipientUserId: notification.recipientUserId,
+        bookingId: booking._id,
+        partnerId,
+        hotelId: booking.hotelId,
+        notificationId: notification._id,
+        title: notification.title,
+        message: notification.message,
+      }, options));
+    }
+  }
+
+  await Promise.all(deliveries);
+  return notifications;
+};
+
 const ensureBookingRequiresActionAlarmNotifications = async (booking, options = {}) => {
   if (!isBookingActionAlarmEligible(booking)) return [];
   if (mongoose.connection.readyState !== 1) {
@@ -799,8 +893,21 @@ const deliverWithDefaultProvider = async (delivery) => {
     }
     if (template === 'booking_invoice') {
       if (booking.invoiceSentAt) return { provider: 'internal', providerMessageId: 'already-sent' };
+      const recipient = String(booking.customerEmail || booking.userEmail || '').trim();
+      if (!recipient) {
+        const err = new Error('No customer email on booking for confirmation email');
+        err.code = 'INVALID_RECIPIENT';
+        throw err;
+      }
       const result = await sendBookingInvoice(booking);
-      await Booking.updateOne({ _id: booking._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
+      if (!result) {
+        const err = new Error('Booking confirmation email was not accepted by provider');
+        err.code = 'EMAIL_NOT_ACCEPTED';
+        throw err;
+      }
+      const now = new Date();
+      await Booking.updateOne({ _id: booking._id, $or: [{ invoiceSentAt: { $exists: false } }, { invoiceSentAt: null }] }, { $set: { invoiceSentAt: now } });
+      booking.invoiceSentAt = now;
       return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
     }
     if (template === 'booking_cancelled') {
@@ -831,7 +938,9 @@ const deliverWithDefaultProvider = async (delivery) => {
         template === 'booking_action_required_admin_panel' ||
         template === 'booking_action_required_partner_panel' ||
         template === 'dharamshala_review_admin_panel' ||
-        template === 'dharamshala_review_partner_panel') {
+        template === 'dharamshala_review_partner_panel' ||
+        template === 'dharamshala_reminder_admin_panel' ||
+        template === 'dharamshala_reminder_partner_panel') {
       return { provider: 'mongodb', providerMessageId: String(delivery.payload?.notificationId || delivery._id) };
     }
     if (template === 'booking_confirmed_web_push' || template === 'booking_alarm_web_push') {
@@ -849,7 +958,9 @@ const deliverWithDefaultProvider = async (delivery) => {
     if (template === 'order_invoice') {
       if (order.invoiceSentAt) return { provider: 'internal', providerMessageId: 'already-sent' };
       const result = await sendOrderInvoice(order);
-      await Order.updateOne({ _id: order._id, invoiceSentAt: { $exists: false } }, { $set: { invoiceSentAt: new Date() } });
+      const orderNow = new Date();
+      await Order.updateOne({ _id: order._id, $or: [{ invoiceSentAt: { $exists: false } }, { invoiceSentAt: null }] }, { $set: { invoiceSentAt: orderNow } });
+      order.invoiceSentAt = orderNow;
       return { provider: result?.provider || 'email', providerMessageId: result?.providerMessageId };
     }
     if (template === 'order_cancelled') {
@@ -1055,6 +1166,7 @@ module.exports = {
   ensureBookingConfirmedAlarmNotifications,
   ensureBookingRequiresActionAlarmNotifications,
   ensureDharamshalaPropertyReviewAlarmNotifications,
+  ensureDharamshalaReminderNotifications,
   ensureBookingCreatedNotifications,
   ensureBookingInvoiceNotification,
   ensureNotificationDelivery,

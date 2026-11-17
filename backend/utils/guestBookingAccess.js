@@ -15,21 +15,60 @@ const generateGuestAccessToken = () => crypto.randomBytes(32).toString('base64ur
 const hashGuestAccessToken = (token) =>
   crypto.createHash('sha256').update(String(token || ''), 'utf8').digest('hex');
 
+const GUEST_TOKEN_EXPIRY_DAYS = 30;
+
+const calculateGuestAccessTokenExpiresAt = (dates = {}, now = new Date()) => {
+  const checkOutTime = dates.checkOut ? new Date(dates.checkOut).getTime() : NaN;
+  const checkInTime = dates.checkIn ? new Date(dates.checkIn).getTime() : NaN;
+  const pickupDateTime = dates.pickupDate ? new Date(dates.pickupDate).getTime() : NaN;
+  const createdAtTime = dates.createdAt ? new Date(dates.createdAt).getTime() : NaN;
+
+  let baseTime = !isNaN(checkOutTime) ? checkOutTime
+    : !isNaN(checkInTime) ? checkInTime
+    : !isNaN(pickupDateTime) ? pickupDateTime
+    : !isNaN(createdAtTime) ? createdAtTime
+    : (now instanceof Date ? now.getTime() : new Date(now).getTime());
+
+  if (isNaN(baseTime)) {
+    baseTime = Date.now();
+  }
+
+  return new Date(baseTime + GUEST_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+};
+
+const isGuestTokenExpired = (booking, now = new Date()) => {
+  if (!booking) return true;
+  const currentTime = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  const expiresAt = booking.guestAccessTokenExpiresAt
+    ? new Date(booking.guestAccessTokenExpiresAt)
+    : calculateGuestAccessTokenExpiresAt(booking, booking.createdAt || now);
+
+  const expiryTime = expiresAt.getTime();
+  if (isNaN(expiryTime)) return false;
+  return currentTime > expiryTime;
+};
+
 const samePhone = (a, b) =>
   String(a || '').replace(/\D/g, '') === String(b || '').replace(/\D/g, '');
 
-const buildGuestAccountReminder = ({ email, phone, created }) => ({
+const buildGuestAccountReminder = ({ email, created }) => ({
   email,
   username: email,
-  passwordHint: phone,
   created: Boolean(created),
-  message: `Guest account ${created ? 'created' : 'updated'} automatically. Login with email ${email} and password ${phone} to view this booking in My Bookings.`,
+  message: 'Guest booking created. You can track this booking anytime using your secure booking link or confirmation email.',
 });
 
 const getGuestAccessTokenFromRequest = (req) =>
-  String(req.body?.guestAccessToken || req.query?.guestAccessToken || req.get?.('x-guest-booking-token') || '').trim();
+  String(
+    req.body?.guestAccessToken ||
+    req.query?.guestAccessToken ||
+    req.query?.token ||
+    req.get?.('x-guest-booking-token') ||
+    req.get?.('x-guest-access-token') ||
+    ''
+  ).trim();
 
-const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, customerEmail }) => {
+const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, customerEmail, bookingDates = {} }) => {
   if (req.user?._id) {
     return {
       user: req.user,
@@ -63,16 +102,18 @@ const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, c
   let guestAccountReminder = null;
   let user = await User.findOne({ email }).select('+password');
   if (!user) {
+    // Generate an unguessable cryptographic random password for guest user record (SEC-01)
+    const randomPassword = crypto.randomBytes(32).toString('hex');
     user = await User.create({
       name,
       email,
       phone,
-      password: phone,
+      password: randomPassword,
       role: 'user',
       isGuest: true,
     });
     guestAccountCreated = true;
-    guestAccountReminder = buildGuestAccountReminder({ email, phone, created: true });
+    guestAccountReminder = buildGuestAccountReminder({ email, created: true });
   } else if (user.isGuest) {
     if (user.phone && !samePhone(user.phone, phone)) {
       const err = new Error('This email is already linked to another guest mobile number. Please login or use the same mobile number.');
@@ -81,17 +122,27 @@ const resolveBookingCustomer = async ({ req, customerFullName, customerMobile, c
     }
     user.name = user.name || name;
     user.phone = user.phone || phone;
-    user.password = phone;
+    // SEC-01 Remediation: Never overwrite user.password with phone.
+    // Ensure any legacy guest account is migrated to an unguessable password string.
+    user.password = crypto.randomBytes(32).toString('hex');
     await user.save();
-    guestAccountReminder = buildGuestAccountReminder({ email, phone, created: false });
+    guestAccountReminder = buildGuestAccountReminder({ email, created: false });
+  } else {
+    // Registered account (isGuest: false)
+    // To protect registered accounts from unauthorized guest checkout hijacking:
+    const err = new Error('An account with this email already exists. Please login to complete your booking.');
+    err.statusCode = 409;
+    throw err;
   }
 
   const guestAccessToken = generateGuestAccessToken();
+  const guestAccessTokenExpiresAt = calculateGuestAccessTokenExpiresAt(bookingDates);
   return {
     user,
     isGuestBooking: true,
     guestAccessToken,
     guestAccessTokenHash: hashGuestAccessToken(guestAccessToken),
+    guestAccessTokenExpiresAt,
     guestAccountCreated,
     guestAccountReminder,
   };
@@ -104,11 +155,14 @@ const findBookingForCustomerPayment = async (req, bookingId) => {
 
   const token = getGuestAccessTokenFromRequest(req);
   if (!token) return null;
-  return Booking.findOne({
+  const booking = await Booking.findOne({
     _id: bookingId,
     isGuestBooking: true,
     guestAccessTokenHash: hashGuestAccessToken(token),
   });
+  if (!booking) return null;
+  if (isGuestTokenExpired(booking)) return null;
+  return booking;
 };
 
 const withGuestAccessToken = (booking, guestAccessToken = '') => {
@@ -123,9 +177,86 @@ const withGuestAccountReminder = (booking, reminder = null) => {
   return plain;
 };
 
+const linkCustomerGuestBookings = async ({ userId, email, userName }) => {
+  const targetEmail = normalizeEmail(email);
+  if (!userId || !targetEmail) return { linkedCount: 0 };
+
+  try {
+    const escapedEmail = targetEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const emailRegex = new RegExp('^' + escapedEmail + '$', 'i');
+
+    // 1. Find candidate bookings matching the verified email that are still flagged as guest bookings
+    // and not yet assigned to this user (case-insensitive for robust matching).
+    const candidates = await Booking.find({
+      $or: [
+        { customerEmail: emailRegex },
+        { userEmail: emailRegex },
+      ],
+      userId: { $ne: userId },
+      isGuestBooking: true,
+    })
+      .select('_id userId customerEmail userEmail isGuestBooking')
+      .lean();
+
+    if (!candidates || !candidates.length) {
+      return { linkedCount: 0 };
+    }
+
+    // 2. Security guard: Ensure none of these bookings belong to another registered customer
+    // who has isGuest: false and a different verified email.
+    const candidateUserIds = [...new Set(candidates.map((b) => String(b.userId)).filter(Boolean))];
+    const otherRegisteredUsers = await User.find({
+      _id: { $in: candidateUserIds },
+      isGuest: false,
+      email: { $not: emailRegex },
+    })
+      .select('_id')
+      .lean();
+
+    const forbiddenUserIds = new Set(otherRegisteredUsers.map((u) => String(u._id)));
+
+    const eligibleBookingIds = candidates
+      .filter((b) => !forbiddenUserIds.has(String(b.userId)))
+      .map((b) => b._id);
+
+    if (!eligibleBookingIds.length) {
+      return { linkedCount: 0 };
+    }
+
+    // 3. Atomically transfer ownership to the authenticated customer
+    // We preserve isGuestBooking: true and guestAccessTokenHash so existing email voucher links still work.
+    const updateResult = await Booking.updateMany(
+      { _id: { $in: eligibleBookingIds } },
+      {
+        $set: {
+          userId,
+          claimedAt: new Date(),
+          claimedByUserId: userId,
+          customerEmail: targetEmail,
+          userEmail: targetEmail,
+          ...(userName ? { userName } : {}),
+        },
+      }
+    );
+
+    return { linkedCount: updateResult.modifiedCount || 0 };
+  } catch (err) {
+    console.error('[guestBookingAccess.linkCustomerGuestBookings.error]:', err?.message || err);
+    return { linkedCount: 0, error: err?.message };
+  }
+};
+
 module.exports = {
+  linkCustomerGuestBookings,
+  generateGuestAccessToken,
+
+  GUEST_TOKEN_EXPIRY_DAYS,
+  buildGuestAccountReminder,
+  calculateGuestAccessTokenExpiresAt,
   findBookingForCustomerPayment,
+  getGuestAccessTokenFromRequest,
   hashGuestAccessToken,
+  isGuestTokenExpired,
   isValidEmail,
   isValidPhone,
   resolveBookingCustomer,

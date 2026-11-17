@@ -28,6 +28,7 @@ const propertyTermsVersionSchema = new mongoose.Schema(
 );
 
 const hotelSchema = new mongoose.Schema({
+  propertyId: { type: String, unique: true, sparse: true, index: true },
   name: { type: String, required: true },
   propertyType: { type: String, enum: ['hotel', 'dharamshala', 'home_stay', 'guest_house'], default: 'hotel' },
   location: { type: String, required: true },
@@ -72,12 +73,68 @@ const hotelSchema = new mongoose.Schema({
     default: 'pay_at_dharamshala',
   },
   dharamshalaPlatformFeeEnabled: { type: Boolean, default: true },
-  dharamshalaServiceFee: { type: Number, default: 79 },
+  dharamshalaServiceFee: { type: Number, default: 79, min: 0 },
+  dharamshalaServiceFeeVersion: { type: Number, default: 1 },
+  dharamshalaFeeApprovalStatus: {
+    type: String,
+    enum: ['pending_review', 'approved', 'explicitly_free', 'unconfigured'],
+    default: 'pending_review',
+  },
+  dharamshalaFeeConfigured: { type: Boolean, default: false },
+  dharamshalaFeeApprovedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  dharamshalaFeeApprovedByName: { type: String, default: '' },
+  dharamshalaFeeApprovedAt: { type: Date },
+  dharamshalaFeeHistory: [{
+    version: { type: Number, required: true },
+    fee: { type: Number, required: true },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedByName: { type: String, default: '' },
+    reason: { type: String, default: '' },
+    updatedAt: { type: Date, default: Date.now },
+  }],
+  // Cancellation policy configuration & override (Phase 5.7.2)
+  cancellationPolicyType: {
+    type: String,
+    enum: ['platform_default', 'custom'],
+    default: 'platform_default',
+  },
+  customCancellationPolicy: {
+    tiers: [{
+      hoursBeforeCheckIn: { type: Number, required: true },
+      refundPercent: { type: Number, required: true, min: 0, max: 100 },
+      description: { type: String, default: '' },
+    }],
+    version: { type: Number, default: 1 },
+    updatedAt: { type: Date },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedByName: { type: String, default: '' },
+    reason: { type: String, default: '' },
+  },
+  cancellationPolicyHistory: [{
+    version: { type: Number, required: true },
+    policyType: { type: String, required: true },
+    tiers: [{
+      hoursBeforeCheckIn: { type: Number, required: true },
+      refundPercent: { type: Number, required: true, min: 0, max: 100 },
+      description: { type: String, default: '' },
+    }],
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    updatedByName: { type: String, default: '' },
+    reason: { type: String, default: '' },
+    updatedAt: { type: Date, default: Date.now },
+  }],
   dharamshalaTerminology: { type: String, default: 'Dharamshala Contribution / Stay Amount' },
   dharamshalaResponseTimeoutMinutes: { type: Number, default: 30 },
   dharamshalaCancellationPolicy: { type: String, default: '' },
   dharamshalaNoShowPolicy: { type: String, default: '' },
   dharamshalaIdRequirement: { type: String, default: '' },
+  // Booking flow control: instant booking is permitted only when explicitly enabled by an administrator.
+  instantBookingEnabled: { type: Boolean, default: false },
+  bookingMode: {
+    type: String,
+    enum: ['instant', 'request'],
+    default: 'request',
+  },
   // Pets allowed at hotel level (room type / room unit can still restrict further)
   petsAllowed: { type: Boolean, default: false },
   status: { type: String, enum: ['active', 'inactive'], default: 'inactive' },
@@ -88,9 +145,21 @@ const hotelSchema = new mongoose.Schema({
   partnerPhone: String,
   businessName: String,
   partnerSubmitted: { type: Boolean, default: false },
-  approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  approvalStatus: { type: String, enum: ['draft', 'pending', 'approved', 'rejected', 'correction_required'], default: 'draft' },
   adminRemarks: String,
 }, { timestamps: true });
+
+hotelSchema.pre('save', async function (next) {
+  if (!this.propertyId) {
+    try {
+      const { getNextPropertyId } = require('../utils/idAllocation');
+      this.propertyId = await getNextPropertyId();
+    } catch {
+      // Continue safely if Counter is unavailable in detached test mocks
+    }
+  }
+  next();
+});
 
 // Support global lists (admin) that sort by createdAt without additional filters.
 hotelSchema.index({ createdAt: -1 });

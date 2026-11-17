@@ -330,6 +330,34 @@ export const adminRouteMeta: Record<string, { title: string; description: string
     title: 'User Management | Admin',
     description: 'View and manage traveller, partner, and admin user accounts on Vrindavan Sarthi.',
   },
+  '/admin/cancellations': {
+    title: 'Cancellations & Refunds | Admin',
+    description: 'Manage booking cancellations, policy snapshots, refund calculations, and fault responsibility reclassifications.',
+  },
+  '/admin/policies': {
+    title: 'Business Policies & Fees | Admin',
+    description: 'Configure platform default cancellation policies, custom hotel tiers, and individual Dharamshala service fees.',
+  },
+  '/admin/revenue': {
+    title: 'Revenue & Commission Engine | Admin',
+    description: 'Track OTA commissions, convenience fees, and property financial distributions.',
+  },
+  '/admin/support': {
+    title: 'Customer Support & Helpdesk | Admin',
+    description: 'Handle traveller tickets, internal staff notes, and resolution workflows.',
+  },
+  '/admin/reports': {
+    title: 'Reports & Analytics | Admin',
+    description: 'Aggregate platform performance, booking metrics, and daily trends.',
+  },
+  '/admin/audit-logs': {
+    title: 'System Audit Logs | Admin',
+    description: 'Immutable provenance logs of all platform administrative actions.',
+  },
+  '/admin/roles': {
+    title: 'Admin Roles & RBAC | Admin',
+    description: 'Role-based access control and privilege assignments for platform staff.',
+  },
   '/admin/settings': {
     title: 'Application Settings | Admin',
     description: 'Manage site branding, contact details, UPI payment settings, policies, and admin credentials.',

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { buildBookingReceiptPdf } = require('./bookingReceiptPdf');
 
 const COMPANY_NAME = 'Vrindavan Sarthi';
 const COMPANY_ADDRESS = 'Raja Wala Mandir, In front of Giriraj Ji Maharaj, Govardhan, Mathura, Uttar Pradesh 281502';
@@ -376,4 +377,4 @@ const buildPdf = ({ title = `${COMPANY_NAME} Invoice`, documentLabel, lines = []
   return Buffer.concat(chunks);
 };
 
-module.exports = { buildPdf };
+module.exports = { buildPdf, buildBookingReceiptPdf };

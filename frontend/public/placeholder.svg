@@ -1,18 +1,98 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Image placeholder">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-label="Verified Accommodation - Vrindavan Sarthi">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f8fafc"/>
-      <stop offset="1" stop-color="#e2e8f0"/>
+    <!-- Warm Sandstone Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#faf6f0"/>
+      <stop offset="50%" stop-color="#f4ebe1"/>
+      <stop offset="100%" stop-color="#ece0d0"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#b45309" stop-opacity="0.35"/>
-      <stop offset="1" stop-color="#dc2626" stop-opacity="0.25"/>
+
+    <!-- Subtle Arch Inset Gradient -->
+    <linearGradient id="archGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e4d4c0" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#dac4ac" stop-opacity="0.3"/>
     </linearGradient>
+
+    <!-- Warm Accent Glow -->
+    <radialGradient id="glow" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#f4ebe1" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <rect width="1200" height="800" rx="40" fill="url(#bg)"/>
-  <rect x="60" y="60" width="1080" height="680" rx="28" fill="#ffffff" opacity="0.55"/>
-  <path d="M170 560 L380 360 L520 500 L690 330 L1030 620 L170 620 Z" fill="url(#accent)"/>
-  <circle cx="380" cy="310" r="48" fill="#94a3b8" opacity="0.55"/>
-  <rect x="170" y="660" width="860" height="18" rx="9" fill="#94a3b8" opacity="0.35"/>
-  <rect x="170" y="690" width="620" height="14" rx="7" fill="#94a3b8" opacity="0.25"/>
+
+  <!-- Base Card -->
+  <rect width="1200" height="900" fill="url(#bgGrad)"/>
+  <rect width="1200" height="900" fill="url(#glow)"/>
+
+  <!-- Subtle Heritage Braj Jharokha Arch Silhouette -->
+  <g opacity="0.65" transform="translate(600, 390)">
+    <!-- Outer Arch -->
+    <path d="M -220,240 L -220,0 C -220,-140 -120,-240 0,-280 C 120,-240 220,-140 220,0 L 220,240 Z" 
+          fill="url(#archGrad)" 
+          stroke="#c8b296" 
+          stroke-width="3" 
+          stroke-dasharray="8 6"/>
+
+    <!-- Inner Arch Inset -->
+    <path d="M -180,240 L -180,10 C -180,-105 -100,-190 0,-225 C 100,-190 180,-105 180,10 L 180,240 Z" 
+          fill="#ffffff" 
+          fill-opacity="0.45" 
+          stroke="#bfa688" 
+          stroke-width="2"/>
+
+    <!-- Sacred Kalash Finial on Arch Peak -->
+    <path d="M 0,-280 C -12,-295 -6,-315 0,-330 C 6,-315 12,-295 0,-280 Z" fill="#b89368"/>
+    <circle cx="0" cy="-335" r="5" fill="#9e774a"/>
+
+    <!-- Bed & Peaceful Stay Motif -->
+    <g transform="translate(0, 45)" stroke="#6b5b48" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <!-- Bed Headboard & Frame -->
+      <path d="M -85,60 L -85,-15 C -85,-22 -78,-28 -70,-28 L 70,-28 C 78,-28 85,-22 85,-15 L 85,60"/>
+      <line x1="-95" y1="60" x2="95" y2="60"/>
+      <!-- Pillows -->
+      <rect x="-65" y="-12" width="55" height="30" rx="8" fill="#dfd0bd" fill-opacity="0.6"/>
+      <rect x="10" y="-12" width="55" height="30" rx="8" fill="#dfd0bd" fill-opacity="0.6"/>
+      <!-- Duvet Line -->
+      <path d="M -80,28 C -30,22 30,22 80,28 L 80,60 L -80,60 Z" fill="#cfbd9f" fill-opacity="0.5"/>
+      <!-- Bed Posts -->
+      <line x1="-85" y1="60" x2="-85" y2="75"/>
+      <line x1="85" y1="60" x2="85" y2="75"/>
+    </g>
+
+    <!-- Inspected Star Badge -->
+    <g transform="translate(0, 180)">
+      <rect x="-140" y="-18" width="280" height="36" rx="18" fill="#4a3e30" fill-opacity="0.88"/>
+      <text x="0" y="5" 
+            text-anchor="middle" 
+            font-family="system-ui, -apple-system, sans-serif" 
+            font-size="15" 
+            font-weight="700" 
+            letter-spacing="1.5" 
+            fill="#fbf7f0">
+        VERIFIED BRAJ STAY
+      </text>
+    </g>
+  </g>
+
+  <!-- Editorial Card Footer Text -->
+  <g transform="translate(600, 785)">
+    <text x="0" y="0" 
+          text-anchor="middle" 
+          font-family="Georgia, serif" 
+          font-size="28" 
+          font-weight="bold" 
+          letter-spacing="0.5" 
+          fill="#332a20">
+      Vrindavan Sarthi
+    </text>
+    <text x="0" y="32" 
+          text-anchor="middle" 
+          font-family="system-ui, -apple-system, sans-serif" 
+          font-size="16" 
+          font-weight="500" 
+          fill="#786854" 
+          letter-spacing="0.5">
+      Inspected Accommodation · Photography Being Updated
+    </text>
+  </g>
 </svg>

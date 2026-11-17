@@ -57,3 +57,17 @@ export const getGoogleMapNavigationUrl = (input: MapInput) => {
   if (!query) return '';
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 };
+
+export const resolvePropertyDirectionsUrl = (input: MapInput): string | null => {
+  const raw = String(input.mapValue || '').trim();
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  const name = String(input.name || '').trim();
+  const location = String(input.location || '').trim();
+  if (!name && !location) {
+    return null;
+  }
+  const parts = [name, location, input.nearestTemple ? `Near ${input.nearestTemple}` : '', 'Vrindavan'].filter(Boolean);
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(', '))}`;
+};

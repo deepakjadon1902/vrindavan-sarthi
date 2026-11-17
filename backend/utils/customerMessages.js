@@ -1,8 +1,10 @@
 const Booking = require('../models/Booking');
 const Order = require('../models/Order');
 const User = require('../models/User');
-const { sendEmail } = require('./email');
+const email = require('./email');
+const sendEmail = (...args) => email.sendEmail(...args);
 const { buildPdf } = require('./invoicePdf');
+const { buildBookingReceiptPdf } = require('./bookingReceiptPdf');
 
 const clean = (value) => String(value || '').trim();
 const money = (value) => `INR ${Number(value || 0).toLocaleString('en-IN')}`;
@@ -23,13 +25,13 @@ const escapeHtml = (value) =>
     .replace(/'/g, '&#39;');
 
 const tableHtml = (rows) => `
-  <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;border-collapse:collapse;margin-top:14px">
+  <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;border-collapse:collapse;margin-top:14px;table-layout:fixed">
     ${rows
       .filter(([, value]) => value !== undefined && value !== null && clean(value) !== '')
       .map(([label, value]) => `
         <tr>
-          <td style="padding:10px 12px;border:1px solid #eadfc7;background:#fff8ea;color:#6f4b12;font:600 13px Arial,sans-serif;width:38%">${escapeHtml(label)}</td>
-          <td style="padding:10px 12px;border:1px solid #eadfc7;color:#2b2018;font:13px Arial,sans-serif">${escapeHtml(value)}</td>
+          <td style="padding:10px 12px;border:1px solid #eadfc7;background:#fff8ea;color:#6f4b12;font:600 13px Arial,sans-serif;width:36%;vertical-align:top;word-wrap:break-word">${escapeHtml(label)}</td>
+          <td style="padding:10px 12px;border:1px solid #eadfc7;color:#2b2018;font:13px Arial,sans-serif;width:64%;vertical-align:top;word-wrap:break-word;word-break:break-word;overflow-wrap:break-word">${escapeHtml(value)}</td>
         </tr>
       `)
       .join('')}
@@ -37,13 +39,8 @@ const tableHtml = (rows) => `
 `;
 
 const logoUrl = () => {
-  const base = clean(process.env.FRONTEND_BASE_URL || process.env.PUBLIC_SITE_URL);
-  if (!base) return '';
-  try {
-    return new URL('/vrindasarthi%20logo.jpeg', base).toString();
-  } catch {
-    return '';
-  }
+  // Reliable, publicly accessible production asset URL (HTTPS verified)
+  return 'https://www.vrindavansarthi.in/vrindavan_sarthi_official_logo.jpg';
 };
 
 const emailShell = ({ title, intro, rows, totalLabel = 'Total', totalAmount = 0, reason = '' }) => `
@@ -72,12 +69,101 @@ const isHotelMarketplace = (booking) =>
   ['hotel', 'room', 'room_type'].includes(String(booking?.bookingType || ''));
 
 const bookingRows = (booking) => {
+  const isCab = booking.bookingType === 'cab' || booking.service_billing_model === 'taxi_direct';
+  const isTour = booking.bookingType === 'tour' || booking.service_billing_model === 'tour_direct';
   const hotelBooking = isHotelMarketplace(booking);
+  const isDharamshala =
+    String(booking?.service_billing_model || '') === 'dharamshala_booking' ||
+    String(booking?.propertyType || '').toLowerCase() === 'dharamshala';
+
+  const roomTariff = Number(booking.dharamshalaAmount || booking.baseAmount || booking.checkoutSubtotal || 0);
+  const dharamshalaFee = Number(booking.vrindavanSarthiServiceFee || 0);
+  const convenienceFee = Number(booking.convenienceFeeAmount || 0);
+  const effectiveFee = isDharamshala ? (dharamshalaFee || convenienceFee) : convenienceFee;
+  const feeLabel = isDharamshala
+    ? 'Platform Facilitation Fee'
+    : (hotelBooking ? 'Platform Convenience Fee' : 'Convenience Fee');
+
+  const paidOnline = Number(booking.amountPaidOnline ?? booking.advanceAmount ?? 0);
+  const balanceAtProperty = Number(booking.amountPayableAtProperty ?? booking.balanceAmount ?? 0);
+
+  const humanBookingType = () => {
+    const t = String(booking?.bookingType || '').toLowerCase();
+    if (t === 'room_type' || t === 'room' || t === 'hotel') {
+      return isDharamshala ? 'Dharamshala Stay' : 'Hotel Stay';
+    }
+    if (t === 'cab') return 'Cab / Taxi Transfer';
+    if (t === 'tour') return 'Pilgrimage Tour Package';
+    if (t === 'product') return 'Store Order';
+    return t ? t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Accommodation';
+  };
+
+  const humanBillingModel = () => {
+    const m = String(booking?.service_billing_model || '').toLowerCase();
+    if (m === 'hotel_marketplace') return 'Direct Hotel Reservation';
+    if (m === 'dharamshala_booking') return 'Devotee Dharamshala Facilitation';
+    if (m === 'taxi_direct') return 'Direct Cab Booking';
+    if (m === 'tour_direct') return 'Pilgrimage Tour Booking';
+    if (m === 'ecommerce_direct') return 'Spiritual Store Order';
+    return m ? m.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Direct Booking';
+  };
+
+  const humanBookingStatus = () => {
+    const s = String(booking?.bookingStatus || '').toLowerCase();
+    if (s === 'confirmed') return 'Confirmed (Reserved)';
+    if (s === 'pending_property_confirmation') return 'Pending Property Confirmation';
+    if (s === 'awaiting_customer_payment') return 'Awaiting Customer Payment';
+    if (s === 'pending') return 'Pending Confirmation';
+    if (s === 'cancelled') return 'Cancelled';
+    return s ? s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Confirmed';
+  };
+
+  const humanPaymentStatus = () => {
+    const s = String(booking?.paymentStatus || '').toLowerCase();
+    if (s === 'paid') return balanceAtProperty > 0 ? 'Partially Paid (Advance Online)' : 'Paid in Full (Online Verified)';
+    if (s === 'not_required') return 'Pay at Property (Check-in)';
+    if (s === 'pending') return 'Pending Payment';
+    if (s === 'failed') return 'Payment Failed';
+    return s ? s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Pending';
+  };
+
+  const humanVerificationStage = () => {
+    const v = String(booking?.verificationStage || '').toLowerCase();
+    if (v === 'verified') return 'Verified';
+    if (v === 'pending') return 'Pending Verification';
+    return v ? v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Verified';
+  };
+
+  let paymentOptionLabel = 'Full payment';
+  if (balanceAtProperty > 0) {
+    if (isDharamshala || booking.paymentMode === 'pay_at_dharamshala') {
+      paymentOptionLabel = 'Platform fee online / Balance at property';
+    } else if (booking.paymentOption === 'advance_30') {
+      paymentOptionLabel = '30% advance';
+    } else {
+      paymentOptionLabel = 'Advance online / Balance at property';
+    }
+  } else {
+    paymentOptionLabel = 'Full payment';
+  }
+
+  // Remove initiation/debug text from official receipt; show verified note only when supported by records
+  let safeAdditionalInfo = String(booking.additionalInfo || '').trim();
+  if (safeAdditionalInfo.toLowerCase().includes('initiated')) {
+    if (booking.paymentStatus === 'paid' && booking.razorpayPaymentId) {
+      safeAdditionalInfo = `Payment verified via Razorpay (${booking.razorpayPaymentId}).`;
+    } else if (booking.paymentStatus === 'paid') {
+      safeAdditionalInfo = 'Payment verified online.';
+    } else {
+      safeAdditionalInfo = '';
+    }
+  }
+
   return [
     ['Booking ID', booking.bookingId],
     ['Created On', dateTimeText(booking.createdAt)],
-    ['Service Type', booking.bookingType],
-    ['Billing Model', booking.service_billing_model],
+    ['Accommodation / Service Type', humanBookingType()],
+    ['Booking Category', humanBillingModel()],
     ['Service Name', booking.itemName],
     ['Property Name', hotelBooking ? String(booking.itemName || '').split(' - ')[0] : ''],
     ['Property Partner Name', hotelBooking ? booking.partnerName : ''],
@@ -86,8 +172,8 @@ const bookingRows = (booking) => {
     ['Mobile', booking.customerMobile || booking.userPhone],
     ['Email', booking.customerEmail || booking.userEmail],
     ['Partner', hotelBooking ? '' : booking.partnerName],
-    ['Booking Status', booking.bookingStatus],
-    ['Verification Stage', booking.verificationStage],
+    ['Booking Status', humanBookingStatus()],
+    ['Verification Stage', humanVerificationStage()],
     ['Check-in / Travel Date', booking.pickupDate || dateText(booking.checkIn)],
     ['Check-out', dateText(booking.checkOut)],
     ['Route', booking.bookingType === 'cab' ? `${booking.pickupLocation} to ${booking.dropLocation}` : ''],
@@ -105,19 +191,19 @@ const bookingRows = (booking) => {
     ['Travelling with Pet', booking.hasPet ? yesNo(booking.hasPet) : ''],
     ['Room Details', hotelBooking ? booking.itemName : ''],
     ['Waitlisted', booking.isWaitlisted ? 'Yes' : ''],
-    [hotelBooking ? 'Room Amount' : 'Base Amount', money(booking.baseAmount || booking.checkoutSubtotal)],
+    [hotelBooking ? 'Room Amount' : 'Base Amount', money(roomTariff)],
     [hotelBooking ? 'Hotel GST / Hotel Taxes' : 'GST', Number(booking.taxAmount || 0) ? money(booking.taxAmount) : ''],
-    [hotelBooking ? 'Platform Convenience Fee' : 'Convenience Fee', money(booking.convenienceFeeAmount)],
+    [feeLabel, money(effectiveFee)],
     [hotelBooking ? 'Total Payable' : 'Grand Total', money(booking.totalAmount)],
-    [hotelBooking ? 'Advance Paid Online' : 'Advance Paid', money(booking.advanceAmount)],
-    [hotelBooking ? 'Balance Payable at Property' : 'Balance Payable', money(booking.balanceAmount)],
-    ['Payment Option', booking.paymentOption === 'advance_30' ? '30% advance' : 'Full payment'],
+    [hotelBooking ? 'Advance Paid Online' : 'Advance Paid', money(paidOnline)],
+    [hotelBooking ? 'Balance Payable at Property' : 'Balance Payable', money(balanceAtProperty)],
+    ['Payment Option', paymentOptionLabel],
     ['Payment Method', booking.paymentMethod],
-    ['Payment Status', booking.paymentStatus],
+    ['Payment Status', humanPaymentStatus()],
     ['UPI Transaction ID', booking.upiTransactionId],
     ['Hotel GSTIN', hotelBooking ? booking.hotel_gstin : ''],
     ['Vrindavan Sarthi GSTIN', !hotelBooking ? COMPANY_GSTIN : ''],
-    ['Additional Info', booking.additionalInfo],
+    ['Additional Info', safeAdditionalInfo],
     ['Cancellation Reason', booking.cancellationReason],
     ['Cancellation Details', booking.cancellationDetails],
     ['Cancelled By', booking.cancelledByRole],
@@ -163,35 +249,51 @@ const orderRows = (order) => [
 
 const sendBookingInvoice = async (booking) => {
   const to = clean(booking.customerEmail || booking.userEmail);
-  if (!to || booking.invoiceSentAt) return;
+  if (booking.invoiceSentAt) return;
+  if (!to) {
+    const err = new Error('No customer email on booking for confirmation email');
+    err.code = 'INVALID_RECIPIENT';
+    throw err;
+  }
+  const isCab = booking.bookingType === 'cab' || booking.service_billing_model === 'taxi_direct';
+  const isTour = booking.bookingType === 'tour' || booking.service_billing_model === 'tour_direct';
   const hotelBooking = isHotelMarketplace(booking);
-  const documentTitle = hotelBooking ? 'BOOKING CONFIRMATION & PAYMENT RECEIPT' : 'TAX INVOICE';
-  const filenamePrefix = hotelBooking ? 'booking-receipt' : 'tax-invoice';
+  const documentTitle = isCab
+    ? 'CAB BOOKING CONFIRMATION'
+    : isTour
+    ? 'PILGRIMAGE TOUR CONFIRMATION'
+    : hotelBooking
+    ? 'BOOKING CONFIRMATION & PAYMENT RECEIPT'
+    : 'TAX INVOICE';
+  const emailSubject = isCab
+    ? `Vrindavan Sarthi cab booking confirmation ${booking.bookingId}`
+    : isTour
+    ? `Vrindavan Sarthi tour booking confirmation ${booking.bookingId}`
+    : hotelBooking
+    ? `Vrindavan Sarthi booking confirmation ${booking.bookingId}`
+    : `${COMPANY_NAME} tax invoice ${booking.bookingId}`;
+  const filenamePrefix = (hotelBooking || isCab || isTour) ? 'booking-receipt' : 'tax-invoice';
+  const emailIntro = isCab
+    ? 'Your cab booking has been confirmed. Here are the journey, vehicle, and payment details.'
+    : isTour
+    ? 'Your pilgrimage tour booking has been confirmed. Here are the tour, itinerary, and payment details.'
+    : hotelBooking
+    ? HOTEL_MARKETPLACE_DISCLAIMER
+    : 'Your payment has been verified. Here are the complete booking and payment details.';
   const rows = bookingRows(booking);
   return sendEmail({
     to,
-    subject: hotelBooking
-      ? `Vrindavan Sarthi booking confirmation ${booking.bookingId}`
-      : `${COMPANY_NAME} tax invoice ${booking.bookingId}`,
+    subject: emailSubject,
     text: [documentTitle, ...(hotelBooking ? [HOTEL_MARKETPLACE_DISCLAIMER] : []), ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n'),
     html: emailShell({
       title: documentTitle,
-      intro: hotelBooking
-        ? HOTEL_MARKETPLACE_DISCLAIMER
-        : 'Your payment has been verified. Here are the complete booking and payment details.',
+      intro: emailIntro,
       rows,
       totalAmount: booking.totalAmount,
     }),
     attachments: [{
       filename: `${filenamePrefix}-${booking.bookingId}.pdf`,
-      content: buildPdf({
-        title: documentTitle,
-        documentLabel: documentTitle,
-        sections: [{ title: 'Booking Details', rows }],
-        lines: hotelBooking ? [HOTEL_MARKETPLACE_DISCLAIMER] : [],
-        totalLabel: hotelBooking ? 'Total Payable' : 'Grand Total',
-        totalAmount: booking.totalAmount,
-      }),
+      content: buildBookingReceiptPdf(booking).buffer,
       contentType: 'application/pdf',
     }],
   });
@@ -290,7 +392,17 @@ const sendPartnerBookingAlert = async (booking) => {
   });
 };
 
+const generateBookingInvoicePdf = (booking, context = {}) => {
+  const receipt = buildBookingReceiptPdf(booking, context);
+  return {
+    buffer: receipt.buffer,
+    filename: receipt.filename,
+    documentTitle: receipt.documentTitle,
+  };
+};
+
 module.exports = {
+  generateBookingInvoicePdf,
   bookingRows,
   orderRows,
   sendBookingInvoice,

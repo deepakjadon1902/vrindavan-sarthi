@@ -4,6 +4,7 @@ const RoomUnitBookingDay = require('../models/RoomUnitBookingDay');
 const { enumerateDatesUTC, isValidDate } = require('./date');
 const { processRoomTypeWaitlist } = require('./waitlist');
 const { ensureBookingConfirmedAlarmNotifications } = require('./notificationDelivery');
+const { payableAmountForBooking } = require('./bookingPayable');
 
 const LODGING_TYPES = new Set(['hotel', 'room', 'room_type']);
 const TERMINAL_BOOKING_STATUSES = new Set(['cancelled', 'expired', 'payment_failed', 'checked_out', 'rejected_by_property', 'expired_property_no_response']);
@@ -17,7 +18,7 @@ const BOOKING_TRANSITIONS = {
   confirmed: new Set(['checked_in', 'cancelled', 'no_show']),
   checked_in: new Set(['checked_out', 'completed']),
   no_show: new Set(['cancelled', 'completed']),
-  checked_out: new Set(['completed']),
+  checked_out: new Set(['completed', 'settled']),
   cancelled: new Set([]),
   expired: new Set([]),
   payment_failed: new Set([]),
@@ -33,8 +34,12 @@ const getPaymentHoldMinutes = () => {
   return Math.min(24 * 60, Math.floor(configured));
 };
 
-const getPaymentHoldExpiresAt = (from = new Date()) =>
-  new Date(from.getTime() + getPaymentHoldMinutes() * 60 * 1000);
+const getPaymentHoldExpiresAt = (from = new Date(), customMinutes) => {
+  const minutes = Number.isFinite(Number(customMinutes)) && Number(customMinutes) > 0
+    ? Number(customMinutes)
+    : getPaymentHoldMinutes();
+  return new Date(from.getTime() + minutes * 60 * 1000);
+};
 
 const getExpectedRoomNightLockCount = (booking) => {
   if (!isLodgingBooking(booking) || !booking?.checkIn || !booking?.checkOut) return 0;
@@ -192,12 +197,21 @@ const markBookingPaymentPaid = async (booking, meta = {}) => {
   booking.razorpaySignature = meta.signature || booking.razorpaySignature;
   booking.razorpayStatus = meta.status || booking.razorpayStatus;
   booking.paymentStatus = 'paid';
+  if (!booking.amountPaidOnline || booking.amountPaidOnline === 0) {
+    booking.amountPaidOnline = payableAmountForBooking(booking);
+  }
   booking.verificationStage = 'verified';
   booking.partnerPaymentVerified = true;
   booking.partnerPaymentVerifiedAt = booking.partnerPaymentVerifiedAt || new Date();
   booking.adminPaymentVerified = true;
   booking.adminPaymentVerifiedAt = booking.adminPaymentVerifiedAt || new Date();
   booking.paidAt = booking.paidAt || new Date();
+  if (!booking.additionalInfo || String(booking.additionalInfo).toLowerCase().includes('initiated')) {
+    const verifiedId = meta.paymentId || booking.razorpayPaymentId;
+    booking.additionalInfo = verifiedId
+      ? `Payment verified via Razorpay (${verifiedId}).`
+      : 'Payment verified online.';
+  }
   if (String(booking.propertyType || '').toLowerCase() === 'dharamshala' && booking.hotelId) {
     const hotel = await Hotel.findById(booking.hotelId).select('partnerName partnerPhone partnerEmail partnerWhatsapp').lean();
     if (hotel) {

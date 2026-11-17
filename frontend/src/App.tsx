@@ -13,6 +13,7 @@ import { useAuthStore } from "@/store/authStore";
 import ScrollToTop from "@/components/ScrollToTop";
 import RouteSEO from "@/components/RouteSEO";
 import SEOBreadcrumbs from "@/components/SEOBreadcrumbs";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Hotels = lazy(() => import("@/pages/Hotels"));
@@ -30,6 +31,7 @@ const Contact = lazy(() => import("@/pages/Contact"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const CancellationPolicy = lazy(() => import("@/pages/CancellationPolicy"));
+const VerifyBooking = lazy(() => import("@/pages/VerifyBooking"));
 const TrackOrder = lazy(() => import("@/pages/TrackOrder"));
 const Login = lazy(() => import("@/pages/Login"));
 const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
@@ -62,7 +64,15 @@ const ManageProducts = lazy(() => import("@/pages/admin/ManageProducts"));
 const AdminOrders = lazy(() => import("@/pages/admin/AdminOrders"));
 const ManageUsers = lazy(() => import("@/pages/admin/ManageUsers"));
 const ManagePartnerRequests = lazy(() => import("@/pages/admin/ManagePartnerRequests"));
+const AdminNotifications = lazy(() => import("@/pages/admin/AdminNotifications"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
+const AdminCancellations = lazy(() => import("@/pages/admin/AdminCancellations"));
+const AdminRevenue = lazy(() => import("@/pages/admin/AdminRevenue"));
+const AdminSupport = lazy(() => import("@/pages/admin/AdminSupport"));
+const AdminReports = lazy(() => import("@/pages/admin/AdminReports"));
+const AdminAuditLogs = lazy(() => import("@/pages/admin/AdminAuditLogs"));
+const AdminRoles = lazy(() => import("@/pages/admin/AdminRoles"));
+const AdminBusinessPolicies = lazy(() => import("@/pages/admin/AdminBusinessPolicies"));
 
 const PartnerLayout = lazy(() => import("@/pages/partner/PartnerLayout"));
 const PartnerDashboard = lazy(() => import("@/pages/partner/PartnerDashboard"));
@@ -77,6 +87,7 @@ const PartnerBankDetails = lazy(() => import("@/pages/partner/PartnerBankDetails
 const PartnerProfileSettings = lazy(() => import("@/pages/partner/PartnerProfileSettings"));
 const PartnerCommunications = lazy(() => import("@/pages/partner/PartnerCommunications"));
 const PartnerTermsPdf = lazy(() => import("@/pages/partner/PartnerTermsPdf"));
+const PartnerQRScannerPage = lazy(() => import("@/pages/partner/PartnerQRScannerPage"));
 
 const queryClient = new QueryClient();
 
@@ -117,7 +128,7 @@ const PublicLayout = ({ children }: { children: React.ReactNode }) => {
     <div className="braj-page">
       <Navbar />
       <SEOBreadcrumbs />
-      <main>{children}</main>
+      <main><ErrorBoundary>{children}</ErrorBoundary></main>
       <Footer />
     </div>
   );
@@ -165,6 +176,7 @@ const App = () => {
               <Route path="/terms" element={<PublicLayout><Terms /></PublicLayout>} />
               <Route path="/privacy" element={<PublicLayout><Privacy /></PublicLayout>} />
               <Route path="/cancellation-policy" element={<PublicLayout><CancellationPolicy /></PublicLayout>} />
+              <Route path="/verify-booking" element={<PublicLayout><VerifyBooking /></PublicLayout>} />
 
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -174,8 +186,9 @@ const App = () => {
 
               <Route path="/profile" element={<ProtectedRoute><PublicLayout><Profile /></PublicLayout></ProtectedRoute>} />
               <Route path="/bookings" element={<ProtectedRoute><PublicLayout><MyBookings /></PublicLayout></ProtectedRoute>} />
-              <Route path="/bookings/:id/confirmed" element={<ProtectedRoute><PublicLayout><BookingConfirmation /></PublicLayout></ProtectedRoute>} />
-              <Route path="/bookings/:id" element={<ProtectedRoute><PublicLayout><BookingDetail /></PublicLayout></ProtectedRoute>} />
+              <Route path="/my-bookings" element={<Navigate to="/bookings" replace />} />
+              <Route path="/bookings/:id/confirmed" element={<ProtectedRoute allowGuest><PublicLayout><BookingConfirmation /></PublicLayout></ProtectedRoute>} />
+              <Route path="/bookings/:id" element={<ProtectedRoute allowGuest><PublicLayout><BookingDetail /></PublicLayout></ProtectedRoute>} />
               <Route path="/my-orders" element={<FeatureRoute enabled={shopEnabled}><ProtectedRoute><PublicLayout><MyOrders /></PublicLayout></ProtectedRoute></FeatureRoute>} />
 
               <Route path="/partner" element={<PartnerRoute><PartnerLayout /></PartnerRoute>}>
@@ -187,6 +200,7 @@ const App = () => {
                 <Route path="availability" element={<PartnerAvailabilityCalendar />} />
                 <Route path="listings" element={<Navigate to="/partner/availability" replace />} />
                 <Route path="bookings" element={<PartnerBookings />} />
+                <Route path="scan" element={<PartnerQRScannerPage />} />
                 <Route path="payments" element={<PartnerPayments />} />
                 <Route path="bank-details" element={<PartnerBankDetails />} />
                 <Route path="terms" element={<PartnerTermsPdf />} />
@@ -205,7 +219,9 @@ const App = () => {
                 <Route path="tours" element={<ManageTours />} />
                 <Route path="partners" element={<ManagePartners />} />
                 <Route path="partner-requests" element={<ManagePartnerRequests />} />
+                <Route path="notifications" element={<AdminNotifications />} />
                 <Route path="bookings" element={<ManageBookings />} />
+                <Route path="scan" element={<PartnerQRScannerPage isAdmin />} />
                 <Route path="payments" element={<AdminPayments />} />
                 <Route path="partner-payouts" element={<AdminPartnerPayouts />} />
                 <Route path="operations" element={<AdminOperations />} />
@@ -213,6 +229,13 @@ const App = () => {
                 <Route path="products" element={<ManageProducts />} />
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="users" element={<ManageUsers />} />
+                <Route path="cancellations" element={<AdminCancellations />} />
+                <Route path="policies" element={<AdminBusinessPolicies />} />
+                <Route path="revenue" element={<AdminRevenue />} />
+                <Route path="support" element={<AdminSupport />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="audit-logs" element={<AdminAuditLogs />} />
+                <Route path="roles" element={<AdminRoles />} />
                 <Route path="settings" element={<AdminSettings />} />
               </Route>
 

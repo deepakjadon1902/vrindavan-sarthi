@@ -2,7 +2,7 @@ const Booking = require('../models/Booking');
 const { createQueue } = require('../queues/factory');
 const { QUEUE_NAMES, JOB_NAMES } = require('../queues/names');
 const { expirePendingBookings } = require('./reservationLifecycle');
-const { expireDharamshalaRequests } = require('./dharamshalaLifecycle');
+const { expireDharamshalaRequests, processDharamshalaReminders } = require('./dharamshalaLifecycle');
 const {
   createOrGetPaymentReconciliation,
   expectedBookingAmountPaise,
@@ -112,11 +112,14 @@ const processBookingExpirationJob = async (_jobData = {}, { provider, queueFacto
   const dharamshalaResult = await expireDharamshalaRequests({
     limit: getBookingExpirationBatchSize(),
   });
-  const scanned = Number(result.scanned || 0) + Number(dharamshalaResult.scanned || 0);
+  const reminderResult = await processDharamshalaReminders({
+    limit: getBookingExpirationBatchSize(),
+  });
+  const scanned = Number(result.scanned || 0) + Number(dharamshalaResult.scanned || 0) + Number(reminderResult.scanned || 0);
   const expired = Number(result.expired || 0) + Number(dharamshalaResult.expired || 0);
-  const skipped = Math.max(0, scanned - expired);
-  console.log(`[booking_expiration_finished] scanned=${scanned} expired=${expired} skipped=${skipped}`);
-  return { scanned, expired, skipped, paymentHolds: result, dharamshalaRequests: dharamshalaResult };
+  const skipped = Math.max(0, (Number(result.scanned || 0) + Number(dharamshalaResult.scanned || 0)) - expired);
+  console.log(`[booking_expiration_finished] scanned=${scanned} expired=${expired} reminders=${reminderResult.remindersSent} skipped=${skipped}`);
+  return { scanned, expired, skipped, paymentHolds: result, dharamshalaRequests: dharamshalaResult, reminders: reminderResult };
 };
 
 const sweepBookingExpiration = async ({ queueFactory = createQueue } = {}) => {
@@ -124,7 +127,7 @@ const sweepBookingExpiration = async ({ queueFactory = createQueue } = {}) => {
   const staleExists = await Booking.exists({
     $or: [
       {
-        bookingStatus: 'pending',
+        bookingStatus: { $in: ['pending', 'awaiting_customer_payment'] },
         paymentStatus: 'pending',
         paymentHoldExpiresAt: { $lte: now },
       },
@@ -132,6 +135,12 @@ const sweepBookingExpiration = async ({ queueFactory = createQueue } = {}) => {
         propertyType: 'dharamshala',
         bookingStatus: 'pending_property_confirmation',
         requestExpiresAt: { $lte: now },
+      },
+      {
+        propertyType: 'dharamshala',
+        bookingStatus: 'pending_property_confirmation',
+        requestReminderAt: { $lte: now },
+        requestReminderSent: { $ne: true },
       },
     ],
   });

@@ -1,0 +1,1048 @@
+{
+  "home_390": {
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "label": "390"
+    },
+    "url": "http://localhost:8082/",
+    "consoleLogs": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition."
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "networkLogs": [
+      {
+        "url": "http://localhost:8082/api/settings",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/hotels",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/room-types",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/cabs",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/tours?withImages=true",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/products?withImages=true",
+        "status": 404
+      }
+    ],
+    "layoutData": {
+      "navBox": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65,
+        "top": 0,
+        "right": 390,
+        "bottom": 65,
+        "left": 0
+      },
+      "stickyEls": [
+        {
+          "tag": "NAV",
+          "className": "fixed top-0 left-0 right-0 z-50 transition-all duration-200 border-b bg-white/95",
+          "position": "fixed",
+          "top": "0px",
+          "zIndex": "50",
+          "rect": {
+            "top": 0,
+            "bottom": 65,
+            "height": 65,
+            "left": 0,
+            "width": 390
+          }
+        },
+        {
+          "tag": "SECTION",
+          "className": "sticky top-16 sm:top-20 z-20 border-b border-neutral-200/80 bg-white/95 backdrop",
+          "position": "sticky",
+          "top": "64px",
+          "zIndex": "20",
+          "rect": {
+            "top": 708,
+            "bottom": 763,
+            "height": 55,
+            "left": 0,
+            "width": 390
+          }
+        }
+      ],
+      "headings": [
+        {
+          "tag": "SECTION",
+          "text": "",
+          "rect": {
+            "top": 0,
+            "bottom": 0,
+            "height": 0
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "Sacred Braj Pilgrimage Stays & YatrasSacred Stays ",
+          "rect": {
+            "top": 0,
+            "bottom": 5179.34375,
+            "height": 5179.34375
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "Sacred Braj Pilgrimage Stays & YatrasSacred Stays ",
+          "rect": {
+            "top": 0,
+            "bottom": 708,
+            "height": 708
+          }
+        },
+        {
+          "tag": "H1",
+          "text": "Sacred Stays in Holy Braj",
+          "rect": {
+            "top": 138,
+            "bottom": 228,
+            "height": 90
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "DharamshalasHotelsHome StaysCabs & TaxisYatra Pack",
+          "rect": {
+            "top": 708,
+            "bottom": 763,
+            "height": 55
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "Explore Sacred BrajSelect a holy destination to br",
+          "rect": {
+            "top": 763,
+            "bottom": 1373.25,
+            "height": 610.25
+          }
+        },
+        {
+          "tag": "H2",
+          "text": "Explore Sacred Braj",
+          "rect": {
+            "top": 811,
+            "bottom": 843,
+            "height": 32
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "Vrindavan",
+          "rect": {
+            "top": 987.15625,
+            "bottom": 1011.15625,
+            "height": 24
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "Mathura",
+          "rect": {
+            "top": 987.15625,
+            "bottom": 1011.15625,
+            "height": 24
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "Govardhan",
+          "rect": {
+            "top": 1128.90625,
+            "bottom": 1152.90625,
+            "height": 24
+          }
+        }
+      ],
+      "scrollY": 0
+    }
+  },
+  "hotels_dharamshala_390": {
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "label": "390"
+    },
+    "url": "http://localhost:8082/hotels?type=dharamshala",
+    "consoleLogs": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition."
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath."
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "networkLogs": [
+      {
+        "url": "http://localhost:8082/api/settings",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/hotels",
+        "status": 404
+      }
+    ],
+    "layoutData": {
+      "navBox": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65,
+        "top": 0,
+        "right": 390,
+        "bottom": 65,
+        "left": 0
+      },
+      "stickyEls": [
+        {
+          "tag": "NAV",
+          "className": "fixed top-0 left-0 right-0 z-50 transition-all duration-200 border-b bg-white/95",
+          "position": "fixed",
+          "top": "0px",
+          "zIndex": "50",
+          "rect": {
+            "top": 0,
+            "bottom": 65,
+            "height": 65,
+            "left": 0,
+            "width": 390
+          }
+        },
+        {
+          "tag": "SECTION",
+          "className": "border-b border-neutral-200/80 bg-white sticky top-16 sm:top-20 z-30 shadow-[0_2",
+          "position": "sticky",
+          "top": "64px",
+          "zIndex": "30",
+          "rect": {
+            "top": 128,
+            "bottom": 269,
+            "height": 141,
+            "left": 0,
+            "width": 390
+          }
+        }
+      ],
+      "headings": [
+        {
+          "tag": "SECTION",
+          "text": "",
+          "rect": {
+            "top": 0,
+            "bottom": 0,
+            "height": 0
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "All StaysDharamshalasHotelsHome StaysGuest HousesR",
+          "rect": {
+            "top": 0,
+            "bottom": 851,
+            "height": 851
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "All StaysDharamshalasHotelsHome StaysGuest HousesR",
+          "rect": {
+            "top": 128,
+            "bottom": 269,
+            "height": 141
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "Dharamshalas Across Vrindavan & BrajExplore inspec",
+          "rect": {
+            "top": 205,
+            "bottom": 755,
+            "height": 550
+          }
+        },
+        {
+          "tag": "H1",
+          "text": "Dharamshalas Across Vrindavan & Braj",
+          "rect": {
+            "top": 229,
+            "bottom": 257,
+            "height": 28
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "No properties found",
+          "rect": {
+            "top": 474,
+            "bottom": 502,
+            "height": 28
+          }
+        }
+      ],
+      "scrollY": 0
+    }
+  },
+  "rooms_390": {
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "label": "390"
+    },
+    "url": "http://localhost:8082/rooms",
+    "consoleLogs": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition."
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "networkLogs": [
+      {
+        "url": "http://localhost:8082/api/settings",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/room-types",
+        "status": 404
+      }
+    ],
+    "layoutData": {
+      "navBox": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65,
+        "top": 0,
+        "right": 390,
+        "bottom": 65,
+        "left": 0
+      },
+      "stickyEls": [
+        {
+          "tag": "OL",
+          "className": "toaster group",
+          "position": "fixed",
+          "top": "828px",
+          "zIndex": "999999999",
+          "rect": {
+            "top": 828,
+            "bottom": 828,
+            "height": 0,
+            "left": 16,
+            "width": 390
+          }
+        },
+        {
+          "tag": "NAV",
+          "className": "fixed top-0 left-0 right-0 z-50 transition-all duration-200 border-b bg-white/95",
+          "position": "fixed",
+          "top": "0px",
+          "zIndex": "50",
+          "rect": {
+            "top": 0,
+            "bottom": 65,
+            "height": 65,
+            "left": 0,
+            "width": 390
+          }
+        },
+        {
+          "tag": "SECTION",
+          "className": "sticky top-16 sm:top-20 z-30 border-b border-neutral-200/80 bg-white/95 backdrop",
+          "position": "sticky",
+          "top": "64px",
+          "zIndex": "30",
+          "rect": {
+            "top": 128,
+            "bottom": 321,
+            "height": 193,
+            "left": 0,
+            "width": 390
+          }
+        }
+      ],
+      "headings": [
+        {
+          "tag": "SECTION",
+          "text": "Rooms API not found. Please restart backend server",
+          "rect": {
+            "top": 0,
+            "bottom": 0,
+            "height": 0
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "Verified Braj StaysSectionsGridNear Me (GPS)All Br",
+          "rect": {
+            "top": 0,
+            "bottom": 844,
+            "height": 844
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "Verified Braj StaysSectionsGridNear Me (GPS)All Br",
+          "rect": {
+            "top": 128,
+            "bottom": 321,
+            "height": 193
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "Rooms & Accommodations Across BrajExplore inspecte",
+          "rect": {
+            "top": 257,
+            "bottom": 627,
+            "height": 370
+          }
+        },
+        {
+          "tag": "H1",
+          "text": "Rooms & Accommodations Across Braj",
+          "rect": {
+            "top": 277,
+            "bottom": 305,
+            "height": 28
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "No matching room options found",
+          "rect": {
+            "top": 474,
+            "bottom": 502,
+            "height": 28
+          }
+        }
+      ],
+      "scrollY": 0
+    }
+  },
+  "home_1280": {
+    "viewport": {
+      "width": 1280,
+      "height": 800,
+      "label": "1280"
+    },
+    "url": "http://localhost:8082/",
+    "consoleLogs": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition."
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "networkLogs": [
+      {
+        "url": "http://localhost:8082/api/settings",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/hotels",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/room-types",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/cabs",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/tours?withImages=true",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/products?withImages=true",
+        "status": 404
+      }
+    ],
+    "layoutData": {
+      "navBox": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 86,
+        "top": 0,
+        "right": 1280,
+        "bottom": 86,
+        "left": 0
+      },
+      "stickyEls": [
+        {
+          "tag": "NAV",
+          "className": "fixed top-0 left-0 right-0 z-50 transition-all duration-200 border-b bg-white/95",
+          "position": "fixed",
+          "top": "0px",
+          "zIndex": "50",
+          "rect": {
+            "top": 0,
+            "bottom": 86,
+            "height": 86,
+            "left": 0,
+            "width": 1280
+          }
+        },
+        {
+          "tag": "SECTION",
+          "className": "sticky top-16 sm:top-20 z-20 border-b border-neutral-200/80 bg-white/95 backdrop",
+          "position": "sticky",
+          "top": "85px",
+          "zIndex": "20",
+          "rect": {
+            "top": 640,
+            "bottom": 702.5,
+            "height": 62.5,
+            "left": 0,
+            "width": 1280
+          }
+        }
+      ],
+      "headings": [
+        {
+          "tag": "SECTION",
+          "text": "",
+          "rect": {
+            "top": 0,
+            "bottom": 0,
+            "height": 0
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "Sacred Braj Pilgrimage Stays & YatrasSacred Stays ",
+          "rect": {
+            "top": 0,
+            "bottom": 4102.53125,
+            "height": 4102.53125
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "Sacred Braj Pilgrimage Stays & YatrasSacred Stays ",
+          "rect": {
+            "top": 0,
+            "bottom": 640,
+            "height": 640
+          }
+        },
+        {
+          "tag": "H1",
+          "text": "Sacred Stays in Holy Braj",
+          "rect": {
+            "top": 185.125,
+            "bottom": 261.625,
+            "height": 76.5
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "DharamshalasHotelsHome StaysCabs & TaxisYatra Pack",
+          "rect": {
+            "top": 640,
+            "bottom": 702.5,
+            "height": 62.5
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "Explore Sacred BrajSelect a holy destination to br",
+          "rect": {
+            "top": 702.5,
+            "bottom": 1066.359375,
+            "height": 363.859375
+          }
+        },
+        {
+          "tag": "H2",
+          "text": "Explore Sacred Braj",
+          "rect": {
+            "top": 753.5,
+            "bottom": 791.75,
+            "height": 38.25
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "Vrindavan",
+          "rect": {
+            "top": 958.5,
+            "bottom": 984,
+            "height": 25.5
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "Mathura",
+          "rect": {
+            "top": 958.5,
+            "bottom": 984,
+            "height": 25.5
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "Govardhan",
+          "rect": {
+            "top": 958.5,
+            "bottom": 984,
+            "height": 25.5
+          }
+        }
+      ],
+      "scrollY": 0
+    }
+  },
+  "hotels_dharamshala_1280": {
+    "viewport": {
+      "width": 1280,
+      "height": 800,
+      "label": "1280"
+    },
+    "url": "http://localhost:8082/hotels?type=dharamshala",
+    "consoleLogs": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition."
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "networkLogs": [
+      {
+        "url": "http://localhost:8082/api/settings",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/hotels",
+        "status": 404
+      }
+    ],
+    "layoutData": {
+      "navBox": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 86,
+        "top": 0,
+        "right": 1280,
+        "bottom": 86,
+        "left": 0
+      },
+      "stickyEls": [
+        {
+          "tag": "NAV",
+          "className": "fixed top-0 left-0 right-0 z-50 transition-all duration-200 border-b bg-white/95",
+          "position": "fixed",
+          "top": "0px",
+          "zIndex": "50",
+          "rect": {
+            "top": 0,
+            "bottom": 86,
+            "height": 86,
+            "left": 0,
+            "width": 1280
+          }
+        },
+        {
+          "tag": "SECTION",
+          "className": "border-b border-neutral-200/80 bg-white sticky top-16 sm:top-20 z-30 shadow-[0_2",
+          "position": "sticky",
+          "top": "85px",
+          "zIndex": "30",
+          "rect": {
+            "top": 170,
+            "bottom": 274.625,
+            "height": 104.625,
+            "left": 0,
+            "width": 1280
+          }
+        }
+      ],
+      "headings": [
+        {
+          "tag": "SECTION",
+          "text": "",
+          "rect": {
+            "top": 0,
+            "bottom": 0,
+            "height": 0
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "All StaysDharamshalasHotelsHome StaysGuest HousesR",
+          "rect": {
+            "top": 0,
+            "bottom": 800,
+            "height": 800
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "All StaysDharamshalasHotelsHome StaysGuest HousesR",
+          "rect": {
+            "top": 170,
+            "bottom": 274.625,
+            "height": 104.625
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "Dharamshalas Across Vrindavan & BrajExplore inspec",
+          "rect": {
+            "top": 189.625,
+            "bottom": 678,
+            "height": 488.375
+          }
+        },
+        {
+          "tag": "H1",
+          "text": "Dharamshalas Across Vrindavan & Braj",
+          "rect": {
+            "top": 223.625,
+            "bottom": 261.875,
+            "height": 38.25
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "No properties found",
+          "rect": {
+            "top": 443.5,
+            "bottom": 473.25,
+            "height": 29.75
+          }
+        }
+      ],
+      "scrollY": 0
+    }
+  },
+  "rooms_1280": {
+    "viewport": {
+      "width": 1280,
+      "height": 800,
+      "label": "1280"
+    },
+    "url": "http://localhost:8082/rooms",
+    "consoleLogs": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition."
+      },
+      {
+        "type": "warning",
+        "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "networkLogs": [
+      {
+        "url": "http://localhost:8082/api/settings",
+        "status": 404
+      },
+      {
+        "url": "http://localhost:8082/api/room-types",
+        "status": 404
+      }
+    ],
+    "layoutData": {
+      "navBox": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 86,
+        "top": 0,
+        "right": 1280,
+        "bottom": 86,
+        "left": 0
+      },
+      "stickyEls": [
+        {
+          "tag": "OL",
+          "className": "toaster group",
+          "position": "fixed",
+          "top": "768px",
+          "zIndex": "999999999",
+          "rect": {
+            "top": 768,
+            "bottom": 768,
+            "height": 0,
+            "left": 892,
+            "width": 356
+          }
+        },
+        {
+          "tag": "NAV",
+          "className": "fixed top-0 left-0 right-0 z-50 transition-all duration-200 border-b bg-white/95",
+          "position": "fixed",
+          "top": "0px",
+          "zIndex": "50",
+          "rect": {
+            "top": 0,
+            "bottom": 86,
+            "height": 86,
+            "left": 0,
+            "width": 1280
+          }
+        },
+        {
+          "tag": "SECTION",
+          "className": "sticky top-16 sm:top-20 z-30 border-b border-neutral-200/80 bg-white/95 backdrop",
+          "position": "sticky",
+          "top": "85px",
+          "zIndex": "30",
+          "rect": {
+            "top": 170,
+            "bottom": 320.5,
+            "height": 150.5,
+            "left": 0,
+            "width": 1280
+          }
+        }
+      ],
+      "headings": [
+        {
+          "tag": "SECTION",
+          "text": "Rooms API not found. Please restart backend server",
+          "rect": {
+            "top": 0,
+            "bottom": 0,
+            "height": 0
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "Verified Braj StaysSectionsGridNear Me (GPS)All Br",
+          "rect": {
+            "top": 0,
+            "bottom": 800,
+            "height": 800
+          }
+        },
+        {
+          "tag": "SECTION",
+          "text": "Verified Braj StaysSectionsGridNear Me (GPS)All Br",
+          "rect": {
+            "top": 170,
+            "bottom": 320.5,
+            "height": 150.5
+          }
+        },
+        {
+          "tag": "MAIN",
+          "text": "Rooms & Accommodations Across BrajExplore inspecte",
+          "rect": {
+            "top": 235.5,
+            "bottom": 628.5,
+            "height": 393
+          }
+        },
+        {
+          "tag": "H1",
+          "text": "Rooms & Accommodations Across Braj",
+          "rect": {
+            "top": 265.25,
+            "bottom": 303.5,
+            "height": 38.25
+          }
+        },
+        {
+          "tag": "H3",
+          "text": "No matching room options found",
+          "rect": {
+            "top": 466,
+            "bottom": 495.75,
+            "height": 29.75
+          }
+        }
+      ],
+      "scrollY": 0
+    }
+  }
+}

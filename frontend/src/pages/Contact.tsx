@@ -28,7 +28,7 @@ const Contact = () => {
   const whatsappLink = `https://wa.me/${COMPANY_PHONE_DIGITS}?text=${encodeURIComponent(`Hello ${COMPANY_NAME}, I need help with...`)}`;
 
   return (
-    <div className="pt-16">
+    <div className="pb-12">
       <section className="section-cream py-4 lg:py-5">
         <div className="container mx-auto px-4">
           <SectionTitle label="Reach Out" title="Get In Touch" subtitle="We're here to help you plan your perfect Braj journey" />
@@ -128,7 +128,7 @@ const Contact = () => {
                     <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Message</label>
                     <textarea required rows={5} value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} className="w-full px-4 py-3 rounded-lg border border-border bg-card font-body text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50 resize-none" placeholder="Tell us about your requirements..." />
                   </div>
-                  <button type="submit" disabled={isSubmitting} className="btn-crimson px-8 py-3.5 rounded-xl flex items-center gap-2 w-full justify-center disabled:opacity-60">
+                  <button type="submit" disabled={isSubmitting} className="btn-emerald px-8 py-3.5 rounded-xl flex items-center gap-2 w-full justify-center disabled:opacity-60">
                     <Send size={18} />
                     {isSubmitting ? 'Sending...' : 'Send Message'}
                   </button>

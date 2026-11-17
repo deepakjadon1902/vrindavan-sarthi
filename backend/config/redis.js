@@ -116,11 +116,13 @@ const createRedisClient = ({
     socket: {
       connectTimeout: connection.connectTimeout,
 
-      reconnectStrategy: (retries) =>
-        Math.min(
-          30_000,
+      reconnectStrategy: (retries) => {
+        if (retries > 3) return false;
+        return Math.min(
+          3_000,
           500 * Math.max(1, retries)
-        ),
+        );
+      },
     },
 
     // Keep Redis requests retrying for BullMQ worker usage.

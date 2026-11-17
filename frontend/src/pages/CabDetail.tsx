@@ -16,8 +16,32 @@ const getLocalDateKey = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-const comparableKey = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-const vehicleKey = (value: unknown) => comparableKey(value).replace(/\b(seater|seat|seats|cab|car|taxi|vehicle)\b/g, '').replace(/\s+/g, ' ').trim();
+export const comparableKey = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export const vehicleKey = (value: unknown) => comparableKey(value).replace(/\b(seater|seat|seats|cab|car|taxi|vehicle)\b/g, '').replace(/\s+/g, ' ').trim();
+
+export interface CabFareBreakdown {
+  fare: number | null;
+  convenienceFee: number;
+  checkoutTotal: number;
+  advanceAmount: number;
+  balanceAmount: number;
+}
+
+export const calculateCabFareBreakdown = (fare: number | null | undefined): CabFareBreakdown => {
+  const validFare = typeof fare === 'number' && Number.isFinite(fare) && fare >= 0 ? fare : null;
+  const convenienceFee = typeof validFare === 'number' ? Math.round(validFare * 0.0445) : 0;
+  const checkoutTotal = typeof validFare === 'number' ? validFare + convenienceFee : 0;
+  const advanceAmount = checkoutTotal > 0 ? Math.round(checkoutTotal * 0.3) : 0;
+  const balanceAmount = checkoutTotal > 0 ? Math.max(0, checkoutTotal - advanceAmount) : 0;
+
+  return {
+    fare: validFare,
+    convenienceFee,
+    checkoutTotal,
+    advanceAmount,
+    balanceAmount,
+  };
+};
 
 const CabDetail = () => {
   const { id } = useParams();
@@ -156,16 +180,13 @@ const CabDetail = () => {
     return (
       <div className="pt-20 pb-8 text-center min-h-screen bg-background">
         <p className="font-heading text-2xl text-muted-foreground">Cab not found</p>
-        <Link to="/cabs" className="btn-gold px-6 py-2 rounded-lg text-sm mt-4 inline-block">Back to Cabs</Link>
+        <Link to="/cabs" className="btn-emerald px-6 py-2 rounded-lg text-sm mt-4 inline-block">Back to Cabs</Link>
       </div>
     );
   }
 
   const allImages = [cab.image, ...(cab.images || [])].filter(Boolean);
-  const convenienceFee = typeof fare === 'number' ? Math.round(fare * 0.0445) : 0;
-  const checkoutTotal = typeof fare === 'number' ? fare + convenienceFee : 0;
-  const advanceAmount = checkoutTotal > 0 ? Math.round(checkoutTotal * 0.3) : 0;
-  const balanceAmount = checkoutTotal > 0 ? Math.max(0, checkoutTotal - advanceAmount) : 0;
+  const { convenienceFee, checkoutTotal, advanceAmount, balanceAmount } = calculateCabFareBreakdown(fare);
   const phoneDigits = companyPhone.replace(/\D/g, '');
   const whatsappDigits = phoneDigits;
   const selectedRouteLabel = pickup && dropoff ? `${pickup} to ${dropoff}` : 'Route not selected';
@@ -195,7 +216,7 @@ const CabDetail = () => {
   };
 
   return (
-    <div className="braj-page pt-4 pb-10 min-h-screen">
+    <div className="braj-page pt-4 pb-24 lg:pb-10 min-h-screen">
       <SEO title={`${cab.vehicleName} Cab Booking Across Braj`} description={cabDescription} image={allImages[0]} canonicalPath={`/cabs/${cab._id}`} jsonLd={cabJsonLd} />
       <div className="container mx-auto px-4 max-w-6xl">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground mb-4 mt-0 transition-colors">
@@ -281,7 +302,7 @@ const CabDetail = () => {
               </div>
 
               <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                <a href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="btn-gold inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-body text-sm font-bold">
+                <a href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="btn-emerald inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-body text-sm font-bold shadow-md">
                   <MessageCircle size={17} /> Confirm on WhatsApp
                 </a>
                 <a href={`tel:${phoneDigits}`} className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-5 py-3 font-body text-sm font-bold text-foreground hover:border-brand-gold/50">
@@ -295,6 +316,23 @@ const CabDetail = () => {
               </div>
             </div>
           </div>
+        </div>
+        {/* Mobile Sticky Booking Bar */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-neutral-200/80 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-3">
+          <div>
+            <p className="font-body text-[11px] text-neutral-500 font-medium">Estimated Fare</p>
+            <p className="font-body text-base font-bold text-slate-900">
+              {typeof fare === 'number' ? `₹${checkoutTotal.toLocaleString('en-IN')}` : 'On Confirmation'}
+            </p>
+          </div>
+          <a
+            href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappMessage)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-emerald inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl shadow-sm"
+          >
+            <MessageCircle size={15} /> Confirm on WhatsApp
+          </a>
         </div>
       </div>
     </div>

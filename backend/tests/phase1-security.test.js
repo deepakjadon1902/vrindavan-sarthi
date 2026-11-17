@@ -169,3 +169,363 @@ test('normalizeBookingType is stable for security decisions', () => {
   assert.equal(normalizeBookingType(' Room_Type '), 'room_type');
   assert.equal(normalizeBookingType(null), '');
 });
+
+
+const {
+  buildGuestAccountReminder,
+  hashGuestAccessToken,
+} = require('../utils/guestBookingAccess');
+
+test('SEC-01 remediation: buildGuestAccountReminder excludes passwordHint and cleartext credentials', () => {
+  const reminder = buildGuestAccountReminder({ email: 'guest@example.com', created: true });
+  assert.equal(reminder.email, 'guest@example.com');
+  assert.equal(reminder.passwordHint, undefined);
+  assert.equal(reminder.phone, undefined);
+  assert.doesNotMatch(reminder.message, /password/i);
+  assert.match(reminder.message, /secure booking link/i);
+});
+
+test('SEC-01 remediation: resolveBookingCustomer assigns unguessable password for new guests and never uses phone', async () => {
+  const userPath = require.resolve('../models/User');
+  const originalUserModule = require.cache[userPath];
+
+  let createdUserPayload = null;
+  require.cache[userPath] = {
+    id: userPath,
+    filename: userPath,
+    loaded: true,
+    exports: {
+      findOne: () => ({ select: async () => null }),
+      create: async (payload) => {
+        createdUserPayload = payload;
+        return { ...payload, _id: 'mock-guest-id' };
+      },
+    },
+  };
+
+  try {
+    delete require.cache[require.resolve('../utils/guestBookingAccess')];
+    const { resolveBookingCustomer: resolveCustomerFresh } = require('../utils/guestBookingAccess');
+
+    const result = await resolveCustomerFresh({
+      req: {},
+      customerFullName: 'Sita Ram',
+      customerMobile: '9876543210',
+      customerEmail: 'sitaram@example.com',
+    });
+
+    assert.equal(result.isGuestBooking, true);
+    assert.ok(result.guestAccessToken);
+    assert.equal(result.guestAccessTokenHash, hashGuestAccessToken(result.guestAccessToken));
+    assert.ok(createdUserPayload);
+    assert.notEqual(createdUserPayload.password, '9876543210');
+    assert.equal(createdUserPayload.password.length, 64); // 32 bytes in hex = 64 hex chars
+    assert.equal(result.guestAccountReminder?.passwordHint, undefined);
+  } finally {
+    if (originalUserModule) require.cache[userPath] = originalUserModule;
+    else delete require.cache[userPath];
+    delete require.cache[require.resolve('../utils/guestBookingAccess')];
+  }
+});
+
+test('SEC-01 remediation: registered user email cannot be hijacked by guest checkout', async () => {
+  const userPath = require.resolve('../models/User');
+  const originalUserModule = require.cache[userPath];
+
+  require.cache[userPath] = {
+    id: userPath,
+    filename: userPath,
+    loaded: true,
+    exports: {
+      findOne: () => ({
+        select: async () => ({
+          _id: 'registered-user-id',
+          email: 'registered@example.com',
+          phone: '9876543210',
+          password: 'secure-bcrypt-hash',
+          isGuest: false,
+          role: 'user',
+        }),
+      }),
+    },
+  };
+
+  try {
+    delete require.cache[require.resolve('../utils/guestBookingAccess')];
+    const { resolveBookingCustomer: resolveCustomerFresh } = require('../utils/guestBookingAccess');
+
+    await assert.rejects(
+      async () => {
+        await resolveCustomerFresh({
+          req: {},
+          customerFullName: 'Attacker Impersonator',
+          customerMobile: '9999999999',
+          customerEmail: 'registered@example.com',
+        });
+      },
+      (err) => {
+        assert.equal(err.statusCode, 409);
+        assert.match(err.message, /An account with this email already exists\. Please login/);
+        return true;
+      }
+    );
+  } finally {
+    if (originalUserModule) require.cache[userPath] = originalUserModule;
+    else delete require.cache[userPath];
+    delete require.cache[require.resolve('../utils/guestBookingAccess')];
+  }
+});
+
+test('SEC-01 remediation: getGuestAccessTokenFromRequest extracts tokens across header and query conventions', () => {
+  const { getGuestAccessTokenFromRequest } = require('../utils/guestBookingAccess');
+
+  // Header extraction: x-guest-access-token and x-guest-booking-token
+  const reqAccessHeader = { get: (h) => (h.toLowerCase() === 'x-guest-access-token' ? 'tok-access-123' : '') };
+  assert.equal(getGuestAccessTokenFromRequest(reqAccessHeader), 'tok-access-123');
+
+  const reqBookingHeader = { get: (h) => (h.toLowerCase() === 'x-guest-booking-token' ? 'tok-booking-456' : '') };
+  assert.equal(getGuestAccessTokenFromRequest(reqBookingHeader), 'tok-booking-456');
+
+  // Query extraction: token and guestAccessToken
+  assert.equal(getGuestAccessTokenFromRequest({ query: { token: 'tok-query-1' } }), 'tok-query-1');
+  assert.equal(getGuestAccessTokenFromRequest({ query: { guestAccessToken: 'tok-query-2' } }), 'tok-query-2');
+
+  // Body extraction
+  assert.equal(getGuestAccessTokenFromRequest({ body: { guestAccessToken: 'tok-body-3' } }), 'tok-body-3');
+
+  // Safe fallback
+  assert.equal(getGuestAccessTokenFromRequest({}), '');
+});
+
+test('SEC-01 remediation: guest access validation strictly rejects registered-user bookings and invalid tokens', () => {
+  const { hashGuestAccessToken } = require('../utils/guestBookingAccess');
+
+  const validToken = 'secret-token-xyz-12345';
+  const validHash = hashGuestAccessToken(validToken);
+
+  const isGuestAuthorized = (booking, token) => Boolean(
+    token &&
+    booking.isGuestBooking &&
+    booking.guestAccessTokenHash &&
+    booking.guestAccessTokenHash === hashGuestAccessToken(token)
+  );
+
+  // 1. Valid guest booking with matching token
+  assert.equal(isGuestAuthorized({ isGuestBooking: true, guestAccessTokenHash: validHash }, validToken), true);
+
+  // 2. Mismatched token
+  assert.equal(isGuestAuthorized({ isGuestBooking: true, guestAccessTokenHash: validHash }, 'wrong-token'), false);
+
+  // 3. Missing token
+  assert.equal(isGuestAuthorized({ isGuestBooking: true, guestAccessTokenHash: validHash }, ''), false);
+
+  // 4. Registered-user booking (isGuestBooking: false) - MUST NEVER BE AUTHORIZED VIA GUEST TOKEN
+  assert.equal(isGuestAuthorized({ isGuestBooking: false, guestAccessTokenHash: validHash }, validToken), false);
+  assert.equal(isGuestAuthorized({ isGuestBooking: undefined, guestAccessTokenHash: validHash }, validToken), false);
+});
+test('SEC-02: public QR booking verification is protected by IP rate limiter (30 req/min)', () => {
+  const { qrVerificationRateLimiter, createRateLimiter, createMemoryStore } = require('../middleware/rateLimit');
+
+  const createMockRes = () => {
+    const headers = {};
+    return {
+      statusCode: 200,
+      body: null,
+      headers,
+      setHeader(name, value) {
+        headers[name] = value;
+      },
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        this.body = payload;
+        return this;
+      },
+    };
+  };
+
+  // Reset any previous state
+  qrVerificationRateLimiter.reset();
+
+  // 1. Within limit: 30 requests from IP 192.168.1.100 pass through
+  let passedCount = 0;
+  for (let i = 1; i <= 30; i++) {
+    const req = {
+      headers: { 'x-forwarded-for': '192.168.1.100' },
+      path: '/verify/BK-' + i,
+      method: 'GET',
+    };
+    const res = createMockRes();
+    let nextCalled = false;
+    qrVerificationRateLimiter(req, res, () => {
+      nextCalled = true;
+      passedCount++;
+    });
+    assert.equal(nextCalled, true, 'Request ' + i + ' within limit must pass');
+    assert.equal(res.headers['RateLimit-Limit'], '30');
+    assert.equal(res.headers['RateLimit-Remaining'], String(30 - i));
+  }
+  assert.equal(passedCount, 30, 'Exactly 30 requests must pass');
+
+  // 2. Exceeding limit: 31st request from IP 192.168.1.100 is blocked with 429
+  const blockedReq = {
+    headers: { 'x-forwarded-for': '192.168.1.100' },
+    path: '/verify/BK-999',
+    method: 'GET',
+  };
+  const blockedRes = createMockRes();
+  let blockedNext = false;
+  qrVerificationRateLimiter(blockedReq, blockedRes, () => {
+    blockedNext = true;
+  });
+  assert.equal(blockedNext, false, '31st request must NOT call next()');
+  assert.equal(blockedRes.statusCode, 429, '31st request must return HTTP 429');
+  assert.equal(blockedRes.body.success, false);
+  assert.equal(blockedRes.body.message, 'Too many verification requests. Please try again later.');
+  assert.equal(blockedRes.headers['RateLimit-Remaining'], '0');
+
+  // 3. Different IP is NOT throttled (independent counters)
+  const differentIpReq = {
+    headers: { 'x-forwarded-for': '10.0.0.50' },
+    path: '/verify/BK-1',
+    method: 'GET',
+  };
+  const differentIpRes = createMockRes();
+  let differentIpNext = false;
+  qrVerificationRateLimiter(differentIpReq, differentIpRes, () => {
+    differentIpNext = true;
+  });
+  assert.equal(differentIpNext, true, 'Different IP must not be throttled');
+  assert.equal(differentIpRes.statusCode, 200);
+  assert.equal(differentIpRes.headers['RateLimit-Remaining'], '29');
+
+  // 4. Verify router has qrVerificationRateLimiter mounted on /verify/:bookingId
+  const routeSource = readBackendFile('routes', 'booking.routes.js');
+  assert.ok(
+    routeSource.includes("router.get('/verify/:bookingId', qrVerificationRateLimiter,"),
+    'booking.routes.js must mount qrVerificationRateLimiter directly on GET /verify/:bookingId'
+  );
+
+  // Clean up
+  qrVerificationRateLimiter.reset();
+});
+test('SEC-03: guest access token expiration policy (30 days post-checkout) and legacy compatibility', () => {
+  const {
+    calculateGuestAccessTokenExpiresAt,
+    isGuestTokenExpired,
+    hashGuestAccessToken,
+    GUEST_TOKEN_EXPIRY_DAYS,
+  } = require('../utils/guestBookingAccess');
+
+  assert.equal(GUEST_TOKEN_EXPIRY_DAYS, 30);
+
+  // 1. Expiration calculation tests
+  const checkOutDate = new Date('2026-11-15T10:00:00.000Z');
+  const expectedExpiry = new Date(checkOutDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const calculatedExpiry = calculateGuestAccessTokenExpiresAt({ checkOut: checkOutDate });
+  assert.equal(calculatedExpiry.getTime(), expectedExpiry.getTime(), 'Expiry must be exactly 30 days after checkOut');
+
+  // Fallback to checkIn if checkOut missing
+  const checkInDate = new Date('2026-11-10T12:00:00.000Z');
+  const checkInExpiry = calculateGuestAccessTokenExpiresAt({ checkIn: checkInDate });
+  assert.equal(checkInExpiry.getTime(), checkInDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  // Fallback to createdAt if both missing
+  const createdDate = new Date('2026-10-01T08:00:00.000Z');
+  const createdExpiry = calculateGuestAccessTokenExpiresAt({ createdAt: createdDate });
+  assert.equal(createdExpiry.getTime(), createdDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  // 2. Token expiration evaluation (persisted guestAccessTokenExpiresAt)
+  const validToken = 'valid-token-abc-789';
+  const validHash = hashGuestAccessToken(validToken);
+
+  const unexpiredBooking = {
+    isGuestBooking: true,
+    guestAccessTokenHash: validHash,
+    guestAccessTokenExpiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days in future
+  };
+  assert.equal(isGuestTokenExpired(unexpiredBooking), false, 'Unexpired booking must not be expired');
+
+  const expiredBooking = {
+    isGuestBooking: true,
+    guestAccessTokenHash: validHash,
+    guestAccessTokenExpiresAt: new Date(Date.now() - 1000), // 1 second ago
+  };
+  assert.equal(isGuestTokenExpired(expiredBooking), true, 'Past expiry must be expired');
+
+  // 3. Legacy compatibility (missing guestAccessTokenExpiresAt)
+  const legacyRecentBooking = {
+    isGuestBooking: true,
+    guestAccessTokenHash: validHash,
+    checkOut: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // Checked out 5 days ago (within 30 days)
+  };
+  assert.equal(isGuestTokenExpired(legacyRecentBooking), false, 'Legacy booking within 30 days of checkout must remain accessible');
+
+  const legacyStaleBooking = {
+    isGuestBooking: true,
+    guestAccessTokenHash: validHash,
+    checkOut: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // Checked out 45 days ago (> 30 days)
+  };
+  assert.equal(isGuestTokenExpired(legacyStaleBooking), true, 'Legacy booking checked out >30 days ago must be expired');
+
+  // 4. Combined authorization check (token match + not expired + guest booking only)
+  const isGuestAuthorized = (booking, token, now = new Date()) => Boolean(
+    token &&
+    booking.isGuestBooking &&
+    booking.guestAccessTokenHash &&
+    booking.guestAccessTokenHash === hashGuestAccessToken(token) &&
+    !isGuestTokenExpired(booking, now)
+  );
+
+  assert.equal(isGuestAuthorized(unexpiredBooking, validToken), true, 'Valid unexpired guest token authorized');
+  assert.equal(isGuestAuthorized(unexpiredBooking, 'wrong-token'), false, 'Wrong token rejected');
+  assert.equal(isGuestAuthorized(expiredBooking, validToken), false, 'Expired guest token rejected');
+  assert.equal(isGuestAuthorized(legacyRecentBooking, validToken), true, 'Valid legacy recent token authorized');
+  assert.equal(isGuestAuthorized(legacyStaleBooking, validToken), false, 'Stale legacy token rejected');
+
+  // 5. Registered-user booking MUST NEVER be authorized via guest token even if dates are valid
+  const registeredBooking = {
+    isGuestBooking: false,
+    guestAccessTokenHash: validHash,
+    guestAccessTokenExpiresAt: unexpiredBooking.guestAccessTokenExpiresAt,
+    userId: 'user-12345',
+  };
+  assert.equal(isGuestAuthorized(registeredBooking, validToken), false, 'Registered user booking cannot use guest token');
+
+  // 6. Registered user authentication (session/JWT owner) is independent of guest token expiry
+  const isUserOrGuestAuthorized = (booking, req) => {
+    let isOwner = false;
+    if (req.user?._id) {
+      isOwner = String(booking.userId) === String(req.user._id);
+    }
+    const token = req.headers?.['x-guest-access-token'] || req.query?.guestAccessToken;
+    const isAuthGuest = Boolean(
+      token &&
+      booking.isGuestBooking &&
+      booking.guestAccessTokenHash &&
+      booking.guestAccessTokenHash === hashGuestAccessToken(token) &&
+      !isGuestTokenExpired(booking)
+    );
+    return isOwner || isAuthGuest;
+  };
+
+  const loggedInOwnerReq = { user: { _id: 'user-12345' } };
+  assert.equal(isUserOrGuestAuthorized(registeredBooking, loggedInOwnerReq), true, 'Logged in owner always authorized');
+
+  // Even if guest token on booking is expired, owner can still view booking
+  const expiredUserBooking = { ...registeredBooking, isGuestBooking: false };
+  assert.equal(isUserOrGuestAuthorized(expiredUserBooking, loggedInOwnerReq), true, 'Owner can view booking even if old');
+
+  // 7. Verification that routes enforce isGuestTokenExpired
+  const routeSource = readBackendFile('routes', 'booking.routes.js');
+  assert.ok(
+    routeSource.includes('isGuestExpired && !isOwner && !isPartner && !isAdmin'),
+    'booking.routes.js must check isGuestTokenExpired and protect both /:id and /:id/invoice'
+  );
+  assert.ok(
+    routeSource.includes('GUEST_TOKEN_EXPIRED'),
+    'booking.routes.js must emit GUEST_TOKEN_EXPIRED error code'
+  );
+});
